@@ -65,7 +65,7 @@ language sql
 as $$
   select t.* from public.accounts a join public.teams t on t.id = a.team_id
    where a.user_id = auth.uid()
-   for update of t
+   for no key update of t
 $$;
 
 -- System = no signed-in user and not the anon role: the service role (judge worker, seed) or the database

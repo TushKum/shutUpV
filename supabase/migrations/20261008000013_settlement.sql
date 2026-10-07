@@ -118,14 +118,15 @@ returns void
 language plpgsql
 as $$
 begin
-  update public.results r set eligible = not t.disqualified from public.teams t where t.id = r.team_id and r.event_id = p_event;
-  update public.results set rank = null where event_id = p_event;
+  -- Only rows that change are written.
+  update public.results r set eligible = not t.disqualified from public.teams t
+   where t.id = r.team_id and r.event_id = p_event and r.eligible is distinct from not t.disqualified;
   update public.results r set rank = x.rnk
-    from (select id, rank() over (partition by track order by final_value_cents desc,
+    from (select id, case when eligible then rank() over (partition by track, eligible order by final_value_cents desc,
                    case when track = 'FINANCE' then -(tiebreak ->> 'largest_position')::numeric
-                        else (tiebreak ->> 'plan_score')::numeric end desc) as rnk
-            from public.results where event_id = p_event and eligible) x
-   where r.id = x.id;
+                        else (tiebreak ->> 'plan_score')::numeric end desc) end as rnk
+            from public.results where event_id = p_event) x
+   where r.id = x.id and r.rank is distinct from x.rnk;
 
   delete from public.awards where event_id = p_event;
   insert into public.awards (event_id, code, place, team_id, metric)
@@ -278,10 +279,13 @@ begin
   if length(btrim(coalesce(p_reason, ''))) < 5 then
     raise exception 'give a reason (at least 5 characters)';
   end if;
-  select * into v_flag from public.flags where id = p_flag for update;
+  select * into v_flag from public.flags where id = p_flag;
   if v_flag.id is null then
     raise exception 'no such flag';
   end if;
+  -- One decision at a time per event (two decisions on overlapping flags must not race the recompute below).
+  perform 1 from public.events where id = v_flag.event_id for no key update;
+  select * into v_flag from public.flags where id = p_flag for no key update;
   if (select current_phase from public.events where id = v_flag.event_id) >= 'AWARDS' then
     raise exception 'flags are decided before the awards';
   end if;
@@ -295,8 +299,11 @@ begin
                         where f.event_id = v_flag.event_id and f.status = 'DISQUALIFIED' and tid = any (f.team_ids)
                         order by f.decided_at desc limit 1) as reason
             from unnest(v_flag.team_ids) tid) d
-   where t.id = d.tid;
-  perform app.compute_rankings(v_flag.event_id);
+   where t.id = d.tid and (t.disqualified, t.disqualified_reason) is distinct from (d.reason is not null, d.reason);
+  -- Rankings change only when someone's eligibility did.
+  if found then
+    perform app.compute_rankings(v_flag.event_id);
+  end if;
   return app.ok();
 end
 $$;
@@ -355,7 +362,7 @@ begin
         return format('company %s is not in this event', e ->> 'company_id');
       end if;
     end if;
-    if e ? 'lot' and (e ->> 'lot') not in (select x::text from unnest(enum_range(null::public.lot_type)) x) then
+    if e ? 'lot' and (e ->> 'lot' is null or (e ->> 'lot') not in (select x::text from unnest(enum_range(null::public.lot_type)) x)) then
       return format('unknown lot %s', e ->> 'lot');
     end if;
     if v_shares <> 0 then
@@ -414,6 +421,8 @@ declare
   v_lot public.lot_type;
   v_d int;
   v_s int;
+  v_cash bigint;
+  v_teams uuid[];
   v_problem text;
 begin
   if not (app.is_organiser() or app.is_fairness()) then
@@ -425,7 +434,7 @@ begin
   end if;
   -- Lock order: the event first, so a correction never interleaves with a clearing (which holds the event too).
   perform 1 from public.events where id = v_c.event_id for no key update;
-  select * into v_c from public.corrections where id = p_correction for update;
+  select * into v_c from public.corrections where id = p_correction for no key update;
   if v_c.status <> 'PENDING' then
     raise exception 'no pending correction with that id';
   end if;
@@ -440,9 +449,12 @@ begin
   if v_problem is not null then
     raise exception '%', v_problem;
   end if;
+  v_teams := array(select distinct (x ->> 'team_id')::uuid from jsonb_array_elements(v_c.entries) x);
+  perform 1 from public.teams where id = any (v_teams) order by id for no key update;
   for e in select * from jsonb_array_elements(v_c.entries) loop
-    update public.teams set cash_cents = cash_cents + coalesce((e ->> 'cash_delta_cents')::bigint, 0) where id = (e ->> 'team_id')::uuid;
-    v_d := coalesce((e ->> 'share_delta')::int, 0);
+    v_cash := coalesce((e ->> 'cash_delta_cents')::numeric, 0)::bigint;
+    update public.teams set cash_cents = cash_cents + v_cash where id = (e ->> 'team_id')::uuid;
+    v_d := coalesce((e ->> 'share_delta')::numeric, 0)::int;
     v_lot := (e ->> 'lot')::public.lot_type;
     -- In the ledger a SHORT lot's quantity is −Σ share_delta: more shares short is shares delivered.
     v_s := case when v_lot = 'SHORT' then -1 else 1 end;
@@ -456,10 +468,10 @@ begin
     end if;
     insert into public.ledger_entries (event_id, txn_id, kind, team_id, company_id, lot, cash_delta_cents, share_delta, ref_table, ref_id, memo) values
       (v_c.event_id, v_txn, 'CORRECTION', (e ->> 'team_id')::uuid, (e ->> 'company_id')::uuid, v_lot,
-       coalesce((e ->> 'cash_delta_cents')::bigint, 0), v_s * v_d, 'corrections', v_c.id, v_c.reason),
+       v_cash, v_s * v_d, 'corrections', v_c.id, v_c.reason),
       (v_c.event_id, v_txn, 'CORRECTION', null, (e ->> 'company_id')::uuid, null,
-       -coalesce((e ->> 'cash_delta_cents')::bigint, 0), -v_s * v_d, 'corrections', v_c.id, v_c.reason);
-    update public.events set exchange_cash_cents = exchange_cash_cents - coalesce((e ->> 'cash_delta_cents')::bigint, 0) where id = v_c.event_id;
+       -v_cash, -v_s * v_d, 'corrections', v_c.id, v_c.reason);
+    update public.events set exchange_cash_cents = exchange_cash_cents - v_cash where id = v_c.event_id;
   end loop;
   -- A pending sell or cover must still be coverable, or the round could never clear.
   if exists (
@@ -471,7 +483,8 @@ begin
     having sum(o.qty) > coalesce(h.qty, 0)) then
     raise exception 'this correction leaves a pending sell or cover larger than the position; the team must cancel or edit it first';
   end if;
-  perform app.recalculate_collateral(v_c.event_id);
+  -- A correction moves no price: only the named funds' collateral can change.
+  perform app.recalculate_collateral(v_c.event_id, v_teams);
   update public.corrections set status = 'APPROVED', decided_by = auth.uid(), decided_at = now(), decision_note = p_note,
          applied_txn_id = v_txn, published_at = now() where id = v_c.id;
   insert into public.public_ledger (event_id, txn_id, kind, label, details)

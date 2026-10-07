@@ -29,8 +29,8 @@ drop policy audit_log_read on public.audit_log;
 create policy audit_log_read on public.audit_log for select to authenticated
   using ((select app.is_staff()) and (entity <> 'flags' or (select app.is_fairness())));
 
--- Drafts are saved often and can be long: their audit rows keep a digest of the content, not the content (every
--- submitted version is stored in full in submissions).
+-- Drafts and submissions can be long: their audit rows keep a digest of the content, not the content (every
+-- submitted version is stored in full, once, in submissions).
 create or replace function app.audit_row()
 returns trigger
 language plpgsql security definer set search_path = ''
@@ -49,6 +49,14 @@ begin
   if tg_op in ('INSERT', 'UPDATE') then v_after := to_jsonb(new); end if;
   if tg_op = 'UPDATE' and v_before = v_after then
     return null;
+  end if;
+  if tg_table_name = 'submissions' then
+    v_before := case when v_before is null then null else v_before || jsonb_build_object(
+                  'content', jsonb_build_object('md5', md5((v_before -> 'content')::text), 'chars', length((v_before -> 'content')::text)),
+                  'body_text', jsonb_build_object('md5', md5(v_before ->> 'body_text'), 'chars', length(v_before ->> 'body_text'))) end;
+    v_after := case when v_after is null then null else v_after || jsonb_build_object(
+                  'content', jsonb_build_object('md5', md5((v_after -> 'content')::text), 'chars', length((v_after -> 'content')::text)),
+                  'body_text', jsonb_build_object('md5', md5(v_after ->> 'body_text'), 'chars', length(v_after ->> 'body_text'))) end;
   end if;
   if tg_table_name = 'submission_drafts' then
     v_before := case when v_before is null then null else v_before || jsonb_build_object('content',
@@ -98,6 +106,8 @@ declare
   v_id uuid;
   n int := 0;
 begin
+  -- A tick waits only for short organiser actions; bound the wait so one busy event never holds up the rest.
+  perform set_config('lock_timeout', '3s', true);
   for v_id in select id from public.events where current_phase between 'CHECKIN' and 'APPEALS' order by id loop
     begin
       perform public.tick(v_id);

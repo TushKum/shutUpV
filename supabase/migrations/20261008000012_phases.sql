@@ -8,8 +8,34 @@ as $$
   select x from unnest(enum_range(null::public.phase_code)) x where x > p_phase order by x limit 1
 $$;
 
--- Moves every scheduled time at or after p_from by p_delta (phases, rounds and deadlines).
-create or replace function app.shift_schedule(p_event uuid, p_from timestamptz, p_delta interval)
+-- Has the window that this deadline closes opened yet? (A deadline whose window is still to open — the IPO bids
+-- before the IPO, call 2 before the plan scores — moves with a late start even if its time has passed; one whose
+-- window was open never reopens.)
+create or replace function app.window_opened(p_event uuid, p_code public.deadline_code)
+returns boolean
+language sql stable
+as $$
+  select case p_code
+    when 'PROBLEM_PICK' then e.drawn_at is not null
+    when 'PITCH' then e.drawn_at is not null
+    when 'CALL_1' then e.drawn_at is not null
+    when 'IPO_BIDS' then e.current_phase >= 'IPO'
+    when 'FEE' then e.crisis_applied_at is not null
+    when 'DEAL_BONUS' then e.crisis_applied_at is not null
+    when 'DEAL' then e.crisis_applied_at is not null
+    when 'PLAN' then e.crisis_applied_at is not null
+    when 'CALL_2' then app.score_released(e.id, 'PLAN')
+    when 'FLASH' then exists (select 1 from public.bulletins b where b.event_id = e.id and b.kind = 'FLASH'
+                                and b.published_at is not null and b.published_at <= now())
+    when 'CALL_3' then app.score_released(e.id, 'FLASH')
+    else false
+  end
+  from public.events e where e.id = p_event
+$$;
+
+-- Moves every scheduled time at or after p_from by p_delta (phases, rounds and deadlines). For a late start
+-- (p_late), a deadline that has passed while its window was open stays where it is: teams could act until then.
+create or replace function app.shift_schedule(p_event uuid, p_from timestamptz, p_delta interval, p_late boolean default false)
 returns void
 language plpgsql
 as $$
@@ -23,7 +49,9 @@ begin
   update public.phases set starts_at = starts_at + p_delta where event_id = p_event and starts_at >= p_from and started_at is null;
   update public.rounds set closes_at = closes_at + p_delta where event_id = p_event and closes_at >= p_from and status in ('SCHEDULED', 'OPEN');
   update public.rounds set opens_at = opens_at + p_delta where event_id = p_event and opens_at >= p_from and status = 'SCHEDULED';
-  update public.deadlines set at = at + p_delta where event_id = p_event and at >= p_from;
+  update public.deadlines set at = at + p_delta
+   where event_id = p_event and at >= p_from
+     and (not p_late or at > now() or not app.window_opened(p_event, code));
 end
 $$;
 
@@ -33,6 +61,7 @@ returns text
 language sql stable
 as $$
   select case e.current_phase
+    when 'SETUP' then case when e.seed_commitment is null then 'Publish the seed commitment before the event starts.' end
     when 'SQUAD_DRAW' then case when e.drawn_at is null then 'The lottery has not been drawn.' end
     when 'READING' then case when not app.score_released(e.id, 'PITCH') then 'Pitch scores have not been released.' end
     when 'VERDICTS' then case when not app.score_released(e.id, 'PLAN') then 'Plan scores have not been released.' end
@@ -67,6 +96,16 @@ begin
   end if;
   v_next := app.phase_after(v_event.current_phase);
 
+  -- A phase that publishes work closes its windows (below). Submissions lock their company and signatures their
+  -- deal before checking the window, so lock those first (before any clearing: lock order, PLAN §46): an
+  -- in-flight submission or signature either commits before this advance or sees the window closed.
+  if v_next in ('READING', 'PLANS_PUBLISHED') then
+    perform 1 from public.companies where event_id = p_event and squad_id is not null order by id for no key update;
+  end if;
+  if v_next = 'PLANS_PUBLISHED' then
+    perform 1 from public.deals where event_id = p_event order by id for no key update;
+  end if;
+
   -- Leaving: a trading phase closes and clears all of its rounds (a round that never opened records unchanged prices).
   for r in select id from public.rounds where event_id = p_event and phase = v_event.current_phase and status <> 'CLEARED' order by number loop
     perform app.clear_round(r.id, true);
@@ -78,10 +117,10 @@ begin
   -- Late start: if the next phase should already have begun, everything from its planned start moves by the delay.
   select * into v_phase from public.phases where event_id = p_event and code = v_next;
   if v_phase.starts_at < now() - interval '5 seconds' then
-    perform app.shift_schedule(p_event, v_phase.starts_at, now() - v_phase.starts_at);
+    perform app.shift_schedule(p_event, v_phase.starts_at, now() - v_phase.starts_at, true);
   end if;
   -- Early: a phase that publishes work closes the windows for that work, whatever the clock says.
-  update public.deadlines set at = least(at, now())
+  update public.deadlines set at = least(at, clock_timestamp())
    where event_id = p_event
      and code = any (case v_next when 'READING' then array['PITCH']::public.deadline_code[]
                                  when 'PLANS_PUBLISHED' then array['PLAN', 'DEAL']::public.deadline_code[]
@@ -122,6 +161,9 @@ begin
   if v_current is distinct from p_from then
     return app.fail('STALE', format('The event is already in %s.', v_current));
   end if;
+  if (select paused from public.events where id = p_event) then
+    return app.fail('PAUSED', 'Resume the event before advancing.');
+  end if;
   return app.do_advance(p_event, p_from);
 end
 $$;
@@ -148,6 +190,7 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   v_event public.events;
+  v_held timestamptz;
 begin
   perform app.require_organiser();
   select * into v_event from public.events where id = p_event for no key update;
@@ -156,11 +199,20 @@ begin
   end if;
   perform app.shift_schedule(p_event, v_event.paused_at, now() - v_event.paused_at);
   -- Items that were already due when the pause began but had not started (a phase waiting at a gate, a round
-  -- waiting for the tick) also move, or the pause would be counted again as lateness when they start.
+  -- waiting for the tick) also move, with the deadlines whose windows they open, or the pause would be counted
+  -- again as lateness when they start.
+  v_held := least(
+    (select min(starts_at) from public.phases
+      where event_id = p_event and started_at is null and code > v_event.current_phase and starts_at < v_event.paused_at),
+    (select min(opens_at) from public.rounds where event_id = p_event and status = 'SCHEDULED' and opens_at < v_event.paused_at));
+  if v_held is not null then
+    update public.deadlines set at = at + (now() - v_event.paused_at)
+     where event_id = p_event and at >= v_held and at < v_event.paused_at and not app.window_opened(p_event, code);
+  end if;
   update public.phases
      set starts_at = starts_at + (now() - v_event.paused_at),
          ends_at = case when ends_at < v_event.paused_at then ends_at + (now() - v_event.paused_at) else ends_at end
-   where event_id = p_event and started_at is null and starts_at < v_event.paused_at;
+   where event_id = p_event and started_at is null and code > v_event.current_phase and starts_at < v_event.paused_at;
   update public.rounds
      set opens_at = opens_at + (now() - v_event.paused_at),
          closes_at = case when closes_at < v_event.paused_at then closes_at + (now() - v_event.paused_at) else closes_at end
@@ -259,7 +311,7 @@ begin
       exit when r.number = 18 and not app.score_released(p_event, 'FLASH');
       v_late := now() - r.opens_at;
       if v_late > interval '5 seconds' then
-        perform app.shift_schedule(p_event, r.opens_at, v_late);
+        perform app.shift_schedule(p_event, r.opens_at, v_late, true);
         select * into r from public.rounds where id = r.id;
       end if;
       update public.rounds set status = 'OPEN', opened_at = now() where id = r.id and status = 'SCHEDULED';

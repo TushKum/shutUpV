@@ -62,7 +62,7 @@ begin
   if not app.is_system() then
     raise exception 'scores are sealed by the judge worker' using errcode = '42501';
   end if;
-  select * into v_company from public.companies where id = p_company and squad_id is not null for update;
+  select * into v_company from public.companies where id = p_company and squad_id is not null for no key update;
   if v_company.id is null then
     raise exception 'no such company';
   end if;
@@ -74,7 +74,7 @@ begin
   if v_sub.id is null then
     return app.fail('NO_SUBMISSION', 'This company has no on-time submission; seal_missing_scores gives it 0.');
   end if;
-  select * into v_existing from public.scores where company_id = p_company and type = p_type for update;
+  select * into v_existing from public.scores where company_id = p_company and type = p_type for no key update;
   if v_existing.status = 'RELEASED' then
     return app.fail('ALREADY_RELEASED', 'This score has been released.');
   end if;
@@ -166,6 +166,12 @@ begin
        select 1 from public.scores s where s.event_id = p_event and s.type = p_type
           and s.submission_id is distinct from (app.current_submission(s.company_id, p_type)).id) then
     return app.fail('NOT_READY', 'A submission changed after its score was sealed; judge it again.');
+  end if;
+  -- The plan cap must still match the deal (a schedule shift can never reopen the deal window, but check anyway).
+  if p_type = 'PLAN' and exists (
+       select 1 from public.scores s where s.event_id = p_event and s.type = 'PLAN' and not s.missing
+          and s.capped is distinct from not app.deal_signed_in_time(s.company_id)) then
+    return app.fail('NOT_READY', 'A deal changed after its plan score was sealed; judge it again.');
   end if;
   if p_type = 'PITCH' and not app.deadline_passed(p_event, 'CALL_1') then
     return app.fail('CALL_1_OPEN', 'Pitch scores and IPO prices are released after consultant call 1 closes (23:15).');

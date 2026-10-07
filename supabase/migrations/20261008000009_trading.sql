@@ -52,7 +52,7 @@ declare
 begin
   insert into public.rate_limits (team_id, bucket, window_start, count) values (p_team, p_bucket, now(), 0)
   on conflict (team_id, bucket) do nothing;
-  select * into v from public.rate_limits where team_id = p_team and bucket = p_bucket for update;
+  select * into v from public.rate_limits where team_id = p_team and bucket = p_bucket for no key update;
   if v.window_start + p_window <= now() then
     update public.rate_limits set window_start = now(), count = 1 where team_id = p_team and bucket = p_bucket;
     return true;
@@ -94,23 +94,23 @@ declare
   v_order public.orders;
   v_details jsonb := jsonb_build_object('company_id', p_company, 'type', p_type, 'qty', p_qty);
 begin
-  -- Locks are taken in one order everywhere: round, then team, then order (clearing locks the round, then
-  -- teams). The open round is locked in share mode, so an order can never slip in while it is being cleared;
-  -- after a clearing commits, the re-read row is CLEARED and the order is refused.
-  select r.* into v_round from public.rounds r where r.id = (app.open_round(app.my_event_id())).id for share;
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- A team action locks only its own team row (after the throttle, which touches nothing else). A clearing locks
+  -- every fund of the event before it reads the orders, so an order either commits before the clearing reads
+  -- the book or waits for it and then finds the round closed.
+  if app.my_team_id() is null then
     raise exception 'only a team can place orders' using errcode = '42501';
   end if;
+  if not app.rate_limit(app.my_team_id(), 'orders', 20, interval '10 seconds') then
+    return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
+  end if;
+  v_team := app.lock_caller_team();
   if p_client_ref is not null then
     select * into v_order from public.orders where team_id = v_team.id and client_ref = p_client_ref;
     if v_order.id is not null then
       return app.ok(jsonb_build_object('order', to_jsonb(v_order), 'duplicate', true));
     end if;
   end if;
-  if not app.rate_limit(v_team.id, 'orders', 20, interval '10 seconds') then
-    return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
-  end if;
+  v_round := app.open_round(v_team.event_id);
 
   v_check := app.check_order(app.order_context(v_team),
                              jsonb_build_object('companyId', p_company::text, 'type', p_type, 'qty', p_qty));
@@ -140,20 +140,18 @@ declare
   v_check jsonb;
   v_details jsonb := jsonb_build_object('order_id', p_order, 'qty', p_qty);
 begin
-  -- Lock order: the order's round, then the team (see place_order).
-  perform 1 from public.rounds where id = (select o.round_id from public.orders o where o.id = p_order) for share;
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  if app.my_team_id() is null then
     raise exception 'only a team can edit orders' using errcode = '42501';
   end if;
-  if not app.rate_limit(v_team.id, 'orders', 20, interval '10 seconds') then
+  if not app.rate_limit(app.my_team_id(), 'orders', 20, interval '10 seconds') then
     return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
   end if;
-  select * into v_order from public.orders where id = p_order and team_id = v_team.id for update;
+  v_team := app.lock_caller_team();
+  select * into v_order from public.orders where id = p_order and team_id = v_team.id for no key update;
   if v_order.id is null or v_order.status <> 'PENDING' then
     return app.reject(v_team.event_id, 'edit_order', 'NOT_EDITABLE', 'That order can no longer be changed.', v_details);
   end if;
-  select * into v_round from public.rounds where id = v_order.round_id for share;
+  select * into v_round from public.rounds where id = v_order.round_id;
   if v_round.status <> 'OPEN' or now() >= v_round.closes_at then
     return app.reject(v_team.event_id, 'edit_order', 'TRADING_HALTED', app.order_message('TRADING_HALTED'), v_details);
   end if;
@@ -180,21 +178,19 @@ declare
   v_order public.orders;
   v_round public.rounds;
 begin
-  -- Lock order: the order's round, then the team (see place_order).
-  perform 1 from public.rounds where id = (select o.round_id from public.orders o where o.id = p_order) for share;
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  if app.my_team_id() is null then
     raise exception 'only a team can cancel orders' using errcode = '42501';
   end if;
-  if not app.rate_limit(v_team.id, 'orders', 20, interval '10 seconds') then
+  if not app.rate_limit(app.my_team_id(), 'orders', 20, interval '10 seconds') then
     return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
   end if;
-  select * into v_order from public.orders where id = p_order and team_id = v_team.id for update;
+  v_team := app.lock_caller_team();
+  select * into v_order from public.orders where id = p_order and team_id = v_team.id for no key update;
   if v_order.id is null or v_order.status <> 'PENDING' then
     return app.reject(v_team.event_id, 'cancel_order', 'NOT_EDITABLE', 'That order can no longer be changed.',
                       jsonb_build_object('order_id', p_order));
   end if;
-  select * into v_round from public.rounds where id = v_order.round_id for share;
+  select * into v_round from public.rounds where id = v_order.round_id;
   if v_round.status <> 'OPEN' or now() >= v_round.closes_at then
     return app.reject(v_team.event_id, 'cancel_order', 'TRADING_HALTED', app.order_message('TRADING_HALTED'),
                       jsonb_build_object('order_id', p_order));
@@ -285,15 +281,16 @@ declare
   v_check jsonb;
   v_details jsonb := jsonb_build_object('company_id', p_company, 'qty', p_qty);
 begin
-  -- Lock order: the event (share mode, so a bid and the IPO allocation never interleave), then the team.
-  select * into v_event from public.events where id = app.my_event_id() for share;
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Only the caller's team row is locked; the allocation locks every fund before it reads the bids, so a bid
+  -- either commits first or then finds the IPO allocated.
+  if app.my_team_id() is null then
     raise exception 'only a team can bid' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
+  select * into v_event from public.events where id = v_team.event_id;
   if v_team.track <> 'FINANCE' then
     return app.reject(v_team.event_id, 'place_ipo_bid', 'NOT_A_FUND', 'Only Finance teams can bid at the IPO.', v_details);
   end if;
@@ -336,6 +333,8 @@ begin
   if not found then
     return;
   end if;
+  -- Every fund, in id order, before reading the bids: a bid in flight commits first.
+  perform 1 from public.teams where event_id = p_event and track = 'FINANCE' order by id for no key update;
 
   with totals as (
     select company_id, sum(qty_requested) as total from public.ipo_bids where event_id = p_event group by company_id
@@ -405,7 +404,7 @@ declare
   v_exchange_cash bigint;
   v_started timestamptz := clock_timestamp();
 begin
-  select * into v_round from public.rounds where id = p_round for update;
+  select * into v_round from public.rounds where id = p_round for no key update;
   if v_round.id is null then
     raise exception 'no such round';
   end if;
@@ -421,6 +420,10 @@ begin
       raise exception 'round % must be cleared before round %', v_prev.number, v_round.number;
     end if;
   end if;
+
+  -- Every fund, in id order, before reading the book: an order in flight commits first, and a later one finds
+  -- the round closed.
+  perform 1 from public.teams where event_id = v_round.event_id and track = 'FINANCE' order by id for no key update;
 
   perform set_config('app.price_writer', 'CLEARING', true);
 
@@ -546,7 +549,8 @@ begin
 end
 $$;
 
-create or replace function app.recalculate_collateral(p_event uuid)
+-- Collateral of every fund of the event, or only of the given teams (a correction moves no price).
+create or replace function app.recalculate_collateral(p_event uuid, p_teams uuid[] default null)
 returns void
 language sql
 as $$
@@ -555,7 +559,7 @@ as $$
            select sum(app.short_collateral(h.qty, c.market_price))
              from public.holdings h join public.companies c on c.id = h.company_id
             where h.team_id = t.id and h.lot = 'SHORT' and h.qty > 0), 0)
-   where t.event_id = p_event and t.track = 'FINANCE'
+   where t.event_id = p_event and t.track = 'FINANCE' and (p_teams is null or t.id = any (p_teams))
 $$;
 
 revoke all on function public.place_order(uuid, public.order_type, integer, text) from public, anon;

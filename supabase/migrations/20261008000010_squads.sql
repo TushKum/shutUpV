@@ -132,6 +132,12 @@ begin
   if v_pick is not null and v_pick < v_need then
     perform app.shift_schedule(p_event, v_pick, v_need - v_pick);
   end if;
+  -- SQUAD_DRAW runs until BUILD is due (a pause while the draw was awaited moves BUILD but not the overdue
+  -- SQUAD_DRAW end), so BUILD starts on time and keeps its 80 minutes.
+  update public.phases sd set ends_at = b.starts_at
+    from public.phases b
+   where sd.event_id = p_event and sd.code = 'SQUAD_DRAW' and b.event_id = p_event and b.code = 'BUILD'
+     and b.started_at is null and sd.ends_at < b.starts_at;
 
   perform app.broadcast(p_event, 'squad_draw', jsonb_build_object(
     'commitment', v_event.seed_commitment, 'dice', btrim(p_dice), 'verified', true,
@@ -148,13 +154,14 @@ declare
   v_team public.teams;
   v_squad public.squads;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can pick a problem card' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
   v_squad := app.squad_of_team(v_team.id);
   if v_team.track <> 'PRODUCT' or v_squad.id is null then
     return app.reject(v_team.event_id, 'pick_problem_card', 'NOT_ALLOWED', 'The Product team picks the squad''s problem card.');
@@ -197,7 +204,8 @@ begin
       exit when not exists (select 1 from public.companies where event_id = p_event and ticker = v_ticker);
       n := n + 1;
     end loop;
-    update public.companies set ticker = v_ticker, name = coalesce(name, 'Company ' || v_ticker) where id = c.id;
+    -- A pitch that committed meanwhile keeps its own ticker.
+    update public.companies set ticker = v_ticker, name = coalesce(name, 'Company ' || v_ticker) where id = c.id and ticker is null;
   end loop;
 end
 $$;
@@ -236,13 +244,14 @@ declare
   v_draft public.submission_drafts;
   w record;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can edit a draft' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
   v_squad := app.squad_of_team(v_team.id);
   select * into w from app.submission_window(v_team, p_type);
   if v_squad.id is null or not w.allowed then
@@ -252,10 +261,18 @@ begin
     return app.reject(v_team.event_id, 'save_draft', 'DEADLINE_PASSED', 'This submission is closed.',
                       jsonb_build_object('type', p_type));
   end if;
-  if jsonb_typeof(p_content) <> 'object' or length(p_content::text) > 20000 then
+  if jsonb_typeof(p_content) <> 'object' or length(p_content::text) > 20000
+     or exists (select 1 from jsonb_each(p_content) x
+                 where (x.key in (select f.key from app.template_fields(p_type) f)
+                        or (p_type = 'PITCH' and x.key in ('company_name', 'ticker')))
+                   and jsonb_typeof(x.value) not in ('string', 'null')) then
     return app.reject(v_team.event_id, 'save_draft', 'BAD_CONTENT', 'The draft is not valid.');
   end if;
-  select * into v_draft from public.submission_drafts where squad_id = v_squad.id and type = p_type for update;
+  -- Only the template's fields are kept (and the company name and ticker of a pitch).
+  p_content := coalesce((select jsonb_object_agg(x.key, x.value) from jsonb_each(p_content) x
+                          where x.key in (select f.key from app.template_fields(p_type) f)
+                             or (p_type = 'PITCH' and x.key in ('company_name', 'ticker'))), '{}'::jsonb);
+  select * into v_draft from public.submission_drafts where squad_id = v_squad.id and type = p_type for no key update;
   if v_draft.version <> p_expected_version then
     return app.fail('VERSION_CONFLICT', 'Someone else in your squad saved a newer version.',
                     jsonb_build_object('draft', to_jsonb(v_draft)));
@@ -287,24 +304,33 @@ declare
   v_sub public.submissions;
   w record;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can submit' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) or not app.rate_limit(app.my_team_id(), 'submit', 10, interval '1 minute') then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
   v_squad := app.squad_of_team(v_team.id);
   select * into w from app.submission_window(v_team, p_type);
   if v_squad.id is null or not w.allowed then
     return app.reject(v_team.event_id, 'submit', 'NOT_ALLOWED', 'Your team cannot submit this.', jsonb_build_object('type', p_type));
   end if;
+  -- The draft and the company are locked before the window is checked: an advance that publishes the work locks
+  -- every company first, so a submission either commits before it or sees the window closed.
+  select * into v_draft from public.submission_drafts where squad_id = v_squad.id and type = p_type for no key update;
+  select * into v_company from public.companies where squad_id = v_squad.id for no key update;
+  select * into w from app.submission_window(v_team, p_type);
   if not w.open then
     return app.reject(v_team.event_id, 'submit', 'DEADLINE_PASSED', 'The deadline has passed; this submission was not accepted.',
                       jsonb_build_object('type', p_type, 'at', now()));
   end if;
-  select * into v_draft from public.submission_drafts where squad_id = v_squad.id and type = p_type for update;
-  select * into v_company from public.companies where squad_id = v_squad.id for update;
+  -- Submitting the same text again changes nothing and stores nothing.
+  select * into v_sub from public.submissions where company_id = v_company.id and type = p_type and superseded_at is null;
+  if v_sub.id is not null and v_sub.content = v_draft.content then
+    return app.ok(jsonb_build_object('submission', to_jsonb(v_sub), 'duplicate', true));
+  end if;
   v_words := app.submission_words(p_type, v_draft.content);
   if v_words = 0 then
     return app.reject(v_team.event_id, 'submit', 'EMPTY', 'Write something before submitting.', jsonb_build_object('type', p_type));
@@ -362,21 +388,24 @@ declare
   v_code text;
   v_details jsonb := jsonb_build_object('cash', p_cash, 'shares', p_shares);
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can propose a fee' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  select t.* into v_team from public.teams t where t.id = app.my_team_id();
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null or v_team.track not in ('PRODUCT', 'CONSULTING') then
     return app.reject(v_team.event_id, 'propose_fee', 'NOT_ALLOWED', 'The fee is agreed by the Product and Consulting teams.', v_details);
   end if;
+  -- Lock order: the squad's fee row, then its teams in id order (PLAN §46); then check the window.
+  select * into v_fee from public.fees where squad_id = v_squad.id for no key update;
+  perform 1 from public.teams where id in (v_squad.product_team_id, v_squad.consulting_team_id) order by id for no key update;
   if not app.fee_window_open(v_team.event_id) then
     return app.reject(v_team.event_id, 'propose_fee', 'DEADLINE_PASSED', 'The fee can be agreed after the crisis and until 01:05.', v_details);
   end if;
-  select * into v_fee from public.fees where squad_id = v_squad.id for update;
   if v_fee.executed_at is not null then
     return app.reject(v_team.event_id, 'propose_fee', 'ALREADY_AGREED', 'The fee has already been agreed.', v_details);
   end if;
@@ -414,11 +443,12 @@ declare
   v_squad public.squads;
   v_txn uuid := gen_random_uuid();
 begin
-  select * into v_fee from public.fees where id = p_fee for update;
+  select * into v_fee from public.fees where id = p_fee for no key update;
   if v_fee.executed_at is not null then
     return;
   end if;
   select * into v_squad from public.squads where id = v_fee.squad_id;
+  perform 1 from public.teams where id in (v_squad.product_team_id, v_squad.consulting_team_id) order by id for no key update;
   if p_default then
     update public.fees set cash_cents = 2250000, shares = 0, value_cents = 2250000, is_default = true where id = v_fee.id
     returning * into v_fee;
@@ -457,21 +487,24 @@ declare
   v_retained int;
   v_code text;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can confirm a fee' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  select t.* into v_team from public.teams t where t.id = app.my_team_id();
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null or v_team.track not in ('PRODUCT', 'CONSULTING') then
     return app.reject(v_team.event_id, 'confirm_fee', 'NOT_ALLOWED', 'The fee is agreed by the Product and Consulting teams.');
   end if;
+  -- Lock order: the squad's fee row, then its teams in id order (PLAN §46); then check the window.
+  select * into v_fee from public.fees where squad_id = v_squad.id for no key update;
+  perform 1 from public.teams where id in (v_squad.product_team_id, v_squad.consulting_team_id) order by id for no key update;
   if not app.fee_window_open(v_team.event_id) then
     return app.reject(v_team.event_id, 'confirm_fee', 'DEADLINE_PASSED', 'The fee deadline (01:05) has passed.');
   end if;
-  select * into v_fee from public.fees where squad_id = v_squad.id for update;
   if v_fee.executed_at is not null then
     return app.reject(v_team.event_id, 'confirm_fee', 'ALREADY_AGREED', 'The fee has already been agreed.');
   end if;
@@ -485,7 +518,7 @@ begin
   end if;
   if v_fee.product_confirmed_at is not null and v_fee.consulting_confirmed_at is not null then
     -- Balances may have changed since the proposal: check again before moving anything.
-    select * into v_product from public.teams where id = v_squad.product_team_id for update;
+    select * into v_product from public.teams where id = v_squad.product_team_id;
     select coalesce(sum(qty), 0) into v_retained from public.holdings where team_id = v_product.id and company_id = v_fee.company_id and lot = 'RETAINED';
     v_code := app.check_fee(v_fee.cash_cents, v_fee.shares, (select ipo_price from public.companies where id = v_fee.company_id),
                             v_product.cash_cents, v_retained);
@@ -540,13 +573,14 @@ declare
   v_post bigint;
   v_details jsonb := jsonb_build_object('amount', p_amount, 'price', p_price);
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can edit the deal' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  select t.* into v_team from public.teams t where t.id = app.my_team_id();
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null
      or (p_price is not null and v_team.track <> 'CONSULTING')
@@ -555,10 +589,12 @@ begin
     return app.reject(v_team.event_id, 'edit_deal', 'NOT_ALLOWED',
                       'The Consulting team proposes the price and the Finance team sets the amount.', v_details);
   end if;
+  -- The squad's deal row first (PLAN §46); the window is checked under it, so an advance that publishes the
+  -- plans (and locks every deal) is seen.
+  select * into v_deal from public.deals where squad_id = v_squad.id for no key update;
   if not app.deal_window_open(v_team.event_id) then
     return app.reject(v_team.event_id, 'edit_deal', 'DEADLINE_PASSED', 'The deal can be agreed after the crisis and until 03:00.', v_details);
   end if;
-  select * into v_deal from public.deals where squad_id = v_squad.id for update;
   if v_deal.executed_at is not null then
     return app.reject(v_team.event_id, 'edit_deal', 'ALREADY_SIGNED', 'The deal has been signed by all three teams.', v_details);
   end if;
@@ -601,21 +637,25 @@ declare
   v_code text;
   v_txn uuid := gen_random_uuid();
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can sign the deal' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  select t.* into v_team from public.teams t where t.id = app.my_team_id();
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null then
     return app.reject(v_team.event_id, 'sign_deal', 'NOT_ALLOWED', 'Only the squad''s teams sign its deal.');
   end if;
+  -- Lock order: the squad's deal row, then the two balances in id order (PLAN §46); the window is checked under
+  -- the deal lock, so an advance that publishes the plans (and locks every deal) is seen.
+  select * into v_deal from public.deals where squad_id = v_squad.id for no key update;
+  perform 1 from public.teams where id in (v_squad.product_team_id, v_squad.finance_team_id) order by id for no key update;
   if not app.deal_window_open(v_team.event_id) then
     return app.reject(v_team.event_id, 'sign_deal', 'DEADLINE_PASSED', 'The deal deadline (03:00) has passed.');
   end if;
-  select * into v_deal from public.deals where squad_id = v_squad.id for update;
   if v_deal.executed_at is not null then
     return app.reject(v_team.event_id, 'sign_deal', 'ALREADY_SIGNED', 'The deal has already been signed by all three teams.');
   end if;
@@ -637,8 +677,7 @@ begin
   returning * into v_deal;
 
   if v_deal.signed_product_at is not null and v_deal.signed_consulting_at is not null and v_deal.signed_finance_at is not null then
-    -- Lock both balances (in id order) and check them again before moving anything.
-    perform 1 from public.teams where id in (v_squad.product_team_id, v_squad.finance_team_id) order by id for update;
+    -- Check both balances again before moving anything.
     select * into v_fund from public.teams where id = v_squad.finance_team_id;
     select coalesce(sum(o.reserve_cents), 0) into v_reserved
       from public.orders o join public.rounds r on r.id = o.round_id
@@ -686,15 +725,16 @@ declare
   v_open boolean;
   v_call public.calls;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can make a call' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
   select * into v_call from public.calls
-   where consultant_team_id = v_team.id and company_id = p_company and call_no = p_call_no for update;
+   where consultant_team_id = v_team.id and company_id = p_company and call_no = p_call_no for no key update;
   if v_call.id is null then
     return app.reject(v_team.event_id, 'make_call', 'NOT_ASSIGNED', 'You can only call your two assigned companies.');
   end if;
@@ -728,13 +768,14 @@ declare
   v_event public.events;
   v_q public.qa_questions;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can ask a question' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
   if v_team.track <> 'FINANCE' then
     return app.reject(v_team.event_id, 'post_question', 'NOT_ALLOWED', 'Finance teams post questions on the Q&A board.');
   end if;
@@ -769,13 +810,14 @@ declare
   v_words int;
   v_a public.qa_answers;
 begin
-  v_team := app.lock_caller_team();
-  if v_team.id is null then
+  -- Throttle first (it touches only the team's rate-limit row), then lock the team (PLAN §46).
+  if app.my_team_id() is null then
     raise exception 'only a team can answer' using errcode = '42501';
   end if;
-  if app.too_fast(v_team.id) then
+  if app.too_fast(app.my_team_id()) then
     return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
+  v_team := app.lock_caller_team();
   select q.* into v_q from public.qa_questions q join public.companies c on c.id = q.company_id
    where q.id = p_question and c.product_team_id = v_team.id;
   if v_q.id is null then
