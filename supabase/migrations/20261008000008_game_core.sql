@@ -163,6 +163,9 @@ $$;
 
 -- Public broadcast on topic event:<id>. Sent through realtime.send inside the transaction, so it goes out on
 -- commit only. Clients refetch their own private rows through RLS when they receive it.
+-- Sent on a private channel: only signed-in accounts of the event (and staff and the display) may receive, and no
+-- client may send (see the realtime.messages policy in 20261008000014). Clients treat a message as a signal to
+-- re-fetch through RLS.
 create or replace function app.broadcast(p_event uuid, p_kind text, p_payload jsonb default '{}'::jsonb)
 returns void
 language plpgsql
@@ -172,7 +175,7 @@ begin
     coalesce(p_payload, '{}'::jsonb) || jsonb_build_object('kind', p_kind, 'event_id', p_event, 'at', now()),
     p_kind,
     'event:' || p_event::text,
-    false);
+    true);
 end
 $$;
 

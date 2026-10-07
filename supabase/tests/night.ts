@@ -5,8 +5,8 @@
 
 import { expect } from "vitest";
 import type pg from "pg";
-import { clearRound, type ClearingOrder, type FundBook, type OrderType } from "@msim/engine";
-import { as, seedEvent, user, type Caller, type SeededEvent } from "./helpers";
+import { RUBRICS, clearRound, type ClearingOrder, type FundBook, type OrderType, type SubmissionType } from "@msim/engine";
+import { as, seedEvent, service, user, type Caller, type SeededEvent } from "./helpers";
 
 export const CRISIS_DECK = [
   "Supply shortage", "Regulation", "Legal dispute", "Partner exit", "Data breach",
@@ -73,6 +73,29 @@ export class Night {
 
   async org(fn: string, ...args: unknown[]) {
     return this.ok(this.lead, fn, ...args);
+  }
+
+  /**
+   * The judge worker's part: stores one DONE run per total (with a breakdown that fits the rubric) for the company's
+   * current submission, then seals the score as the service role.
+   */
+  async judge(companyId: string, type: SubmissionType, totals: number[], rationale = "One. Two. Three.") {
+    const sub = await this.one("select id, event_id from submissions where company_id = $1 and type = $2 and superseded_at is null", [companyId, type]);
+    const gen = (await this.one("select coalesce(max(generation), 0) + 1 as g from judge_runs where submission_id = $1", [sub.id])).g;
+    for (const [i, total] of totals.entries()) {
+      let left = total;
+      const breakdown = Object.fromEntries(RUBRICS[type].map((line) => {
+        const v = Math.min(line.max, left);
+        left -= v;
+        return [line.key, v];
+      }));
+      await this.q(
+        `insert into judge_runs (event_id, submission_id, company_id, type, generation, run_no, model, status, breakdown, total, rationale, finished_at)
+         values ($1, $2, $3, $4, $5, $6, 'test-model', 'DONE', $7, $8, $9, now())`,
+        [sub.event_id, sub.id, companyId, type, gen, i + 1, breakdown, total, `${rationale} (run ${i + 1})`],
+      );
+    }
+    return this.call(service, "seal_score", companyId, type);
   }
 
   team(code: string): Caller {

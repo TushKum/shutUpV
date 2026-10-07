@@ -247,7 +247,7 @@ returns void
 language plpgsql
 as $$
 begin
-  perform 1 from public.events where id = p_event and settled_at is null for update;
+  perform 1 from public.events where id = p_event and settled_at is null for no key update;
   if not found then
     return;
   end if;
@@ -287,10 +287,15 @@ begin
   end if;
   update public.flags set status = p_status, reason = btrim(p_reason), decided_by = auth.uid(), decided_at = now()
    where id = p_flag;
-  if p_status = 'DISQUALIFIED' then
-    update public.teams set disqualified = true, disqualified_reason = btrim(p_reason)
-     where id = any (v_flag.team_ids);
-  end if;
+  -- A team is disqualified while any flag naming it is DISQUALIFIED, so a decision can be reversed (a mis-click)
+  -- without clearing a team that another flag still disqualifies.
+  update public.teams t
+     set disqualified = d.reason is not null, disqualified_reason = d.reason
+    from (select tid, (select f.reason from public.flags f
+                        where f.event_id = v_flag.event_id and f.status = 'DISQUALIFIED' and tid = any (f.team_ids)
+                        order by f.decided_at desc limit 1) as reason
+            from unnest(v_flag.team_ids) tid) d
+   where t.id = d.tid;
   perform app.compute_rankings(v_flag.event_id);
   return app.ok();
 end
@@ -299,13 +304,87 @@ $$;
 -- ───────────────────────────── Ledger corrections (two people) ─────────────────────────────
 
 -- Entries: [{"team_id","cash_delta_cents","company_id"?,"lot"?,"share_delta"?}]. The exchange takes the other side.
+-- A correction entry: {team_id, company_id?, lot?, cash_delta_cents?, share_delta?}. share_delta is the change in
+-- the lot's quantity (for a SHORT lot: more shares short). Returns why the entries are not acceptable, or null.
+-- Checked when requested and again, against the state at that moment, when approved.
+create or replace function app.correction_problem(p_event uuid, p_entries jsonb)
+returns text
+language plpgsql stable
+as $$
+declare
+  e jsonb;
+  v_team public.teams;
+  v_company public.companies;
+  v_cash numeric;
+  v_shares numeric;
+begin
+  if jsonb_typeof(p_entries) is distinct from 'array' or jsonb_array_length(p_entries) not between 1 and 50 then
+    return 'a correction needs 1 to 50 entries';
+  end if;
+  for e in select * from jsonb_array_elements(p_entries) loop
+    if jsonb_typeof(e) <> 'object'
+       or exists (select 1 from jsonb_object_keys(e) k where k not in ('team_id', 'company_id', 'lot', 'cash_delta_cents', 'share_delta')) then
+      return 'each entry has only team_id, company_id, lot, cash_delta_cents and share_delta';
+    end if;
+    if coalesce(e ->> 'team_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+      return 'each entry needs a team_id';
+    end if;
+    select * into v_team from public.teams where id = (e ->> 'team_id')::uuid and event_id = p_event;
+    if v_team.id is null then
+      return format('team %s is not in this event', e ->> 'team_id');
+    end if;
+    if (e ? 'cash_delta_cents' and jsonb_typeof(e -> 'cash_delta_cents') <> 'number')
+       or (e ? 'share_delta' and jsonb_typeof(e -> 'share_delta') <> 'number') then
+      return 'cash_delta_cents and share_delta are whole numbers';
+    end if;
+    v_cash := coalesce((e ->> 'cash_delta_cents')::numeric, 0);
+    v_shares := coalesce((e ->> 'share_delta')::numeric, 0);
+    if v_cash <> trunc(v_cash) or v_shares <> trunc(v_shares) or abs(v_cash) > 100000000 or abs(v_shares) > 100000 then
+      return 'cash_delta_cents is a whole number up to ±$1,000,000 and share_delta a whole number up to ±100,000';
+    end if;
+    if v_cash = 0 and v_shares = 0 then
+      return 'each entry changes cash or shares';
+    end if;
+    v_company := null;
+    if e ? 'company_id' then
+      if coalesce(e ->> 'company_id', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+        return 'company_id is not a company id';
+      end if;
+      select * into v_company from public.companies where id = (e ->> 'company_id')::uuid and event_id = p_event and squad_id is not null;
+      if v_company.id is null then
+        return format('company %s is not in this event', e ->> 'company_id');
+      end if;
+    end if;
+    if e ? 'lot' and (e ->> 'lot') not in (select x::text from unnest(enum_range(null::public.lot_type)) x) then
+      return format('unknown lot %s', e ->> 'lot');
+    end if;
+    if v_shares <> 0 then
+      if v_company.id is null or not e ? 'lot' then
+        return 'a share correction needs a company of this event and a lot';
+      end if;
+      -- A lot belongs to one kind of team: the company's own Product team (RETAINED), a consultant (FEE), a fund.
+      if not (case e ->> 'lot'
+                when 'RETAINED' then v_team.id = v_company.product_team_id
+                when 'FEE' then v_team.track = 'CONSULTING'
+                else v_team.track = 'FINANCE' end) then
+        return format('a %s lot cannot belong to team %s', e ->> 'lot', v_team.code);
+      end if;
+      if e ->> 'lot' = 'SHORT' and (select market_closed_at from public.events where id = p_event) is not null then
+        return 'shorts were covered at the close; correct the cash instead';
+      end if;
+    end if;
+  end loop;
+  return null;
+end
+$$;
+
 create or replace function public.request_correction(p_event uuid, p_reason text, p_entries jsonb)
 returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
 declare
   v_id uuid;
-  e jsonb;
+  v_problem text;
 begin
   if not app.is_organiser() then
     raise exception 'only an organiser can request a correction' using errcode = '42501';
@@ -313,18 +392,10 @@ begin
   if length(btrim(coalesce(p_reason, ''))) < 10 then
     raise exception 'give a reason (at least 10 characters)';
   end if;
-  if jsonb_typeof(p_entries) <> 'array' or jsonb_array_length(p_entries) = 0 then
-    raise exception 'a correction needs at least one entry';
+  v_problem := app.correction_problem(p_event, p_entries);
+  if v_problem is not null then
+    raise exception '%', v_problem;
   end if;
-  for e in select * from jsonb_array_elements(p_entries) loop
-    if not exists (select 1 from public.teams where id = (e ->> 'team_id')::uuid and event_id = p_event) then
-      raise exception 'entry team % is not in this event', e ->> 'team_id';
-    end if;
-    if coalesce((e ->> 'share_delta')::int, 0) <> 0
-       and (e ->> 'lot' is null or not exists (select 1 from public.companies where id = (e ->> 'company_id')::uuid and event_id = p_event)) then
-      raise exception 'a share correction needs a company of this event and a lot';
-    end if;
-  end loop;
   insert into public.corrections (event_id, requested_by, reason, entries)
   values (p_event, auth.uid(), btrim(p_reason), p_entries) returning id into v_id;
   return app.ok(jsonb_build_object('correction_id', v_id));
@@ -341,12 +412,21 @@ declare
   v_txn uuid := gen_random_uuid();
   e jsonb;
   v_lot public.lot_type;
+  v_d int;
+  v_s int;
+  v_problem text;
 begin
   if not (app.is_organiser() or app.is_fairness()) then
     raise exception 'only an organiser or the fairness officer can decide a correction' using errcode = '42501';
   end if;
+  select * into v_c from public.corrections where id = p_correction;
+  if v_c.id is null then
+    raise exception 'no pending correction with that id';
+  end if;
+  -- Lock order: the event first, so a correction never interleaves with a clearing (which holds the event too).
+  perform 1 from public.events where id = v_c.event_id for no key update;
   select * into v_c from public.corrections where id = p_correction for update;
-  if v_c.id is null or v_c.status <> 'PENDING' then
+  if v_c.status <> 'PENDING' then
     raise exception 'no pending correction with that id';
   end if;
   if v_c.requested_by = auth.uid() then
@@ -356,24 +436,42 @@ begin
     update public.corrections set status = 'REJECTED', decided_by = auth.uid(), decided_at = now(), decision_note = p_note where id = v_c.id;
     return app.ok();
   end if;
+  v_problem := app.correction_problem(v_c.event_id, v_c.entries);
+  if v_problem is not null then
+    raise exception '%', v_problem;
+  end if;
   for e in select * from jsonb_array_elements(v_c.entries) loop
     update public.teams set cash_cents = cash_cents + coalesce((e ->> 'cash_delta_cents')::bigint, 0) where id = (e ->> 'team_id')::uuid;
-    if coalesce((e ->> 'share_delta')::int, 0) <> 0 then
-      v_lot := (e ->> 'lot')::public.lot_type;
+    v_d := coalesce((e ->> 'share_delta')::int, 0);
+    v_lot := (e ->> 'lot')::public.lot_type;
+    -- In the ledger a SHORT lot's quantity is −Σ share_delta: more shares short is shares delivered.
+    v_s := case when v_lot = 'SHORT' then -1 else 1 end;
+    if v_d <> 0 then
       insert into public.holdings (event_id, team_id, company_id, lot, qty, cost_cents)
       values (v_c.event_id, (e ->> 'team_id')::uuid, (e ->> 'company_id')::uuid, v_lot, 0, 0)
       on conflict (team_id, company_id, lot) do nothing;
-      update public.holdings set qty = qty + (e ->> 'share_delta')::int, updated_at = now()
+      update public.holdings set qty = qty + v_d, updated_at = now()
        where team_id = (e ->> 'team_id')::uuid and company_id = (e ->> 'company_id')::uuid and lot = v_lot;
-      update public.companies set exchange_inventory = exchange_inventory - (e ->> 'share_delta')::int where id = (e ->> 'company_id')::uuid;
+      update public.companies set exchange_inventory = exchange_inventory - v_s * v_d where id = (e ->> 'company_id')::uuid;
     end if;
     insert into public.ledger_entries (event_id, txn_id, kind, team_id, company_id, lot, cash_delta_cents, share_delta, ref_table, ref_id, memo) values
-      (v_c.event_id, v_txn, 'CORRECTION', (e ->> 'team_id')::uuid, (e ->> 'company_id')::uuid, (e ->> 'lot')::public.lot_type,
-       coalesce((e ->> 'cash_delta_cents')::bigint, 0), coalesce((e ->> 'share_delta')::int, 0), 'corrections', v_c.id, v_c.reason),
+      (v_c.event_id, v_txn, 'CORRECTION', (e ->> 'team_id')::uuid, (e ->> 'company_id')::uuid, v_lot,
+       coalesce((e ->> 'cash_delta_cents')::bigint, 0), v_s * v_d, 'corrections', v_c.id, v_c.reason),
       (v_c.event_id, v_txn, 'CORRECTION', null, (e ->> 'company_id')::uuid, null,
-       -coalesce((e ->> 'cash_delta_cents')::bigint, 0), -coalesce((e ->> 'share_delta')::int, 0), 'corrections', v_c.id, v_c.reason);
+       -coalesce((e ->> 'cash_delta_cents')::bigint, 0), -v_s * v_d, 'corrections', v_c.id, v_c.reason);
     update public.events set exchange_cash_cents = exchange_cash_cents - coalesce((e ->> 'cash_delta_cents')::bigint, 0) where id = v_c.event_id;
   end loop;
+  -- A pending sell or cover must still be coverable, or the round could never clear.
+  if exists (
+    select 1 from public.orders o join public.rounds r on r.id = o.round_id
+      left join public.holdings h on h.team_id = o.team_id and h.company_id = o.company_id
+                                 and h.lot = case when o.type = 'SELL' then 'EXCHANGE' else 'SHORT' end::public.lot_type
+     where r.event_id = v_c.event_id and r.status = 'OPEN' and o.status = 'PENDING' and o.type in ('SELL', 'COVER')
+     group by o.team_id, o.company_id, o.type, h.qty
+    having sum(o.qty) > coalesce(h.qty, 0)) then
+    raise exception 'this correction leaves a pending sell or cover larger than the position; the team must cancel or edit it first';
+  end if;
+  perform app.recalculate_collateral(v_c.event_id);
   update public.corrections set status = 'APPROVED', decided_by = auth.uid(), decided_at = now(), decision_note = p_note,
          applied_txn_id = v_txn, published_at = now() where id = v_c.id;
   insert into public.public_ledger (event_id, txn_id, kind, label, details)

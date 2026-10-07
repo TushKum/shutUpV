@@ -44,8 +44,9 @@ as $$
   from public.events e where e.id = p_event
 $$;
 
--- Leaves the current phase and enters the next one, running each transition's actions.
-create or replace function app.do_advance(p_event uuid)
+-- Leaves the phase p_from (which must still be the current one, so that a tick and an organiser advancing at the
+-- same moment cannot skip a phase) and enters the next one, running each transition's actions.
+create or replace function app.do_advance(p_event uuid, p_from public.phase_code)
 returns jsonb
 language plpgsql
 as $$
@@ -56,7 +57,10 @@ declare
   v_blocker text;
   r record;
 begin
-  select * into v_event from public.events where id = p_event for update;
+  select * into v_event from public.events where id = p_event for no key update;
+  if v_event.current_phase is distinct from p_from then
+    return app.fail('STALE', format('The event is already in %s.', v_event.current_phase));
+  end if;
   v_blocker := app.gate_blocker(p_event);
   if v_blocker is not null then
     return app.fail('GATE', v_blocker);
@@ -76,13 +80,23 @@ begin
   if v_phase.starts_at < now() - interval '5 seconds' then
     perform app.shift_schedule(p_event, v_phase.starts_at, now() - v_phase.starts_at);
   end if;
+  -- Early: a phase that publishes work closes the windows for that work, whatever the clock says.
+  update public.deadlines set at = least(at, now())
+   where event_id = p_event
+     and code = any (case v_next when 'READING' then array['PITCH']::public.deadline_code[]
+                                 when 'PLANS_PUBLISHED' then array['PLAN', 'DEAL']::public.deadline_code[]
+                                 else '{}'::public.deadline_code[] end);
   update public.phases set ended_at = now() where event_id = p_event and code = v_event.current_phase;
   update public.phases set started_at = now() where event_id = p_event and code = v_next;
   update public.events set current_phase = v_next, phase_started_at = now() where id = p_event;
 
   -- Entering.
   case v_next
-    when 'BUILD' then perform app.default_problem_cards(p_event);
+    when 'BUILD' then
+      -- The pick may still be open after an early advance; the tick applies the defaults at its deadline.
+      if app.deadline_passed(p_event, 'PROBLEM_PICK') then
+        perform app.default_problem_cards(p_event);
+      end if;
     when 'READING' then perform app.default_tickers(p_event);
     when 'CRISIS' then perform app.apply_crisis(p_event);
     when 'CLOSE' then perform app.close_market(p_event);
@@ -104,11 +118,11 @@ declare
   v_current public.phase_code;
 begin
   perform app.require_organiser();
-  select current_phase into v_current from public.events where id = p_event for update;
+  select current_phase into v_current from public.events where id = p_event for no key update;
   if v_current is distinct from p_from then
     return app.fail('STALE', format('The event is already in %s.', v_current));
   end if;
-  return app.do_advance(p_event);
+  return app.do_advance(p_event, p_from);
 end
 $$;
 
@@ -136,11 +150,21 @@ declare
   v_event public.events;
 begin
   perform app.require_organiser();
-  select * into v_event from public.events where id = p_event for update;
+  select * into v_event from public.events where id = p_event for no key update;
   if not v_event.paused then
     return app.fail('NOT_PAUSED', 'The event is not paused.');
   end if;
   perform app.shift_schedule(p_event, v_event.paused_at, now() - v_event.paused_at);
+  -- Items that were already due when the pause began but had not started (a phase waiting at a gate, a round
+  -- waiting for the tick) also move, or the pause would be counted again as lateness when they start.
+  update public.phases
+     set starts_at = starts_at + (now() - v_event.paused_at),
+         ends_at = case when ends_at < v_event.paused_at then ends_at + (now() - v_event.paused_at) else ends_at end
+   where event_id = p_event and started_at is null and starts_at < v_event.paused_at;
+  update public.rounds
+     set opens_at = opens_at + (now() - v_event.paused_at),
+         closes_at = case when closes_at < v_event.paused_at then closes_at + (now() - v_event.paused_at) else closes_at end
+   where event_id = p_event and status = 'SCHEDULED' and opens_at < v_event.paused_at;
   update public.events set paused = false, paused_at = null where id = p_event;
   perform app.broadcast(p_event, 'resumed', jsonb_build_object('paused_for_seconds', extract(epoch from now() - v_event.paused_at)::int));
   return app.ok();
@@ -152,13 +176,16 @@ create or replace function public.extend_event(p_event uuid, p_minutes integer)
 returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
+declare
+  v_event public.events;
 begin
   perform app.require_organiser();
   if p_minutes < 1 or p_minutes > 120 then
     raise exception 'extend by 1 to 120 minutes';
   end if;
-  perform 1 from public.events where id = p_event for update;
-  perform app.shift_schedule(p_event, now(), make_interval(mins => p_minutes));
+  select * into v_event from public.events where id = p_event for no key update;
+  -- While paused, time stands still at the start of the pause: what was ahead then is what is extended.
+  perform app.shift_schedule(p_event, case when v_event.paused then v_event.paused_at else now() end, make_interval(mins => p_minutes));
   perform app.broadcast(p_event, 'extended', jsonb_build_object('minutes', p_minutes));
   return app.ok();
 end
@@ -184,6 +211,8 @@ declare
   v_round public.rounds;
 begin
   perform app.require_organiser();
+  -- Like the tick, hold the event first: a clearing never interleaves with another clearing or a correction.
+  perform 1 from public.events where id = p_event for no key update;
   select * into v_round from public.rounds
    where event_id = p_event and status = 'OPEN' order by number limit 1;
   if v_round.id is null then
@@ -212,7 +241,9 @@ begin
   if not pg_try_advisory_xact_lock(hashtext('tick:' || p_event::text)) then
     return app.ok(jsonb_build_object('skipped', true));
   end if;
-  select * into v_event from public.events where id = p_event;
+  -- Serialise with organiser actions (advance, pause, extend), which lock the event row. NO KEY UPDATE still lets
+  -- team actions take their KEY SHARE locks on it.
+  select * into v_event from public.events where id = p_event for no key update;
   if v_event.id is null or v_event.paused then
     return app.ok(jsonb_build_object('paused', coalesce(v_event.paused, false)));
   end if;
@@ -231,7 +262,8 @@ begin
         perform app.shift_schedule(p_event, r.opens_at, v_late);
         select * into r from public.rounds where id = r.id;
       end if;
-      update public.rounds set status = 'OPEN', opened_at = now() where id = r.id;
+      update public.rounds set status = 'OPEN', opened_at = now() where id = r.id and status = 'SCHEDULED';
+      exit when not found;
       perform app.broadcast(p_event, 'round_open', jsonb_build_object('round', r.number, 'closes_at', r.closes_at));
       v_actions := v_actions || ('opened ' || r.number);
       exit;
@@ -251,7 +283,7 @@ begin
     if now() >= v_phase.ends_at
        and not exists (select 1 from public.rounds where event_id = p_event and phase = v_event.current_phase
                           and status <> 'CLEARED' and closes_at > now()) then
-      v_res := app.do_advance(p_event);
+      v_res := app.do_advance(p_event, v_event.current_phase);
       if (v_res ->> 'ok')::boolean then
         v_actions := v_actions || ('advanced to ' || (v_res ->> 'phase'));
       end if;

@@ -45,14 +45,26 @@ as $$
   )::text
 $$;
 
+-- Realtime Authorization: Realtime checks a subscriber's SELECT (receive) and INSERT (send) policies on
+-- realtime.messages with realtime.topic() set to the channel's topic.
 create table if not exists realtime.messages (
   id bigserial primary key,
   topic text not null,
+  extension text not null default 'broadcast',
   event text,
   payload jsonb,
   private boolean,
   inserted_at timestamptz not null default now()
 );
+alter table realtime.messages enable row level security;
+grant select, insert on realtime.messages to anon, authenticated;
+
+create or replace function realtime.topic() returns text
+language sql stable
+as $$
+  select nullif(current_setting('realtime.topic', true), '')
+$$;
+grant execute on function realtime.topic() to anon, authenticated, service_role;
 
 create or replace function realtime.send(payload jsonb, event text, topic text, private boolean default true)
 returns void

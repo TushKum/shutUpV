@@ -65,6 +65,22 @@ begin
 end
 $$;
 
+-- Every other team action shares one generous bucket (60 per 10 seconds), so a script cannot flood the tables or
+-- the audit log. A throttled call writes nothing.
+create or replace function app.too_fast(p_team uuid)
+returns boolean
+language sql
+as $$
+  select not app.rate_limit(p_team, 'actions', 60, interval '10 seconds')
+$$;
+
+create or replace function app.too_fast_message()
+returns text
+language sql immutable
+as $$
+  select 'Too many actions in a few seconds. Wait a moment and try again.'
+$$;
+
 -- ───────────────────────────── Orders ─────────────────────────────
 
 create or replace function public.place_order(p_company uuid, p_type public.order_type, p_qty integer, p_client_ref text default null)
@@ -78,6 +94,10 @@ declare
   v_order public.orders;
   v_details jsonb := jsonb_build_object('company_id', p_company, 'type', p_type, 'qty', p_qty);
 begin
+  -- Locks are taken in one order everywhere: round, then team, then order (clearing locks the round, then
+  -- teams). The open round is locked in share mode, so an order can never slip in while it is being cleared;
+  -- after a clearing commits, the re-read row is CLEARED and the order is refused.
+  select r.* into v_round from public.rounds r where r.id = (app.open_round(app.my_event_id())).id for share;
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can place orders' using errcode = '42501';
@@ -89,12 +109,8 @@ begin
     end if;
   end if;
   if not app.rate_limit(v_team.id, 'orders', 20, interval '10 seconds') then
-    return app.reject(v_team.event_id, 'place_order', 'RATE_LIMITED', 'Too many order actions. Wait a few seconds.', v_details);
+    return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
   end if;
-
-  -- Lock the open round in share mode: clearing takes it exclusively, so an order can never slip in
-  -- while a round is being cleared.
-  select r.* into v_round from public.rounds r where r.id = (app.open_round(v_team.event_id)).id for share;
 
   v_check := app.check_order(app.order_context(v_team),
                              jsonb_build_object('companyId', p_company::text, 'type', p_type, 'qty', p_qty));
@@ -124,12 +140,14 @@ declare
   v_check jsonb;
   v_details jsonb := jsonb_build_object('order_id', p_order, 'qty', p_qty);
 begin
+  -- Lock order: the order's round, then the team (see place_order).
+  perform 1 from public.rounds where id = (select o.round_id from public.orders o where o.id = p_order) for share;
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can edit orders' using errcode = '42501';
   end if;
   if not app.rate_limit(v_team.id, 'orders', 20, interval '10 seconds') then
-    return app.reject(v_team.event_id, 'edit_order', 'RATE_LIMITED', 'Too many order actions. Wait a few seconds.', v_details);
+    return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
   end if;
   select * into v_order from public.orders where id = p_order and team_id = v_team.id for update;
   if v_order.id is null or v_order.status <> 'PENDING' then
@@ -162,13 +180,14 @@ declare
   v_order public.orders;
   v_round public.rounds;
 begin
+  -- Lock order: the order's round, then the team (see place_order).
+  perform 1 from public.rounds where id = (select o.round_id from public.orders o where o.id = p_order) for share;
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can cancel orders' using errcode = '42501';
   end if;
   if not app.rate_limit(v_team.id, 'orders', 20, interval '10 seconds') then
-    return app.reject(v_team.event_id, 'cancel_order', 'RATE_LIMITED', 'Too many order actions. Wait a few seconds.',
-                      jsonb_build_object('order_id', p_order));
+    return app.fail('RATE_LIMITED', 'Too many order actions. Wait a few seconds.');
   end if;
   select * into v_order from public.orders where id = p_order and team_id = v_team.id for update;
   if v_order.id is null or v_order.status <> 'PENDING' then
@@ -266,11 +285,15 @@ declare
   v_check jsonb;
   v_details jsonb := jsonb_build_object('company_id', p_company, 'qty', p_qty);
 begin
+  -- Lock order: the event (share mode, so a bid and the IPO allocation never interleave), then the team.
+  select * into v_event from public.events where id = app.my_event_id() for share;
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can bid' using errcode = '42501';
   end if;
-  select * into v_event from public.events where id = v_team.event_id for share;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
+  end if;
   if v_team.track <> 'FINANCE' then
     return app.reject(v_team.event_id, 'place_ipo_bid', 'NOT_A_FUND', 'Only Finance teams can bid at the IPO.', v_details);
   end if;
@@ -309,7 +332,7 @@ declare
   v_txn uuid := gen_random_uuid();
   v_total_cash bigint;
 begin
-  perform 1 from public.events where id = p_event and ipo_allocated_at is null for update;
+  perform 1 from public.events where id = p_event and ipo_allocated_at is null for no key update;
   if not found then
     return;
   end if;

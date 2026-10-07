@@ -28,10 +28,21 @@ as $$
   select exists (select 1 from public.injection_logs l where l.submission_id = (app.current_submission(p_company, p_type)).id)
 $$;
 
--- Seals a score from the judge's runs (3, or 5 when the first 3 spread more than 10 points): median, the plan
--- cap when the deal was not signed by 03:00, the injection penalty, the tier. Called by the judge worker.
-create or replace function public.seal_score(p_company uuid, p_type public.submission_type, p_run_totals integer[],
-                                             p_breakdown jsonb, p_rationale text)
+-- Scoring of a type is closed once nothing can change what is judged: the submission deadline has passed (and,
+-- for a plan, the deal deadline, which decides the cap). An early phase advance pulls these deadlines in.
+create or replace function app.scoring_closed(p_event uuid, p_type public.submission_type)
+returns boolean
+language sql stable
+as $$
+  select app.deadline_passed(p_event, p_type::text::public.deadline_code)
+     and (p_type <> 'PLAN' or app.deadline_passed(p_event, 'DEAL'))
+$$;
+
+-- Seals a company's score from the judge's stored runs of its current submission (latest generation): 3 runs, or
+-- 5 when the first 3 spread more than 10 points. Median, the plan cap when the deal was not signed by 03:00, the
+-- injection penalty and the tier. The published breakdown and rationale are the first run whose total is the
+-- median. Called by the judge worker (service role) only: nobody can type in a score.
+create or replace function public.seal_score(p_company uuid, p_type public.submission_type)
 returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -39,41 +50,67 @@ declare
   v_company public.companies;
   v_sub public.submissions;
   v_existing public.scores;
-  v_n int := coalesce(array_length(p_run_totals, 1), 0);
+  v_gen smallint;
+  v_runs public.judge_runs[];
+  v_totals int[];
   v_median int;
+  v_rep public.judge_runs;
   v_final jsonb;
   v_penalty int;
+  v_run public.judge_runs;
 begin
-  perform app.require_organiser();
-  select * into v_company from public.companies where id = p_company;
+  if not app.is_system() then
+    raise exception 'scores are sealed by the judge worker' using errcode = '42501';
+  end if;
+  select * into v_company from public.companies where id = p_company and squad_id is not null for update;
+  if v_company.id is null then
+    raise exception 'no such company';
+  end if;
+  if not app.scoring_closed(v_company.event_id, p_type) then
+    return app.fail('NOT_READY', format('%s scores are sealed after the %s deadline.', p_type,
+                                        case when p_type = 'PLAN' then 'plan and deal' else lower(p_type::text) end));
+  end if;
   v_sub := app.current_submission(p_company, p_type);
   if v_sub.id is null then
-    raise exception 'company % has no on-time % submission; use seal_missing_scores', v_company.ticker, p_type;
-  end if;
-  if not (v_n = 5 or (v_n = 3 and not app.needs_extra_runs(p_run_totals))) then
-    raise exception 'a score needs 3 runs within 10 points, or 5 runs';
-  end if;
-  if exists (select 1 from unnest(p_run_totals) t where t < 0 or t > 100) then
-    raise exception 'run totals must be 0–100';
+    return app.fail('NO_SUBMISSION', 'This company has no on-time submission; seal_missing_scores gives it 0.');
   end if;
   select * into v_existing from public.scores where company_id = p_company and type = p_type for update;
   if v_existing.status = 'RELEASED' then
-    raise exception 'this score has been released; use rerun_released_score for a technical appeal';
+    return app.fail('ALREADY_RELEASED', 'This score has been released.');
   end if;
-  v_median := app.median_score(p_run_totals);
+
+  select max(generation) into v_gen from public.judge_runs where submission_id = v_sub.id;
+  select array_agg(j order by j.run_no) into v_runs
+    from public.judge_runs j where j.submission_id = v_sub.id and j.generation = v_gen and j.status = 'DONE';
+  v_totals := array(select r.total::int from unnest(coalesce(v_runs, '{}')) r order by r.run_no);
+  if array(select r.run_no::int from unnest(coalesce(v_runs, '{}')) r order by r.run_no)
+       not in (array[1, 2, 3], array[1, 2, 3, 4, 5])
+     or (cardinality(v_totals) = 3 and app.needs_extra_runs(v_totals)) then
+    return app.fail('RUNS_INCOMPLETE', 'The judge needs 3 runs within 10 points, or 5 runs.',
+                    jsonb_build_object('runs', cardinality(v_totals)));
+  end if;
+  foreach v_run in array v_runs loop
+    if not app.judge_run_valid(p_type, v_run.breakdown, v_run.total, v_run.rationale) then
+      raise exception 'judge run % of % does not fit the rubric', v_run.run_no, v_company.ticker;
+    end if;
+  end loop;
+
+  v_median := app.median_score(v_totals);
+  select r.* into v_rep from unnest(v_runs) r where r.total = v_median order by r.run_no limit 1;
   v_penalty := app.injection_penalty(p_type, app.offended(p_company, 'PITCH'), app.offended(p_company, 'PLAN'), app.offended(p_company, 'FLASH'));
   v_final := app.final_score(p_type, v_median, app.deal_signed_in_time(p_company), v_penalty);
-  insert into public.scores (event_id, company_id, type, submission_id, status, run_totals, median, missing, late, capped, penalty,
-                             final_score, tier_bp, breakdown, rationale, updated_at)
-  values (v_company.event_id, p_company, p_type, v_sub.id, 'SEALED', p_run_totals::smallint[], v_median, false, false,
+  insert into public.scores (event_id, company_id, type, submission_id, generation, status, run_totals, median, missing, late,
+                             capped, penalty, final_score, tier_bp, breakdown, rationale, updated_at)
+  values (v_company.event_id, p_company, p_type, v_sub.id, v_gen, 'SEALED', v_totals::smallint[], v_median, false, false,
           (v_final ->> 'capped')::boolean, v_penalty, (v_final ->> 'final')::int,
-          app.tier_bp(p_type, (v_final ->> 'final')::int), p_breakdown, p_rationale, now())
+          app.tier_bp(p_type, (v_final ->> 'final')::int), v_rep.breakdown, v_rep.rationale, now())
   on conflict (company_id, type) do update
-    set submission_id = excluded.submission_id, status = 'SEALED', run_totals = excluded.run_totals, median = excluded.median,
-        missing = false, late = false, capped = excluded.capped, penalty = excluded.penalty, final_score = excluded.final_score,
-        tier_bp = excluded.tier_bp, breakdown = excluded.breakdown, rationale = excluded.rationale, updated_at = now();
+    set submission_id = excluded.submission_id, generation = excluded.generation, status = 'SEALED',
+        run_totals = excluded.run_totals, median = excluded.median, missing = false, late = false, capped = excluded.capped,
+        penalty = excluded.penalty, final_score = excluded.final_score, tier_bp = excluded.tier_bp,
+        breakdown = excluded.breakdown, rationale = excluded.rationale, updated_at = now();
   return app.ok(jsonb_build_object('final', (v_final ->> 'final')::int, 'median', v_median, 'penalty', v_penalty,
-                                   'capped', (v_final ->> 'capped')::boolean));
+                                   'capped', (v_final ->> 'capped')::boolean, 'runs', cardinality(v_totals)));
 end
 $$;
 
@@ -86,6 +123,9 @@ declare
   n int;
 begin
   perform app.require_organiser();
+  if not app.scoring_closed(p_event, p_type) then
+    return app.fail('NOT_READY', 'Missing scores are sealed after the submission deadline.');
+  end if;
   insert into public.scores (event_id, company_id, type, status, run_totals, median, missing, late, capped, penalty, final_score, tier_bp, rationale)
   select p_event, c.id, p_type, 'SEALED', '{}', null, true, false, false, 0, 0, app.tier_bp(p_type, 0),
          'No on-time submission.'
@@ -111,7 +151,7 @@ declare
   v_movers jsonb;
 begin
   perform app.require_organiser();
-  select * into v_event from public.events where id = p_event for update;
+  select * into v_event from public.events where id = p_event for no key update;
   if app.score_released(p_event, p_type) then
     return app.fail('ALREADY_RELEASED', 'These scores have already been released.');
   end if;
@@ -120,6 +160,15 @@ begin
      and not exists (select 1 from public.scores s where s.company_id = c.id and s.type = p_type and s.status = 'SEALED');
   if v_unsealed > 0 then
     return app.fail('NOT_READY', format('%s companies have no sealed %s score yet.', v_unsealed, p_type));
+  end if;
+  -- What was sealed must still be what is judged (defence in depth: sealing waits for the deadline).
+  if not app.scoring_closed(p_event, p_type) or exists (
+       select 1 from public.scores s where s.event_id = p_event and s.type = p_type
+          and s.submission_id is distinct from (app.current_submission(s.company_id, p_type)).id) then
+    return app.fail('NOT_READY', 'A submission changed after its score was sealed; judge it again.');
+  end if;
+  if p_type = 'PITCH' and not app.deadline_passed(p_event, 'CALL_1') then
+    return app.fail('CALL_1_OPEN', 'Pitch scores and IPO prices are released after consultant call 1 closes (23:15).');
   end if;
   if (app.open_round(p_event)).id is not null then
     return app.fail('TRADING_OPEN', 'Release scores between rounds, while trading is closed.');
@@ -150,7 +199,8 @@ begin
      where c.event_id = p_event;
     update public.companies c set market_price = rp.market_after, ai_price = rp.ai_after
       from public.round_prices rp
-     where rp.company_id = c.id and rp.kind = case when p_type = 'PLAN' then 'PLAN_TIER' else 'FLASH_TIER' end::public.price_kind;
+     where c.event_id = p_event and rp.event_id = p_event and rp.company_id = c.id
+       and rp.kind = case when p_type = 'PLAN' then 'PLAN_TIER' else 'FLASH_TIER' end::public.price_kind;
     perform app.recalculate_collateral(p_event);
   end if;
 
@@ -215,7 +265,7 @@ declare
   v_cards text[];
   v_n int;
 begin
-  select * into v_event from public.events where id = p_event for update;
+  select * into v_event from public.events where id = p_event for no key update;
   if v_event.crisis_applied_at is not null then
     return;
   end if;
@@ -238,7 +288,8 @@ begin
   select p_event, c.id, 'CRISIS', c.market_price, app.crisis_shock(c.market_price), c.ai_price, app.crisis_shock(c.ai_price)
     from public.companies c where c.event_id = p_event and c.market_price is not null;
   update public.companies c set market_price = rp.market_after, ai_price = rp.ai_after, post_crisis_price = rp.market_after
-    from public.round_prices rp where rp.company_id = c.id and rp.kind = 'CRISIS';
+    from public.round_prices rp
+   where c.event_id = p_event and rp.event_id = p_event and rp.company_id = c.id and rp.kind = 'CRISIS';
   perform app.recalculate_collateral(p_event);
 
   update public.events set crisis_applied_at = now(), seed_revealed = v_seed where id = p_event;
@@ -261,7 +312,7 @@ declare
   v_txn uuid := gen_random_uuid();
   v_cover bigint;
 begin
-  perform 1 from public.events where id = p_event and market_closed_at is null for update;
+  perform 1 from public.events where id = p_event and market_closed_at is null for no key update;
   if not found then
     return;
   end if;
@@ -319,7 +370,6 @@ do $$
 declare f text;
 begin
   foreach f in array array[
-    'public.seal_score(uuid, public.submission_type, integer[], jsonb, text)',
     'public.seal_missing_scores(uuid, public.submission_type)',
     'public.release_scores(uuid, public.submission_type)'
   ] loop
@@ -327,3 +377,5 @@ begin
     execute format('grant execute on function %s to authenticated, service_role', f);
   end loop;
 end $$;
+revoke all on function public.seal_score(uuid, public.submission_type) from public, anon, authenticated;
+grant execute on function public.seal_score(uuid, public.submission_type) to service_role;

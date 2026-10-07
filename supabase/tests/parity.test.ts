@@ -35,6 +35,8 @@ import {
   validateFee,
   validateOrder,
   validateIpoBids,
+  validateJudgeOutput,
+  RUBRICS,
   submissionText,
   submissionWords,
   wordCount,
@@ -355,6 +357,44 @@ describe("judging and scoring", () => {
       cases,
     );
     cases.forEach((c, i) => expect(sql[i]).toEqual([medianScore(c.totals), needsExtraRuns(c.totals)]));
+  });
+
+  test("judge_run_valid: a stored run passes exactly when validateJudgeOutput accepts it", async () => {
+    const g = gen(11);
+    const types = ["PITCH", "PLAN", "FLASH"] as SubmissionType[];
+    const cases = Array.from({ length: 3000 }, () => {
+      const type = g.pick(types);
+      const breakdown: Record<string, unknown> = {};
+      for (const line of RUBRICS[type]) breakdown[line.key] = g.int(0, line.max);
+      let total = Object.values(breakdown).reduce((a: number, v) => a + (v as number), 0);
+      let rationale = "Clear problem, weak moat.";
+      const key = g.pick(RUBRICS[type]).key;
+      switch (g.int(0, 9)) {
+        case 0: delete breakdown[key]; break;
+        case 1: breakdown.extra_line = 5; break;
+        case 2: breakdown[key] = g.pick(RUBRICS[type]).max + g.int(1, 30); break;
+        case 3: breakdown[key] = -g.int(1, 5); break;
+        case 4: breakdown[key] = (breakdown[key] as number) + 0.5; break;
+        case 5: breakdown[key] = String(breakdown[key]); break;
+        case 6: total += g.pick([-1, 1, 7]); break;
+        case 7: rationale = g.pick(["", "   ", "\n\t"]); break;
+        case 8: breakdown[key] = null; break;
+        default: break; // valid
+      }
+      return { type, breakdown, total, rationale };
+    });
+    const sql = await sqlBatch<boolean>(
+      `app.judge_run_valid((c->>'type')::submission_type, c->'breakdown', (c->>'total')::int, c->>'rationale')`,
+      cases,
+    );
+    let valid = 0;
+    cases.forEach((c, i) => {
+      const ts = validateJudgeOutput(c.type, { breakdown: c.breakdown, total: c.total, rationale: c.rationale }).ok;
+      if (ts) valid++;
+      expect(sql[i], JSON.stringify(c)).toBe(ts);
+    });
+    expect(valid).toBeGreaterThan(200);
+    expect(valid).toBeLessThan(2800);
   });
 
   test("injection_penalty for every combination", async () => {

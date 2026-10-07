@@ -43,7 +43,7 @@ async function eachSquad(fn: (s: any, i: number) => Promise<void>) {
 }
 
 async function seal(companyId: string, type: "PITCH" | "PLAN" | "FLASH", score: number) {
-  return n.org("seal_score", companyId, type, [score - 1, score, score + 1], { total: score }, "Bot score.");
+  expect(await n.judge(companyId, type, [score - 1, score, score + 1], "Bot score.")).toMatchObject({ ok: true });
 }
 
 /** Every fund places `perFund` orders on random companies (never its own), editing or cancelling a few. */
@@ -130,9 +130,10 @@ afterAll(async () => {
 
 describe("a full night with 150 teams", { timeout: 600_000 }, () => {
   test("the draw forms 50 squads; pitches, scores and the IPO", async () => {
+    const seed = sha256Hex("full-night");
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(seed));
     await n.advanceTo("SQUAD_DRAW");
-    await n.org("set_seed_commitment", n.eventId, sha256Hex("full-night"));
-    await n.org("run_lottery", n.eventId, "full-night", "3");
+    await n.org("run_lottery", n.eventId, seed, "3");
     squads = [];
     for (let i = 1; i <= SQUADS; i++) squads.push(await n.squad(i));
     companies = squads.map((s) => s.company_id);
@@ -166,6 +167,7 @@ describe("a full night with 150 teams", { timeout: 600_000 }, () => {
     await n.advanceTo("READING");
     for (const [i, s] of squads.entries()) if (i < 48) await seal(s.company_id, "PITCH", between(35, 90));
     await n.org("seal_missing_scores", n.eventId, "PITCH");
+    await n.deadlinePassed("CALL_1");
     await n.org("release_scores", n.eventId, "PITCH");
     const ipo = await n.q("select ipo_price from companies where event_id = $1 and squad_id is not null", [n.eventId]);
     expect(ipo).toHaveLength(SQUADS);

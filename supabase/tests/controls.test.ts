@@ -10,6 +10,7 @@ let db: Awaited<ReturnType<typeof createTestDb>>;
 let n: Night;
 let s1: any, s2: any, s3: any, s4: any;
 let c1: string, c2: string;
+const SEED = sha256Hex("controls-seed"); // 64 hex characters, as run_lottery requires
 
 const at = async (table: string, where: string, params: unknown[] = []) =>
   (await n.one(`select * from ${table} where ${where}`, params));
@@ -17,9 +18,9 @@ const at = async (table: string, where: string, params: unknown[] = []) =>
 beforeAll(async () => {
   db = await createTestDb();
   n = await Night.create(db.pool, 4);
+  await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
   await n.advanceTo("SQUAD_DRAW");
-  await n.org("set_seed_commitment", n.eventId, sha256Hex("seed"));
-  await n.org("run_lottery", n.eventId, "seed", "2");
+  await n.org("run_lottery", n.eventId, SEED, "2");
   [s1, s2, s3, s4] = [await n.squad(1), await n.squad(2), await n.squad(3), await n.squad(4)];
   await n.advanceTo("BUILD");
   for (const [i, s] of [s1, s2, s3, s4].entries()) {
@@ -28,7 +29,8 @@ beforeAll(async () => {
   }
   await n.deadlinePassed("PITCH");
   await n.advanceTo("READING");
-  for (const s of [s1, s2, s3, s4]) await n.org("seal_score", s.company_id, "PITCH", [60, 60, 60], {}, "ok");
+  for (const s of [s1, s2, s3, s4]) expect(await n.judge(s.company_id, "PITCH", [60, 60, 60])).toMatchObject({ ok: true });
+  await n.deadlinePassed("CALL_1");
   await n.org("release_scores", n.eventId, "PITCH");
   await n.advanceTo("IPO");
   await n.advanceTo("ROUNDS_1_4");

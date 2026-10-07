@@ -61,7 +61,7 @@ describe("grants", () => {
       "advance_phase", "answer_question", "cancel_order", "close_round_now", "confirm_fee", "decide_correction",
       "decide_flag", "edit_deal", "edit_order", "extend_event", "make_call", "pause_event", "pick_problem_card",
       "place_ipo_bid", "place_order", "post_question", "propose_fee", "publish_bulletin", "release_scores",
-      "request_correction", "resume_event", "run_lottery", "save_draft", "seal_missing_scores", "seal_score",
+      "request_correction", "resume_event", "run_lottery", "save_draft", "seal_missing_scores",
       "set_auto_advance", "set_seed_commitment", "sign_deal", "submit_submission", "tick",
     ]);
     for (const r of rows) {
@@ -69,6 +69,11 @@ describe("grants", () => {
       expect(r.prosecdef, r.proname).toBe(true);
       expect(r.proconfig, r.proname).toEqual(["search_path=\"\""]);
     }
+    // Scores are sealed only by the judge worker (service role), from stored judge runs.
+    const seal = await db.pool.query(
+      "select has_function_privilege('service_role', 'public.seal_score(uuid, public.submission_type)', 'EXECUTE') as svc, has_function_privilege('authenticated', 'public.seal_score(uuid, public.submission_type)', 'EXECUTE') as auth",
+    );
+    expect(seal.rows[0]).toEqual({ svc: true, auth: false });
     const anonAny = await db.pool.query(`
       select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname in ('public', 'app') and has_function_privilege('anon', p.oid, 'EXECUTE')`);
@@ -80,7 +85,7 @@ describe("grants", () => {
       select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname = 'app' and has_function_privilege('authenticated', p.oid, 'EXECUTE') order by 1`);
     expect(rows.map((r) => r.proname)).toEqual([
-      "is_fairness", "is_organiser", "is_staff", "my_dealt_cards", "my_event_id", "my_role", "my_squad_id",
+      "can_hear", "is_fairness", "is_organiser", "is_staff", "my_dealt_cards", "my_event_id", "my_role", "my_squad_id",
       "my_team_id", "phase_reached", "score_released", "sees_all_events",
     ]);
     const me = user(fx.team(fx.code("F", 1)).userId);

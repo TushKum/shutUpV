@@ -10,6 +10,7 @@ import { Night } from "./night";
 
 let db: Awaited<ReturnType<typeof createTestDb>>;
 let n: Night;
+const SEED = sha256Hex("market-night"); // the secret seed: 32 random bytes as hex
 
 // Squad numbers chosen after the draw (see "assign roles").
 const roles = { aqs: 0, ccrt: 0, snap: 0, ipox: 0, missing: 0, lateplan: 0 };
@@ -29,8 +30,9 @@ function tradersOf(t: string, exclude: number[] = []): string[] {
 }
 
 async function seal(s: number, type: "PITCH" | "PLAN" | "FLASH", runs: number[]) {
-  const total = runs[1]!;
-  return n.org("seal_score", (await sq(s)).company_id, type, runs, { note: "test breakdown", total }, "One. Two. Three.");
+  const r = await n.judge((await sq(s)).company_id, type, runs);
+  expect(r, `seal ${type} of squad ${s}`).toMatchObject({ ok: true });
+  return r;
 }
 
 async function pitch(s: number, t: string, words = "Unsafe water in small towns. Sensors alert councils.") {
@@ -80,14 +82,17 @@ afterAll(async () => {
 
 describe("a scripted night", () => {
   test("squad draw: the seed must match the commitment; the draw is the engine's draw", async () => {
+    // The commitment is published the day before and fixed once the event starts.
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
     await n.advanceTo("SQUAD_DRAW");
-    await n.org("set_seed_commitment", n.eventId, sha256Hex("market-night"));
-    const wrong = await n.call(n.lead, "run_lottery", n.eventId, "market-nite", "4");
+    await expect(n.call(n.lead, "set_seed_commitment", n.eventId, sha256Hex(sha256Hex("chosen-tonight")))).rejects.toThrow(/fixed once the event has started/);
+    await expect(n.call(n.lead, "run_lottery", n.eventId, "market-night", "4")).rejects.toThrow(/64 lower-case hex/);
+    const wrong = await n.call(n.lead, "run_lottery", n.eventId, sha256Hex("market-nite"), "4");
     expect(wrong).toMatchObject({ ok: false, code: "COMMITMENT_MISMATCH" });
-    await n.org("run_lottery", n.eventId, "market-night", "4");
+    await n.org("run_lottery", n.eventId, SEED, "4");
 
     const codes = (track: string) => n.ev.plan.teams.filter((t) => t.track === track).map((t) => t.code);
-    const expected = drawLottery("market-night", "4", { product: codes("PRODUCT"), consulting: codes("CONSULTING"), finance: codes("FINANCE") },
+    const expected = drawLottery(SEED, "4", { product: codes("PRODUCT"), consulting: codes("CONSULTING"), finance: codes("FINANCE") },
       Array.from({ length: 17 }, (_, i) => String(i + 1)));
     squads = [];
     for (const e of expected.squads) {
@@ -136,6 +141,10 @@ describe("a scripted night", () => {
     await n.ok(n.team(s.p_code), "pick_problem_card", s.dealt_card_ids[1]);
     await n.advanceTo("BUILD");
     expect((await sq(roles.aqs)).chosen_card_id).toBe(s.dealt_card_ids[1]);
+    // An early advance does not cut the 10-minute pick short; the defaults come at its deadline.
+    expect((await sq(roles.ccrt)).chosen_card_id).toBeNull();
+    await n.deadlinePassed("PROBLEM_PICK");
+    await n.ok(n.lead, "tick", n.eventId);
     const other = await sq(roles.ccrt);
     expect(other).toMatchObject({ chosen_card_id: other.dealt_card_ids[0], chosen_by_default: true });
   });
@@ -196,6 +205,11 @@ describe("a scripted night", () => {
     }
     expect(await n.call(n.lead, "release_scores", n.eventId, "PITCH")).toMatchObject({ ok: false, code: "NOT_READY" });
     await n.org("seal_missing_scores", n.eventId, "PITCH");
+    // Nobody types in a score: organisers cannot seal, and the judge worker seals only from stored runs.
+    await expect(n.call(n.lead, "seal_score", company.AQS, "PITCH")).rejects.toThrow(/permission denied/);
+    // IPO prices are released only after consultant call 1 closes.
+    expect(await n.call(n.lead, "release_scores", n.eventId, "PITCH")).toMatchObject({ ok: false, code: "CALL_1_OPEN" });
+    await n.deadlinePassed("CALL_1");
 
     // Sealed scores are invisible to teams until release.
     const someTeam = user(n.ev.teams.get(squads[0]!.f_code)!.userId);
@@ -294,7 +308,7 @@ describe("a scripted night", () => {
     const aqs = await n.companyByTicker("AQS");
     expect(aqs).toMatchObject({ market_price: 956, ai_price: 893, post_crisis_price: 956 }); // acceptance 4: $11.25 → $9.56; AI $8.93
     expect(aqs.crisis_card_id).not.toBeNull();
-    expect((await n.one("select seed_revealed from events where id = $1", [n.eventId])).seed_revealed).toBe("market-night");
+    expect((await n.one("select seed_revealed from events where id = $1", [n.eventId])).seed_revealed).toBe(SEED);
     const someFund = n.team(tradersOf("CCRT")[5]!);
     expect(await n.call(someFund, "place_order", company.CCRT, "BUY", 1)).toMatchObject({ ok: false, code: "TRADING_HALTED" });
   });

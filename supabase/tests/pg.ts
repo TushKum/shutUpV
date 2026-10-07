@@ -135,6 +135,8 @@ export async function createTestDb(): Promise<{ pool: pg.Pool; url: string; drop
   await admin.end();
   const url = dbUrl(adminUrl, name);
   const pool = new pg.Pool({ connectionString: url, max: 10 });
+  // Idle clients are terminated when the database is dropped at the end; that is expected.
+  pool.on("error", () => {});
   return {
     pool,
     url,

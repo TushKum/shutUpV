@@ -294,6 +294,51 @@ begin
 end
 $$;
 
+-- The judge's rubric (RUBRICS): line → maximum points. Each rubric totals 100.
+create or replace function app.rubric(p_type public.submission_type)
+returns jsonb
+language sql immutable strict parallel safe
+as $$
+  select case p_type
+    when 'PITCH' then '{"problem": 25, "solution": 25, "business_model": 25, "advantage": 25}'::jsonb
+    when 'PLAN' then '{"solves_crisis": 25, "money_logic": 20, "funding_and_deal": 20, "time_to_recovery": 15,
+                       "new_risks": 10, "next_steps": 10}'::jsonb
+    else '{"responds_to_news": 50, "realistic": 30, "clear": 20}'::jsonb
+  end
+$$;
+
+-- validateJudgeOutput for a stored run: exactly the rubric's lines, each a whole number from 0 to its maximum,
+-- a total equal to their sum, and a rationale.
+create or replace function app.judge_run_valid(p_type public.submission_type, p_breakdown jsonb, p_total integer, p_rationale text)
+returns boolean
+language plpgsql immutable parallel safe
+as $$
+declare
+  r record;
+  v numeric;
+  v_sum numeric := 0;
+begin
+  if p_type is null or p_breakdown is null or jsonb_typeof(p_breakdown) <> 'object' or p_total is null
+     or p_rationale is null or p_rationale !~ '[^[:space:]]' then
+    return false;
+  end if;
+  if exists (select 1 from jsonb_object_keys(p_breakdown) k where not app.rubric(p_type) ? k) then
+    return false;
+  end if;
+  for r in select key, value::text::int as max from jsonb_each(app.rubric(p_type)) loop
+    if jsonb_typeof(p_breakdown -> r.key) is distinct from 'number' then
+      return false;
+    end if;
+    v := (p_breakdown ->> r.key)::numeric;
+    if v <> trunc(v) or v < 0 or v > r.max then
+      return false;
+    end if;
+    v_sum := v_sum + v;
+  end loop;
+  return v_sum = p_total;
+end
+$$;
+
 create or replace function app.needs_extra_runs(p_totals integer[])
 returns boolean
 language sql immutable strict parallel safe

@@ -12,10 +12,12 @@ begin
   if lower(btrim(p_commitment)) !~ '^[0-9a-f]{64}$' then
     raise exception 'the commitment must be a SHA-256 hex digest (64 hex characters)';
   end if;
+  -- The commitment is published the day before (the brief): once the event has started it is fixed, so the
+  -- seed check on the projector proves the draw was not chosen on the night.
   update public.events set seed_commitment = lower(btrim(p_commitment))
-   where id = p_event and drawn_at is null;
+   where id = p_event and drawn_at is null and current_phase = 'SETUP';
   if not found then
-    raise exception 'the lottery has already been drawn';
+    raise exception 'the seed commitment is fixed once the event has started';
   end if;
   return app.ok();
 end
@@ -40,9 +42,11 @@ declare
   v_txn uuid := gen_random_uuid();
   v_cover text;
   v_number int;
+  v_pick timestamptz;
+  v_need timestamptz;
 begin
   perform app.require_organiser();
-  select * into v_event from public.events where id = p_event for update;
+  select * into v_event from public.events where id = p_event for no key update;
   if v_event.current_phase <> 'SQUAD_DRAW' then
     raise exception 'the lottery runs in the SQUAD_DRAW phase';
   end if;
@@ -54,6 +58,10 @@ begin
   end if;
   if btrim(coalesce(p_dice, '')) !~ '^[0-9]{1,6}$' then
     raise exception 'the dice roll must be a number';
+  end if;
+  -- A short or guessable seed could be found from its published hash, revealing the crisis draw early.
+  if coalesce(p_seed, '') !~ '^[0-9a-f]{64}$' then
+    raise exception 'the seed must be 64 lower-case hex characters (32 random bytes: pnpm new-seed)';
   end if;
   if app.sha256_hex(p_seed) <> v_event.seed_commitment then
     return app.fail('COMMITMENT_MISMATCH', 'SHA-256 of that seed does not match the published commitment.');
@@ -117,6 +125,14 @@ begin
   on conflict (event_id) do update set seed = excluded.seed, entered_at = now(), entered_by = excluded.entered_by;
   update public.events set dice = btrim(p_dice), drawn_at = now() where id = p_event;
 
+  -- The Product team has 10 event minutes from the draw to pick its card, even when the draw runs late: the pick
+  -- deadline (and the end of SQUAD_DRAW and everything after it) moves later if needed.
+  v_pick := app.deadline(p_event, 'PROBLEM_PICK');
+  v_need := now() + make_interval(secs => 600.0 / v_event.clock_speed);
+  if v_pick is not null and v_pick < v_need then
+    perform app.shift_schedule(p_event, v_pick, v_need - v_pick);
+  end if;
+
   perform app.broadcast(p_event, 'squad_draw', jsonb_build_object(
     'commitment', v_event.seed_commitment, 'dice', btrim(p_dice), 'verified', true,
     'squads', jsonb_array_length(v_draw)));
@@ -135,6 +151,9 @@ begin
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can pick a problem card' using errcode = '42501';
+  end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
   v_squad := app.squad_of_team(v_team.id);
   if v_team.track <> 'PRODUCT' or v_squad.id is null then
@@ -195,11 +214,14 @@ begin
   select * into v_event from public.events where id = p_team.event_id;
   allowed := case p_type when 'PITCH' then p_team.track = 'PRODUCT' else p_team.track in ('PRODUCT', 'CONSULTING') end;
   deadline_code := case p_type when 'PITCH' then 'PITCH' when 'PLAN' then 'PLAN' else 'FLASH' end;
+  -- Open from its start until its deadline, and never once the phase that publishes this work has begun
+  -- (an early advance also pulls the deadline in; this is the second lock).
   open := v_event.drawn_at is not null and not app.deadline_passed(v_event.id, deadline_code) and case p_type
-    when 'PITCH' then v_event.current_phase >= 'SQUAD_DRAW'
-    when 'PLAN' then v_event.current_phase >= 'CRISIS'
+    when 'PITCH' then v_event.current_phase between 'SQUAD_DRAW' and 'BUILD'
+    when 'PLAN' then v_event.current_phase between 'CRISIS' and 'RESCUE_2'
     else exists (select 1 from public.bulletins b where b.event_id = v_event.id and b.kind = 'FLASH'
                     and b.published_at is not null and b.published_at <= now())
+         and not app.score_released(v_event.id, 'FLASH')
   end;
 end
 $$;
@@ -217,6 +239,9 @@ begin
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can edit a draft' using errcode = '42501';
+  end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
   v_squad := app.squad_of_team(v_team.id);
   select * into w from app.submission_window(v_team, p_type);
@@ -265,6 +290,9 @@ begin
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can submit' using errcode = '42501';
+  end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
   v_squad := app.squad_of_team(v_team.id);
   select * into w from app.submission_window(v_team, p_type);
@@ -337,6 +365,9 @@ begin
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can propose a fee' using errcode = '42501';
+  end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null or v_team.track not in ('PRODUCT', 'CONSULTING') then
@@ -430,6 +461,9 @@ begin
   if v_team.id is null then
     raise exception 'only a team can confirm a fee' using errcode = '42501';
   end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
+  end if;
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null or v_team.track not in ('PRODUCT', 'CONSULTING') then
     return app.reject(v_team.event_id, 'confirm_fee', 'NOT_ALLOWED', 'The fee is agreed by the Product and Consulting teams.');
@@ -489,7 +523,8 @@ create or replace function app.deal_window_open(p_event uuid)
 returns boolean
 language sql stable
 as $$
-  select e.current_phase >= 'CRISIS' and e.crisis_applied_at is not null and not app.deadline_passed(e.id, 'DEAL')
+  select e.current_phase between 'CRISIS' and 'RESCUE_2' and e.crisis_applied_at is not null
+     and not app.deadline_passed(e.id, 'DEAL')
     from public.events e where e.id = p_event
 $$;
 
@@ -508,6 +543,9 @@ begin
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can edit the deal' using errcode = '42501';
+  end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null
@@ -566,6 +604,9 @@ begin
   v_team := app.lock_caller_team();
   if v_team.id is null then
     raise exception 'only a team can sign the deal' using errcode = '42501';
+  end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
   end if;
   v_squad := app.squad_of_team(v_team.id);
   if v_squad.id is null then
@@ -649,16 +690,23 @@ begin
   if v_team.id is null then
     raise exception 'only a team can make a call' using errcode = '42501';
   end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
+  end if;
   select * into v_call from public.calls
    where consultant_team_id = v_team.id and company_id = p_company and call_no = p_call_no for update;
   if v_call.id is null then
     return app.reject(v_team.event_id, 'make_call', 'NOT_ASSIGNED', 'You can only call your two assigned companies.');
   end if;
   select * into v_event from public.events where id = v_team.event_id;
+  -- Each window closes at its due time, and in any case before the price it is judged at becomes known.
   v_open := case p_call_no
     when 1 then v_event.drawn_at is not null and not app.deadline_passed(v_event.id, 'CALL_1')
+                and not app.score_released(v_event.id, 'PITCH')
     when 2 then app.score_released(v_event.id, 'PLAN') and not app.deadline_passed(v_event.id, 'CALL_2')
+                and not app.score_released(v_event.id, 'FLASH')
     else app.score_released(v_event.id, 'FLASH') and not app.deadline_passed(v_event.id, 'CALL_3')
+         and v_event.market_closed_at is null
   end;
   if not v_open or v_call.judged_price is not null then
     return app.reject(v_team.event_id, 'make_call', 'CALL_CLOSED', 'This call is not open.',
@@ -684,6 +732,9 @@ begin
   if v_team.id is null then
     raise exception 'only a team can ask a question' using errcode = '42501';
   end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
+  end if;
   if v_team.track <> 'FINANCE' then
     return app.reject(v_team.event_id, 'post_question', 'NOT_ALLOWED', 'Finance teams post questions on the Q&A board.');
   end if;
@@ -698,7 +749,7 @@ begin
     return app.reject(v_team.event_id, 'post_question', 'BAD_LENGTH', 'Questions are 1 to 1,000 characters.');
   end if;
   if not app.rate_limit(v_team.id, 'qa', 10, interval '1 minute') then
-    return app.reject(v_team.event_id, 'post_question', 'RATE_LIMITED', 'Too many questions in a minute.');
+    return app.fail('RATE_LIMITED', 'Too many questions in a minute.');
   end if;
   insert into public.qa_questions (event_id, company_id, asker_team_id, body)
   values (v_team.event_id, p_company, v_team.id, btrim(p_body))
@@ -722,6 +773,9 @@ begin
   if v_team.id is null then
     raise exception 'only a team can answer' using errcode = '42501';
   end if;
+  if app.too_fast(v_team.id) then
+    return app.fail('RATE_LIMITED', app.too_fast_message());
+  end if;
   select q.* into v_q from public.qa_questions q join public.companies c on c.id = q.company_id
    where q.id = p_question and c.product_team_id = v_team.id;
   if v_q.id is null then
@@ -733,6 +787,10 @@ begin
   v_words := app.word_count(coalesce(p_body, ''));
   if v_words < 1 or v_words > 100 or length(p_body) > 1500 then
     return app.reject(v_team.event_id, 'answer_question', 'BAD_LENGTH', 'Answers are 1 to 100 words.');
+  end if;
+  -- Every answer is broadcast to every screen, so answers are throttled like questions.
+  if not app.rate_limit(v_team.id, 'qa_answer', 10, interval '1 minute') then
+    return app.fail('RATE_LIMITED', 'Too many answers in a minute.');
   end if;
   insert into public.qa_answers (event_id, question_id, company_id, body, word_count)
   values (v_team.event_id, v_q.id, v_q.company_id, btrim(p_body), v_words)
