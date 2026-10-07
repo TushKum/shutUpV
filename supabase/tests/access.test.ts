@@ -50,12 +50,55 @@ describe("grants", () => {
     }
   });
 
-  test("no public function is executable by clients yet (game functions arrive in Phase 2)", async () => {
+  test("clients can execute exactly the game functions; anon none; each pins its search_path", async () => {
+    const { rows } = await db.pool.query(`
+      select p.proname, p.prosecdef, p.proconfig,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
+       order by p.proname`);
+    expect(rows.map((r) => r.proname)).toEqual([
+      "advance_phase", "answer_question", "cancel_order", "close_round_now", "confirm_fee", "decide_correction",
+      "decide_flag", "edit_deal", "edit_order", "extend_event", "make_call", "pause_event", "pick_problem_card",
+      "place_ipo_bid", "place_order", "post_question", "propose_fee", "publish_bulletin", "release_scores",
+      "request_correction", "resume_event", "run_lottery", "save_draft", "seal_missing_scores", "seal_score",
+      "set_auto_advance", "set_seed_commitment", "sign_deal", "submit_submission", "tick",
+    ]);
+    for (const r of rows) {
+      expect(r.anon, r.proname).toBe(false);
+      expect(r.prosecdef, r.proname).toBe(true);
+      expect(r.proconfig, r.proname).toEqual(["search_path=\"\""]);
+    }
+    const anonAny = await db.pool.query(`
+      select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname in ('public', 'app') and has_function_privilege('anon', p.oid, 'EXECUTE')`);
+    expect(anonAny.rows[0].n).toBe(0);
+  });
+
+  test("internal app.* functions are not callable by signed-in users (only the RLS helpers are)", async () => {
     const { rows } = await db.pool.query(`
       select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-      where n.nspname = 'public' and (has_function_privilege('authenticated', p.oid, 'EXECUTE')
-                                   or has_function_privilege('anon', p.oid, 'EXECUTE'))`);
-    expect(rows).toEqual([]);
+       where n.nspname = 'app' and has_function_privilege('authenticated', p.oid, 'EXECUTE') order by 1`);
+    expect(rows.map((r) => r.proname)).toEqual([
+      "is_fairness", "is_organiser", "is_staff", "my_dealt_cards", "my_event_id", "my_role", "my_squad_id",
+      "my_team_id", "phase_reached", "score_released", "sees_all_events",
+    ]);
+    const me = user(fx.team(fx.code("F", 1)).userId);
+    await expect(rowsAs(db.pool, me, "select app.clear_round(gen_random_uuid(), true)")).rejects.toThrow(/permission denied/);
+  });
+
+  test("teams cannot run organiser game functions", async () => {
+    const me = user(fx.team(fx.code("F", 1)).userId);
+    for (const sql of [
+      "select public.advance_phase($1, 'SETUP')",
+      "select public.pause_event($1)",
+      "select public.tick($1)",
+      "select public.release_scores($1, 'PITCH')",
+      "select public.run_lottery($1, 'seed', '4')",
+    ]) {
+      await expect(rowsAs(db.pool, me, sql, [fx.eventId]), sql).rejects.toThrow(/only an organiser/);
+    }
+    await expect(rowsAs(db.pool, me, "select public.decide_flag(gen_random_uuid(), 'CLEARED', 'reason here')")).rejects.toThrow(/only the fairness officer/);
   });
 
   test("a team cannot write, even to its own rows", async () => {
