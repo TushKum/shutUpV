@@ -1,0 +1,6 @@
+email,role,name,roll_number
+lead@college.example.org,ORGANISER,Event lead,S0001
+exchange@college.example.org,ORGANISER,Exchange desk,S0002
+ai@college.example.org,ORGANISER,AI desk,S0003
+fairness@college.example.org,FAIRNESS,Fairness officer,
+display@college.example.org,DISPLAY,Projector,

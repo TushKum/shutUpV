@@ -1,0 +1,18 @@
+# Supabase CLI project settings. Migrations live in supabase/migrations.
+project_id = "market-sim"
+
+[db]
+major_version = 15
+
+[auth]
+# Organisers pre-create every account; nobody can sign up.
+enable_signup = false
+site_url = "http://localhost:3000"
+jwt_expiry = 43200 # 12 hours: one login lasts the night
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+
+[realtime]
+enabled = true

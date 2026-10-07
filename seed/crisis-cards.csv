@@ -1,0 +1,11 @@
+category,number,title,body
+Supply shortage,1,A key input disappears,"The main component, ingredient or supplier your product depends on is unavailable for the next 18 months. Existing stock lasts six weeks."
+Regulation,1,A new rule bans how you operate,"A new government or college rule bans the way your company currently delivers its product or service, starting next month."
+Legal dispute,1,A legal complaint stops sales,"A complaint about copyright, a patent or a contract forces your product to be taken down until the dispute is settled."
+Partner exit,1,Your biggest partner walks away,"The partner that brings you most of your customers ends the relationship and will start a competing service."
+Data breach,1,Customer data is leaked,"Customer data is leaked online. Customers are angry, and the press is asking what you will do."
+Funding freeze,1,The money dries up,"Banks and investors stop lending to young companies. The payment you expected next month will not come."
+Competitor launch,1,A giant copies you,"A large, well-funded company launches the same product at half your price, with a big marketing campaign."
+Safety recall,1,Your product hurts someone,"A customer is hurt using your product. You must stop sales until it is proven safe."
+Demand collapse,1,Customers stop paying,"Your main customer group suddenly has much less money, and most say they will cancel or stop buying."
+Operations outage,1,A disaster shuts you down,"A flood damages your premises and equipment. You cannot operate for at least two months."
