@@ -1,6 +1,6 @@
 # PLAN — Market Simulation Competition platform
 
-Status: **Phase 1 complete, awaiting approval.** Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
+Status: **Phase 2 complete, awaiting approval.** (Phase 1 approved.) Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
 
 Source documents: the build brief (the authority) and `Market_Simulation_Event_Guide.docx` v1.0. Section 7 lists where they differ.
 
@@ -28,8 +28,11 @@ packages/engine  — pure TypeScript rules (reference implementation, no I/O)
 
 ### Key decisions
 
-1. **The engine is the specification, and the database executes it.** `packages/engine` is a pure TypeScript package that implements every rule. The game-changing actions are PL/pgSQL functions, so that each runs in one transaction on the database server, using the database clock and row locks. Each SQL rule is a direct port of the matching engine function. One set of JSON fixtures (`packages/engine/fixtures/*.json`, which includes every acceptance test) runs against both the TypeScript and the SQL implementation in CI. A mismatch fails the build. This is how "database functions must use the same logic" is enforced.
-   - Some work is heavy but not concurrent: lottery generation, settlement, awards, collusion flags and judge aggregation. For these, the server computes with the engine. One SQL function then applies the result atomically and checks its preconditions (seed commitment, phase, a snapshot hash).
+1. **The engine is the specification, and the database executes it.** `packages/engine` is a pure TypeScript package that implements every rule. The game-changing actions are PL/pgSQL functions, so that each runs in one transaction on the database server, using the database clock and row locks. Each SQL rule is a direct port of the matching engine function. This is how "database functions must use the same logic" is enforced, three ways:
+   - **Parity tests** (`supabase/tests/parity.test.ts`) run the TypeScript and the SQL implementation of each rule on thousands of generated inputs (order validation: 5,000 random fund states covering all 14 outcomes) and on the acceptance-test numbers. A mismatch fails the build.
+   - **The scripted night** (`night.test.ts`) plays the brief's case studies through the real functions and reproduces every acceptance-test number; every clearing is compared with the engine's `clearRound`.
+   - **The full night** (`full-night.test.ts`) plays 150 bot teams through every phase; every clearing is compared with the engine, and the final values and ranks are recomputed with the engine.
+   - The heavy, non-concurrent work (lottery, settlement, rankings, awards, collusion flags) also runs in SQL, inside the transaction that changes the phase, so it never depends on a server process being up. The engine is its reference.
 2. **Clients never write tables.** `anon` and `authenticated` have SELECT-only grants, filtered by RLS. Every write goes through a SECURITY DEFINER function. Each function checks the caller (`auth.uid()` → `accounts`), the phase, and the deadline (`now()` against the schedule). The browser can call these functions only with its own JWT, so they protect themselves.
 3. **Deadlines depend on time, not on state transitions.** An order is accepted only if `now() < round.closes_at` and the event is not paused. A submission is accepted only if `now() <= deadline`. The tick that closes and clears rounds can run a few seconds late without letting a late action through. A late tick only delays a price update.
 4. **Money is integer cents in `bigint`, prices are `integer` cents, and tiers are basis points.** One helper rounds half-up: `round_half_up(numerator, denominator)`, with ties going away from zero, which matches Postgres `round(numeric)`. Every multiplication by a rate goes through `mul_rate(cents, num, den)`, and the result is rounded at once. No floating point is used anywhere.
@@ -177,23 +180,18 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Tests green, summary, stop
 
 ### Phase 2 — Game engine
-- [ ] All engine modules above, with unit tests, including acceptance tests 1–10 with the exact numbers
-- [ ] Shared fixtures, SQL ports of the rules, parity tests running both implementations
-- [ ] Game functions in SQL:
-  - `place_order`, `edit_order`, `cancel_order`, `place_ipo_bid`
-  - `clear_round`, `allocate_ipo`
-  - `apply_lottery`, `pick_problem_card`
-  - `save_draft`, `submit`
-  - `propose_fee`, `confirm_fee`, `apply_default_fee`
-  - `edit_deal`, `sign_deal`
-  - `crisis_shock`, `release_scores`, `make_call`, `judge_calls`
-  - `close_market`, `apply_settlement`
-  - `tick`, `advance_phase`, `pause`, `resume`, `extend`
-  - `post_question`, `answer_question`, `publish_bulletin`
-  - `request_correction`, `approve_correction`, `decide_flag`
-- [ ] Rankings endpoint: returns 403 to teams before AWARDS
-- [ ] Invariant tests: cash and shares equal the ledger sums; 100,000 shares are conserved per company
-- [ ] Simulated full night in tests: 150 teams, every phase, settlement
+- [x] All engine modules above, with unit tests, including acceptance tests 1–10 with the exact numbers (`packages/engine/test/acceptance.test.ts`)
+- [x] SQL ports of the rules (`20261008000006`, `000007`), parity tests running both implementations on generated inputs
+- [x] Game functions in SQL (`20261008000008`–`000014`), each one transaction, caller from `auth.uid()`, clock `now()`:
+  - teams: `place_order`, `edit_order`, `cancel_order`, `place_ipo_bid`, `pick_problem_card`, `save_draft`, `submit_submission`, `propose_fee`, `confirm_fee`, `edit_deal`, `sign_deal`, `make_call`, `post_question`, `answer_question`
+  - organisers: `advance_phase`, `pause_event`, `resume_event`, `extend_event`, `set_auto_advance`, `close_round_now`, `set_seed_commitment`, `run_lottery`, `seal_score`, `seal_missing_scores`, `release_scores`, `publish_bulletin`, `request_correction`, `decide_correction`
+  - fairness officer: `decide_flag` (and `decide_correction`)
+  - heartbeat: `tick` (pg_cron every 2 s; clears rounds, opens rounds, applies default problem cards and fees, auto-advances)
+  - internal (run by phase transitions): `clear_round`, `allocate_ipo`, `apply_crisis`, `close_market`, `settle` (bonuses, results, flags, rankings, awards), `judge_calls`, `default_tickers`, `apply_default_fees`
+- [x] Rankings endpoint `GET /api/rankings`: 401 signed out, 403 to teams and the display before AWARDS (staff from SETTLEMENT); RLS enforces the same
+- [x] Invariant checks after every phase: cash and shares equal the ledger sums, 100,000 shares conserved per company, money zero-sum, every transaction balances
+- [x] Simulated full night in tests: 150 teams, every phase, ~5,400 accepted actions, settlement and awards; every clearing timed
+- [x] `scripts/verify-lottery.ts`: anyone can recheck the draw from the revealed seed
 
 ### Phase 3 — Control panel (/admin)
 Phase control with auto-advance, lottery entry and verification, rounds (pending orders, clearing preview, close now), judge controls (wired up in Phase 6), bulletins, CSV upload of content, ledger with two-person corrections, fairness (flags, team drill-down, decision log), CSV exports, and health (presence, realtime status, error log).
@@ -224,7 +222,7 @@ Phase control with auto-advance, lottery entry and verification, rounds (pending
 - Mobile-first layout.
 
 ### Phase 5 — Big screen (/display)
-1920×1080, high contrast. Header with clock, phase, round, countdown and an OPEN/HALTED/PAUSED badge. Bulletin banner. A 50-ticker grid paged 25 at a time every 20 s. Takeovers for the squad draw (with the seed check), crisis, verdicts, flash news, closing bell and awards. Realtime updates. No team names before AWARDS.
+1920×1080, high contrast. Header with clock, phase, round, countdown and an OPEN/HALTED/PAUSED badge. Bulletin banner. A 50-ticker grid paged 25 at a time every 20 s. Takeovers for the squad draw (with the seed check), crisis, verdicts, flash news, closing bell and awards. Realtime updates. No team names before AWARDS. After the seed is revealed, a public `GET /api/lottery-record` serves the JSON that `pnpm verify-lottery` checks.
 
 ### Phase 6 — AI judge pipeline
 Prompts stored in `prompts/`. Sanitise and anonymise each submission, wrap it in XML, return structured JSON output, validate it with up to 2 retries. Run 3 times, plus 2 more if the spread is over 10, and take the median. Store every run. Work runs through a database queue with parallel workers and rate-limit backoff, with a progress view. A backup-model switch, release that applies tiers atomically, a re-run for appeals, and a calibration page with 10 sample pitches.
@@ -259,13 +257,14 @@ A rehearsal event (fake teams, bot traders, 10× clock). A load test: 500 realti
 
 Real time = `starts_at + offset ÷ clock_speed`.
 
-- **Pause** freezes the event. On resume, every later phase, round and deadline moves by the length of the pause.
+- **Pause** freezes the event: trading is refused and a deadline that falls after the pause began has not passed. On resume, everything that has not happened yet (phases not yet started or ended, rounds not yet opened or cleared, deadlines) moves by the length of the pause. A cleared round never moves.
 - **Extend** adds N minutes to the current phase or round and moves everything after it.
-- **Gates.** Auto-advance waits at these points:
+- **Gates.** Auto-advance (and a manual advance) waits at these points:
   - SQUAD_DRAW until the lottery is drawn
-  - IPO until pitch scores are released
+  - READING until pitch scores are released (so the IPO opens with IPO prices)
   - VERDICTS until plan scores are released
-  - Round 18 until the flash tier is applied
+  - ROUNDS_13_21 until flash scores are released, and round 18 does not open before then
+  - APPEALS until the fairness officer has decided every flag
 
   If a gate opens late, the rest of the schedule moves by the delay. Rounds therefore keep their full length.
 
@@ -308,6 +307,18 @@ Real time = `starts_at + offset ÷ clock_speed`.
 28. **Login errors.** A sign-in that fails because Supabase cannot be reached says so, rather than "wrong password".
 29. **Supabase Auth's sign-in rate limit must be raised** (README step 4). Otherwise 150 check-ins through a few IP addresses would be throttled.
 30. **Passwords** are 12 characters from a 31-letter alphabet, about 59 bits. Organisers' and the display account's passwords are derived the same way and written to `out/<slug>-staff-logins.txt`.
+
+31. **Problem deck size.** The deck needs at least (squads + 2) cards; otherwise dealing 3 distinct cards per squad with each card used at most 3 times can run out for the last squad. The live deck has 60 cards for 50 squads. Checked in both the engine and SQL.
+32. **Ledger share sign.** `share_delta` is shares received (+) or delivered (−). A short sale is −qty on the fund's SHORT lot (+qty to the exchange); covering and the close are +qty. So a SHORT lot's quantity is −Σ share_delta and every other lot's is +Σ. Every transaction balances in cash and in shares per company (except the issue of new shares at the draw).
+33. **Injection stripping.** A line is stripped when, after Unicode normalisation (NFKC, invisible format characters removed, curly quotes made straight), it matches a pattern that addresses the judge in a judging context (ignore the instructions, give/deserves a score, "you are"/"you must", addressing the judge, fake judge output, breaking out of the XML wrapper). Known limit: look-alike letters from other scripts (for example a Cyrillic "о") are not caught; the judge prompt still tells the model to ignore instructions inside the submission.
+34. **Word count** (pitch 400, plan 500, flash 100, Q&A answer 100; the template sections only, not the company name or ticker): text is split on whitespace (invisible format characters count as spaces), and a token counts if it has at least one character that is not punctuation. The same definition is in the engine and in SQL.
+35. **Q&A rate limit:** 10 questions per minute per fund.
+36. **Realtime messages** go to the public topic `event:{id}` on commit and carry only public data (no team ids, cash or holdings): squad_draw, phase, round_open, round_cleared, ipo_allocated, crisis, verdicts, bulletin, qa, paused, resumed, extended, closing_bell, settled, correction. Clients re-fetch their own private data through RLS.
+37. **Heartbeat.** `pg_cron` runs `tick()` for every event every 2 seconds. A tick takes a per-event advisory lock (a second tick at the same moment does nothing), does nothing while paused, and is idempotent. A phase or round that starts more than 5 s late moves the rest of the schedule by the delay.
+38. **Consultant calls** are judged when their window's price is known: call 1 at the round 4 clearing price, call 2 when flash scores are released (the flash tier is applied), call 3 at the closing price. Each correct call earns $2,500.
+39. **The seed is revealed at the crisis** (Q1), in the same transaction that applies the crisis cards.
+40. **Settlement runs in SQL** in the transaction that enters SETTLEMENT: consultant bonuses, final values, collusion flags, then ranks and awards. A disqualification re-ranks at once.
+41. **Rankings endpoint.** A team reads its own event; staff and the display pass `?event=<id>`. Responses are `no-store`.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

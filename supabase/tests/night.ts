@@ -17,6 +17,8 @@ export class Night {
   readonly lead: Caller;
   readonly second: Caller;
   readonly fairness: Caller;
+  /** How long each clearing tick took (the whole tick transaction, as pg_cron would run it). */
+  readonly clearings: { round: number; orders: number; ms: number }[] = [];
 
   constructor(
     readonly pool: pg.Pool,
@@ -171,7 +173,9 @@ export class Night {
     const expected = clearRound(prices, orders, before);
 
     await this.q("update rounds set closes_at = now() - interval '1 millisecond' where id = $1", [round.id]);
+    const started = performance.now();
     await this.ok(this.lead, "tick", this.eventId);
+    this.clearings.push({ round: n, orders: orders.length, ms: performance.now() - started });
     expect((await this.one("select status from rounds where id = $1", [round.id])).status).toBe("CLEARED");
 
     const after = await this.fundBooks();

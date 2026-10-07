@@ -1,9 +1,18 @@
-import { buildTemplate, startCluster, writeConn } from "./pg";
+import type { TestProject } from "vitest/node";
+import { buildTemplate, startCluster } from "./pg";
 
-export default async function setup(): Promise<() => Promise<void>> {
+declare module "vitest" {
+  export interface ProvidedContext {
+    pgAdminUrl: string;
+  }
+}
+
+// The admin URL is handed to the test files through vitest's provide/inject, so several test runs
+// (each with its own cluster) can run side by side.
+export default async function setup(project: TestProject): Promise<() => Promise<void>> {
   if (process.env.TEST_DATABASE_URL) {
     await buildTemplate(process.env.TEST_DATABASE_URL);
-    writeConn({ adminUrl: process.env.TEST_DATABASE_URL });
+    project.provide("pgAdminUrl", process.env.TEST_DATABASE_URL);
     return async () => {};
   }
   const cluster = await startCluster();
@@ -13,6 +22,6 @@ export default async function setup(): Promise<() => Promise<void>> {
     await cluster.stop();
     throw err;
   }
-  writeConn({ adminUrl: cluster.adminUrl });
+  project.provide("pgAdminUrl", cluster.adminUrl);
   return cluster.stop;
 }

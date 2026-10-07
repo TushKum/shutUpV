@@ -6,21 +6,17 @@
 // then gets its own database cloned from that template.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync, chownSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, chownSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import pg from "pg";
+import { inject } from "vitest";
 
 export const ROOT = resolve(import.meta.dirname, "..", "..");
 export const MIGRATIONS_DIR = join(ROOT, "supabase", "migrations");
 export const STUB_SQL = join(ROOT, "supabase", "tests", "supabase-stub.sql");
-export const CONN_FILE = join(ROOT, ".pgtest", "conn.json");
 export const TEMPLATE_DB = "msim_template";
-
-export interface Conn {
-  adminUrl: string;
-}
 
 function pgBinDir(): string {
   if (process.env.PG_BIN) return process.env.PG_BIN;
@@ -127,20 +123,11 @@ export async function buildTemplate(adminUrl: string): Promise<void> {
   }
 }
 
-export function writeConn(conn: Conn): void {
-  mkdirSync(join(ROOT, ".pgtest"), { recursive: true });
-  writeFileSync(CONN_FILE, JSON.stringify(conn));
-}
-
-export function readConn(): Conn {
-  return JSON.parse(readFileSync(CONN_FILE, "utf8")) as Conn;
-}
-
 let counter = 0;
 
 /** A fresh database cloned from the migrated template. */
 export async function createTestDb(): Promise<{ pool: pg.Pool; url: string; drop: () => Promise<void> }> {
-  const { adminUrl } = readConn();
+  const adminUrl = inject("pgAdminUrl");
   const name = `msim_t_${process.pid}_${Date.now()}_${counter++}`;
   const admin = new pg.Client({ connectionString: adminUrl });
   await admin.connect();

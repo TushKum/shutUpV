@@ -99,9 +99,11 @@ begin
         from (
           select h.team_id, h.company_id, c.closing_price as closing, c.ai_price as ai,
                  coalesce(sum(h.qty) filter (where h.lot in ('EXCHANGE', 'SQUAD')), 0) as long_qty,
-                 coalesce((select sum(l.share_delta) from public.ledger_entries l
-                            where l.team_id = h.team_id and l.company_id = h.company_id and l.kind = 'SHORT_CLOSE'), 0) as short_qty
+                 coalesce(max(sc.qty), 0) as short_qty
             from public.holdings h join public.companies c on c.id = h.company_id
+            left join (select l.team_id, l.company_id, sum(l.share_delta) as qty from public.ledger_entries l
+                        where l.event_id = p_event and l.kind = 'SHORT_CLOSE' group by l.team_id, l.company_id) sc
+                   on sc.team_id = h.team_id and sc.company_id = h.company_id
            where h.event_id = p_event and h.lot in ('EXCHANGE', 'SQUAD', 'SHORT')
            group by h.team_id, h.company_id, c.closing_price, c.ai_price) x
        group by x.team_id) p on p.team_id = t.id
@@ -174,9 +176,13 @@ $$;
 
 -- ───────────────────────────── Collusion flags ─────────────────────────────
 
+-- Nested loops are switched off for this one batch query: during the night the order tables grow faster than
+-- autovacuum re-analyses them, and with stale row estimates the planner picks a nested-loop self-join over all
+-- filled orders (seconds instead of milliseconds for 50 funds).
 create or replace function app.generate_flags(p_event uuid)
 returns integer
 language plpgsql
+set enable_nestloop = off
 as $$
 declare
   n int;
