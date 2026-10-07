@@ -48,6 +48,13 @@ describe("verify-lottery", () => {
     expect(problems.some((p) => /squad 4: crisis card/.test(p))).toBe(true);
   });
 
+  test("the record's commitment must be the one published the day before", () => {
+    expect(checkLotteryRecord(record(), sha256Hex("night-seed"))).toEqual([]);
+    expect(checkLotteryRecord(record(), sha256Hex("swapped-seed"))).toEqual([
+      "the record's commitment is not the one published before the event",
+    ]);
+  });
+
   test("a different dice roll does not reproduce the record", () => {
     expect(checkLotteryRecord({ ...record(), dice: "6" }).length).toBeGreaterThan(0);
   });

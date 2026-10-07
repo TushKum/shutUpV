@@ -39,14 +39,15 @@ pnpm typecheck
    ```
 3. **Turn off sign-ups.** In Auth → Providers → Email, turn off "Allow new users to sign up". Organisers create every account; there is no self sign-up. `supabase/config.toml` sets the same for local development.
 4. **Raise the sign-in rate limit.** In Auth → Rate Limits, set "sign-ups and sign-ins" to at least 300 per 5 minutes. The default (30 per 5 minutes per IP) would block check-in, because all teams sign in through a few IP addresses.
-5. **Check the heartbeat.** Rounds close, clear and open on a `pg_cron` job that calls `tick()` every 2 seconds. Enable `pg_cron` in Database → Extensions *before* `supabase db push`, then check that `select jobname, schedule from cron.job;` lists `msim-tick`. If it is missing, enable the extension and run the last migration's `do $$ … $$` block again in the SQL editor.
+5. **Make Realtime private.** In Realtime → Settings, turn off "Allow public access". Event channels are private: a policy lets only the event's accounts (and staff and the display) receive, and nobody can send.
+6. **Check the heartbeat.** Rounds close, clear and open on a `pg_cron` job that calls `tick()` every 2 seconds. Enable `pg_cron` in Database → Extensions *before* `supabase db push`, then check that `select jobname, schedule from cron.job;` lists `msim-tick`. If it is missing, enable the extension and run the last migration's `do $$ … $$` block again in the SQL editor. Failures of a tick are written to `error_log`.
 
-## Verify the lottery
+## The lottery seed
 
-At 21:00 the display shows the seed commitment and the dice; the seed itself is revealed at the crisis (00:30). Anyone can then download the lottery record and run:
+The day before the event, run `pnpm new-seed`. Keep the seed secret, publish the commitment, and enter the commitment (with `pnpm seed --commitment …` or in /admin) while the event is still in SETUP: it is fixed once the event starts. At 21:00 an organiser enters the seed and the dice roll; the display shows the commitment and the dice. The seed is revealed at the crisis (00:30), and anyone can then download the lottery record and run:
 
 ```bash
-pnpm verify-lottery --file lottery-record.json
+pnpm verify-lottery --file lottery-record.json --commitment <the commitment published the day before>
 ```
 
 It checks the seed against the commitment and recomputes every squad, problem card, coverage pair and crisis card.

@@ -18,9 +18,15 @@ export interface LotteryRecord {
 
 const cardLabel = (c: { category: string; number: number }) => `${c.category} #${c.number}`;
 
-/** Every difference between the record and a fresh draw (an empty list means the record checks out). */
-export function checkLotteryRecord(record: LotteryRecord): string[] {
+/**
+ * Every difference between the record and a fresh draw (an empty list means the record checks out).
+ * `published` is the commitment the checker saw before the event; it must equal the record's.
+ */
+export function checkLotteryRecord(record: LotteryRecord, published?: string): string[] {
   const problems: string[] = [];
+  if (published !== undefined && published.trim().toLowerCase() !== record.commitment.trim().toLowerCase()) {
+    problems.push("the record's commitment is not the one published before the event");
+  }
   if (!verifyCommitment(record.seed, record.commitment)) {
     problems.push("the seed does not match the commitment published before the draw");
   }

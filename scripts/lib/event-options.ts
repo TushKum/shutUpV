@@ -23,7 +23,7 @@ export const USAGE = `Options:
   --staff <csv>            organiser, fairness officer and display logins (optional)
   --problems <csv>         problem deck (default seed/problem-cards.csv)
   --crises <csv>           crisis deck (default seed/crisis-cards.csv)
-  --commitment <sha256>    published SHA-256 of the secret lottery seed (can be set later in /admin)
+  --commitment <sha256>    published SHA-256 of the secret lottery seed (pnpm new-seed; can be set in /admin until the event starts)
 Environment: CARD_SECRET, TEAM_EMAIL_DOMAIN`;
 
 export function optionsFromArgs(args: Record<string, string | true>): SeedOptions {

@@ -1,9 +1,10 @@
 // Anyone can re-run the draw. Once the seed is revealed (00:30), download the lottery record and run
 //
-//   pnpm verify-lottery --file lottery-record.json
+//   pnpm verify-lottery --file lottery-record.json [--commitment <the SHA-256 published the day before>]
 //
-// It checks the seed against the commitment shown at 21:00 and recomputes the squads, problem cards, coverage and
-// crisis cards from the seed and the dice (see scripts/lib/lottery-record.ts for the record's format).
+// It checks the seed against the commitment and recomputes the squads, problem cards, coverage and crisis cards
+// from the seed and the dice (see scripts/lib/lottery-record.ts for the record's format). Pass --commitment with the
+// value you saw published before the event, so the check does not rely on the record's own copy.
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "./lib/args";
@@ -15,7 +16,7 @@ if (typeof args.file !== "string") {
   process.exit(2);
 }
 const record = JSON.parse(readFileSync(args.file, "utf8")) as LotteryRecord;
-const problems = checkLotteryRecord(record);
+const problems = checkLotteryRecord(record, typeof args.commitment === "string" ? args.commitment : undefined);
 if (problems.length) {
   console.error(`The record does NOT match the draw (${problems.length} problem${problems.length === 1 ? "" : "s"}):`);
   for (const p of problems) console.error(`  - ${p}`);
