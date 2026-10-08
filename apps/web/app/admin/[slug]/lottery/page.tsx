@@ -152,8 +152,9 @@ function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: No
         <div className="mt-3">
           {check.problems.length === 0 ? (
             <Notice tone="green">
-              <strong>Draw verified.</strong> All {squads.length} squads, their dealt problem cards and the coverage
-              {record.crises ? " and the crisis cards" : ""} are exactly what the seed and the dice produce.
+              <strong>Draw verified.</strong> All {squads.length} squads,{" "}
+              {record.crises ? "their dealt problem cards, the coverage and the crisis cards" : "their dealt problem cards and the coverage"} are exactly
+              what the seed and the dice produce.
             </Notice>
           ) : (
             <Notice tone="red">
