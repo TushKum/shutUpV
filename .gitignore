@@ -10,3 +10,5 @@ coverage
 .vercel
 /output
 supabase/.temp
+supabase/.branches
+supabase/.temp

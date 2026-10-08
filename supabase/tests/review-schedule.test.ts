@@ -127,7 +127,8 @@ async function flashAnswered(n: Night, s: Squad[]) {
     await n.openRound(r);
     await n.clearRound(r);
   }
-  await n.org("publish_bulletin", n.eventId, "FLASH", "Interest rates rise", "Investors want profit within 12 months.");
+  await n.org("prepare_flash_bulletin", n.eventId, "Interest rates rise", "Investors want profit within 12 months.");
+  await n.org("publish_flash_bulletin", n.eventId);
   for (const x of s) expect(await submit(n, x, "FLASH", { answer: `Squad ${x.number} stays profitable by licensing.` })).toMatchObject({ ok: true });
 }
 

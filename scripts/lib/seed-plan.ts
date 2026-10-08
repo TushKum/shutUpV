@@ -3,14 +3,16 @@
 
 import {
   TRACKS,
+  parseCsvObjects,
   buildSchedule,
   teamCode,
   teamEmail,
   type BuiltSchedule,
+  type CrisisCard,
+  type ProblemCard,
   type Track,
 } from "@msim/engine";
 import { derivePassword } from "./credentials";
-import { parseCsvObjects } from "./csv";
 
 export const STARTING_CASH_CENTS: Record<Track, number> = {
   PRODUCT: 0, // receives $50,000 seed money when its squad is formed
@@ -34,20 +36,6 @@ export interface StaffRow {
   role: "ORGANISER" | "FAIRNESS" | "DISPLAY";
   name: string;
   roll_number?: string;
-}
-
-export interface ProblemCard {
-  number: number;
-  sector: string;
-  title: string;
-  body: string;
-}
-
-export interface CrisisCard {
-  category: string;
-  number: number;
-  title: string;
-  body: string;
 }
 
 export interface SeedOptions {
@@ -236,23 +224,6 @@ export function staffFromCsv(text: string): StaffRow[] {
   });
 }
 
-/** Columns: number, sector, title, body. */
-export function problemCardsFromCsv(text: string): ProblemCard[] {
-  const cards = parseCsvObjects(text).map((r, i) => {
-    const number = Number(r.number);
-    if (!Number.isInteger(number) || number < 1) throw new Error(`problem CSV row ${i + 2}: bad number`);
-    if (!r.title || !r.body) throw new Error(`problem CSV row ${i + 2}: title and body are required`);
-    return { number, sector: r.sector ?? "", title: r.title, body: r.body };
-  });
-  const numbers = new Set(cards.map((c) => c.number));
-  if (numbers.size !== cards.length) throw new Error("problem CSV: card numbers must be unique");
-  return cards;
-}
 
-/** Columns: category, number, title, body. */
-export function crisisCardsFromCsv(text: string): CrisisCard[] {
-  return parseCsvObjects(text).map((r, i) => {
-    if (!r.category || !r.title || !r.body) throw new Error(`crisis CSV row ${i + 2}: category, title and body are required`);
-    return { category: r.category, number: Number(r.number || 1), title: r.title, body: r.body };
-  });
-}
+// The deck formats live in the engine (shared with the control panel's content upload).
+export { crisisCardsFromCsv, problemCardsFromCsv, type CrisisCard, type ProblemCard } from "@msim/engine";

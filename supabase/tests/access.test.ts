@@ -26,7 +26,7 @@ const ALL_TABLES = [
   "crisis_cards", "squads", "companies", "coverage", "holdings", "orders", "ipo_bids", "round_prices", "fees",
   "deals", "submission_drafts", "submissions", "judge_runs", "scores", "injection_logs", "calls", "qa_questions",
   "qa_answers", "bulletins", "ledger_entries", "public_ledger", "corrections", "flags", "results", "awards",
-  "audit_log", "rate_limits", "error_log",
+  "audit_log", "rate_limits", "error_log", "client_pings",
 ];
 
 describe("grants", () => {
@@ -58,11 +58,12 @@ describe("grants", () => {
        where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
        order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
-      "advance_phase", "answer_question", "cancel_order", "close_round_now", "confirm_fee", "decide_correction",
-      "decide_flag", "edit_deal", "edit_order", "extend_event", "make_call", "pause_event", "pick_problem_card",
-      "place_ipo_bid", "place_order", "post_question", "propose_fee", "publish_bulletin", "release_scores",
-      "request_correction", "resume_event", "run_lottery", "save_draft", "seal_missing_scores",
-      "set_auto_advance", "set_seed_commitment", "sign_deal", "submit_submission", "tick",
+      "admin_health", "advance_phase", "answer_question", "cancel_order", "close_round_now", "confirm_fee",
+      "decide_correction", "decide_flag", "edit_deal", "edit_order", "event_status", "extend_event", "make_call", "pause_event",
+      "pick_problem_card", "ping", "place_ipo_bid", "place_order", "post_question", "prepare_flash_bulletin",
+      "propose_fee", "publish_bulletin", "publish_flash_bulletin", "release_scores", "request_correction",
+      "resume_event", "run_lottery", "save_draft", "seal_missing_scores", "server_time", "set_auto_advance",
+      "set_seed_commitment", "sign_deal", "submit_submission", "tick", "upload_crisis_deck", "upload_problem_deck",
     ]);
     for (const r of rows) {
       expect(r.anon, r.proname).toBe(false);

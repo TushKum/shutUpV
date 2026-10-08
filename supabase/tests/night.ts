@@ -3,7 +3,7 @@
 // the schedule. After every clearing it checks the database against the TypeScript engine, and it can check the
 // ledger invariants at any point.
 
-import { expect } from "vitest";
+import assert from "node:assert/strict";
 import type pg from "pg";
 import { RUBRICS, clearRound, type ClearingOrder, type FundBook, type OrderType, type SubmissionType } from "@msim/engine";
 import { as, seedEvent, service, user, type Caller, type SeededEvent } from "./helpers";
@@ -67,7 +67,7 @@ export class Night {
 
   async ok(caller: Caller, fn: string, ...args: unknown[]): Promise<any> {
     const r = await this.call(caller, fn, ...args);
-    expect(r, `${fn}(${JSON.stringify(args)})`).toMatchObject({ ok: true });
+    if (r?.ok !== true) throw new Error(`${fn}(${JSON.stringify(args)}) was refused: ${JSON.stringify(r)}`);
     return r;
   }
 
@@ -131,7 +131,7 @@ export class Night {
       const r = await this.call(this.lead, "advance_phase", this.eventId, from);
       if (!r.ok) throw new Error(`cannot leave ${from}: ${r.message}`);
     }
-    expect(await this.phase()).toBe(target);
+    assert.equal(await this.phase(), target);
   }
 
   async openRound(n: number) {
@@ -140,7 +140,7 @@ export class Night {
       n,
     ]);
     await this.ok(this.lead, "tick", this.eventId);
-    expect((await this.one("select status from rounds where event_id = $1 and number = $2", [this.eventId, n])).status).toBe("OPEN");
+    assert.equal((await this.one("select status from rounds where event_id = $1 and number = $2", [this.eventId, n])).status, "OPEN", `round ${n} opens`);
   }
 
   // ───────────── State ─────────────
@@ -199,23 +199,23 @@ export class Night {
     const started = performance.now();
     await this.ok(this.lead, "tick", this.eventId);
     this.clearings.push({ round: n, orders: orders.length, ms: performance.now() - started });
-    expect((await this.one("select status from rounds where id = $1", [round.id])).status).toBe("CLEARED");
+    assert.equal((await this.one("select status from rounds where id = $1", [round.id])).status, "CLEARED", `round ${n} clears`);
 
     const after = await this.fundBooks();
     const newPrices = await this.prices();
-    for (const [companyId, c] of Object.entries(expected.companies)) expect(newPrices[companyId], `price ${companyId}`).toBe(c.newPrice);
+    for (const [companyId, c] of Object.entries(expected.companies)) assert.equal(newPrices[companyId], c.newPrice, `price ${companyId}`);
     for (const [teamId, book] of Object.entries(expected.funds)) {
-      expect(after[teamId]!.cash, `cash ${teamId}`).toBe(book.cash);
-      expect(after[teamId]!.collateral, `collateral ${teamId}`).toBe(book.collateral);
+      assert.equal(after[teamId]!.cash, book.cash, `cash ${teamId}`);
+      assert.equal(after[teamId]!.collateral, book.collateral, `collateral ${teamId}`);
       for (const [companyId, p] of Object.entries(book.positions)) {
         const got = after[teamId]!.positions[companyId] ?? { exchangeQty: 0, exchangeCost: 0, shortQty: 0, shortProceeds: 0 };
-        expect(got, `position ${teamId}/${companyId}`).toEqual(p);
+        assert.deepEqual(got, p, `position ${teamId}/${companyId}`);
       }
     }
     const rp = await this.q("select count(*)::int as n from round_prices where round_id = $1", [round.id]);
-    expect(rp[0].n).toBe(Object.keys(prices).length); // a price for every company, traded or not
+    assert.equal(rp[0].n, Object.keys(prices).length, "a price for every company, traded or not");
     const unfilled = await this.q("select count(*)::int as n from orders where round_id = $1 and status = 'PENDING'", [round.id]);
-    expect(unfilled[0].n).toBe(0);
+    assert.equal(unfilled[0].n, 0, "no order left pending");
     return expected;
   }
 
@@ -263,20 +263,20 @@ export class Night {
       select t.code, t.cash_cents, coalesce(sum(l.cash_delta_cents), 0) as ledger
         from teams t left join ledger_entries l on l.team_id = t.id
        where t.event_id = $1 group by t.id having t.cash_cents <> coalesce(sum(l.cash_delta_cents), 0)`, [this.eventId]);
-    expect(cash, "team cash = Σ ledger").toEqual([]);
+    assert.deepEqual(cash, [], "team cash = Σ ledger");
 
     const lots = await this.q(`
       select h.team_id, h.company_id, h.lot, h.qty, coalesce(sum(l.share_delta), 0) as ledger
         from holdings h left join ledger_entries l on l.team_id = h.team_id and l.company_id = h.company_id and l.lot = h.lot
        where h.event_id = $1 group by h.id
       having h.qty <> case when h.lot = 'SHORT' then -1 else 1 end * coalesce(sum(l.share_delta), 0)`, [this.eventId]);
-    expect(lots, "holdings = Σ ledger per lot (SHORT lot: −Σ)").toEqual([]);
+    assert.deepEqual(lots, [], "holdings = Σ ledger per lot (SHORT lot: −Σ)");
 
     const exch = await this.q(`
       select c.ticker, c.exchange_inventory, coalesce(sum(l.share_delta), 0) as ledger
         from companies c left join ledger_entries l on l.company_id = c.id and l.team_id is null
        where c.event_id = $1 and c.squad_id is not null group by c.id having c.exchange_inventory <> coalesce(sum(l.share_delta), 0)`, [this.eventId]);
-    expect(exch, "exchange inventory = Σ exchange ledger").toEqual([]);
+    assert.deepEqual(exch, [], "exchange inventory = Σ exchange ledger");
 
     // 100,000 shares per company: Σ long lots + exchange inventory − Σ short = 100,000.
     const shares = await this.q(`
@@ -284,25 +284,25 @@ export class Night {
              c.exchange_inventory + coalesce(sum(h.qty) filter (where h.lot <> 'SHORT'), 0) - coalesce(sum(h.qty) filter (where h.lot = 'SHORT'), 0) as total
         from companies c left join holdings h on h.company_id = c.id
        where c.event_id = $1 and c.squad_id is not null group by c.id`, [this.eventId]);
-    for (const s of shares) expect(Number(s.total), `shares of ${s.ticker}`).toBe(100_000);
+    for (const s of shares) assert.equal(Number(s.total), 100_000, `shares of ${s.ticker}`);
 
     // Money is conserved: every team's cash plus the exchange's sums to zero.
     const money = await this.one(
       "select e.exchange_cash_cents + (select coalesce(sum(cash_cents), 0) from teams where event_id = e.id) as total from events e where e.id = $1",
       [this.eventId],
     );
-    expect(Number(money.total), "money is conserved").toBe(0);
+    assert.equal(Number(money.total), 0, "money is conserved");
 
     // Every ledger transaction balances: cash per transaction, and shares per transaction and company
     // (except the issue of new shares at the draw).
     const cashTxn = await this.q(
       "select txn_id, sum(cash_delta_cents) as cash from ledger_entries where event_id = $1 group by txn_id having sum(cash_delta_cents) <> 0",
       [this.eventId]);
-    expect(cashTxn, "every transaction's cash balances").toEqual([]);
+    assert.deepEqual(cashTxn, [], "every transaction's cash balances");
     const shareTxn = await this.q(
       `select txn_id, company_id, sum(share_delta) as shares from ledger_entries
         where event_id = $1 and kind not in ('ISSUE', 'SEED') group by txn_id, company_id having sum(share_delta) <> 0`,
       [this.eventId]);
-    expect(shareTxn, "every transaction's shares balance").toEqual([]);
+    assert.deepEqual(shareTxn, [], "every transaction's shares balance");
   }
 }

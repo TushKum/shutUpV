@@ -10,8 +10,14 @@ enable_signup = false
 site_url = "http://localhost:3000"
 jwt_expiry = 43200 # 12 hours: one login lasts the night
 
+[auth.rate_limit]
+# The browser tests sign in many times from one address (production: README, "Raise the sign-in rate limit").
+sign_in_sign_ups = 1000
+
 [auth.email]
-enable_signup = false
+# Must stay true: in the CLI config this switch is the email provider itself (sign-ins included). Sign-ups are
+# already refused by [auth] enable_signup = false above.
+enable_signup = true
 enable_confirmations = false
 
 [realtime]

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AccountRole, Track } from "@msim/engine";
@@ -41,8 +42,11 @@ export async function getViewer(client?: SupabaseClient): Promise<Viewer | null>
 
 /** Server-side gate for a layout or page. */
 export async function requireRole(roles: readonly AccountRole[], from: string): Promise<Viewer> {
-  const viewer = await getViewer();
+  const viewer = await currentViewer();
   if (!viewer) redirect(`/login?next=${encodeURIComponent(from)}`);
   if (!roles.includes(viewer.role)) redirect(homeFor(viewer.role));
   return viewer;
 }
+
+/** The signed-in account, once per request (layouts and pages share it). */
+export const currentViewer = cache(() => getViewer());

@@ -252,7 +252,8 @@ describe("a full night with 150 teams", { timeout: 600_000 }, () => {
 
     await round(HEAVY_ROUND, 10);
     for (const r of [14, 15]) await round(r);
-    await n.org("publish_bulletin", n.eventId, "FLASH", "Interest rates rise", "Investors want profit within 12 months.");
+    await n.org("prepare_flash_bulletin", n.eventId, "Interest rates rise", "Investors want profit within 12 months.");
+    await n.org("publish_flash_bulletin", n.eventId);
     await eachSquad(async (s) => void tally(await submit(s, "FLASH")));
     await n.deadlinePassed("FLASH");
     for (const r of [16, 17]) await round(r);

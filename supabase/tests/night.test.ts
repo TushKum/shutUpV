@@ -453,7 +453,8 @@ describe("a scripted night", () => {
     await round(15, async () => n.orderNet(company.SNAP!, 4082, tradersOf("SNAP").slice(6)));
     expect(await price("SNAP")).toBe(1020);
 
-    await n.org("publish_bulletin", n.eventId, "FLASH", "Interest rates rise", "Investors want profit within 12 months.");
+    await n.org("prepare_flash_bulletin", n.eventId, "Interest rates rise", "Investors want profit within 12 months.");
+    await n.org("publish_flash_bulletin", n.eventId);
     for (const s of squads) {
       if (s.number === roles.missing) continue;
       expect(await submit(s.number, "FLASH", "Licensing is profitable by month 9 with no loans."), `flash ${s.number}`).toMatchObject({ ok: true });

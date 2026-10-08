@@ -853,7 +853,7 @@ begin
   insert into public.bulletins (event_id, kind, title, body, published_at, created_by)
   values (p_event, p_kind, btrim(p_title), coalesce(p_body, ''), now(), auth.uid())
   returning * into v_b;
-  perform app.broadcast(p_event, 'bulletin', jsonb_build_object('id', v_b.id, 'kind', v_b.kind, 'title', v_b.title, 'body', v_b.body));
+  perform app.broadcast(p_event, 'bulletin', jsonb_build_object('id', v_b.id, 'bulletin_kind', v_b.kind, 'title', v_b.title, 'body', v_b.body));
   return app.ok(jsonb_build_object('bulletin', to_jsonb(v_b)));
 end
 $$;
