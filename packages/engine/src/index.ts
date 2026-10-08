@@ -7,6 +7,7 @@ export * from "./prices";
 export * from "./trading";
 export * from "./ipo";
 export * from "./lottery";
+export * from "./lottery-record";
 export * from "./rescue";
 export * from "./calls";
 export * from "./judge";
