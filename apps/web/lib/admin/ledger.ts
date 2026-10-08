@@ -94,13 +94,22 @@ export function bigCents(v: Cents | bigint | null | undefined): bigint {
   throw new Error(`not a whole number of cents: ${String(v)}`);
 }
 
-/** Cents from a BigInt sum, for display (money() takes a number or its string form). */
-const centsText = (b: bigint) => b.toString();
+/**
+ * Cents as money, exactly, at any size: "$1,234.56", "−$0.50" (the same form as money(), which stops at 2^53 cents;
+ * a sum of many bigint rows is formatted here digit by digit).
+ */
+export function bigMoney(c: Cents | bigint): string {
+  const b = bigCents(c);
+  const abs = b < 0n ? -b : b;
+  const whole = (abs / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const frac = (abs % 100n).toString().padStart(2, "0");
+  return `${b < 0n ? "−" : ""}$${whole}.${frac}`;
+}
 
 /** "+$12.34", "−$0.50", "$0.00". */
 export function signedMoney(c: Cents | bigint): string {
   const b = bigCents(c);
-  return b > 0n ? `+${money(centsText(b))}` : money(centsText(b));
+  return b > 0n ? `+${bigMoney(b)}` : bigMoney(b);
 }
 
 /** "+3,000", "−500", "0". */
@@ -350,15 +359,28 @@ export function checkBooks(
   for (const t of teams) {
     const sum = teamCash.get(t.id) ?? 0n;
     const cash = bigCents(t.cash_cents);
-    if (sum !== cash) problems.push(`${t.code}: cash is ${money(centsText(cash))} but its ledger rows sum to ${money(centsText(sum))}.`);
+    if (sum !== cash) problems.push(`${t.code}: cash is ${bigMoney(cash)} but its ledger rows sum to ${bigMoney(sum)}.`);
   }
   for (const id of teamCash.keys()) {
     if (!teamById.has(id)) problems.push("A ledger row names a team that is not in this event.");
   }
   const exch = bigCents(exchangeCash);
-  if (exch !== exchange) problems.push(`Exchange: cash is ${money(centsText(exch))} but its ledger rows sum to ${money(centsText(exchange))}.`);
+  if (exch !== exchange) problems.push(`Exchange: cash is ${bigMoney(exch)} but its ledger rows sum to ${bigMoney(exchange)}.`);
 
   return { ok: problems.length === 0, transactions: txnCash.size, rows: rows.length, problems };
+}
+
+/**
+ * The teams' cash and the exchange's, as one comparable value. The books check reads the cash, then every ledger row
+ * (several requests), then the cash again: if the two snapshots differ, a transaction committed in between and the
+ * read is repeated, so a clearing during the read is never reported as a broken book.
+ */
+export function cashSnapshot(teams: readonly BooksTeam[], exchangeCash: Cents): string {
+  return [...teams]
+    .map((t) => `${t.id}:${bigCents(t.cash_cents)}`)
+    .sort()
+    .concat(`exchange:${bigCents(exchangeCash)}`)
+    .join("|");
 }
 
 /** The books check as one status line. */

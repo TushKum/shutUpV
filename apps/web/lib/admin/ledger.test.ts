@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
   EXCHANGE,
+  bigMoney,
   booksLine,
+  cashSnapshot,
   checkBooks,
   ledgerHref,
   ledgerLines,
@@ -81,6 +83,10 @@ describe("table lines", () => {
     expect(signedMoney("-50")).toBe("−$0.50");
     expect(signedMoney(0)).toBe("$0.00");
     expect(signedMoney("900719925474099300")).toBe("+$9,007,199,254,740,993.00");
+    expect(bigMoney(123456)).toBe("$1,234.56");
+    expect(bigMoney("-5")).toBe("−$0.05");
+    expect(bigMoney(-100000000n)).toBe("−$1,000,000.00");
+    expect(bigMoney(0)).toBe("$0.00");
     expect(signedCount(3000)).toBe("+3,000");
     expect(signedCount(-500)).toBe("−500");
     expect(signedCount(0)).toBe("0");
@@ -222,5 +228,14 @@ describe("books check", () => {
   test("refuses amounts that are not whole cents rather than guessing", () => {
     expect(() => checkBooks([{ ...ROWS[0]!, cash_delta_cents: "12.5" }], [], 0)).toThrow(/not a whole number of cents/);
     expect(() => checkBooks([{ ...ROWS[0]!, cash_delta_cents: 0.5 }], [], 0)).toThrow(/not a whole number of cents/);
+  });
+});
+
+describe("a consistent read for the books check", () => {
+  test("the snapshot changes when any team's cash or the exchange's does, not when the rows come back in another order", () => {
+    const a = cashSnapshot([{ id: "f1", code: "MF01", cash_cents: "100" }, { id: "p1", code: "MP01", cash_cents: 5 }], "-105");
+    expect(cashSnapshot([{ id: "p1", code: "MP01", cash_cents: "5" }, { id: "f1", code: "MF01", cash_cents: 100 }], -105)).toBe(a);
+    expect(cashSnapshot([{ id: "f1", code: "MF01", cash_cents: 101 }, { id: "p1", code: "MP01", cash_cents: 5 }], -105)).not.toBe(a);
+    expect(cashSnapshot([{ id: "f1", code: "MF01", cash_cents: 100 }, { id: "p1", code: "MP01", cash_cents: 5 }], -106)).not.toBe(a);
   });
 });

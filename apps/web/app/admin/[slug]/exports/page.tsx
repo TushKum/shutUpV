@@ -17,8 +17,8 @@ export default async function ExportsPage({ params }: { params: Promise<{ slug: 
       <Panel title="Exports">
         <p className="text-sm text-slate-600">
           CSV files (RFC 4180, UTF-8, one header row) of this event as it stands now. Money and prices are whole cents (12345 = $123.45), tiers and
-          returns are basis points (500 = +5%), and times are IST (+05:30). A text cell that starts with = + - @ is written with a leading &apos;
-          so a spreadsheet shows it rather than running it as a formula.
+          returns are basis points (500 = +5%), and times are IST (+05:30). A text cell that starts with = + - @, a tab or a carriage return is
+          written with a leading &apos; so a spreadsheet shows it rather than running it as a formula.
         </p>
         <ul className="mt-4 divide-y divide-slate-100">
           {EXPORT_KINDS.map((kind) => {

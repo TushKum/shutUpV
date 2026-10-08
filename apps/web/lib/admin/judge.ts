@@ -119,6 +119,7 @@ export interface CompanyJudgeView {
   spread: number | null;
   /** The sealed median, or the median of complete unsealed runs (sealed = false). */
   median: { value: number; sealed: boolean } | null;
+  /** The sealed or released score (null before it is sealed). */
   score: JudgeScoreRow | null;
   status: CompanyStatus;
   /** A sealed (not yet released) score whose submission is no longer the current one: release refuses it. */
@@ -132,10 +133,14 @@ export function spread(totals: readonly number[]): number | null {
   return totals.length < 2 ? null : Math.max(...totals) - Math.min(...totals);
 }
 
+/** A score counts once it is sealed (or released); a PENDING or SCORING row is treated as no score yet. */
+export function sealedScore(score: JudgeScoreRow | null | undefined): JudgeScoreRow | null {
+  return score && (score.status === "SEALED" || score.status === "RELEASED") ? score : null;
+}
+
 function companyStatus(score: JudgeScoreRow | null, submission: JudgeSubmissionRow | null, runs: readonly JudgeRunRow[], totals: readonly number[]): CompanyStatus {
-  if (score?.status === "RELEASED") return { label: "Released", tone: "green" };
+  if (score?.status === "RELEASED") return { label: score.missing ? "Released: missing (0)" : "Released", tone: "green" };
   if (score?.status === "SEALED") return score.missing ? { label: "Sealed: missing (0)", tone: "amber" } : { label: "Sealed", tone: "blue" };
-  if (score) return { label: "Scoring", tone: "blue" };
   if (!submission) return { label: "No submission", tone: "amber" };
   if (runs.length === 0) return { label: "Not judged", tone: "slate" };
   const done = runs.filter((r) => r.status === "DONE").length;
@@ -156,6 +161,15 @@ export function companyLabel(v: { company: JudgeCompanyRow }): string {
 
 const byRun = (a: JudgeRunRow, b: JudgeRunRow) => a.run_no - b.run_no;
 
+/** Companies with a ticker first (A–Z), then the rest by squad. */
+function byCompany(a: CompanyJudgeView, b: CompanyJudgeView): number {
+  const ta = a.company.ticker;
+  const tb = b.company.ticker;
+  if (ta !== null && tb !== null) return ta.localeCompare(tb);
+  if (ta !== null || tb !== null) return ta !== null ? -1 : 1;
+  return (a.company.squad ?? Number.MAX_SAFE_INTEGER) - (b.company.squad ?? Number.MAX_SAFE_INTEGER);
+}
+
 export function companyViews(type: SubmissionType, rows: JudgeRows): CompanyJudgeView[] {
   const submissions = new Map(rows.submissions.filter((s) => s.type === type).map((s) => [s.company_id, s]));
   const scores = new Map(rows.scores.filter((s) => s.type === type).map((s) => [s.company_id, s]));
@@ -167,42 +181,41 @@ export function companyViews(type: SubmissionType, rows: JudgeRows): CompanyJudg
     runsOf.set(r.company_id, list);
   }
 
-  const views = rows.companies.map((company): CompanyJudgeView => {
-    const submission = submissions.get(company.id) ?? null;
-    const score = scores.get(company.id) ?? null;
-    const all = runsOf.get(company.id) ?? [];
-    const current = submission ? all.filter((r) => r.submission_id === submission.id) : [];
-    const generation = current.length ? Math.max(...current.map((r) => r.generation)) : null;
-    const runs = current.filter((r) => r.generation === generation).sort(byRun);
-    const totals = runs.filter((r) => r.status === "DONE" && r.total !== null).map((r) => r.total!);
-    const median =
-      score && score.median !== null && !score.missing
-        ? { value: score.median, sealed: true }
-        : !score && runsComplete(totals)
-          ? { value: medianScore(totals), sealed: false }
-          : null;
-    const stale = !!score && score.status !== "RELEASED" && (score.submission_id ?? null) !== (submission?.id ?? null);
-    const allRuns = all
-      .map((r) => ({ ...r, current: r.submission_id === submission?.id }))
-      .sort((a, b) => Number(b.current) - Number(a.current) || b.generation - a.generation || a.run_no - b.run_no || a.created_at.localeCompare(b.created_at));
-    return {
-      company,
-      submission,
-      generation,
-      runs,
-      totals,
-      spread: spread(totals),
-      median,
-      score,
-      status: companyStatus(score, submission, runs, totals),
-      stale,
-      allRuns,
-    };
-  });
-  return views.sort(
-    (a, b) =>
-      (a.company.ticker ?? "￿").localeCompare(b.company.ticker ?? "￿") || (a.company.squad ?? 999) - (b.company.squad ?? 999),
-  );
+  return rows.companies
+    .map((company): CompanyJudgeView => {
+      const submission = submissions.get(company.id) ?? null;
+      const score = sealedScore(scores.get(company.id));
+      const all = runsOf.get(company.id) ?? [];
+      const current = submission ? all.filter((r) => r.submission_id === submission.id) : [];
+      const generation = current.length ? Math.max(...current.map((r) => r.generation)) : null;
+      const runs = current.filter((r) => r.generation === generation).sort(byRun);
+      const totals = runs.filter((r) => r.status === "DONE" && r.total !== null).map((r) => r.total!);
+      const median =
+        score && score.median !== null
+          ? { value: score.median, sealed: true }
+          : !score && runsComplete(totals)
+            ? { value: medianScore(totals), sealed: false }
+            : null;
+      // Release refuses while a sealed score's submission is no longer the current one.
+      const stale = score?.status === "SEALED" && (score.submission_id ?? null) !== (submission?.id ?? null);
+      const allRuns = all
+        .map((r) => ({ ...r, current: r.submission_id === submission?.id }))
+        .sort((a, b) => Number(b.current) - Number(a.current) || b.generation - a.generation || a.run_no - b.run_no || a.created_at.localeCompare(b.created_at));
+      return {
+        company,
+        submission,
+        generation,
+        runs,
+        totals,
+        spread: spread(totals),
+        median,
+        score,
+        status: companyStatus(score, submission, runs, totals),
+        stale,
+        allRuns,
+      };
+    })
+    .sort(byCompany);
 }
 
 // ───────────────────────────── Per type ─────────────────────────────
@@ -215,7 +228,7 @@ export interface TypeSummary {
   runs: Record<RunStatus, number>;
   sealed: number;
   released: number;
-  /** Scores sealed as 0 because there was no on-time submission. */
+  /** Scores (sealed or released) of 0 because there was no on-time submission. */
   missing: number;
   /** Companies with no sealed or released score yet. */
   unsealed: number;
@@ -244,9 +257,9 @@ export function summarise(type: SubmissionType, views: readonly CompanyJudgeView
   };
 }
 
-/** True while a judge run is waiting or running anywhere (the page then re-reads itself). */
-export function judging(rows: JudgeRows): boolean {
-  return rows.runs.some((r) => r.status === "QUEUED" || r.status === "RUNNING");
+/** True while a run of a current submission is waiting or running (the page then re-reads itself to show progress). */
+export function judging(summaries: readonly TypeSummary[]): boolean {
+  return summaries.some((s) => s.runs.QUEUED + s.runs.RUNNING > 0);
 }
 
 // ───────────────────────────── Run detail ─────────────────────────────

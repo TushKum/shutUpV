@@ -16,6 +16,7 @@ export function isExportKind(v: unknown): v is ExportKind {
   return typeof v === "string" && (EXPORT_KINDS as readonly string[]).includes(v);
 }
 
+/** What each export holds, and the table it is read from (its row count is shown on the exports page). */
 export const EXPORTS: Record<ExportKind, { title: string; description: string; table: string }> = {
   ledger: {
     title: "Ledger",
@@ -132,7 +133,7 @@ export const PAGE_SIZE = 1000;
  * [from, from + size − 1] until a page comes back short. The query must have a stable order.
  */
 export async function fetchPages<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
   what: string,
   size = PAGE_SIZE,
 ): Promise<T[]> {
@@ -140,7 +141,7 @@ export async function fetchPages<T>(
   for (let from = 0; ; from += size) {
     const { data, error } = await page(from, from + size - 1);
     if (error) throw new Error(`Could not read ${what}: ${error.message}`);
-    const rows = data ?? [];
+    const rows = (data ?? []) as T[];
     out.push(...rows);
     if (rows.length < size) return out;
   }
@@ -168,8 +169,10 @@ export function buildLookups(
   };
 }
 
-const teamCode = (lk: Lookups, id: string | null) => (id === null ? "Exchange" : (lk.teams.get(id)?.code ?? id));
-const ticker = (lk: Lookups, id: string | null) => (id === null ? null : (lk.tickers.get(id) ?? id));
+/** A team's code; a null team is the exchange. An id not found (never expected) is written as is. */
+export const teamCode = (lk: Lookups, id: string | null) => (id === null ? "Exchange" : (lk.teams.get(id)?.code ?? id));
+/** A company's ticker: empty before it has one; an id not found (never expected) is written as is. */
+export const tickerOf = (lk: Lookups, id: string | null) => (id === null ? null : lk.tickers.has(id) ? (lk.tickers.get(id) ?? null) : id);
 const roundNo = (lk: Lookups, id: string | null) => (id === null ? null : (lk.rounds.get(id) ?? null));
 
 export interface LedgerExportRow {
@@ -195,7 +198,7 @@ export function ledgerCsv(rows: readonly LedgerExportRow[], lk: Lookups): string
       { header: "txn_id", kind: "text", get: (r) => r.txn_id },
       { header: "kind", kind: "text", get: (r) => r.kind },
       { header: "team", kind: "text", get: (r) => teamCode(lk, r.team_id) },
-      { header: "ticker", kind: "text", get: (r) => ticker(lk, r.company_id) },
+      { header: "ticker", kind: "text", get: (r) => tickerOf(lk, r.company_id) },
       { header: "lot", kind: "text", get: (r) => r.lot },
       { header: "cash_delta_cents", kind: "int", get: (r) => r.cash_delta_cents },
       { header: "share_delta", kind: "int", get: (r) => r.share_delta },
@@ -226,13 +229,39 @@ export interface PriceExportRow {
   created_at: string;
 }
 
+const byId = (a: { id: Int }, b: { id: Int }) => {
+  const x = BigInt(a.id);
+  const y = BigInt(b.id);
+  return x < y ? -1 : x > y ? 1 : 0;
+};
+
+/**
+ * In the order they were written (by id), with the rows one price event wrote together (the same kind, round and
+ * time: a clearing, the IPO, the crisis, a tier, the close) ordered by ticker.
+ */
+export function orderPrices<R extends Pick<PriceExportRow, "id" | "company_id" | "round_id" | "kind" | "created_at">>(rows: readonly R[], lk: Lookups): R[] {
+  const key = (r: R) => `${r.kind}|${r.round_id ?? ""}|${r.created_at}`;
+  const byTicker = (a: R, b: R) => (tickerOf(lk, a.company_id) ?? "").localeCompare(tickerOf(lk, b.company_id) ?? "") || byId(a, b);
+  const out: R[] = [];
+  let group: R[] = [];
+  for (const r of [...rows].sort(byId)) {
+    if (group.length && key(group[0]!) !== key(r)) {
+      out.push(...group.sort(byTicker));
+      group = [];
+    }
+    group.push(r);
+  }
+  out.push(...group.sort(byTicker));
+  return out;
+}
+
 export function pricesCsv(rows: readonly PriceExportRow[], lk: Lookups): string {
   return toCsv<PriceExportRow>(
     [
       { header: "id", kind: "int", get: (r) => r.id },
       { header: "time_ist", kind: "time", get: (r) => r.created_at },
       { header: "round", kind: "int", get: (r) => roundNo(lk, r.round_id) },
-      { header: "ticker", kind: "text", get: (r) => ticker(lk, r.company_id) },
+      { header: "ticker", kind: "text", get: (r) => tickerOf(lk, r.company_id) },
       { header: "kind", kind: "text", get: (r) => r.kind },
       { header: "market_before_cents", kind: "int", get: (r) => r.market_before },
       { header: "market_after_cents", kind: "int", get: (r) => r.market_after },
@@ -246,7 +275,7 @@ export function pricesCsv(rows: readonly PriceExportRow[], lk: Lookups): string 
       { header: "capped_net", kind: "int", get: (r) => r.capped_net },
       { header: "tier_bp", kind: "int", get: (r) => r.tier_bp },
     ],
-    rows,
+    orderPrices(rows, lk),
   );
 }
 
@@ -269,11 +298,11 @@ export function scoresCsv(rows: readonly ScoreExportRow[], lk: Lookups): string 
   const sorted = [...rows].sort(
     (a, b) =>
       SUBMISSION_TYPES.indexOf(a.type) - SUBMISSION_TYPES.indexOf(b.type) ||
-      String(ticker(lk, a.company_id) ?? "").localeCompare(String(ticker(lk, b.company_id) ?? "")),
+      String(tickerOf(lk, a.company_id) ?? "").localeCompare(String(tickerOf(lk, b.company_id) ?? "")),
   );
   return toCsv<ScoreExportRow>(
     [
-      { header: "ticker", kind: "text", get: (r) => ticker(lk, r.company_id) },
+      { header: "ticker", kind: "text", get: (r) => tickerOf(lk, r.company_id) },
       { header: "type", kind: "text", get: (r) => r.type },
       { header: "runs", kind: "text", get: (r) => (r.run_totals ?? []).map((t) => intCell(t)).join(" ") },
       { header: "median", kind: "int", get: (r) => r.median },

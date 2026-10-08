@@ -3,7 +3,7 @@
 // One company's line in the judge table, and (opened with its Runs button) the detail of every judge run: run,
 // generation, model, status, total, breakdown, rationale, latency and error, with the judged submission's text.
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { RULES, type SubmissionType } from "@msim/engine";
 import { JUDGE_COLUMNS, breakdownLines, companyLabel, latency, type CompanyJudgeView, type JudgeRunRow } from "@/lib/admin/judge";
 import { bp, clock, dateTime } from "@/lib/format";
@@ -17,18 +17,21 @@ const num = `${cell} font-mono tabular-nums`;
 function RunTotals({ runs }: { runs: readonly JudgeRunRow[] }) {
   if (runs.length === 0) return <span className="text-slate-400">—</span>;
   return (
-    <span className="inline-flex gap-1.5">
-      {runs.map((r) =>
-        r.status === "DONE" ? (
-          <span key={r.id} className="font-mono tabular-nums" title={`Run ${r.run_no}`}>
-            {r.total}
-          </span>
-        ) : (
-          <span key={r.id} className={`text-xs ${r.status === "FAILED" ? "text-red-700" : "text-slate-500"}`} title={`Run ${r.run_no}`}>
-            {r.status.toLowerCase()}
-          </span>
-        ),
-      )}
+    <span>
+      {runs.map((r, i) => (
+        <Fragment key={r.id}>
+          {i > 0 ? " " : null}
+          {r.status === "DONE" ? (
+            <span className="font-mono tabular-nums" title={`Run ${r.run_no}`}>
+              {r.total}
+            </span>
+          ) : (
+            <span className={`text-xs ${r.status === "FAILED" ? "text-red-700" : "text-slate-500"}`} title={`Run ${r.run_no}`}>
+              {r.status.toLowerCase()}
+            </span>
+          )}
+        </Fragment>
+      ))}
     </span>
   );
 }
@@ -60,7 +63,12 @@ export function CompanyRow({ type, view: v }: { type: SubmissionType; view: Comp
       <tr className={open ? "bg-slate-50" : ""}>
         <td className={cell}>
           <span className="font-mono font-semibold">{label}</span>
-          {v.company.name ? <span className="ml-2 text-xs text-slate-500">{v.company.name}</span> : null}
+          {v.company.name ? (
+            <>
+              {" "}
+              <span className="ml-1 text-xs text-slate-500">{v.company.name}</span>
+            </>
+          ) : null}
         </td>
         <td className={cell}>
           {v.submission ? (
@@ -73,14 +81,14 @@ export function CompanyRow({ type, view: v }: { type: SubmissionType; view: Comp
         </td>
         <td className={cell}>
           <RunTotals runs={v.runs} />
-          {v.generation !== null && v.generation > 1 ? <span className="ml-1 text-xs text-slate-500">(re-run {v.generation})</span> : null}
+          {v.generation !== null && v.generation > 1 ? <span className="text-xs text-slate-500"> (re-run {v.generation})</span> : null}
         </td>
         <td className={`${num} ${v.spread !== null && v.spread > 10 ? "font-semibold text-amber-700" : ""}`}>{v.spread ?? "—"}</td>
         <td className={num}>
           {v.median ? (
             <>
               {v.median.value}
-              {v.median.sealed ? null : <span className="ml-1 font-sans text-xs text-slate-500">(unsealed)</span>}
+              {v.median.sealed ? null : <span className="font-sans text-xs text-slate-500"> (unsealed)</span>}
             </>
           ) : (
             "—"
@@ -93,7 +101,12 @@ export function CompanyRow({ type, view: v }: { type: SubmissionType; view: Comp
         <td className={cell}>
           <span className="inline-flex flex-wrap gap-1">
             <Badge tone={v.status.tone}>{v.status.label}</Badge>
-            {v.stale ? <Badge tone="red">Submission changed: judge again</Badge> : null}
+            {v.stale ? (
+              <>
+                {" "}
+                <Badge tone="red">Submission changed: judge again</Badge>
+              </>
+            ) : null}
           </span>
         </td>
         <td className={cell}>
@@ -170,12 +183,12 @@ function Detail({ type, view: v, label }: { type: SubmissionType; view: CompanyJ
                 <td className={num}>{r.run_no}</td>
                 <td className={cell}>
                   {r.generation}
-                  {r.current ? null : <span className="ml-1 text-xs">(earlier submission)</span>}
+                  {r.current ? null : <span className="text-xs"> (earlier submission)</span>}
                 </td>
                 <td className={`${cell} font-mono text-xs`}>{r.model ?? "—"}</td>
                 <td className={cell}>
                   <Badge tone={RUN_TONE[r.status]}>{r.status}</Badge>
-                  {r.attempts > 1 ? <span className="ml-1 text-xs text-slate-500">{r.attempts} attempts</span> : null}
+                  {r.attempts > 1 ? <span className="text-xs text-slate-500"> {r.attempts} attempts</span> : null}
                 </td>
                 <td className={`${num} font-semibold`}>{r.total ?? "—"}</td>
                 <td className="min-w-56 px-2 py-1.5">

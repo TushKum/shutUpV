@@ -40,10 +40,12 @@ export default async function JudgePage({
   const type = parseJudgeType(query.type) ?? defaultJudgeType(status.phase);
   const views = Object.fromEntries(JUDGE_TYPES.map((t) => [t, companyViews(t, data)])) as Record<SubmissionType, CompanyJudgeView[]>;
   const summaries = Object.fromEntries(JUDGE_TYPES.map((t) => [t, summarise(t, views[t])])) as Record<SubmissionType, TypeSummary>;
+  const summary = summaries[type];
+  const released = summary.released > 0;
 
   return (
     <div className="space-y-6">
-      <JudgeAutoRefresh everyMs={5000} active={judging(data)} />
+      <JudgeAutoRefresh everyMs={5000} active={judging(JUDGE_TYPES.map((t) => summaries[t]))} />
       <Notice tone="blue">
         Running the judge (the AI worker that scores every submission 3 times, or 5 when the runs spread more than 10 points), the backup-model switch
         and re-running one submission for a technical appeal come in Phase 6. Here you can follow every stored run, seal the 0 of companies with no
@@ -72,38 +74,50 @@ export default async function JudgePage({
       <Panel
         title={`${TYPE_TITLES[type]} scores`}
         actions={
-          summaries[type].released > 0 ? (
-            <Badge tone="green">Released {clock(summaries[type].releasedAt)}</Badge>
-          ) : organiser ? (
-            <>
-              <ActionButton action={sealMissingScores.bind(null, event.id, type)} confirm={`Click again to seal missing ${TYPE_NAMES[type]} scores as 0`}>
-                Seal missing as 0
-              </ActionButton>
-              <ActionButton
-                action={releaseScores.bind(null, event.id, type)}
-                confirm={`Click again to release ${TYPE_NAMES[type]} scores`}
-                variant="primary"
-              >
-                Release {TYPE_NAMES[type]} scores
-              </ActionButton>
-            </>
-          ) : (
-            <span className="text-sm text-slate-500">Organisers seal and release scores.</span>
-          )
+          <>
+            {released ? <Badge tone="green">Released {clock(summary.releasedAt)}</Badge> : null}
+            {organiser ? (
+              <>
+                {/* Kept mounted (disabled) after the release, so the release's own message stays on screen; keyed by type so a
+                    message never carries over to another type's tab. */}
+                <ActionButton
+                  key={`seal-${type}`}
+                  action={sealMissingScores.bind(null, event.id, type)}
+                  confirm={`Click again to seal missing ${TYPE_NAMES[type]} scores as 0`}
+                  disabled={released}
+                  title={released ? `${TYPE_TITLES[type]} scores have been released.` : undefined}
+                >
+                  Seal missing as 0
+                </ActionButton>
+                <ActionButton
+                  key={`release-${type}`}
+                  action={releaseScores.bind(null, event.id, type)}
+                  confirm={`Click again to release ${TYPE_NAMES[type]} scores`}
+                  variant="primary"
+                  disabled={released}
+                  title={released ? `${TYPE_TITLES[type]} scores have been released.` : undefined}
+                >
+                  Release {TYPE_NAMES[type]} scores
+                </ActionButton>
+              </>
+            ) : (
+              <span className="text-sm text-slate-500">Organisers seal and release scores.</span>
+            )}
+          </>
         }
       >
         <Rules type={type} deadlines={data.deadlines} />
-        {summaries[type].stale > 0 ? (
+        {summary.stale > 0 ? (
           <div className="mt-3">
             <Notice tone="red">
-              {summaries[type].stale} sealed score{summaries[type].stale === 1 ? " was" : "s were"} sealed for a submission that is no longer the current
-              one. The release refuses until {summaries[type].stale === 1 ? "it is" : "they are"} judged again.
+              {summary.stale} score{summary.stale === 1 ? " was" : "s were"} sealed for a submission that is no longer the current one. The release
+              refuses until {summary.stale === 1 ? "it is" : "they are"} judged again.
             </Notice>
           </div>
         ) : null}
         <Table head={[...JUDGE_COLUMNS]} empty="No companies yet: they are formed at the squad draw." className="mt-4">
           {views[type].map((v) => (
-            <CompanyRow key={v.company.id} type={type} view={v} />
+            <CompanyRow key={`${type}-${v.company.id}`} type={type} view={v} />
           ))}
         </Table>
       </Panel>
