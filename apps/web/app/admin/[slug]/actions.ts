@@ -30,6 +30,3 @@ export async function setAutoAdvance(eventId: string, on: boolean): Promise<Acti
   return rpc("set_auto_advance", { p_event: eventId, p_on: on });
 }
 
-export async function closeRoundNow(eventId: string): Promise<ActionResult> {
-  return rpc("close_round_now", { p_event: eventId });
-}

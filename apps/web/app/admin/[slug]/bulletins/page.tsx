@@ -15,9 +15,8 @@ import {
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, inputClass, type Tone } from "@/components/ui/ui";
-import { ActionButton } from "@/components/ui/action";
+import { ActionButton, ConfirmForm } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
-import { ConfirmForm } from "../content/confirm-form";
 import { publishBulletin, publishFlashBulletin } from "./actions";
 
 const KIND_TONES: Record<BulletinKind, Tone> = { GENERAL: "slate", CRISIS: "red", FLASH: "violet", FAIRNESS: "amber", SYSTEM: "blue" };

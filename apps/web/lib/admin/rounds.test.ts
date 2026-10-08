@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
   aggregateOrders,
   cents,
-  closeRoundGuard,
   fetchAll,
   focusRound,
   fundBooks,
@@ -113,16 +112,6 @@ describe("which round", () => {
     expect(focusRound([round(1, "CLEARED"), round(3, "SCHEDULED"), round(2, "SCHEDULED")], now)).toMatchObject({ kind: "NEXT", round: { number: 2 } });
     expect(focusRound([round(1, "CLEARED")], now)).toBeNull();
     expect(focusRound([], now)).toBeNull();
-  });
-
-  test("close-now guard: round N or nothing", () => {
-    expect(closeRoundGuard(3, 3)).toEqual({ ok: true });
-    expect(closeRoundGuard(3, 4)).toEqual({
-      ok: false,
-      code: "ROUND_CHANGED",
-      message: "Round 3 is no longer open (round 4 is); nothing was closed. Check the page and try again.",
-    });
-    expect(closeRoundGuard(3, null)).toMatchObject({ ok: false, code: "NO_OPEN_ROUND" });
   });
 });
 

@@ -6,8 +6,7 @@ import { buildLotteryRecord, checkDraw, recordFileName, squadViews, type Lottery
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td, inputClass } from "@/components/ui/ui";
-import { ActionForm } from "@/components/ui/action";
-import { ConfirmForm } from "../content/confirm-form";
+import { ActionForm, ConfirmForm } from "@/components/ui/action";
 import { runLottery, setSeedCommitment } from "./actions";
 
 // Lottery: the seed commitment (published the day before, fixed once the event starts), the 21:00 draw with the

@@ -161,19 +161,6 @@ export function focusRound(rounds: readonly RoundRow[], nowMs: number): RoundFoc
   return next ? { kind: "NEXT", round: next } : null;
 }
 
-/** The server action's guard: "Close round N now" closes round N or nothing (the open round may have changed). */
-export function closeRoundGuard(expected: number, openNow: number | null): { ok: true } | { ok: false; code: string; message: string } {
-  if (openNow === null) return { ok: false, code: "NO_OPEN_ROUND", message: `Round ${expected} is no longer open; nothing was closed.` };
-  if (openNow !== expected) {
-    return {
-      ok: false,
-      code: "ROUND_CHANGED",
-      message: `Round ${expected} is no longer open (round ${openNow} is); nothing was closed. Check the page and try again.`,
-    };
-  }
-  return { ok: true };
-}
-
 // ───────────────────────────── Order book ─────────────────────────────
 
 export interface CompanyBook {

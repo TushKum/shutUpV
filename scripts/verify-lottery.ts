@@ -3,7 +3,7 @@
 //   pnpm verify-lottery --file lottery-record.json [--commitment <the SHA-256 published the day before>]
 //
 // It checks the seed against the commitment and recomputes the squads, problem cards, coverage and crisis cards
-// from the seed and the dice (see scripts/lib/lottery-record.ts for the record's format). Pass --commitment with the
+// from the seed and the dice (see packages/engine/src/lottery-record.ts for the record's format). Pass --commitment with the
 // value you saw published before the event, so the check does not rely on the record's own copy.
 
 import { readFileSync } from "node:fs";

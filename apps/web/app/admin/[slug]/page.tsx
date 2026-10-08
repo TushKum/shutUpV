@@ -6,7 +6,8 @@ import { clock } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td, inputClass } from "@/components/ui/ui";
 import { ActionButton, ActionForm } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
-import { advancePhase, closeRoundNow, extendEvent, extendEventForm, pauseEvent, resumeEvent, setAutoAdvance } from "./actions";
+import { advancePhase, extendEvent, extendEventForm, pauseEvent, resumeEvent, setAutoAdvance } from "./actions";
+import { closeRound } from "./rounds/actions";
 
 interface PhaseRow {
   code: PhaseCode;
@@ -95,7 +96,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                 </ActionButton>
               )}
               {status.open_round ? (
-                <ActionButton action={closeRoundNow.bind(null, event.id)} confirm={`Click again to close round ${status.open_round.number} now`}>
+                <ActionButton action={closeRound.bind(null, event.id, status.open_round.number)} confirm={`Click again to close round ${status.open_round.number} now`}>
                   Close round {status.open_round.number} now
                 </ActionButton>
               ) : null}

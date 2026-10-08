@@ -81,6 +81,36 @@ describe("content", () => {
   });
 });
 
+describe("rounds", () => {
+  test("close round N now closes round N or nothing", async () => {
+    const n = await Night.create(db.pool, 3);
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, SEED, "3");
+    const squads = [await n.squad(1), await n.squad(2), await n.squad(3)];
+    await n.advanceTo("BUILD");
+    for (const [i, x] of squads.entries()) {
+      await n.ok(n.team(x.p_code), "save_draft", "PITCH", { company_name: `Co ${i}`, ticker: `CP${"ABC"[i]}`, problem: "A real problem." }, 0);
+      await n.ok(n.team(x.p_code), "submit_submission", "PITCH");
+    }
+    await n.deadlinePassed("PITCH");
+    await n.advanceTo("READING");
+    for (const x of squads) await n.judge(x.company_id, "PITCH", [60, 60, 60]);
+    await n.deadlinePassed("CALL_1");
+    await n.org("release_scores", n.eventId, "PITCH");
+    await n.advanceTo("ROUNDS_1_4");
+    await n.openRound(1);
+    expect(await n.call(n.lead, "close_round_now", n.eventId, 2)).toMatchObject({
+      ok: false,
+      code: "ROUND_CHANGED",
+      message: "Round 2 is no longer open (round 1 is); nothing was closed. Check the page and try again.",
+    });
+    expect(await n.call(n.lead, "close_round_now", n.eventId, 1)).toMatchObject({ ok: true, round: 1 });
+    expect(await n.call(n.lead, "close_round_now", n.eventId, 1)).toMatchObject({ ok: false, code: "NO_OPEN_ROUND" });
+    await expect(n.call(n.fairness, "close_round_now", n.eventId, 1)).rejects.toThrow(/only an organiser/);
+  });
+});
+
 describe("clock and health", () => {
   test("every signed-in account reads the server clock", async () => {
     const n = await Night.create(db.pool, 3);

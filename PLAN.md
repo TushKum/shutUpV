@@ -196,11 +196,11 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 
 ### Phase 3 — Control panel (/admin)
 - [x] Local Supabase (Docker Hub images, `scripts/local-supabase.sh`) and Playwright browser tests against it (`apps/web/e2e`)
-- [x] Migration 15: deck upload, flash bulletin prepared then published, `server_time`, `event_status`, screen heartbeats (`ping`), `admin_health`
+- [x] Migration 15: deck upload, flash bulletin prepared then published, "close round N now", `server_time`, `event_status`, screen heartbeats (`ping`), `admin_health`
 - [x] Foundation: `/admin` event list, per-event layout (phase, trading state, server clock, realtime status), private realtime channel refresh, heartbeat, organiser consoles as backup tick, UI kit, formatting
 - [x] Phase control: advance (two-click, gate explained), pause/resume, extend, auto-advance, close round now, schedule, deadlines, rounds
-- [ ] Lottery (commitment, draw, verification), bulletins, content upload
-- [ ] Rounds (pending orders, clearing preview, IPO book, history), health
+- [x] Lottery (commitment, draw, verification), bulletins, content upload
+- [x] Rounds (pending orders, clearing preview, IPO book, history), health
 - [ ] Judge (runs, spread, seal missing, release; running the judge comes in Phase 6), exports (CSV)
 - [ ] Ledger with two-person corrections, fairness (flags, decisions, team drill-down)
 - [ ] Review, all tests, summary
@@ -231,7 +231,7 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - Mobile-first layout.
 
 ### Phase 5 — Big screen (/display)
-1920×1080, high contrast. Header with clock, phase, round, countdown and an OPEN/HALTED/PAUSED badge. Bulletin banner. A 50-ticker grid paged 25 at a time every 20 s. Takeovers for the squad draw (with the seed check), crisis, verdicts, flash news, closing bell and awards. Realtime updates. No team names before AWARDS. After the seed is revealed, a public `GET /api/lottery-record` serves the JSON that `pnpm verify-lottery` checks.
+1920×1080, high contrast. Header with clock, phase, round, countdown and an OPEN/HALTED/PAUSED badge. Bulletin banner. A 50-ticker grid paged 25 at a time every 20 s. Takeovers for the squad draw (with the seed check), crisis, verdicts, flash news, closing bell and awards. Realtime updates. No team names before AWARDS. After the seed is revealed, a public `GET /api/lottery-record` serves the JSON that `pnpm verify-lottery` checks (reusing the control panel's `loadLotteryRows` and `buildLotteryRecord`, reading `event_secrets` through a server-only path, and refusing until `seed_revealed` is set).
 
 ### Phase 6 — AI judge pipeline
 Prompts stored in `prompts/`. Sanitise and anonymise each submission, wrap it in XML, return structured JSON output, validate it with up to 2 retries. Run 3 times, plus 2 more if the spread is over 10, and take the median. Store every run. Work runs through a database queue with parallel workers and rate-limit backoff, with a progress view. A backup-model switch, release that applies tiers atomically, a re-run for appeals, and a calibration page with 10 sample pitches.
@@ -343,6 +343,13 @@ Real time = `starts_at + offset ÷ clock_speed`.
 54. **Content locks:** the problem deck can be replaced until the draw, the crisis deck until the crisis is applied, the flash bulletin until it is published.
 55. **Each event's control panel lives under `/admin/<slug>`**; `/admin` lists the live event and any rehearsal.
 56. **Realtime bulletin messages** carry `bulletin_kind` (the message's own `kind` is `bulletin`).
+57. **The lottery record** (the JSON that `pnpm verify-lottery` checks) is built from the stored rows: team codes sorted per track, problem cards in number order, squads in number order with their cards in dealt order, and the crisis deck and crises once the crisis is applied. It contains the secret seed, so before the reveal only staff can download it (`/admin/<slug>/lottery/record`). The page re-runs the draw with the engine and shows "Draw verified" or every difference. The covered companies are compared as a set, since their order is not stored.
+58. **The secret seed is typed into a password field** and shown on the control panel only once it is revealed, because staff screens can be visible in the hall.
+59. **Content is uploaded as CSV** (up to 512 KB). It is parsed on the server with the engine's parsers, errors are named by row and column, and the database checks it again.
+60. **"Close round N now" names the round.** The database refuses with ROUND_CHANGED when another round is open, so a stale page or a double click never closes the next round.
+61. **Pages that change without a broadcast poll.** Orders and IPO bids send no realtime message, so the Rounds page re-fetches every 5 s while a round is open or during the IPO (only while the tab is visible). Health re-fetches every 10 s.
+62. **Every team screen refreshes on each broadcast.** At a clearing, all 150 teams' screens re-fetch at once; Phase 7's load test measures it.
+63. **A screen pings at once when its realtime channel connects or drops**, as well as every 20 s, so the health view is never 20 s behind.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

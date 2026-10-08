@@ -1,5 +1,5 @@
--- Phase 3 (control panel): content upload (problem deck, crisis deck, flash bulletin), the server clock, client
--- heartbeats for the health view, and a health summary.
+-- Phase 3 (control panel): content upload (problem deck, crisis deck, flash bulletin), "close round N now", the
+-- server clock, client heartbeats for the health view, and a health summary.
 
 -- ───────────────────────────── Content ─────────────────────────────
 
@@ -314,6 +314,35 @@ begin
 end
 $$;
 
+-- ───────────────────────────── Rounds ─────────────────────────────
+
+-- "Close round N now" names the round the organiser saw. With p_round, a round that cleared meanwhile is never
+-- followed by closing the next one (a stale page or a double click). Without it (scripts, tests), the open round.
+drop function if exists public.close_round_now(uuid);
+create or replace function public.close_round_now(p_event uuid, p_round integer default null)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_round public.rounds;
+begin
+  perform app.require_organiser();
+  -- Like the tick, hold the event first: a clearing never interleaves with another clearing or a correction.
+  perform 1 from public.events where id = p_event for no key update;
+  select * into v_round from public.rounds
+   where event_id = p_event and status = 'OPEN' order by number limit 1;
+  if v_round.id is null then
+    return app.fail('NO_OPEN_ROUND', case when p_round is null then 'No round is open.'
+      else format('Round %s is no longer open; nothing was closed.', p_round) end);
+  end if;
+  if p_round is not null and v_round.number <> p_round then
+    return app.fail('ROUND_CHANGED', format(
+      'Round %s is no longer open (round %s is); nothing was closed. Check the page and try again.', p_round, v_round.number));
+  end if;
+  return app.clear_round(v_round.id, true);
+end
+$$;
+
 do $$
 declare f text;
 begin
@@ -321,9 +350,11 @@ begin
     'public.upload_problem_deck(uuid, jsonb)', 'public.upload_crisis_deck(uuid, jsonb)',
     'public.prepare_flash_bulletin(uuid, text, text)', 'public.publish_flash_bulletin(uuid)',
     'public.publish_bulletin(uuid, public.bulletin_kind, text, text)',
-    'public.server_time()', 'public.event_status(uuid)', 'public.ping(uuid, uuid, text, text)', 'public.admin_health(uuid)'
+    'public.server_time()', 'public.event_status(uuid)', 'public.ping(uuid, uuid, text, text)', 'public.admin_health(uuid)',
+    'public.close_round_now(uuid, integer)'
   ] loop
     execute format('revoke all on function %s from public, anon', f);
     execute format('grant execute on function %s to authenticated', f);
   end loop;
+  grant execute on function public.close_round_now(uuid, integer) to service_role;
 end $$;
