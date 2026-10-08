@@ -5,7 +5,7 @@ Live trading simulation for a one-night college competition: 150 teams (50 Produ
 - **Stack:** Next.js (App Router, TypeScript, Tailwind) on Vercel, and Supabase (Postgres, Auth, Realtime, RLS).
 - **Plan:** see [`PLAN.md`](PLAN.md) for the architecture, the schema, the phases, the assumptions and the open questions.
 
-> Status: **Phase 2 (game engine)**. Every game rule runs in the database; the screens and the judge come in later phases.
+> Status: **Phase 3 (control panel)** in progress. Every game rule runs in the database; the team portal, the big screen and the judge come next.
 
 ## Repository
 
@@ -28,6 +28,18 @@ pnpm test        # engine + web unit tests + database tests (starts a private Po
 pnpm test:db supabase/tests/full-night.test.ts   # just the 150-team night (~20 s), prints clearing times
 pnpm typecheck
 ```
+
+## Local Supabase and browser tests
+
+With Docker running, `scripts/local-supabase.sh` starts a local Supabase (Postgres with pg_cron, Auth, PostgREST and Realtime, from Docker Hub images), applies every migration and writes `apps/web/.env.e2e`. Then:
+
+```bash
+cd apps/web
+pnpm e2e                                   # Playwright, against the local stack (starts `next dev` on port 3100 if needed)
+pnpm e2e e2e/admin-phase.spec.ts           # one spec
+```
+
+Each spec seeds its own small rehearsal event with real logins and drives the game through the real database functions. `scripts/local-supabase.sh reset` re-applies the migrations to an empty database; `scripts/local-supabase.sh stop` stops it.
 
 ## Set up Supabase
 

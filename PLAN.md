@@ -1,6 +1,6 @@
 # PLAN — Market Simulation Competition platform
 
-Status: **Phase 2 complete, awaiting approval.** (Phase 1 approved.) Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
+Status: **Phase 3 in progress** (Phases 1 and 2 approved). Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
 
 Source documents: the build brief (the authority) and `Market_Simulation_Event_Guide.docx` v1.0. Section 7 lists where they differ.
 
@@ -12,7 +12,7 @@ Source documents: the build brief (the authority) and `Market_Simulation_Event_G
 ┌──────────────────────────── Vercel (Next.js App Router, TS, Tailwind) ───────────────────────────┐
 │  /login    /team (laptop+phone)    /admin (organiser, fairness)    /display (projector 1920×1080) │
 │  Server actions + route handlers ──► supabase.rpc(...)  (user's JWT, so auth.uid() is the caller) │
-│  /api/judge/*  (AI judge worker, Anthropic SDK, service role)   /api/tick (auto-advance backup)   │
+│  /api/judge/*  (AI judge worker, Anthropic SDK, service role)   consoles call tick() as a backup  │
 └───────────────────────────────────────────────┬──────────────────────────────────────────────────┘
                                                 │ PostgREST / Realtime
 ┌───────────────────────────────────────── Supabase ───────────────────────────────────────────────┐
@@ -38,7 +38,7 @@ packages/engine  — pure TypeScript rules (reference implementation, no I/O)
 4. **Money is integer cents in `bigint`, prices are `integer` cents, and tiers are basis points.** One helper rounds half-up: `round_half_up(numerator, denominator)`, with ties going away from zero, which matches Postgres `round(numeric)`. Every multiplication by a rate goes through `mul_rate(cents, num, den)`, and the result is rounded at once. No floating point is used anywhere.
 5. **Prices change only inside three functions: clearing, the crisis shock and tier release.** Each sets a transaction-local flag `app.price_writer`. A trigger on `companies` rejects any price change made without that flag, even from the service role. Every change writes a `round_prices` row.
 6. **Realtime.** One private broadcast channel per event, `event:{id}` (prices, phase, round, bulletin, takeovers). Database functions send to it with `realtime.send()` inside the transaction, so a message goes out only on commit. A policy on `realtime.messages` lets only the event's accounts (and staff and the display) receive, and no client may send, so nobody can inject fake prices or takeovers. Clients then re-fetch their own private data through RLS. This avoids 500 `postgres_changes` subscriptions, each running an RLS check.
-7. **Auto-advance.** `pg_cron` calls `tick()` every 2 seconds, using Supabase's sub-minute cron. The admin console also calls `/api/tick` once a second while it is open, as a backup. `tick()` is idempotent and takes an advisory lock.
+7. **Auto-advance.** `pg_cron` calls `tick()` every 2 seconds, using Supabase's sub-minute cron. Every open organiser console also calls `tick()` once a second (directly, with the organiser's session) as a backup. `tick()` is idempotent and takes an advisory lock.
 8. **Rehearsal** is a separate `events` row with `is_rehearsal = true`, `clock_speed = 10`, its own fake teams (codes prefixed `X`), and the same functions.
 
 ### Repository layout
@@ -195,7 +195,15 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Two adversarial review rounds of the SQL: 24 findings, then 18 in the fixes (one, presence policies, moved to Phase 3), all fixed, each replayed by a regression test (`supabase/tests/review-*.test.ts`), most of them shown to fail on the code before the fix
 
 ### Phase 3 — Control panel (/admin)
-Phase control with auto-advance, lottery entry and verification, rounds (pending orders, clearing preview, close now), judge controls (wired up in Phase 6), bulletins, CSV upload of content, ledger with two-person corrections, fairness (flags, team drill-down, decision log), CSV exports, and health (presence, realtime status, error log). Presence needs its own Realtime policies (a `presence:event:{id}` topic: staff receive, the event's accounts track), added with the health view.
+- [x] Local Supabase (Docker Hub images, `scripts/local-supabase.sh`) and Playwright browser tests against it (`apps/web/e2e`)
+- [x] Migration 15: deck upload, flash bulletin prepared then published, `server_time`, `event_status`, screen heartbeats (`ping`), `admin_health`
+- [x] Foundation: `/admin` event list, per-event layout (phase, trading state, server clock, realtime status), private realtime channel refresh, heartbeat, organiser consoles as backup tick, UI kit, formatting
+- [x] Phase control: advance (two-click, gate explained), pause/resume, extend, auto-advance, close round now, schedule, deadlines, rounds
+- [ ] Lottery (commitment, draw, verification), bulletins, content upload
+- [ ] Rounds (pending orders, clearing preview, IPO book, history), health
+- [ ] Judge (runs, spread, seal missing, release; running the judge comes in Phase 6), exports (CSV)
+- [ ] Ledger with two-person corrections, fairness (flags, decisions, team drill-down)
+- [ ] Review, all tests, summary
 
 ### Phase 4 — Team portal (/team)
 - **Common to all tracks:** header with phase and countdown, bulletins, own cash and holdings, pitch book, Q&A board, public ledger, and crisis cards, plans and verdicts once public.
@@ -330,6 +338,11 @@ Real time = `starts_at + offset ÷ clock_speed`.
 49. **Audit log.** Organisers see the full audit log except flags, which only the fairness officer sees. Drafts and submissions are audited with a digest of the content (every submitted version is stored in full, once, in `submissions`).
 50. **Late starts never reopen a window.** When a phase or round starts late, the rest of the schedule moves by the delay, except deadlines that have already passed while their window was open (teams could act until then): the plan and deal deadline stays at 03:00 even if round 12 opens late. A deadline whose window had not opened yet (the IPO bids before the IPO, call 2 before the plan scores) moves with its phase.
 51. **No advance while paused.** The organiser resumes first, so a pause is never counted twice and a deadline pulled in by an early advance is not frozen.
+52. **The flash bulletin is prepared in advance** (Content: a CSV with `title, body`), invisible to teams and the display, and published once by an organiser at 04:00 (two clicks, only during rounds 13–21). The general composer cannot publish a FLASH bulletin, so there is exactly one.
+53. **Connected users come from heartbeats**, not Realtime presence: every open screen pings every 20 seconds with its realtime status, and "connected" means seen in the last 60 seconds. This is simpler to secure and test, and it also shows which screens have lost realtime.
+54. **Content locks:** the problem deck can be replaced until the draw, the crisis deck until the crisis is applied, the flash bulletin until it is published.
+55. **Each event's control panel lives under `/admin/<slug>`**; `/admin` lists the live event and any rehearsal.
+56. **Realtime bulletin messages** carry `bulletin_kind` (the message's own `kind` is `bulletin`).
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

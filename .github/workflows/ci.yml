@@ -37,3 +37,26 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           NEXT_PUBLIC_TEAM_EMAIL_DOMAIN: teams.example.org
+
+  e2e:
+    # The control panel (and later the team portal and big screen) in a real browser against a local Supabase.
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start a local Supabase (applies every migration, writes apps/web/.env.e2e)
+        run: scripts/local-supabase.sh start
+      - run: pnpm --filter @msim/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @msim/web e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: apps/web/e2e/.results
