@@ -24,30 +24,37 @@ export async function ensureLogins(sb: SupabaseClient, plan: SeedPlan): Promise<
   const ids = new Map<string, string>();
   let created = 0;
   let updated = 0;
+  const update = async (w: (typeof wanted)[number], user: User) => {
+    const { error } = await sb.auth.admin.updateUserById(user.id, {
+      password: w.password,
+      app_metadata: { msim_role: w.role },
+    });
+    if (error) throw new Error(`update ${w.email}: ${error.message}`);
+    ids.set(w.email, user.id);
+    updated++;
+  };
   // Small batches keep well inside the Auth admin rate limits.
   for (let i = 0; i < wanted.length; i += 10) {
     await Promise.all(
       wanted.slice(i, i + 10).map(async (w) => {
         const user = existing.get(w.email);
-        if (user) {
-          const { error } = await sb.auth.admin.updateUserById(user.id, {
-            password: w.password,
-            app_metadata: { msim_role: w.role },
-          });
-          if (error) throw new Error(`update ${w.email}: ${error.message}`);
-          ids.set(w.email, user.id);
-          updated++;
-        } else {
-          const { data, error } = await sb.auth.admin.createUser({
-            email: w.email,
-            password: w.password,
-            email_confirm: true,
-            app_metadata: { msim_role: w.role },
-          });
-          if (error || !data.user) throw new Error(`create ${w.email}: ${error?.message}`);
+        if (user) return update(w, user);
+        const { data, error } = await sb.auth.admin.createUser({
+          email: w.email,
+          password: w.password,
+          email_confirm: true,
+          app_metadata: { msim_role: w.role },
+        });
+        if (!error && data.user) {
           ids.set(w.email, data.user.id);
           created++;
+          return;
         }
+        // Another seeding run (browser tests seed in parallel and share the staff logins) may have created it
+        // since the list was read.
+        const now = (await allUsers(sb)).get(w.email);
+        if (!now) throw new Error(`create ${w.email}: ${error?.message}`);
+        return update(w, now);
       }),
     );
   }

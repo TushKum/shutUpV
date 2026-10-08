@@ -5,7 +5,7 @@ Live trading simulation for a one-night college competition: 150 teams (50 Produ
 - **Stack:** Next.js (App Router, TypeScript, Tailwind) on Vercel, and Supabase (Postgres, Auth, Realtime, RLS).
 - **Plan:** see [`PLAN.md`](PLAN.md) for the architecture, the schema, the phases, the assumptions and the open questions.
 
-> Status: **Phase 3 (control panel)** in progress. Every game rule runs in the database; the team portal, the big screen and the judge come next.
+> Status: **Phase 3 (control panel)** done, waiting for approval. Every game rule runs in the database and organisers run the night from `/admin`; the team portal, the big screen and the judge come next.
 
 ## Repository
 
@@ -53,6 +53,25 @@ Each spec seeds its own small rehearsal event with real logins and drives the ga
 4. **Raise the sign-in rate limit.** In Auth → Rate Limits, set "sign-ups and sign-ins" to at least 300 per 5 minutes. The default (30 per 5 minutes per IP) would block check-in, because all teams sign in through a few IP addresses.
 5. **Make Realtime private.** In Realtime → Settings, turn off "Allow public access". Event channels are private: a policy lets only the event's accounts (and staff and the display) receive, and nobody can send.
 6. **Check the heartbeat.** Rounds close, clear and open on a `pg_cron` job that calls `tick()` every 2 seconds. Enable `pg_cron` in Database → Extensions *before* `supabase db push`, then check that `select jobname, schedule from cron.job;` lists `msim-tick`. If it is missing, enable the extension and run the last migration's `do $$ … $$` block again in the SQL editor. Failures of a tick are written to `error_log`.
+
+## The control panel (/admin)
+
+Each event has its own control panel at `/admin/<slug>`. Organisers act; the fairness officer reads everything and decides collusion flags. Anything that changes the night for good asks for a second click, and the second click only counts for what the first one showed.
+
+| Section | What it does |
+|---|---|
+| Phase | Where the night is, what holds the next step, advance, pause and resume, extend, auto-advance, close the open round now, the schedule and the deadlines |
+| Lottery | The seed commitment (Setup only), the 21:00 draw with the seed check, the squads, an independent re-run of the draw and the lottery record download |
+| Rounds | The open round's pending orders, a preview of its clearing, the IPO book during the IPO, and every cleared round's prices |
+| Judge | Every stored judge run per company, the spread, median and final score, "Seal missing as 0" and the release of each score type |
+| Bulletins | Compose and publish bulletins, and publish the prepared flash bulletin at 04:00 |
+| Content | Upload the problem deck, the crisis deck and the flash bulletin as CSV; both decks lock at the draw |
+| Ledger | The full ledger with filters, a books check, and corrections that need a second person to approve |
+| Fairness | Collusion flags with their evidence, decisions, the decision log and a drill-down per team (fairness officer only) |
+| Exports | CSV of the ledger, prices per round, scores and final results (integer cents) |
+| Health | The `pg_cron` heartbeat, tick errors, connected screens and their realtime status |
+
+Before the event leaves Setup it needs the seed commitment and both decks (the seed command loads `seed/problem-cards.csv` and `seed/crisis-cards.csv`, or upload them under Content).
 
 ## The lottery seed
 
