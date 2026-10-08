@@ -136,7 +136,7 @@ function Detail({ type, view: v, label }: { type: SubmissionType; view: CompanyJ
   const s = v.score;
   return (
     <div className="space-y-4" role="region" aria-label={`Runs of ${label}`}>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Judged submission</h4>
           {v.submission ? (

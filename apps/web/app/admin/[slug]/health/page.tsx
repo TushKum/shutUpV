@@ -22,9 +22,9 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
   const teamsOnline = new Set(connected.map((c) => c.code)).size;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <AutoRefresh everyMs={10_000} />
-      <div className="space-y-6 lg:col-span-2">
+      <div className="min-w-0 space-y-6 lg:col-span-2">
         <Panel title="Heartbeat">
           <Notice tone={cron.tone}>
             <strong>pg_cron:</strong> {cron.label}
@@ -120,7 +120,7 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
         </Panel>
       </div>
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Panel title="This console">
           <ConsoleStatus />
         </Panel>

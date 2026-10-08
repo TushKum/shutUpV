@@ -2,7 +2,8 @@ import { PHASE_LABELS, RULES, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { loadRoundsData } from "@/lib/admin/rounds-data";
-import { aggregateOrders, ipoBook, orderLines, previewClearing, roundHistory, signedCount, signedMoney } from "@/lib/admin/rounds";
+import { aggregateOrders, ipoBook, orderLines, previewClearing, roundHistory, roundWait, signedCount, signedMoney } from "@/lib/admin/rounds";
+import { supabaseServer } from "@/lib/supabase/server";
 import { clock, count, money } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
 import { ActionButton } from "@/components/ui/action";
@@ -28,6 +29,16 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
   const ipo = data.bids ? ipoBook(data.companies, data.bids, data.teams) : null;
   const history = roundHistory(data.clearings, data.rounds, data.companies);
   const funds = new Set(data.orders.map((o) => o.team_id)).size;
+  // Round 18 opens only once the flash scores are out (they set the flash tier).
+  const flashReleased =
+    focus?.kind === "NEXT" && focus.round.number === 18
+      ? !!(await (await supabaseServer()).from("scores").select("id").eq("event_id", event.id).eq("type", "FLASH").eq("status", "RELEASED").limit(1)).data?.length
+      : true;
+  const wait = roundWait(
+    focus,
+    { nowMs: new Date(status.server_time).getTime(), paused: status.paused, phase: status.phase, autoAdvance: status.auto_advance, flashReleased },
+    (p) => PHASE_LABELS[p as PhaseCode] ?? p,
+  );
 
   return (
     <div className="space-y-6">
@@ -55,7 +66,13 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
               label="Status"
               value={
                 focus.kind === "OPEN" ? (
-                  focus.overdue ? <Badge tone="amber">Clearing</Badge> : <Badge tone="green">Open</Badge>
+                  status.paused ? (
+                    <Badge tone="amber">Paused</Badge>
+                  ) : focus.overdue ? (
+                    <Badge tone="amber">Clearing</Badge>
+                  ) : (
+                    <Badge tone="green">Open</Badge>
+                  )
                 ) : (
                   <Badge tone="blue">Scheduled</Badge>
                 )
@@ -63,9 +80,9 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
               hint={status.paused ? "Event paused" : undefined}
             />
             {focus.kind === "OPEN" ? (
-              <Stat label="Closes in" value={<Countdown to={focus.round.closes_at} passed="closing…" />} hint={clock(focus.round.closes_at, true)} />
+              <Stat label="Closes in" value={<Countdown to={focus.round.closes_at} passed={status.paused ? "paused" : "closing…"} />} hint={clock(focus.round.closes_at, true)} />
             ) : (
-              <Stat label="Opens in" value={<Countdown to={focus.round.opens_at} passed="opening…" />} hint={clock(focus.round.opens_at, true)} />
+              <Stat label="Opens in" value={<Countdown to={focus.round.opens_at} passed={wait ? "waiting" : "opening…"} />} hint={clock(focus.round.opens_at, true)} />
             )}
             <Stat
               label="Pending orders"
@@ -76,9 +93,9 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
         ) : (
           <p className="text-sm text-slate-600">Every round has cleared.</p>
         )}
-        {focus?.kind === "OPEN" && focus.overdue ? (
+        {wait ? (
           <div className="mt-3">
-            <Notice tone="amber">The closing time has passed: the round clears on the next heartbeat (every 2 seconds).</Notice>
+            <Notice tone={wait.tone}>{wait.text}</Notice>
           </div>
         ) : null}
         {!organiser ? <p className="mt-3 text-sm text-slate-600">Only organisers close a round early.</p> : null}

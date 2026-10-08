@@ -4,6 +4,7 @@ import {
   cents,
   fetchAll,
   focusRound,
+  roundWait,
   fundBooks,
   ipoBook,
   listedPrices,
@@ -112,6 +113,46 @@ describe("which round", () => {
     expect(focusRound([round(1, "CLEARED"), round(3, "SCHEDULED"), round(2, "SCHEDULED")], now)).toMatchObject({ kind: "NEXT", round: { number: 2 } });
     expect(focusRound([round(1, "CLEARED")], now)).toBeNull();
     expect(focusRound([], now)).toBeNull();
+  });
+});
+
+describe("why a round waits", () => {
+  const now = Date.parse("2026-11-14T18:10:00Z");
+  const r = (number: number, status: RoundRow["status"], phase = "ROUNDS_13_21", at = "2026-11-14T18:09:00Z"): RoundRow => ({
+    id: `r${number}`,
+    number,
+    phase,
+    status,
+    opens_at: at,
+    closes_at: at,
+    cleared_at: null,
+  });
+  const state = { nowMs: now, paused: false, phase: "ROUNDS_13_21", autoAdvance: false, flashReleased: false };
+  const label = (p: string) => (p === "ROUNDS_5_12" ? "Rounds 5–12" : p);
+
+  test("paused: nothing clears or opens, whatever the clock says", () => {
+    expect(roundWait({ kind: "OPEN", round: r(3, "OPEN"), overdue: true }, { ...state, paused: true }, label)?.text).toMatch(/^The event is paused: the round does not clear/);
+    expect(roundWait({ kind: "NEXT", round: r(4, "SCHEDULED") }, { ...state, paused: true }, label)?.text).toBe("The event is paused: no round opens until it resumes.");
+  });
+
+  test("on time: nothing to explain", () => {
+    expect(roundWait({ kind: "OPEN", round: r(3, "OPEN", "ROUNDS_13_21", "2026-11-14T18:20:00Z"), overdue: false }, state, label)).toBeNull();
+    expect(roundWait(null, state, label)).toBeNull();
+  });
+
+  test("an overdue round clears on the next heartbeat", () => {
+    expect(roundWait({ kind: "OPEN", round: r(3, "OPEN"), overdue: true }, state, label)?.text).toMatch(/clears on the next heartbeat/);
+  });
+
+  test("a round of the next phase waits for the advance; round 18 waits for the flash scores", () => {
+    expect(roundWait({ kind: "NEXT", round: r(5, "SCHEDULED", "ROUNDS_5_12") }, { ...state, phase: "CRISIS" }, label)?.text).toBe(
+      "Round 5 opens when the event advances to Rounds 5–12. Auto-advance is off: advance the phase on the Phase page.",
+    );
+    expect(roundWait({ kind: "NEXT", round: r(5, "SCHEDULED", "ROUNDS_5_12") }, { ...state, phase: "CRISIS", autoAdvance: true }, label)?.text).toBe(
+      "Round 5 opens when the event advances to Rounds 5–12 (auto-advance is on).",
+    );
+    expect(roundWait({ kind: "NEXT", round: r(18, "SCHEDULED") }, state, label)?.text).toMatch(/^Round 18 waits for the flash scores/);
+    expect(roundWait({ kind: "NEXT", round: r(18, "SCHEDULED") }, { ...state, flashReleased: true }, label)?.text).toMatch(/opens on the next heartbeat/);
   });
 });
 

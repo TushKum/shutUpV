@@ -161,6 +161,43 @@ export function focusRound(rounds: readonly RoundRow[], nowMs: number): RoundFoc
   return next ? { kind: "NEXT", round: next } : null;
 }
 
+/**
+ * Why the focus round is not moving although its time has come (null: it is on time). The heartbeat does nothing
+ * while the event is paused; a round opens only in its own phase, after the rounds before it, and round 18 only once
+ * the flash scores are out (they set the flash tier, applied after round 17 clears).
+ */
+export function roundWait(
+  focus: RoundFocus,
+  state: { nowMs: number; paused: boolean; phase: string; autoAdvance: boolean; flashReleased: boolean },
+  phaseLabel: (phase: string) => string,
+): { tone: "amber" | "blue"; text: string } | null {
+  if (!focus) return null;
+  const due = new Date(focus.kind === "OPEN" ? focus.round.closes_at : focus.round.opens_at).getTime() <= state.nowMs;
+  if (state.paused) {
+    return {
+      tone: "amber",
+      text:
+        focus.kind === "OPEN"
+          ? "The event is paused: the round does not clear until it resumes, and its closing time moves later by the length of the pause."
+          : "The event is paused: no round opens until it resumes.",
+    };
+  }
+  if (!due) return null;
+  if (focus.kind === "OPEN") return { tone: "amber", text: "The closing time has passed: the round clears on the next heartbeat (every 2 seconds)." };
+  if (focus.round.phase !== state.phase) {
+    return {
+      tone: "blue",
+      text: `Round ${focus.round.number} opens when the event advances to ${phaseLabel(focus.round.phase)}${
+        state.autoAdvance ? " (auto-advance is on)." : ". Auto-advance is off: advance the phase on the Phase page."
+      }`,
+    };
+  }
+  if (focus.round.number === 18 && !state.flashReleased) {
+    return { tone: "amber", text: "Round 18 waits for the flash scores: release them under Judge (the flash tier applies before round 18 opens)." };
+  }
+  return { tone: "blue", text: "The opening time has passed: the round opens on the next heartbeat (every 2 seconds)." };
+}
+
 // ───────────────────────────── Order book ─────────────────────────────
 
 export interface CompanyBook {

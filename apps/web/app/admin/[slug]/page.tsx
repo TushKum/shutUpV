@@ -36,8 +36,8 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   const overdue = !!status.phase_ends_at && new Date(status.phase_ends_at).getTime() <= new Date(status.server_time).getTime();
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="space-y-6 lg:col-span-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="min-w-0 space-y-6 lg:col-span-2">
         <Panel title="Now">
           <div className="grid gap-3 sm:grid-cols-4">
             <Stat label="Phase" value={PHASE_LABELS[status.phase]} hint={status.phase_started_at ? `since ${clock(status.phase_started_at)}` : undefined} />
@@ -149,7 +149,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
         </Panel>
       </div>
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Panel title="Schedule">
           <ol className="space-y-1 text-sm">
             {((phases.data ?? []) as PhaseRow[]).map((p) => {

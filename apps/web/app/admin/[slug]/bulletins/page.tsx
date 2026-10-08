@@ -39,8 +39,8 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
   const due = (code: "FLASH_BULLETIN" | "FLASH") => (deadlines.data ?? []).find((d) => d.code === code)?.at as string | undefined;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="space-y-6 lg:col-span-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="min-w-0 space-y-6 lg:col-span-2">
         {organiser ? (
           <Panel title="Compose">
             <ConfirmForm
@@ -107,7 +107,7 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
         </Panel>
       </div>
 
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <Panel title="Flash bulletin">
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between gap-2">

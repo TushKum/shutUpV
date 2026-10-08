@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEventChannel } from "@/lib/live/channel";
@@ -20,8 +21,13 @@ export const SECTIONS = [
 export function AdminNav({ slug, fairness }: { slug: string; fairness: boolean }) {
   const pathname = usePathname();
   const base = `/admin/${slug}`;
+  const nav = useRef<HTMLElement>(null);
+  // On a phone the tabs scroll sideways: keep the current one in view.
+  useEffect(() => {
+    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [pathname]);
   return (
-    <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4" aria-label="Sections">
+    <nav ref={nav} className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4" aria-label="Sections">
       {SECTIONS.map((s) => {
         const href = `${base}${s.path}`;
         const active = s.path === "" ? pathname === base : pathname.startsWith(href);

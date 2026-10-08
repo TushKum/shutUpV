@@ -201,8 +201,8 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Phase control: advance (two-click, gate explained), pause/resume, extend, auto-advance, close round now, schedule, deadlines, rounds
 - [x] Lottery (commitment, draw, verification), bulletins, content upload
 - [x] Rounds (pending orders, clearing preview, IPO book, history), health
-- [ ] Judge (runs, spread, seal missing, release; running the judge comes in Phase 6), exports (CSV)
-- [ ] Ledger with two-person corrections, fairness (flags, decisions, team drill-down)
+- [x] Judge (runs, spread, seal missing, release; running the judge comes in Phase 6), exports (CSV)
+- [x] Ledger with two-person corrections, fairness (flags, decisions, team drill-down)
 - [ ] Review, all tests, summary
 
 ### Phase 4 — Team portal (/team)
@@ -340,7 +340,7 @@ Real time = `starts_at + offset ÷ clock_speed`.
 51. **No advance while paused.** The organiser resumes first, so a pause is never counted twice and a deadline pulled in by an early advance is not frozen.
 52. **The flash bulletin is prepared in advance** (Content: a CSV with `title, body`), invisible to teams and the display, and published once by an organiser at 04:00 (two clicks, only during rounds 13–21). The general composer cannot publish a FLASH bulletin, so there is exactly one.
 53. **Connected users come from heartbeats**, not Realtime presence: every open screen pings every 20 seconds with its realtime status, and "connected" means seen in the last 60 seconds. This is simpler to secure and test, and it also shows which screens have lost realtime.
-54. **Content locks:** the problem deck can be replaced until the draw, the crisis deck until the crisis is applied, the flash bulletin until it is published.
+54. **Content locks:** both decks can be replaced until the draw, and the flash bulletin until it is published. The crisis deck locks at the draw, not at the crisis: from the draw on, organisers know the seed, and with it which category each squad gets at 00:30, so a deck changed later could steer a chosen crisis to a chosen company and still verify. The event cannot leave Setup without the seed commitment and both decks.
 55. **Each event's control panel lives under `/admin/<slug>`**; `/admin` lists the live event and any rehearsal.
 56. **Realtime bulletin messages** carry `bulletin_kind` (the message's own `kind` is `bulletin`).
 57. **The lottery record** (the JSON that `pnpm verify-lottery` checks) is built from the stored rows: team codes sorted per track, problem cards in number order, squads in number order with their cards in dealt order, and the crisis deck and crises once the crisis is applied. It contains the secret seed, so before the reveal only staff can download it (`/admin/<slug>/lottery/record`). The page re-runs the draw with the engine and shows "Draw verified" or every difference. The covered companies are compared as a set, since their order is not stored.
@@ -350,6 +350,13 @@ Real time = `starts_at + offset ÷ clock_speed`.
 61. **Pages that change without a broadcast poll.** Orders and IPO bids send no realtime message, so the Rounds page re-fetches every 5 s while a round is open or during the IPO (only while the tab is visible). Health re-fetches every 10 s.
 62. **Every team screen refreshes on each broadcast.** At a clearing, all 150 teams' screens re-fetch at once; Phase 7's load test measures it.
 63. **A screen pings at once when its realtime channel connects or drops**, as well as every 20 s, so the health view is never 20 s behind.
+64. **Two clicks for anything that changes the night for good, and the second click counts only for what the first one showed.** If a refresh changes the target between the clicks (another organiser advanced, the round cleared, Pause became Resume), the click asks again for the new target. Resume, a typed extension ("Click again to extend by 7 min") and turning auto-advance on when the phase is overdue also ask twice. Forms keep what was typed when the database refuses.
+65. **Consoles stay current.** Auto-advance, the seed commitment, deck uploads, the flash draft and every correction (requested, approved or rejected) send a realtime message with no data. Pages whose data changes without one poll while it matters: Rounds every 5 s while a round is open or during the IPO, Judge every 5 s while runs are in flight and every 15 s until every score is released, Health every 10 s.
+66. **An account keeps its 10 most recent screen pings**, so made-up client ids cannot grow the heartbeat table.
+67. **Judge page (Phase 3 part).** It follows every stored run, seals the 0 of companies with no on-time submission and releases scores. Running the judge, the backup-model switch and appeal re-runs come in Phase 6. The default tab is what the night is working on (Pitch, then Plan, then Flash).
+68. **Exports** are staff-only CSV files: the ledger, prices per round, scores and final results. Money is in integer cents, exactly as stored; times are IST; a text cell starting with = + - @, a tab or a carriage return gets a leading quote; tables are read 1,000 rows at a time. A signed-out download is sent to the login page and returns to the file afterwards.
+69. **Ledger and corrections.** The ledger is newest first, 50 rows a page, filterable by team, kind and ticker. A books check confirms that every transaction balances and that each team's cash equals the sum of its rows. Dollars typed into a correction are converted to cents from the text (never through floating point; more than 2 decimals is refused). The requester sees why they cannot decide; a second organiser or the fairness officer approves or rejects, with two clicks.
+70. **Fairness.** Flags, decisions, the decision log (from the audit log, so a changed decision keeps its history) and the team drill-down are for the fairness officer only; organisers see a notice. Decisions can be changed until AWARDS (decision 48).
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 
