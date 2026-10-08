@@ -1,6 +1,6 @@
 import { TRACK_LABELS, TRACKS } from "@msim/engine";
 import { loadAdminEvent } from "@/lib/admin/event";
-import { loadHealthData } from "@/lib/admin/health-data";
+import { ERROR_ROWS, loadHealthData } from "@/lib/admin/health-data";
 import { cronState, seenAgo, teamScreens } from "@/lib/admin/health";
 import { clock, count } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
@@ -102,7 +102,7 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
         </Panel>
 
         <Panel title="Error log">
-          <p className="mb-2 text-sm text-slate-600">The latest {errors.length === 0 ? "" : `${errors.length} `}errors recorded for this event (newest first).</p>
+          <p className="mb-2 text-sm text-slate-600">The latest {ERROR_ROWS} errors recorded for this event, newest first (a failed heartbeat records one here).</p>
           <Table head={["Time", "Source", "Message", "Context"]} empty="No errors recorded.">
             {errors.map((e) => (
               <tr key={e.id} className="align-top">

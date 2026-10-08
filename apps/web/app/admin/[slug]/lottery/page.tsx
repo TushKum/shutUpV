@@ -1,8 +1,8 @@
-import { PHASE_LABELS } from "@msim/engine";
+import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { loadLotteryEvent, loadLotteryRows } from "@/lib/admin/lottery-data";
-import { buildLotteryRecord, checkDraw, recordFileName, squadViews, type SquadView } from "@/lib/admin/lottery";
+import { buildLotteryRecord, checkDraw, recordFileName, squadViews, type LotteryRows, type SquadView } from "@/lib/admin/lottery";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td, inputClass } from "@/components/ui/ui";
@@ -71,13 +71,13 @@ function CommitmentPanel({ eventId, commitment, setup, organiser }: { eventId: s
   );
 }
 
-function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string; phase: string; commitment: string | null; organiser: boolean }) {
+function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string; phase: PhaseCode; commitment: string | null; organiser: boolean }) {
   const open = phase === "SQUAD_DRAW";
   return (
     <Panel title="Draw">
       {!open ? (
         <Notice tone="slate">
-          The draw is entered in the Squad draw phase (21:00). The event is in {PHASE_LABELS[phase as keyof typeof PHASE_LABELS] ?? phase}.
+          The draw is entered in the Squad draw phase (21:00). The event is in {PHASE_LABELS[phase]}.
         </Notice>
       ) : !commitment ? (
         <Notice tone="red">No seed commitment was published, so the draw cannot be verified.</Notice>
@@ -110,7 +110,7 @@ function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string;
   );
 }
 
-function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: NonNullable<Awaited<ReturnType<typeof loadLotteryRows>>>; drawnAt: string; revealed: string | null }) {
+function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: LotteryRows; drawnAt: string; revealed: string | null }) {
   const record = buildLotteryRecord(rows);
   const check = checkDraw(record);
   const squads = squadViews(rows);
