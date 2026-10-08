@@ -111,14 +111,15 @@ describe("the flash bulletin", () => {
 });
 
 describe("locks", () => {
-  test("the problem deck after the draw, the crisis deck after the crisis, the flash bulletin once published", () => {
-    expect(contentLocks({ drawnAt: null, crisisAppliedAt: null, flashPublishedAt: null })).toEqual({ problem: null, crisis: null, flash: null });
+  test("both decks after the draw, the flash bulletin once published", () => {
+    expect(contentLocks({ drawnAt: null, flashPublishedAt: null })).toEqual({ problem: null, crisis: null, flash: null });
     const at = "2026-10-08T15:30:00Z";
-    expect(contentLocks({ drawnAt: at, crisisAppliedAt: at, flashPublishedAt: at })).toEqual({
+    expect(contentLocks({ drawnAt: at, flashPublishedAt: null })).toEqual({
       problem: "Locked: the problem deck is fixed once the lottery has been drawn.",
-      crisis: "Locked: the crisis deck is fixed once the crisis has been applied.",
-      flash: "Locked: the flash bulletin has been published.",
+      crisis: "Locked: the crisis deck is fixed once the lottery has been drawn.",
+      flash: null,
     });
+    expect(contentLocks({ drawnAt: null, flashPublishedAt: at }).flash).toBe("Locked: the flash bulletin has been published.");
   });
 
   test("the deck needs two more cards than there are squads", () => {

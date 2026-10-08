@@ -2,11 +2,14 @@
 
 // Phase control: each action is one game function, run as the signed-in organiser.
 
-import type { PhaseCode } from "@msim/engine";
+import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 import { rpc, type ActionResult } from "@/lib/rpc";
 
 export async function advancePhase(eventId: string, from: PhaseCode): Promise<ActionResult> {
-  return rpc("advance_phase", { p_event: eventId, p_from: from });
+  const r = await rpc("advance_phase", { p_event: eventId, p_from: from });
+  // Another organiser (or auto-advance) moved the event first: nothing changed, and the page refreshes.
+  if (r.code === "STALE") return { ...r, message: `The event has already left ${PHASE_LABELS[from]}; nothing changed. Check the page and try again.` };
+  return r;
 }
 
 export async function pauseEvent(eventId: string): Promise<ActionResult> {

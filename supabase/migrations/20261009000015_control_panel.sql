@@ -1,5 +1,6 @@
--- Phase 3 (control panel): content upload (problem deck, crisis deck, flash bulletin), "close round N now", the
--- server clock, client heartbeats for the health view, and a health summary.
+-- Phase 3 (control panel): content upload (problem deck, crisis deck, flash bulletin) and the Setup gate on it,
+-- "close round N now", broadcasts that keep every console current, the server clock, client heartbeats for the
+-- health view, and a health summary.
 
 -- ───────────────────────────── Content ─────────────────────────────
 
@@ -47,11 +48,14 @@ begin
   insert into public.problem_cards (event_id, number, sector, title, body)
   select p_event, (x ->> 'number')::numeric::int, btrim(coalesce(x ->> 'sector', '')), btrim(x ->> 'title'), btrim(x ->> 'body')
     from jsonb_array_elements(p_cards) x;
+  perform app.broadcast(p_event, 'content'); -- payload-free: the consoles re-read the deck
   return app.ok(jsonb_build_object('cards', v_n));
 end
 $$;
 
--- Replaces the crisis deck. Cards: [{category, number, title, body}]. Only before the crisis is applied.
+-- Replaces the crisis deck. Cards: [{category, number, title, body}]. Only before the draw: organisers know the seed
+-- from the draw on, and with it which category index each squad gets at the crisis, so a deck changed after the
+-- draw could steer a chosen crisis to a chosen company and still verify.
 create or replace function public.upload_crisis_deck(p_event uuid, p_cards jsonb)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -66,8 +70,8 @@ begin
   if v_event.id is null then
     raise exception 'no such event';
   end if;
-  if v_event.crisis_applied_at is not null then
-    return app.fail('TOO_LATE', 'The crisis deck is fixed once the crisis has been applied.');
+  if v_event.drawn_at is not null then
+    return app.fail('TOO_LATE', 'The crisis deck is fixed once the squads have been drawn.');
   end if;
   if jsonb_typeof(p_cards) is distinct from 'array' then
     return app.fail('BAD_DECK', 'The deck is a list of cards.');
@@ -93,6 +97,7 @@ begin
   insert into public.crisis_cards (event_id, category, number, title, body)
   select p_event, btrim(x ->> 'category'), (x ->> 'number')::numeric::int, btrim(x ->> 'title'), btrim(x ->> 'body')
     from jsonb_array_elements(p_cards) x;
+  perform app.broadcast(p_event, 'content');
   return app.ok(jsonb_build_object('cards', v_n,
     'categories', (select count(distinct category) from public.crisis_cards where event_id = p_event)));
 end
@@ -122,6 +127,7 @@ begin
   insert into public.bulletins (event_id, kind, title, body, published_at, created_by)
   values (p_event, 'FLASH', btrim(p_title), btrim(p_body), null, auth.uid())
   returning * into v_b;
+  perform app.broadcast(p_event, 'content'); -- the draft itself stays private
   return app.ok(jsonb_build_object('bulletin', to_jsonb(v_b)));
 end
 $$;
@@ -245,6 +251,7 @@ create table public.client_pings (
   last_seen timestamptz not null default now()
 );
 create index client_pings_event_idx on public.client_pings (event_id, last_seen desc);
+create index client_pings_user_idx on public.client_pings (user_id, last_seen desc);
 alter table public.client_pings enable row level security;
 grant select on public.client_pings to authenticated;
 create policy client_pings_read on public.client_pings for select to authenticated using ((select app.is_staff()));
@@ -273,6 +280,10 @@ begin
   on conflict (client_id) do update
     set event_id = excluded.event_id, area = excluded.area, realtime = excluded.realtime, last_seen = now()
   where public.client_pings.user_id = auth.uid();
+  -- An account keeps its 10 most recent screens, so made-up client ids cannot grow the table (or the health view).
+  delete from public.client_pings
+   where user_id = auth.uid()
+     and client_id in (select client_id from public.client_pings where user_id = auth.uid() order by last_seen desc offset 10);
   return jsonb_build_object('ok', true, 'server_time', now());
 end
 $$;
@@ -313,6 +324,71 @@ begin
         group by area, role order by area, role) x)));
 end
 $$;
+
+-- ───────────────────────────── Setup gate ─────────────────────────────
+
+-- Why the current phase cannot end yet (NULL when it can). The event starts only with both decks uploaded: they
+-- lock at the draw, and the crisis at 00:30 needs the crisis deck.
+create or replace function app.gate_blocker(p_event uuid)
+returns text
+language sql stable
+as $$
+  select case e.current_phase
+    when 'SETUP' then case
+      when e.seed_commitment is null then 'Publish the seed commitment before the event starts.'
+      when not exists (select 1 from public.problem_cards p where p.event_id = e.id) then 'Upload the problem deck before the event starts.'
+      when not exists (select 1 from public.crisis_cards c where c.event_id = e.id) then 'Upload the crisis deck before the event starts.'
+    end
+    when 'SQUAD_DRAW' then case when e.drawn_at is null then 'The lottery has not been drawn.' end
+    when 'READING' then case when not app.score_released(e.id, 'PITCH') then 'Pitch scores have not been released.' end
+    when 'VERDICTS' then case when not app.score_released(e.id, 'PLAN') then 'Plan scores have not been released.' end
+    when 'ROUNDS_13_21' then case when not app.score_released(e.id, 'FLASH') then 'Flash scores have not been released.' end
+    when 'APPEALS' then case when exists (select 1 from public.flags f where f.event_id = e.id and f.status = 'OPEN')
+                             then 'Collusion flags are still open for the fairness officer.' end
+    when 'AWARDS' then 'The event has ended.'
+  end
+  from public.events e where e.id = p_event
+$$;
+
+-- ───────────────────────────── Console refresh ─────────────────────────────
+
+-- Changes that other open consoles must show at once, and that no game function broadcasts: auto-advance, the seed
+-- commitment, and a correction requested or decided (the second person must see it to approve it). The messages
+-- carry no data; screens re-read through RLS.
+create or replace function app.broadcast_settings()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform app.broadcast(new.id, 'settings');
+  return null;
+end
+$$;
+
+drop trigger if exists events_settings_broadcast on public.events;
+create trigger events_settings_broadcast
+  after update of auto_advance, seed_commitment on public.events
+  for each row
+  when (old.auto_advance is distinct from new.auto_advance or old.seed_commitment is distinct from new.seed_commitment)
+  execute function app.broadcast_settings();
+
+create or replace function app.broadcast_correction()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform app.broadcast(new.event_id, 'correction');
+  return null;
+end
+$$;
+
+drop trigger if exists corrections_broadcast on public.corrections;
+create trigger corrections_broadcast
+  after insert or update of status on public.corrections
+  for each row execute function app.broadcast_correction();
+
+revoke all on function app.broadcast_settings() from public, anon, authenticated;
+revoke all on function app.broadcast_correction() from public, anon, authenticated;
 
 -- ───────────────────────────── Rounds ─────────────────────────────
 

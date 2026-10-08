@@ -135,11 +135,14 @@ export function parseFlashBulletin(text: string): Parsed<FlashBulletin> {
   return { ok: true, value: bulletin };
 }
 
-/** Why each piece of content can no longer be replaced (null: it can). */
-export function contentLocks(state: { drawnAt: string | null; crisisAppliedAt: string | null; flashPublishedAt: string | null }) {
+/**
+ * Why each piece of content can no longer be replaced (null: it can). Both decks lock at the draw: from then on
+ * organisers know the seed, and with it which crisis category each squad would get.
+ */
+export function contentLocks(state: { drawnAt: string | null; flashPublishedAt: string | null }) {
   return {
     problem: state.drawnAt ? "Locked: the problem deck is fixed once the lottery has been drawn." : null,
-    crisis: state.crisisAppliedAt ? "Locked: the crisis deck is fixed once the crisis has been applied." : null,
+    crisis: state.drawnAt ? "Locked: the crisis deck is fixed once the lottery has been drawn." : null,
     flash: state.flashPublishedAt ? "Locked: the flash bulletin has been published." : null,
   };
 }

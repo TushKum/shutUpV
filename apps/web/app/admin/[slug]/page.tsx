@@ -32,6 +32,8 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   ]);
   const next = status.next_phase;
   const blocked = status.gate ?? (status.paused ? "Resume the event before advancing." : null);
+  // With auto-advance on, the heartbeat advances a phase whose planned end has passed.
+  const overdue = !!status.phase_ends_at && new Date(status.phase_ends_at).getTime() <= new Date(status.server_time).getTime();
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
@@ -87,7 +89,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                 </ActionButton>
               ) : null}
               {status.paused ? (
-                <ActionButton action={resumeEvent.bind(null, event.id)} variant="primary">
+                <ActionButton action={resumeEvent.bind(null, event.id)} confirm="Click again to resume the event" variant="primary">
                   Resume
                 </ActionButton>
               ) : (
@@ -100,7 +102,11 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                   Close round {status.open_round.number} now
                 </ActionButton>
               ) : null}
-              <ActionButton action={setAutoAdvance.bind(null, event.id, !status.auto_advance)}>
+              <ActionButton
+                action={setAutoAdvance.bind(null, event.id, !status.auto_advance)}
+                confirm={!status.auto_advance && overdue && next ? `Click again: this advances to ${PHASE_LABELS[next]} now` : undefined}
+                title={!status.auto_advance && overdue && next ? `The planned end has passed: the event advances to ${PHASE_LABELS[next]} within seconds.` : undefined}
+              >
                 {status.auto_advance ? "Turn auto-advance off" : "Turn auto-advance on"}
               </ActionButton>
             </div>
@@ -113,7 +119,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                     +{m} min
                   </ActionButton>
                 ))}
-                <ActionForm action={extendEventForm.bind(null, event.id)} submit="Extend" className="flex items-end gap-2">
+                <ActionForm action={extendEventForm.bind(null, event.id)} submit="Extend" confirm="Click again to extend by {minutes} min" className="flex items-end gap-2">
                   <label className="block">
                     <span className="text-xs font-medium text-slate-600">Minutes (1–120)</span>
                     <input name="minutes" type="number" min={1} max={120} required className={`${inputClass} w-28`} />

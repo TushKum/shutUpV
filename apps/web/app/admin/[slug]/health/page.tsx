@@ -4,7 +4,7 @@ import { ERROR_ROWS, loadHealthData } from "@/lib/admin/health-data";
 import { cronState, seenAgo, teamScreens } from "@/lib/admin/health";
 import { clock, count } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
-import { AutoRefresh } from "../rounds/auto-refresh";
+import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { ConsoleStatus } from "./console-status";
 
 const AREA_LABELS: Record<string, string> = { team: "Team portal", admin: "Control panel", display: "Big screen" };

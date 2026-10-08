@@ -8,7 +8,7 @@ import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
 import { ActionButton } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
 import { closeRound } from "./actions";
-import { AutoRefresh } from "./auto-refresh";
+import { AutoRefresh } from "@/lib/live/auto-refresh";
 
 const changeTone = (n: number) => (n > 0 ? "text-emerald-700" : n < 0 ? "text-red-700" : "text-slate-500");
 

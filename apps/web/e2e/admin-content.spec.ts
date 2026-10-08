@@ -123,7 +123,7 @@ test("the fairness officer reads the content but has no upload forms", async ({ 
   await expect(page.getByText("Can be replaced")).toHaveCount(3);
 });
 
-test("each piece of content locks once used: the problem deck at the draw, the crisis deck at the crisis, the flash bulletin when published", async ({ page }) => {
+test("each piece of content locks once used: both decks at the draw, the flash bulletin when published", async ({ page }) => {
   await commit(ev);
   await ev.n.advanceTo("SQUAD_DRAW");
   await ev.n.org("run_lottery", ev.n.eventId, seedOf(ev), "4"); // draws from the 6-card deck uploaded above
@@ -134,14 +134,14 @@ test("each piece of content locks once used: the problem deck at the draw, the c
   await expect(problems.getByText("Locked: the problem deck is fixed once the lottery has been drawn.")).toBeVisible();
   await expect(problems.getByRole("button", { name: "Upload the problem deck" })).toHaveCount(0);
   await expect(problems.locator("tbody tr")).toHaveCount(6);
-  await expect(panel(page, "Crisis deck").getByRole("button", { name: "Upload the crisis deck" })).toBeVisible();
+  // From the draw on, organisers know the seed, and with it which crisis category each squad would get.
+  await expect(panel(page, "Crisis deck").getByText("Locked: the crisis deck is fixed once the lottery has been drawn.")).toBeVisible();
+  await expect(panel(page, "Crisis deck").getByRole("button", { name: "Upload the crisis deck" })).toHaveCount(0);
   await expect(panel(page, "Flash bulletin").getByRole("button", { name: "Upload the flash bulletin" })).toBeVisible();
 
-  await ev.n.q("update events set crisis_applied_at = now() where id = $1", [ev.n.eventId]); // test-only: the crisis has happened
   await ev.n.q("update events set current_phase = 'ROUNDS_13_21' where id = $1", [ev.n.eventId]); // test-only jump to 04:00
   await ev.n.org("publish_flash_bulletin", ev.n.eventId);
   await page.reload();
-  await expect(panel(page, "Crisis deck").getByText("Locked: the crisis deck is fixed once the crisis has been applied.")).toBeVisible();
   await expect(panel(page, "Flash bulletin").getByText("Locked: the flash bulletin has been published.")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Upload the/ })).toHaveCount(0);
   await expect(page.getByTestId("flash-bulletin")).toContainText("Published");

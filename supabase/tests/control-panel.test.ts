@@ -41,7 +41,7 @@ describe("content", () => {
     expect(await upload(deck(8))).toMatchObject({ ok: false, code: "TOO_LATE" });
   });
 
-  test("the crisis deck is replaced until the crisis is applied", async () => {
+  test("the crisis deck is replaced until the draw (organisers know the seed from then on)", async () => {
     const n = await Night.create(db.pool, 3);
     const upload = (cards: unknown) => n.call(n.lead, "upload_crisis_deck", n.eventId, JSON.stringify(cards));
     const cards = ["Supply shortage", "Regulation"].flatMap((category) =>
@@ -50,8 +50,10 @@ describe("content", () => {
     expect(await upload([])).toMatchObject({ ok: false, code: "BAD_DECK" });
     expect(await upload([...cards, cards[0]])).toMatchObject({ ok: false, code: "BAD_DECK" });
     expect(await upload(cards)).toMatchObject({ ok: true, cards: 4, categories: 2 });
-    await n.q("update events set crisis_applied_at = now() where id = $1", [n.eventId]); // test-only: the crisis has happened
-    expect(await upload(cards)).toMatchObject({ ok: false, code: "TOO_LATE" });
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, SEED, "2");
+    expect(await upload(cards)).toMatchObject({ ok: false, code: "TOO_LATE", message: "The crisis deck is fixed once the squads have been drawn." });
   });
 
   test("the flash bulletin is prepared in advance, hidden until 04:00, published once, and then opens the flash answers", async () => {
@@ -78,6 +80,48 @@ describe("content", () => {
     expect((await n.one("select app.window_opened($1, 'FLASH') as v", [n.eventId])).v).toBe(true);
     const msg = await n.one("select event, payload from realtime.messages where topic = $1 and event = 'bulletin' order by id desc limit 1", [`event:${n.eventId}`]);
     expect(msg.payload).toMatchObject({ kind: "bulletin", bulletin_kind: "FLASH", title: "Interest rates rise" });
+  });
+});
+
+describe("setup gate and console refresh", () => {
+  test("the event starts only with the seed commitment and both decks", async () => {
+    const n = await Night.create(db.pool, 3);
+    const gate = async () => (await n.one("select app.gate_blocker($1) as g", [n.eventId])).g;
+    await n.q("delete from crisis_cards where event_id = $1", [n.eventId]);
+    await n.q("delete from problem_cards where event_id = $1", [n.eventId]);
+    expect(await gate()).toBe("Publish the seed commitment before the event starts.");
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    expect(await gate()).toBe("Upload the problem deck before the event starts.");
+    await n.org("upload_problem_deck", n.eventId, JSON.stringify(deck(5)));
+    expect(await gate()).toBe("Upload the crisis deck before the event starts.");
+    expect(await n.call(n.lead, "advance_phase", n.eventId, "SETUP")).toMatchObject({ ok: false });
+    await n.org("upload_crisis_deck", n.eventId, JSON.stringify([{ category: "Regulation", number: 1, title: "A ban", body: "Stop." }]));
+    expect(await gate()).toBeNull();
+  });
+
+  test("auto-advance, the commitment, decks and corrections tell every console to refresh (no data in the message)", async () => {
+    const n = await Night.create(db.pool, 3);
+    const topic = `event:${n.eventId}`;
+    const kinds = async () =>
+      (await n.q("select event, payload from realtime.messages where topic = $1 order by id", [topic])).map((m) => [m.event, Object.keys(m.payload).sort().join(",")]);
+    await n.q("delete from realtime.messages where topic = $1", [topic]);
+    await n.org("set_auto_advance", n.eventId, true);
+    await n.org("set_auto_advance", n.eventId, true); // no change, no message
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    await n.org("upload_problem_deck", n.eventId, JSON.stringify(deck(5)));
+    await n.org("prepare_flash_bulletin", n.eventId, "Rates rise", "Investors want profit.");
+    const team = n.ev.plan.teams.find((t) => t.track === "FINANCE")!.code;
+    const req = await n.org("request_correction", n.eventId, "A test correction of the books.", JSON.stringify([{ team_id: n.teamId(team), cash_delta_cents: 100 }]));
+    await n.ok(n.second, "decide_correction", req.correction_id, false, "Not needed.");
+    const meta = "at,event_id,kind";
+    expect(await kinds()).toEqual([
+      ["settings", meta],
+      ["settings", meta],
+      ["content", meta],
+      ["content", meta],
+      ["correction", meta],
+      ["correction", meta],
+    ]);
   });
 });
 
@@ -151,6 +195,13 @@ describe("clock and health", () => {
     await n.q("update client_pings set last_seen = now() - interval '61 seconds' where client_id = $1", [b]);
     const later = await n.org("admin_health", n.eventId);
     expect(later.screens).toEqual(expect.arrayContaining([{ area: "team", role: "TEAM", connected: 2, realtime_ok: 2 }]));
+  });
+
+  test("an account keeps only its 10 most recent screens", async () => {
+    const n = await Night.create(db.pool, 3);
+    const team = n.team(n.ev.plan.teams[0]!.code);
+    for (let i = 0; i < 25; i++) await n.call(team, "ping", randomUUID(), null, "team", "SUBSCRIBED");
+    expect((await n.one("select count(*)::int as c from client_pings where team_id = $1", [n.teamId(n.ev.plan.teams[0]!.code)])).c).toBe(10);
   });
 
   test("event_status tells every screen where the event is; only those who can see the event may read it", async () => {

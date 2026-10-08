@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent } from "@/lib/admin/event";
-import { loadLotteryEvent } from "@/lib/admin/lottery-data";
 import { CSV_FORMATS, MAX_CSV_BYTES, contentLocks, minProblemCards, type CsvKind } from "@/lib/admin/content";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock } from "@/lib/format";
@@ -13,15 +12,14 @@ import type { ActionResult } from "@/lib/rpc";
 
 const short = (text: string, max = 90) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
-// Content: the problem deck, the crisis deck and the flash bulletin, uploaded as CSV, each locked once it has been
-// used (the draw, the crisis, the 04:00 publication).
+// Content: the problem deck, the crisis deck and the flash bulletin, uploaded as CSV. Both decks lock at the draw
+// (from then on organisers know the seed); the flash bulletin when it is published at 04:00.
 export default async function ContentPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
-  const [lotteryEvent, problems, crises, flashes, products] = await Promise.all([
-    loadLotteryEvent(sb, slug),
+  const [problems, crises, flashes, products] = await Promise.all([
     sb.from("problem_cards").select("number, sector, title, body").eq("event_id", event.id).order("number").limit(1000),
     sb.from("crisis_cards").select("category, number, title, body").eq("event_id", event.id).order("category").order("number").limit(1000),
     sb.from("bulletins").select("title, body, published_at, created_at").eq("event_id", event.id).eq("kind", "FLASH").order("created_at", { ascending: false }),
@@ -29,7 +27,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
   ]);
   for (const r of [problems, crises, flashes, products]) if (r.error) throw new Error(`Could not read the content: ${r.error.message}`);
   const flash = (flashes.data ?? []).find((b) => b.published_at) ?? flashes.data?.[0] ?? null;
-  const locks = contentLocks({ drawnAt: event.drawn_at, crisisAppliedAt: lotteryEvent?.crisis_applied_at ?? null, flashPublishedAt: flash?.published_at ?? null });
+  const locks = contentLocks({ drawnAt: event.drawn_at, flashPublishedAt: flash?.published_at ?? null });
   const needed = minProblemCards(products.count ?? 0);
   const problemRows = problems.data ?? [];
   const crisisRows = crises.data ?? [];

@@ -1,12 +1,12 @@
 "use client";
 
-// Judge runs are written by the judge worker without a realtime message, so while a run is queued or running the
-// page re-reads itself every few seconds (as long as the tab is visible) to show the progress.
+// For data that changes without a realtime message (private orders and IPO bids, judge runs written by the worker,
+// screen heartbeats): while `active`, the page re-reads itself every `everyMs`, as long as the tab is visible.
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export function JudgeAutoRefresh({ everyMs, active }: { everyMs: number; active: boolean }) {
+export function AutoRefresh({ everyMs, active = true }: { everyMs: number; active?: boolean }) {
   const router = useRouter();
   useEffect(() => {
     if (!active) return;

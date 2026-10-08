@@ -7,6 +7,7 @@ import {
   judging,
   latency,
   parseJudgeType,
+  refreshInterval,
   releaseMessage,
   sealMissingMessage,
   sealedScore,
@@ -17,6 +18,7 @@ import {
   type JudgeRunRow,
   type JudgeScoreRow,
   type JudgeSubmissionRow,
+  type TypeSummary,
 } from "./judge";
 
 const company = (id: string, ticker: string | null, squad: number | null = null): JudgeCompanyRow => ({ id, ticker, name: ticker ? `${ticker} Inc` : null, squad });
@@ -316,6 +318,15 @@ describe("summarise", () => {
     expect(s.missing).toBe(1);
     expect(s.releasedAt).toBe("2026-10-08T22:50:00.2Z");
     expect(judging([s])).toBe(false);
+  });
+
+  it("the page polls fast while runs are in flight, slowly until every score is released, then not at all", () => {
+    const base = { companies: 2, submissions: 2, sealed: 0, released: 0, missing: 0, unsealed: 2, stale: 0, releasedAt: null };
+    const runs = (queued: number) => ({ QUEUED: queued, RUNNING: 0, DONE: 0, FAILED: 0 }) as TypeSummary["runs"];
+    expect(refreshInterval([{ ...base, type: "PITCH", runs: runs(1) }])).toBe(5000);
+    expect(refreshInterval([{ ...base, type: "PITCH", runs: runs(0) }])).toBe(15_000);
+    expect(refreshInterval([{ ...base, type: "PITCH", runs: runs(0), released: 2, unsealed: 0 }])).toBeNull();
+    expect(refreshInterval([{ ...base, type: "PITCH", runs: runs(0), companies: 0 }])).toBeNull();
   });
 });
 

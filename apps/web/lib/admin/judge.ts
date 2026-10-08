@@ -262,6 +262,15 @@ export function judging(summaries: readonly TypeSummary[]): boolean {
   return summaries.some((s) => s.runs.QUEUED + s.runs.RUNNING > 0);
 }
 
+/**
+ * How often the judge page re-reads itself (null: it need not). Submissions, judge runs and seals are written
+ * without a realtime message: every 5 s while runs are in flight, every 15 s until every score is released.
+ */
+export function refreshInterval(summaries: readonly TypeSummary[]): number | null {
+  if (judging(summaries)) return 5000;
+  return summaries.some((s) => s.companies > 0 && s.released < s.companies) ? 15_000 : null;
+}
+
 // ───────────────────────────── Run detail ─────────────────────────────
 
 export interface BreakdownLine {

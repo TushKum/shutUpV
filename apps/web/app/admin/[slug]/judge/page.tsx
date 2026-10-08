@@ -10,7 +10,7 @@ import {
   TYPE_TITLES,
   companyViews,
   defaultJudgeType,
-  judging,
+  refreshInterval,
   parseJudgeType,
   summarise,
   type CompanyJudgeView,
@@ -21,7 +21,7 @@ import { Badge, Notice, Panel, Table } from "@/components/ui/ui";
 import { ActionButton } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
 import { CompanyRow } from "./company-row";
-import { JudgeAutoRefresh } from "./auto-refresh";
+import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { releaseScores, sealMissingScores } from "./actions";
 
 // Judge: per type a summary and every company's runs, spread, median and final score; sealing the 0 of companies with
@@ -42,10 +42,11 @@ export default async function JudgePage({
   const summaries = Object.fromEntries(JUDGE_TYPES.map((t) => [t, summarise(t, views[t])])) as Record<SubmissionType, TypeSummary>;
   const summary = summaries[type];
   const released = summary.released > 0;
+  const refresh = refreshInterval(JUDGE_TYPES.map((t) => summaries[t]));
 
   return (
     <div className="space-y-6">
-      <JudgeAutoRefresh everyMs={5000} active={judging(JUDGE_TYPES.map((t) => summaries[t]))} />
+      <AutoRefresh everyMs={refresh ?? 15_000} active={refresh !== null} />
       <Notice tone="blue">
         Running the judge (the AI worker that scores every submission 3 times, or 5 when the runs spread more than 10 points), the backup-model switch
         and re-running one submission for a technical appeal come in Phase 6. Here you can follow every stored run, seal the 0 of companies with no

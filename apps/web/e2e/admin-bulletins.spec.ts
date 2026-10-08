@@ -51,10 +51,17 @@ test("an organiser composes and publishes a bulletin with two clicks; it is list
   await expect(panel(page, /^All bulletins/)).toContainText("All bulletins (2)");
 });
 
-test("a refused bulletin keeps what was typed and says why", async ({ page }) => {
+test("a refused bulletin keeps what was typed and says why, also right after an accepted one", async ({ page }) => {
   await loginAsStaff(page, ev, STAFF.lead);
   await bulletinsPage(page);
   const compose = panel(page, "Compose");
+  // An accepted bulletin clears the form.
+  await compose.getByLabel(/^Title/).fill("Orders reopen at 00:45");
+  await compose.getByLabel(/^Body/).fill("The exchange reopens after the crisis.");
+  await compose.getByRole("button", { name: "Publish bulletin" }).click();
+  await compose.getByRole("button", { name: "Click again to publish to every screen" }).click();
+  await expect(compose.getByRole("status")).toBeVisible();
+  await expect(compose.getByLabel(/^Title/)).toHaveValue("");
   // A title of spaces passes the browser's "required" check; the server refuses it.
   await compose.getByLabel(/^Title/).fill("   ");
   await compose.getByLabel(/^Body/).fill("Keep this text.");
@@ -62,7 +69,7 @@ test("a refused bulletin keeps what was typed and says why", async ({ page }) =>
   await compose.getByRole("button", { name: "Click again to publish to every screen" }).click();
   await expect(compose.getByRole("alert")).toHaveText("BAD_BULLETIN: A bulletin needs a title.");
   await expect(compose.getByLabel(/^Body/)).toHaveValue("Keep this text.");
-  expect((await ev.n.one("select count(*)::int as n from bulletins where event_id = $1", [ev.n.eventId])).n).toBe(2);
+  expect((await ev.n.one("select count(*)::int as n from bulletins where event_id = $1", [ev.n.eventId])).n).toBe(3);
 });
 
 test("the flash bulletin: prepared (a draft in the list), published with two clicks only in rounds 13–21, once", async ({ page }) => {
@@ -107,5 +114,5 @@ test("the fairness officer reads every bulletin but cannot publish", async ({ pa
   await expect(page.getByText("only organisers publish")).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish bulletin" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Publish the flash bulletin/ })).toHaveCount(0);
-  await expect(page.getByRole("list", { name: "Bulletins" }).getByRole("listitem")).toHaveCount(3);
+  await expect(page.getByRole("list", { name: "Bulletins" }).getByRole("listitem")).toHaveCount(4);
 });
