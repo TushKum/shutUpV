@@ -74,7 +74,7 @@ test("an organiser sees every company's runs, spread and median, and why the rel
 
   // Company, submission, runs, spread, median, final, tier, capped, penalty, status.
   await expect(row(page, "KAQ").getByRole("cell")).toHaveText([
-    "KAQ Company KAQ",
+    "KAQ Company KAQRuns (3)",
     /^\d\d:\d\d · 20 words$/,
     "64 66 68",
     "4",
@@ -84,10 +84,9 @@ test("an organiser sees every company's runs, spread and median, and why the rel
     "No",
     "0",
     "Sealed",
-    "Runs (3)",
   ]);
   await expect(row(page, "KSN").getByRole("cell")).toHaveText([
-    "KSN Company KSN",
+    "KSN Company KSNRuns (3)",
     /words$/,
     "50 70 62",
     "20",
@@ -97,7 +96,6 @@ test("an organiser sees every company's runs, spread and median, and why the rel
     "—",
     "—",
     "Spread over 10: needs 2 more runs",
-    "Runs (3)",
   ]);
   await expect(row(page, "ZAAD").getByRole("cell").nth(1)).toHaveText("None");
   await expect(row(page, "ZAAD").getByRole("cell").nth(9)).toHaveText("No submission");
@@ -168,7 +166,7 @@ test("the page follows the judge's progress without a reload while runs are in f
   // The worker seals it (service role): 5 runs, median 61, +5%.
   expect((await ev.n.call(service, "seal_score", s[1]!.company_id, "PITCH")).ok).toBe(true);
   await page.reload();
-  await expect(row(page, "KSN").getByRole("cell")).toHaveText([/^KSN/, /words$/, "50 70 62 60 61", "20", "61", "61", "+5%", "No", "0", "Sealed", "Runs (5)"]);
+  await expect(row(page, "KSN").getByRole("cell")).toHaveText([/^KSN.*Runs \(5\)$/, /words$/, "50 70 62 60 61", "20", "61", "61", "+5%", "No", "0", "Sealed"]);
 });
 
 test("the fairness officer reads every run but cannot seal or release", async ({ page }) => {

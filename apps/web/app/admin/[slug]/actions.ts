@@ -29,7 +29,10 @@ export async function extendEventForm(eventId: string, _prev: ActionResult | nul
   return extendEvent(eventId, Number(form.get("minutes")));
 }
 
-export async function setAutoAdvance(eventId: string, on: boolean): Promise<ActionResult> {
-  return rpc("set_auto_advance", { p_event: eventId, p_on: on });
+/** `advanceNow` is the confirmed second click when the planned end has passed; without it the database refuses. */
+export async function setAutoAdvance(eventId: string, on: boolean, advanceNow = false): Promise<ActionResult> {
+  const r = await rpc("set_auto_advance", { p_event: eventId, p_on: on, p_advance_now: advanceNow });
+  if (r.code === "OVERDUE") return { ...r, message: "The planned end has passed: with auto-advance on, the event advances at once. Click the button twice to confirm." };
+  return r;
 }
 

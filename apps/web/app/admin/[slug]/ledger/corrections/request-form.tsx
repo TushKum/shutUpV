@@ -11,6 +11,7 @@ import { TRACK_LABELS, type Track } from "@msim/engine";
 import type { ActionResult } from "@/lib/rpc";
 import { MAX_ENTRIES } from "@/lib/admin/ledger-corrections";
 import { ResultMessage } from "@/components/ui/action";
+import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 
 export interface RequestOptions {
@@ -36,7 +37,7 @@ export function RequestCorrectionForm({
   // `accepted` counts accepted requests: it is the form's key, so only an accepted request clears the fields.
   const [{ result, accepted }, dispatch, pending] = useActionState<RequestState, FormData>(
     async (prev, form) => {
-      const r = await action(prev.result, form);
+      const r = await safely(() => action(prev.result, form));
       router.refresh();
       return { result: r, accepted: prev.accepted + (r.ok ? 1 : 0) };
     },

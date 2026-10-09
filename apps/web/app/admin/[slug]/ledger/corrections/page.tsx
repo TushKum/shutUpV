@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent } from "@/lib/admin/event";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -9,6 +10,8 @@ import { LedgerTabs } from "../tabs";
 import { decideCorrection, requestCorrection } from "../actions";
 import { DecideCorrection } from "./decide";
 import { RequestCorrectionForm } from "./request-form";
+
+export const metadata: Metadata = { title: "Corrections" };
 
 const tone = (sign: number) => (sign > 0 ? "text-emerald-700" : sign < 0 ? "text-red-700" : "");
 

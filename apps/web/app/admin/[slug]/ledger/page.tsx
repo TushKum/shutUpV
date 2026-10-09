@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
 import { loadAdminEvent } from "@/lib/admin/event";
@@ -18,6 +19,8 @@ import { loadBooks, loadLedgerBase, loadLedgerPage, type BooksStatus } from "@/l
 import { clock, count } from "@/lib/format";
 import { Notice, Panel, Table, Td, buttonClass, inputClass } from "@/components/ui/ui";
 import { LedgerTabs } from "./tabs";
+
+export const metadata: Metadata = { title: "Ledger" };
 
 const MAX_PROBLEMS = 20;
 const tone = (sign: number) => (sign > 0 ? "text-emerald-700" : sign < 0 ? "text-red-700" : "");

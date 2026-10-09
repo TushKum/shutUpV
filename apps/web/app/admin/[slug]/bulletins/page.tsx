@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DEADLINE_LABELS } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
@@ -18,6 +19,8 @@ import { Badge, Notice, Panel, inputClass, type Tone } from "@/components/ui/ui"
 import { ActionButton, ConfirmForm } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
 import { publishBulletin, publishFlashBulletin } from "./actions";
+
+export const metadata: Metadata = { title: "Bulletins" };
 
 const KIND_TONES: Record<BulletinKind, Tone> = { GENERAL: "slate", CRISIS: "red", FLASH: "violet", FAIRNESS: "amber", SYSTEM: "blue" };
 
@@ -144,11 +147,13 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
               </div>
             )}
           </div>
-          {organiser && !flash.published ? (
+          {organiser ? (
             <div className="mt-4">
+              {/* Names the draft it publishes: a draft replaced between the two clicks asks again (and the database
+                  refuses a stale one). Stays mounted once published, so its result stays visible. */}
               <ActionButton
-                action={publishFlashBulletin.bind(null, event.id)}
-                confirm="Click again to publish the flash bulletin"
+                action={publishFlashBulletin.bind(null, event.id, flash.bulletin?.id ?? null)}
+                confirm={flash.bulletin && !flash.published ? `Click again to publish “${flash.bulletin.title}”` : undefined}
                 variant="primary"
                 disabled={!!flash.blocked}
                 title={flash.blocked ?? undefined}

@@ -48,7 +48,7 @@ begin
   insert into public.problem_cards (event_id, number, sector, title, body)
   select p_event, (x ->> 'number')::numeric::int, btrim(coalesce(x ->> 'sector', '')), btrim(x ->> 'title'), btrim(x ->> 'body')
     from jsonb_array_elements(p_cards) x;
-  perform app.broadcast(p_event, 'content'); -- payload-free: the consoles re-read the deck
+  perform app.broadcast_staff(p_event, 'content'); -- the consoles re-read the deck
   return app.ok(jsonb_build_object('cards', v_n));
 end
 $$;
@@ -97,7 +97,7 @@ begin
   insert into public.crisis_cards (event_id, category, number, title, body)
   select p_event, btrim(x ->> 'category'), (x ->> 'number')::numeric::int, btrim(x ->> 'title'), btrim(x ->> 'body')
     from jsonb_array_elements(p_cards) x;
-  perform app.broadcast(p_event, 'content');
+  perform app.broadcast_staff(p_event, 'content');
   return app.ok(jsonb_build_object('cards', v_n,
     'categories', (select count(distinct category) from public.crisis_cards where event_id = p_event)));
 end
@@ -127,13 +127,15 @@ begin
   insert into public.bulletins (event_id, kind, title, body, published_at, created_by)
   values (p_event, 'FLASH', btrim(p_title), btrim(p_body), null, auth.uid())
   returning * into v_b;
-  perform app.broadcast(p_event, 'content'); -- the draft itself stays private
+  perform app.broadcast_staff(p_event, 'content'); -- the draft itself stays private
   return app.ok(jsonb_build_object('bulletin', to_jsonb(v_b)));
 end
 $$;
 
--- Publishes the prepared flash bulletin (once). This opens the flash answers.
-create or replace function public.publish_flash_bulletin(p_event uuid)
+-- Publishes the prepared flash bulletin (once). This opens the flash answers. With p_bulletin, only that draft: a
+-- draft replaced since the page showed it is never published by the confirming click.
+drop function if exists public.publish_flash_bulletin(uuid);
+create or replace function public.publish_flash_bulletin(p_event uuid, p_bulletin uuid default null)
 returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -153,9 +155,13 @@ begin
     return app.fail('WRONG_PHASE', 'The flash bulletin is published during rounds 13–21 (04:00).');
   end if;
   update public.bulletins set published_at = now()
-   where event_id = p_event and kind = 'FLASH' and published_at is null
+   where event_id = p_event and kind = 'FLASH' and published_at is null and (p_bulletin is null or id = p_bulletin)
   returning * into v_b;
   if v_b.id is null then
+    if p_bulletin is not null and exists (select 1 from public.bulletins where event_id = p_event and kind = 'FLASH' and published_at is null) then
+      -- The page named the draft it showed; another organiser has replaced it since.
+      return app.fail('DRAFT_CHANGED', 'The flash draft was replaced since this page showed it; nothing was published. Read the new draft and publish again.');
+    end if;
     return app.fail('NO_DRAFT', 'Prepare the flash bulletin first (Content).');
   end if;
   perform app.broadcast(p_event, 'bulletin', jsonb_build_object('id', v_b.id, 'bulletin_kind', v_b.kind, 'title', v_b.title, 'body', v_b.body));
@@ -268,6 +274,9 @@ begin
   if v_account.user_id is null then
     raise exception 'not signed in' using errcode = '42501';
   end if;
+  -- One account's pings one after another: two tabs pinging at once would otherwise each delete the other's row
+  -- (the cap below) while it is locked, and deadlock.
+  perform pg_advisory_xact_lock(hashtext('ping:' || auth.uid()::text));
   -- A team pings for its own event; staff and the display for the event they are looking at.
   v_event := case when v_account.team_id is not null then (select event_id from public.teams where id = v_account.team_id)
                   else (select id from public.events where id = p_event) end;
@@ -328,7 +337,7 @@ $$;
 -- ───────────────────────────── Setup gate ─────────────────────────────
 
 -- Why the current phase cannot end yet (NULL when it can). The event starts only with both decks uploaded: they
--- lock at the draw, and the crisis at 00:30 needs the crisis deck.
+-- lock at the draw, the draw needs squads + 2 problem cards, and the crisis at 00:30 needs the crisis deck.
 create or replace function app.gate_blocker(p_event uuid)
 returns text
 language sql stable
@@ -337,6 +346,10 @@ as $$
     when 'SETUP' then case
       when e.seed_commitment is null then 'Publish the seed commitment before the event starts.'
       when not exists (select 1 from public.problem_cards p where p.event_id = e.id) then 'Upload the problem deck before the event starts.'
+      when (select count(*) from public.problem_cards p where p.event_id = e.id)
+           < (select count(*) from public.teams t where t.event_id = e.id and t.track = 'PRODUCT') + 2
+        then format('The problem deck needs at least %s cards (squads + 2) before the event starts.',
+                    (select count(*) from public.teams t where t.event_id = e.id and t.track = 'PRODUCT') + 2)
       when not exists (select 1 from public.crisis_cards c where c.event_id = e.id) then 'Upload the crisis deck before the event starts.'
     end
     when 'SQUAD_DRAW' then case when e.drawn_at is null then 'The lottery has not been drawn.' end
@@ -352,15 +365,41 @@ $$;
 
 -- ───────────────────────────── Console refresh ─────────────────────────────
 
+-- May the caller receive messages on this topic? 'event:<id>' of the caller's own event (staff and the display hear
+-- every event); 'staff:<id>' for staff only: signals about drafts, requests and settings that teams must not learn
+-- of, and that their screens need not re-fetch for.
+create or replace function app.can_hear(p_topic text)
+returns boolean
+language sql stable security definer set search_path = ''
+as $$
+  select coalesce(
+    (p_topic like 'event:%' and exists (
+       select 1 from public.events e
+        where 'event:' || e.id::text = p_topic and (app.sees_all_events() or e.id = app.my_event_id())))
+    or (p_topic like 'staff:%' and app.is_staff() and exists (
+       select 1 from public.events e where 'staff:' || e.id::text = p_topic)),
+    false)
+$$;
+
+-- Tells the open control panels to re-read (the message carries no data; screens re-read through RLS).
+create or replace function app.broadcast_staff(p_event uuid, p_kind text)
+returns void
+language plpgsql
+as $$
+begin
+  perform realtime.send(jsonb_build_object('kind', p_kind, 'event_id', p_event, 'at', now()), p_kind, 'staff:' || p_event::text, true);
+end
+$$;
+
 -- Changes that other open consoles must show at once, and that no game function broadcasts: auto-advance, the seed
--- commitment, and a correction requested or decided (the second person must see it to approve it). The messages
--- carry no data; screens re-read through RLS.
+-- commitment, and a correction requested or rejected (the second person must see a request to approve it; an
+-- approval is published to everyone by decide_correction itself).
 create or replace function app.broadcast_settings()
 returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  perform app.broadcast(new.id, 'settings');
+  perform app.broadcast_staff(new.id, 'settings');
   return null;
 end
 $$;
@@ -377,7 +416,7 @@ returns trigger
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  perform app.broadcast(new.event_id, 'correction');
+  perform app.broadcast_staff(new.event_id, 'correction');
   return null;
 end
 $$;
@@ -385,10 +424,57 @@ $$;
 drop trigger if exists corrections_broadcast on public.corrections;
 create trigger corrections_broadcast
   after insert or update of status on public.corrections
-  for each row execute function app.broadcast_correction();
+  for each row when (new.status <> 'APPROVED')
+  execute function app.broadcast_correction();
 
+-- A flag decided (or changed) by the fairness officer: the organisers' Phase page follows the APPEALS gate. The
+-- message names nothing, so it goes to staff only like the rest.
+create or replace function app.broadcast_flag()
+returns trigger
+language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform app.broadcast_staff(new.event_id, 'flag');
+  return null;
+end
+$$;
+
+drop trigger if exists flags_broadcast on public.flags;
+create trigger flags_broadcast
+  after update of status on public.flags
+  for each row when (old.status is distinct from new.status)
+  execute function app.broadcast_flag();
+
+revoke all on function app.broadcast_staff(uuid, text) from public, anon, authenticated;
+revoke all on function app.broadcast_flag() from public, anon, authenticated;
 revoke all on function app.broadcast_settings() from public, anon, authenticated;
 revoke all on function app.broadcast_correction() from public, anon, authenticated;
+
+-- Turning auto-advance on when the current phase's planned end has passed advances the event on the next tick, so
+-- it needs a second, explicit confirmation (p_advance_now). The database decides, not the page: a console rendered
+-- before the planned end cannot advance the night with one click.
+drop function if exists public.set_auto_advance(uuid, boolean);
+create or replace function public.set_auto_advance(p_event uuid, p_on boolean, p_advance_now boolean default false)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_event public.events;
+begin
+  perform app.require_organiser();
+  select * into v_event from public.events where id = p_event for no key update;
+  if v_event.id is null then
+    raise exception 'no such event';
+  end if;
+  if p_on and not v_event.auto_advance and not p_advance_now
+     and exists (select 1 from public.phases where event_id = p_event and code = v_event.current_phase and ends_at <= now())
+     and app.phase_after(v_event.current_phase) is not null then
+    return app.fail('OVERDUE', 'The planned end of this phase has passed: with auto-advance on, the event advances at once. Confirm to go ahead.');
+  end if;
+  update public.events set auto_advance = p_on where id = p_event;
+  return app.ok(jsonb_build_object('auto_advance', p_on));
+end
+$$;
 
 -- ───────────────────────────── Rounds ─────────────────────────────
 
@@ -424,13 +510,14 @@ declare f text;
 begin
   foreach f in array array[
     'public.upload_problem_deck(uuid, jsonb)', 'public.upload_crisis_deck(uuid, jsonb)',
-    'public.prepare_flash_bulletin(uuid, text, text)', 'public.publish_flash_bulletin(uuid)',
+    'public.prepare_flash_bulletin(uuid, text, text)', 'public.publish_flash_bulletin(uuid, uuid)',
     'public.publish_bulletin(uuid, public.bulletin_kind, text, text)',
     'public.server_time()', 'public.event_status(uuid)', 'public.ping(uuid, uuid, text, text)', 'public.admin_health(uuid)',
-    'public.close_round_now(uuid, integer)'
+    'public.close_round_now(uuid, integer)', 'public.set_auto_advance(uuid, boolean, boolean)'
   ] loop
     execute format('revoke all on function %s from public, anon', f);
     execute format('grant execute on function %s to authenticated', f);
   end loop;
   grant execute on function public.close_round_now(uuid, integer) to service_role;
+  grant execute on function public.set_auto_advance(uuid, boolean, boolean) to service_role;
 end $$;

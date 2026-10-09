@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PHASE_LABELS, RULES, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
@@ -10,6 +11,9 @@ import { ActionButton } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
 import { closeRound } from "./actions";
 import { AutoRefresh } from "@/lib/live/auto-refresh";
+import { RefreshAt } from "@/lib/live/refresh-at";
+
+export const metadata: Metadata = { title: "Rounds" };
 
 const changeTone = (n: number) => (n > 0 ? "text-emerald-700" : n < 0 ? "text-red-700" : "text-slate-500");
 
@@ -43,6 +47,8 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
   return (
     <div className="space-y-6">
       <AutoRefresh everyMs={5000} active={!!open || !!ipo} />
+      {/* When the round's time comes, re-read: it opens or clears, or the page explains why it waits. */}
+      <RefreshAt at={focus ? (focus.kind === "OPEN" ? focus.round.closes_at : focus.round.opens_at) : null} />
 
       <Panel
         title={open ? `Round ${open.number}` : focus ? `Next: round ${focus.round.number}` : "Rounds"}

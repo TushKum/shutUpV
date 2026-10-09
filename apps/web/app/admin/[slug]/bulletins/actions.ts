@@ -13,7 +13,8 @@ export async function publishBulletin(eventId: string, _prev: ActionResult | nul
   return r.ok ? { ...r, message: `Published “${b.value.title}” to every screen.` } : r;
 }
 
-export async function publishFlashBulletin(eventId: string): Promise<ActionResult> {
-  const r = await rpc("publish_flash_bulletin", { p_event: eventId });
+/** Publishes the draft the page showed (`bulletinId`): a draft replaced since is refused (DRAFT_CHANGED). */
+export async function publishFlashBulletin(eventId: string, bulletinId: string | null): Promise<ActionResult> {
+  const r = await rpc("publish_flash_bulletin", { p_event: eventId, p_bulletin: bulletinId });
   return r.ok ? { ...r, message: "Flash bulletin published. The flash answers are open." } : r;
 }

@@ -47,7 +47,8 @@ export function Heartbeat({ eventId, area, tick = false }: { eventId: string; ar
     pingRef.current = ping;
     void ping();
     const p = setInterval(ping, PING_MS);
-    const t = tick ? setInterval(() => void sb.rpc("tick", { p_event: eventId }), TICK_MS) : null;
+    // A supabase-js query runs only once it is awaited (or .then is called): without it no request is ever sent.
+    const t = tick ? setInterval(() => void sb.rpc("tick", { p_event: eventId }).then(undefined, () => undefined), TICK_MS) : null;
     return () => {
       stopped = true;
       pingRef.current = null;

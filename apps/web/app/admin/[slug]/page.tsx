@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DEADLINE_LABELS, PHASE_LABELS, type DeadlineCode, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
@@ -8,6 +9,10 @@ import { ActionButton, ActionForm } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
 import { advancePhase, extendEvent, extendEventForm, pauseEvent, resumeEvent, setAutoAdvance } from "./actions";
 import { closeRound } from "./rounds/actions";
+import { AutoAdvanceButton } from "./auto-advance";
+import { RefreshAt } from "@/lib/live/refresh-at";
+
+export const metadata: Metadata = { title: "Phase" };
 
 interface PhaseRow {
   code: PhaseCode;
@@ -32,11 +37,11 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   ]);
   const next = status.next_phase;
   const blocked = status.gate ?? (status.paused ? "Resume the event before advancing." : null);
-  // With auto-advance on, the heartbeat advances a phase whose planned end has passed.
-  const overdue = !!status.phase_ends_at && new Date(status.phase_ends_at).getTime() <= new Date(status.server_time).getTime();
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {/* At the planned end the gate and the controls change: re-read then, not only on the next broadcast. */}
+      <RefreshAt at={status.phase_ends_at} />
       <div className="min-w-0 space-y-6 lg:col-span-2">
         <Panel title="Now">
           <div className="grid gap-3 sm:grid-cols-4">
@@ -65,10 +70,10 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
             />
             <Stat label="Auto-advance" value={status.auto_advance ? "On" : "Off"} hint={status.paused ? `Paused since ${clock(status.paused_at)}` : undefined} />
           </div>
-          {status.gate ? (
+          {blocked ? (
             <div className="mt-4">
               <Notice tone="amber">
-                <strong>Waiting:</strong> {status.gate}
+                <strong>Waiting:</strong> {blocked}
               </Notice>
             </div>
           ) : null}
@@ -97,18 +102,23 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                   Pause
                 </ActionButton>
               )}
-              {status.open_round ? (
-                <ActionButton action={closeRound.bind(null, event.id, status.open_round.number)} confirm={`Click again to close round ${status.open_round.number} now`}>
-                  Close round {status.open_round.number} now
-                </ActionButton>
-              ) : null}
+              {/* Always mounted (disabled when no round is open), so its result stays visible after the round clears. */}
               <ActionButton
-                action={setAutoAdvance.bind(null, event.id, !status.auto_advance)}
-                confirm={!status.auto_advance && overdue && next ? `Click again: this advances to ${PHASE_LABELS[next]} now` : undefined}
-                title={!status.auto_advance && overdue && next ? `The planned end has passed: the event advances to ${PHASE_LABELS[next]} within seconds.` : undefined}
+                action={closeRound.bind(null, event.id, status.open_round?.number ?? 0)}
+                confirm={status.open_round ? `Click again to close round ${status.open_round.number} now` : undefined}
+                disabled={!status.open_round}
+                title={status.open_round ? "Clears the round at once with the orders in the book" : "No round is open"}
               >
-                {status.auto_advance ? "Turn auto-advance off" : "Turn auto-advance on"}
+                {status.open_round ? `Close round ${status.open_round.number} now` : "Close round now"}
               </ActionButton>
+              <AutoAdvanceButton
+                on={status.auto_advance}
+                endsAt={status.phase_ends_at}
+                nextLabel={next ? PHASE_LABELS[next] : null}
+                turnOn={setAutoAdvance.bind(null, event.id, true, false)}
+                confirmOn={setAutoAdvance.bind(null, event.id, true, true)}
+                turnOff={setAutoAdvance.bind(null, event.id, false, false)}
+              />
             </div>
             <div className="mt-5 border-t border-slate-100 pt-4">
               <h3 className="text-sm font-semibold text-slate-900">Extend</h3>
@@ -156,7 +166,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
               const current = p.code === status.phase;
               const done = !!p.ended_at;
               return (
-                <li key={p.code} className={`flex justify-between gap-2 rounded px-2 py-1 ${current ? "bg-slate-900 text-white" : done ? "text-slate-400" : ""}`}>
+                <li key={p.code} className={`flex justify-between gap-2 rounded px-2 py-1 ${current ? "bg-slate-900 text-white" : done ? "text-slate-500" : ""}`}>
                   <span>{PHASE_LABELS[p.code]}</span>
                   <span className="font-mono tabular-nums">
                     {clock(p.started_at ?? p.starts_at)}–{clock(p.ended_at ?? p.ends_at)}

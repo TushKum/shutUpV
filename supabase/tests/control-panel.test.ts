@@ -72,7 +72,12 @@ describe("content", () => {
     expect(await n.call(n.lead, "publish_bulletin", n.eventId, "FLASH", "Another flash", "x")).toMatchObject({ ok: false, code: "USE_FLASH" });
 
     await n.q("update events set current_phase = 'ROUNDS_13_21' where id = $1", [n.eventId]); // test-only jump
-    const pub = await n.org("publish_flash_bulletin", n.eventId);
+    // The page names the draft it showed: a draft replaced since is not published.
+    const shown = (await n.one("select id from bulletins where event_id = $1 and kind = 'FLASH'", [n.eventId])).id;
+    await n.org("prepare_flash_bulletin", n.eventId, "Interest rates rise", "Investors want profit within 12 months.");
+    expect(await n.call(n.lead, "publish_flash_bulletin", n.eventId, shown)).toMatchObject({ ok: false, code: "DRAFT_CHANGED" });
+    const current = (await n.one("select id from bulletins where event_id = $1 and kind = 'FLASH'", [n.eventId])).id;
+    const pub = await n.org("publish_flash_bulletin", n.eventId, current);
     expect(pub.bulletin.published_at).not.toBeNull();
     expect(await n.call(n.lead, "publish_flash_bulletin", n.eventId)).toMatchObject({ ok: false, code: "ALREADY_PUBLISHED" });
     expect(await n.call(n.lead, "prepare_flash_bulletin", n.eventId, "Late", "Too late.")).toMatchObject({ ok: false, code: "TOO_LATE" });
@@ -92,6 +97,8 @@ describe("setup gate and console refresh", () => {
     expect(await gate()).toBe("Publish the seed commitment before the event starts.");
     await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
     expect(await gate()).toBe("Upload the problem deck before the event starts.");
+    await n.q("insert into problem_cards (event_id, number, sector, title, body) values ($1, 1, 'Test', 'One', 'Only one card.')", [n.eventId]); // as a seed could
+    expect(await gate()).toBe("The problem deck needs at least 5 cards (squads + 2) before the event starts.");
     await n.org("upload_problem_deck", n.eventId, JSON.stringify(deck(5)));
     expect(await gate()).toBe("Upload the crisis deck before the event starts.");
     expect(await n.call(n.lead, "advance_phase", n.eventId, "SETUP")).toMatchObject({ ok: false });
@@ -99,22 +106,23 @@ describe("setup gate and console refresh", () => {
     expect(await gate()).toBeNull();
   });
 
-  test("auto-advance, the commitment, decks and corrections tell every console to refresh (no data in the message)", async () => {
+  test("auto-advance, the commitment, decks, the flash draft and correction requests reach the staff consoles only", async () => {
     const n = await Night.create(db.pool, 3);
-    const topic = `event:${n.eventId}`;
-    const kinds = async () =>
+    const msgs = async (topic: string) =>
       (await n.q("select event, payload from realtime.messages where topic = $1 order by id", [topic])).map((m) => [m.event, Object.keys(m.payload).sort().join(",")]);
-    await n.q("delete from realtime.messages where topic = $1", [topic]);
+    const [staff, everyone] = [`staff:${n.eventId}`, `event:${n.eventId}`];
+    await n.q("delete from realtime.messages where topic in ($1, $2)", [staff, everyone]);
     await n.org("set_auto_advance", n.eventId, true);
     await n.org("set_auto_advance", n.eventId, true); // no change, no message
     await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
     await n.org("upload_problem_deck", n.eventId, JSON.stringify(deck(5)));
     await n.org("prepare_flash_bulletin", n.eventId, "Rates rise", "Investors want profit.");
-    const team = n.ev.plan.teams.find((t) => t.track === "FINANCE")!.code;
-    const req = await n.org("request_correction", n.eventId, "A test correction of the books.", JSON.stringify([{ team_id: n.teamId(team), cash_delta_cents: 100 }]));
-    await n.ok(n.second, "decide_correction", req.correction_id, false, "Not needed.");
+    const team = n.teamId(n.ev.plan.teams.find((t) => t.track === "FINANCE")!.code);
+    const entries = JSON.stringify([{ team_id: team, cash_delta_cents: 100 }]);
+    const rejected = await n.org("request_correction", n.eventId, "A test correction of the books.", entries);
+    await n.ok(n.second, "decide_correction", rejected.correction_id, false, "Not needed.");
     const meta = "at,event_id,kind";
-    expect(await kinds()).toEqual([
+    expect(await msgs(staff)).toEqual([
       ["settings", meta],
       ["settings", meta],
       ["content", meta],
@@ -122,7 +130,56 @@ describe("setup gate and console refresh", () => {
       ["correction", meta],
       ["correction", meta],
     ]);
+    // Teams hear none of it: nothing about drafts, settings or a correction that was never applied.
+    expect(await msgs(everyone)).toEqual([]);
+    // An approval is published to everyone, once.
+    const approved = await n.org("request_correction", n.eventId, "Another test correction of the books.", entries);
+    await n.q("delete from realtime.messages where topic in ($1, $2)", [staff, everyone]);
+    await n.ok(n.second, "decide_correction", approved.correction_id, true, "Fine.");
+    expect((await msgs(everyone)).map(([e]) => e)).toEqual(["correction"]);
+    expect(await msgs(staff)).toEqual([]);
   });
+
+  test("a flag decision tells the staff consoles (the APPEALS gate) and nobody else", async () => {
+    const n = await Night.create(db.pool, 3);
+    const [a, b] = n.ev.plan.teams.filter((t) => t.track === "FINANCE").map((t) => n.teamId(t.code));
+    const flag = await n.one(
+      "insert into flags (event_id, kind, team_ids, details) values ($1, 2, $2, '{}'::jsonb) returning id",
+      [n.eventId, [a, b]],
+    );
+    await n.q("delete from realtime.messages where topic in ($1, $2)", [`staff:${n.eventId}`, `event:${n.eventId}`]);
+    await n.ok(n.fairness, "decide_flag", flag.id, "CLEARED", "No collusion found.");
+    expect((await n.q("select event from realtime.messages where topic = $1", [`staff:${n.eventId}`])).map((m) => m.event)).toEqual(["flag"]);
+    expect(await n.q("select event from realtime.messages where topic = $1", [`event:${n.eventId}`])).toEqual([]);
+  });
+
+  test("only staff hear the staff topic", async () => {
+    const n = await Night.create(db.pool, 3);
+    const hears = async (who: ReturnType<Night["team"]>, topic: string) =>
+      (await rowsAs<{ v: boolean }>(db.pool, who, "select app.can_hear($1) as v", [topic]))[0]!.v;
+    const team = n.team(n.ev.plan.teams[0]!.code);
+    expect(await hears(team, `event:${n.eventId}`)).toBe(true);
+    expect(await hears(team, `staff:${n.eventId}`)).toBe(false);
+    expect(await hears(n.lead, `staff:${n.eventId}`)).toBe(true);
+    expect(await hears(n.fairness, `staff:${n.eventId}`)).toBe(true);
+    expect(await hears(n.lead, `staff:00000000-0000-0000-0000-000000000000`)).toBe(false);
+  });
+
+  test("turning auto-advance on after the planned end needs an explicit confirmation", async () => {
+    const n = await Night.create(db.pool, 3);
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    await n.advanceTo("CHECKIN");
+    await n.q("update phases set starts_at = now() - interval '2 minutes', ends_at = now() - interval '1 minute' where event_id = $1 and code = 'CHECKIN'", [n.eventId]);
+    expect(await n.call(n.lead, "set_auto_advance", n.eventId, true)).toMatchObject({ ok: false, code: "OVERDUE" });
+    expect((await n.one("select auto_advance from events where id = $1", [n.eventId])).auto_advance).toBe(false);
+    expect(await n.call(n.lead, "set_auto_advance", n.eventId, true, true)).toMatchObject({ ok: true, auto_advance: true });
+    // Turning it off, or on again while it is on, needs nothing.
+    expect(await n.call(n.lead, "set_auto_advance", n.eventId, true)).toMatchObject({ ok: true });
+    expect(await n.call(n.lead, "set_auto_advance", n.eventId, false)).toMatchObject({ ok: true, auto_advance: false });
+    await n.q("update phases set ends_at = now() + interval '1 hour' where event_id = $1 and code = 'CHECKIN'", [n.eventId]);
+    expect(await n.call(n.lead, "set_auto_advance", n.eventId, true)).toMatchObject({ ok: true });
+  });
+
 });
 
 describe("rounds", () => {

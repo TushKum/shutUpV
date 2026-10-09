@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { DeadlineCode, SubmissionType } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
@@ -23,6 +24,8 @@ import { Countdown } from "@/components/ui/countdown";
 import { CompanyRow } from "./company-row";
 import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { releaseScores, sealMissingScores } from "./actions";
+
+export const metadata: Metadata = { title: "Judge" };
 
 // Judge: per type a summary and every company's runs, spread, median and final score; sealing the 0 of companies with
 // no on-time submission; the release. Running the judge itself (and re-runs for an appeal) comes in Phase 6.

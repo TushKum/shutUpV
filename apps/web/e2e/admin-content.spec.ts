@@ -49,6 +49,11 @@ test("the problem deck: expected columns, parse errors by row, the database's re
   await upload(page, "Problem deck", "Upload the problem deck", csvFile("deck.xlsx", "PK…", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
   await expect(problems.getByRole("alert")).toHaveText("BAD_FILE: “deck.xlsx” is not a .csv file.");
 
+  // Too large: refused in the browser, before it is sent (the server would refuse a body over 1 MB outright).
+  await upload(page, "Problem deck", "Upload the problem deck", csvFile("big.csv", `number,sector,title,body\n${"x".repeat(1200 * 1024)}`));
+  await expect(problems.getByRole("alert")).toHaveText("BAD_FILE: The file is 1,201 KB; the limit is 512 KB.");
+  await expect(page.getByRole("heading", { name: "Problem deck", exact: true })).toBeVisible();
+
   // Parses, but 4 cards are too few for 3 squads: the game function refuses it.
   await upload(page, "Problem deck", "Upload the problem deck", csvFile("deck.csv", PROBLEMS.split("\n").slice(0, 5).join("\n")));
   await expect(problems.getByRole("alert")).toHaveText("BAD_DECK: The deck needs at least 5 cards (squads + 2) and at most 999.");

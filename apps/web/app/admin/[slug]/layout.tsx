@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PHASE_LABELS } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
@@ -10,6 +11,8 @@ import { Badge } from "@/components/ui/ui";
 import { ServerClock } from "@/components/ui/countdown";
 import { AdminNav, RealtimeDot } from "./nav";
 
+export const metadata: Metadata = { title: { template: "%s · Control panel", default: "Control panel" } };
+
 // Every admin page of one event: header with the phase, trading state and server clock; the section tabs; the
 // event's realtime channel (pages refresh on every broadcast) and the heartbeat (an organiser's console also runs
 // the game clock as a backup).
@@ -20,7 +23,7 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
   const organiser = viewer!.role === "ORGANISER";
   return (
     <ClockProvider serverTime={status.server_time}>
-      <EventChannel eventId={event.id}>
+      <EventChannel eventId={event.id} staff>
         <Heartbeat eventId={event.id} area="admin" tick={organiser} />
         <div className="min-h-screen bg-slate-50">
           <header className="border-b border-slate-200 bg-white">
@@ -30,7 +33,7 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
                   Events
                 </Link>
                 <span className="text-slate-300">/</span>
-                <span className="font-semibold">{event.name}</span>
+                <h1 className="text-base font-semibold">{event.name}</h1>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : <Badge tone="blue">Live</Badge>}
                 <Badge tone="slate">{PHASE_LABELS[status.phase]}</Badge>
                 <Badge tone={status.trading === "OPEN" ? "green" : status.trading === "PAUSED" ? "amber" : "slate"}>{status.trading}</Badge>

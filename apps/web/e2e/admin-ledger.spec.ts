@@ -197,28 +197,35 @@ test("corrections need two people: the requester cannot decide; a second organis
   await expect(page.getByTestId("books-check")).toContainText("The books balance");
 });
 
-test("the fairness officer rejects a correction with a note; only organisers request", async ({ page, browser }) => {
+test("the fairness officer rejects a correction with a note; only organisers request; both pages follow without a reload", async ({ page, browser }) => {
+  // The fairness officer's page is open before the request is made.
+  await loginAsStaff(page, ev, STAFF.fairness);
+  await page.goto(`/admin/${ev.slug}/ledger/corrections`);
+  await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
+  await expect(panel(page, "Request a correction")).toContainText("Only organisers request corrections");
+  await expect(panel(page, "Pending corrections")).toContainText("No correction is waiting for a decision.");
+
   const lead = await browser.newContext();
   const leadPage = await lead.newPage();
   await loginAsStaff(leadPage, ev, STAFF.lead);
   await leadPage.goto(`/admin/${ev.slug}/ledger/corrections`);
+  await expect(leadPage.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   const form = panel(leadPage, "Request a correction");
   await form.getByLabel("Reason (at least 10 characters)").fill("Bonus paid to the wrong consultant");
   await form.getByRole("group", { name: "Entry 1" }).getByLabel("Team").selectOption(s[2]!.c_code);
   await form.getByRole("group", { name: "Entry 1" }).getByLabel("Cash change ($)").fill("5000");
   await form.getByRole("button", { name: "Request correction" }).click();
   await expect(form.getByRole("status")).toContainText("Correction requested (1 entry)");
-  await lead.close();
 
-  await loginAsStaff(page, ev, STAFF.fairness);
-  await page.goto(`/admin/${ev.slug}/ledger/corrections`);
-  await expect(panel(page, "Request a correction")).toContainText("Only organisers request corrections");
   const pending = panel(page, "Pending corrections").getByRole("listitem", { name: "Pending correction 1" });
   await expect(pending.locator("tbody tr").first().getByRole("cell")).toHaveText([s[2]!.c_code, "", "", "+$5,000.00", ""]);
   await pending.getByLabel("Note on correction 1").fill("The bonus was right");
   await pending.getByRole("button", { name: "Reject" }).click();
   await pending.getByRole("button", { name: "Click again to reject" }).click();
   await expect(panel(page, "Pending corrections")).toContainText("No correction is waiting for a decision.");
+  // The requester's open page follows the rejection.
+  await expect(panel(leadPage, "Decided corrections").locator("tbody tr").first()).toContainText("Rejected");
+  await lead.close();
   const history = panel(page, "Decided corrections").locator("tbody tr").first();
   await expect(history.getByRole("cell")).toHaveText([
     /\d\d:\d\d$/,

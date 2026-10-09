@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
@@ -8,6 +9,8 @@ import { clock, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td, inputClass } from "@/components/ui/ui";
 import { ActionForm, ConfirmForm } from "@/components/ui/action";
 import { runLottery, setSeedCommitment } from "./actions";
+
+export const metadata: Metadata = { title: "Lottery" };
 
 // Lottery: the seed commitment (published the day before, fixed once the event starts), the 21:00 draw with the
 // seed check, and the stored draw re-done independently by the engine.
@@ -89,7 +92,7 @@ function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string;
           <ConfirmForm
             action={runLottery.bind(null, eventId)}
             submit="Verify the seed and draw"
-            confirm="Click again to draw the squads"
+            confirm="Click again to draw with dice {dice}"
             className="mt-3 grid max-w-2xl gap-3"
           >
             <label className="block">

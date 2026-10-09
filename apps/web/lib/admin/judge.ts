@@ -152,7 +152,7 @@ function companyStatus(score: JudgeScoreRow | null, submission: JudgeSubmissionR
 }
 
 /** The judge table's columns (the last one holds the Runs button). */
-export const JUDGE_COLUMNS = ["Company", "Submission", "Runs", "Spread", "Median", "Final", "Tier", "Capped", "Penalty", "Status", ""] as const;
+export const JUDGE_COLUMNS = ["Company", "Submission", "Runs", "Spread", "Median", "Final", "Tier", "Capped", "Penalty", "Status"] as const;
 
 /** The ticker, or the squad before a ticker is claimed. */
 export function companyLabel(v: { company: JudgeCompanyRow }): string {

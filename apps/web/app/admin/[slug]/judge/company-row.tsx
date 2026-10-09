@@ -15,7 +15,7 @@ const cell = "whitespace-nowrap px-2 py-1.5";
 const num = `${cell} font-mono tabular-nums`;
 
 function RunTotals({ runs }: { runs: readonly JudgeRunRow[] }) {
-  if (runs.length === 0) return <span className="text-slate-400">—</span>;
+  if (runs.length === 0) return <span className="text-slate-500">—</span>;
   return (
     <span>
       {runs.map((r, i) => (
@@ -38,7 +38,7 @@ function RunTotals({ runs }: { runs: readonly JudgeRunRow[] }) {
 
 function Breakdown({ type, breakdown }: { type: SubmissionType; breakdown: Record<string, unknown> | null }) {
   const lines = breakdownLines(type, breakdown);
-  if (lines.length === 0) return <span className="text-slate-400">—</span>;
+  if (lines.length === 0) return <span className="text-slate-500">—</span>;
   return (
     <ul className="space-y-0.5 text-xs">
       {lines.map((l) => (
@@ -69,6 +69,18 @@ export function CompanyRow({ type, view: v }: { type: SubmissionType; view: Comp
               <span className="ml-1 text-xs text-slate-500">{v.company.name}</span>
             </>
           ) : null}
+          {/* In the first column, so it is in view on a phone without scrolling the table. */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-label={`${open ? "Hide" : "Show"} runs of ${label}`}
+              className="text-xs font-semibold text-slate-700 underline hover:text-slate-900"
+            >
+              {open ? "Hide runs" : `Runs (${v.allRuns.length})`}
+            </button>
+          </div>
         </td>
         <td className={cell}>
           {v.submission ? (
@@ -76,7 +88,7 @@ export function CompanyRow({ type, view: v }: { type: SubmissionType; view: Comp
               {clock(v.submission.submitted_at)} · <span className="tabular-nums">{v.submission.word_count}</span> words
             </span>
           ) : (
-            <span className="text-slate-400">None</span>
+            <span className="text-slate-500">None</span>
           )}
         </td>
         <td className={cell}>
@@ -109,22 +121,15 @@ export function CompanyRow({ type, view: v }: { type: SubmissionType; view: Comp
             ) : null}
           </span>
         </td>
-        <td className={cell}>
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-expanded={open}
-            aria-label={`${open ? "Hide" : "Show"} runs of ${label}`}
-            className="text-sm font-semibold text-slate-700 underline hover:text-slate-900"
-          >
-            {open ? "Hide" : "Runs"} ({v.allRuns.length})
-          </button>
-        </td>
       </tr>
       {open ? (
         <tr>
           <td colSpan={JUDGE_COLUMNS.length} className="bg-slate-50 px-3 pb-4 pt-1">
-            <Detail type={type} view={v} label={label} />
+            {/* Pinned to the left edge of the table's scroller and as wide as the screen, so on a phone the detail is
+                in view however far the table was scrolled. */}
+            <div className="sticky left-0 w-[calc(100vw-4.5rem)] lg:w-auto">
+              <Detail type={type} view={v} label={label} />
+            </div>
           </td>
         </tr>
       ) : null}
@@ -179,7 +184,7 @@ function Detail({ type, view: v, label }: { type: SubmissionType; view: CompanyJ
           </thead>
           <tbody className="divide-y divide-slate-100 align-top">
             {v.allRuns.map((r) => (
-              <tr key={r.id} className={r.current ? "" : "text-slate-400"}>
+              <tr key={r.id} className={r.current ? "" : "text-slate-500"}>
                 <td className={num}>{r.run_no}</td>
                 <td className={cell}>
                   {r.generation}

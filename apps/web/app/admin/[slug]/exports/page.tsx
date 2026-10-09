@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { loadAdminEvent } from "@/lib/admin/event";
 import { EXPORT_KINDS, EXPORTS, exportFileName } from "@/lib/admin/export";
 import { exportCounts } from "@/lib/admin/export-data";
 import { supabaseServer } from "@/lib/supabase/server";
 import { count } from "@/lib/format";
 import { Panel } from "@/components/ui/ui";
+
+export const metadata: Metadata = { title: "Exports" };
 
 // Exports: CSV downloads of the ledger, prices per round, scores and final results (for organisers and the
 // fairness officer; the files are written by exports/[kind]/route.ts).

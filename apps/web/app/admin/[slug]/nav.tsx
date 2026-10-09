@@ -22,9 +22,15 @@ export function AdminNav({ slug, fairness }: { slug: string; fairness: boolean }
   const pathname = usePathname();
   const base = `/admin/${slug}`;
   const nav = useRef<HTMLElement>(null);
-  // On a phone the tabs scroll sideways: keep the current one in view.
+  // On a phone the tabs scroll sideways: keep the current one in view. Only the tab row scrolls (scrollIntoView would
+  // also scroll the page, losing the reader's place on a reload or a #link).
   useEffect(() => {
-    nav.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const row = nav.current;
+    const tab = row?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!row || !tab) return;
+    const r = row.getBoundingClientRect();
+    const t = tab.getBoundingClientRect();
+    if (t.left < r.left || t.right > r.right) row.scrollLeft += t.left - r.left - (r.width - t.width) / 2;
   }, [pathname]);
   return (
     <nav ref={nav} className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4" aria-label="Sections">

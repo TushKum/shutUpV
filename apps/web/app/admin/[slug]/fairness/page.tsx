@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
 import { PHASE_CODES, PHASE_LABELS, TRACK_LABELS, type PhaseCode } from "@msim/engine";
@@ -24,6 +25,8 @@ import { clock, dateTime, money } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td, buttonClass, inputClass, type Tone } from "@/components/ui/ui";
 import { ConfirmForm } from "@/components/ui/action";
 import { decideFlag } from "./actions";
+
+export const metadata: Metadata = { title: "Fairness" };
 
 const STATUS_TONE: Record<FlagStatus, Tone> = { OPEN: "amber", CLEARED: "green", DISQUALIFIED: "red" };
 const reached = (phase: PhaseCode, target: PhaseCode) => PHASE_CODES.indexOf(phase) >= PHASE_CODES.indexOf(target);
@@ -204,7 +207,13 @@ function Detail({ label, value }: { label: string; value: string }) {
 
 function DecisionForm({ flagId, codes, label }: { flagId: string; codes: string[]; label: string }) {
   return (
-    <ConfirmForm action={decideFlag.bind(null, flagId, codes)} submit={label} confirm="Click again to record the decision" className="mt-3 border-t border-slate-100 pt-3">
+    <ConfirmForm
+      action={decideFlag.bind(null, flagId, codes)}
+      submit={label}
+      confirm="Click again to {decision}"
+      confirmValues={{ decision: { CLEARED: "clear the flag", DISQUALIFIED: `disqualify ${codes.join(", ")}` } }}
+      className="mt-3 border-t border-slate-100 pt-3"
+    >
       <fieldset>
         <legend className="text-xs font-medium text-slate-600">Decision</legend>
         <div className="mt-1 flex flex-wrap gap-4 text-sm">

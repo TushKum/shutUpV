@@ -11,7 +11,9 @@ export function Panel({ title, actions, children, className = "" }: { title?: Re
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </header>
       ) : null}
-      <div className="p-4">{children}</div>
+      {/* Text typed by organisers (a URL in a bulletin, a long reason) wraps instead of widening the page. Table cells
+          do not wrap (Td), so tables are unaffected. */}
+      <div className="p-4 [overflow-wrap:anywhere]">{children}</div>
     </section>
   );
 }
@@ -30,11 +32,33 @@ export function Badge({ tone = "slate", children }: { tone?: Tone; children: Rea
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${TONES[tone]}`}>{children}</span>;
 }
 
-export function Table({ head, children, empty, className = "" }: { head: ReactNode[]; children: ReactNode; empty?: ReactNode; className?: string }) {
+/**
+ * A table that scrolls sideways inside its panel on a narrow screen. The scroller can take keyboard focus (arrow
+ * keys scroll it) and is named after `label`.
+ */
+export function Table({
+  head,
+  children,
+  empty,
+  className = "",
+  label,
+}: {
+  head: ReactNode[];
+  children: ReactNode;
+  empty?: ReactNode;
+  className?: string;
+  label?: string;
+}) {
   const rows = Array.isArray(children) ? children.filter(Boolean) : children;
   const isEmpty = Array.isArray(rows) && rows.length === 0;
+  const name = label ?? "Table";
   return (
-    <div className={`overflow-x-auto ${className}`}>
+    <div
+      role="region"
+      aria-label={name}
+      tabIndex={0}
+      className={`overflow-x-auto rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${className}`}
+    >
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">

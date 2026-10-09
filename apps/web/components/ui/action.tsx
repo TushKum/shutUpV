@@ -7,6 +7,7 @@ import { startTransition, useActionState, useCallback, useEffect, useRef, useSta
 import { useRouter } from "next/navigation";
 import type { ActionResult } from "@/lib/rpc";
 import { buttonClass } from "./ui";
+import { CONFIRM_DELAY_MS, confirmLabel, oversizedFile, safely } from "./action-helpers";
 
 export function ResultMessage({ result }: { result: ActionResult | null }) {
   if (!result) return null;
@@ -22,7 +23,8 @@ export function ResultMessage({ result }: { result: ActionResult | null }) {
  * Runs `action` on click. With `confirm`, the first click asks for a second one ("Click again to …"), so a stray
  * click on the control panel never advances the night. The second click counts only for the confirmation it
  * showed: when a refresh changes the target (the next phase, the next round, Pause turned into Resume), the click
- * asks again for the new target, or does nothing on a button without a confirmation.
+ * asks again for the new target, or does nothing on a button without a confirmation. A double-click is not two
+ * decisions: a confirming click within half a second of the first is ignored.
  */
 export function ActionButton({
   action,
@@ -41,7 +43,7 @@ export function ActionButton({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const { armedFor, arm, disarm } = useArming();
+  const { armedFor, arm, disarm, tooSoon, cooling } = useArming();
   const [result, setResult] = useState<ActionResult | null>(null);
   const armed = confirm !== undefined && armedFor === confirm;
   const run = () => {
@@ -53,16 +55,17 @@ export function ActionButton({
       arm(confirm);
       return;
     }
+    if (armed && tooSoon()) return;
     disarm();
     start(async () => {
-      const r = await action();
+      const r = await safely(action);
       setResult(r);
       router.refresh();
     });
   };
   return (
     <div className="inline-block">
-      <button type="button" onClick={run} disabled={disabled || pending} title={title} className={armed ? buttonClass.danger : buttonClass[variant]}>
+      <button type="button" onClick={run} disabled={disabled || pending || (armed && cooling)} title={title} className={armed ? buttonClass.danger : buttonClass[variant]}>
         {pending ? "Working…" : armed ? confirm : children}
       </button>
       <ResultMessage result={result} />
@@ -73,14 +76,17 @@ export function ActionButton({
 /**
  * A form whose fields go to a server action `(prev, formData) => result`. What was typed stays when the action is
  * refused; `resetOnSuccess` clears the fields after an accepted submission. With `confirm`, the submit button needs
- * two clicks; `{name}` in the text is replaced by the field's value ("Click again to extend by {minutes} min"), and
- * the second click counts only if the text is still the same (the fields or the target did not change).
+ * two clicks; `{name}` in the text is replaced by the field's value, or by its label in `confirmValues` ("Click
+ * again to extend by {minutes} min"), and the second click counts only if the text is still the same (the fields or
+ * the target did not change). `maxFileBytes` refuses a chosen file that is too large before it is sent.
  */
 export function ActionForm({
   action,
   children,
   submit,
   confirm,
+  confirmValues,
+  maxFileBytes,
   className = "",
   resetOnSuccess = false,
 }: {
@@ -88,15 +94,18 @@ export function ActionForm({
   children: ReactNode;
   submit: ReactNode;
   confirm?: string;
+  confirmValues?: Record<string, Record<string, string>>;
+  maxFileBytes?: number;
   className?: string;
   resetOnSuccess?: boolean;
 }) {
   const router = useRouter();
-  const { armedFor, arm, disarm } = useArming();
+  const { armedFor, arm, disarm, tooSoon, cooling } = useArming();
+  const [local, setLocal] = useState<ActionResult | null>(null);
   // `accepted` counts accepted submissions; as the form's key it clears the fields only after one of them.
   const [{ result, accepted }, dispatch, pending] = useActionState<{ result: ActionResult | null; accepted: number }, FormData>(
     async (prev, form) => {
-      const r = await action(prev.result, form);
+      const r = await safely(() => action(prev.result, form));
       router.refresh();
       return { result: r, accepted: prev.accepted + (r.ok ? 1 : 0) };
     },
@@ -111,12 +120,19 @@ export function ActionForm({
         // (not <form action>) keeps React from clearing the fields after a refusal.
         e.preventDefault();
         const form = new FormData(e.currentTarget);
+        const tooBig = maxFileBytes === undefined ? null : oversizedFile(form, maxFileBytes);
+        setLocal(tooBig);
+        if (tooBig) {
+          disarm();
+          return;
+        }
         if (confirm !== undefined) {
-          const label = confirm.replace(/\{(\w+)\}/g, (_, name: string) => String(form.get(name) ?? "").trim());
+          const label = confirmLabel(confirm, form, confirmValues);
           if (armedFor !== label) {
             arm(label);
             return;
           }
+          if (tooSoon()) return;
         }
         disarm();
         startTransition(() => dispatch(form));
@@ -124,11 +140,11 @@ export function ActionForm({
     >
       {children}
       <div className="mt-3">
-        <button type="submit" disabled={pending} className={armedFor !== null ? buttonClass.danger : buttonClass.primary}>
+        <button type="submit" disabled={pending || (armedFor !== null && cooling)} className={armedFor !== null ? buttonClass.danger : buttonClass.primary}>
           {pending ? "Working…" : (armedFor ?? submit)}
         </button>
       </div>
-      <ResultMessage result={result} />
+      <ResultMessage result={local ?? result} />
     </form>
   );
 }
@@ -142,20 +158,32 @@ export function ConfirmForm(props: Parameters<typeof ActionForm>[0] & { confirm:
 function useArming() {
   const [armedFor, setArmedFor] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const armedAt = useRef(0);
+  // Disabled for a moment after the first click, so the second click of a double-click lands on nothing.
+  const [cooling, setCooling] = useState(false);
+  const coolTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
       if (timer.current) clearTimeout(timer.current);
+      if (coolTimer.current) clearTimeout(coolTimer.current);
     },
     [],
   );
   const disarm = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
+    if (coolTimer.current) clearTimeout(coolTimer.current);
+    setCooling(false);
     setArmedFor(null);
   }, []);
   const arm = useCallback((label: string) => {
     if (timer.current) clearTimeout(timer.current);
+    if (coolTimer.current) clearTimeout(coolTimer.current);
+    armedAt.current = Date.now();
     setArmedFor(label);
+    setCooling(true);
+    coolTimer.current = setTimeout(() => setCooling(false), CONFIRM_DELAY_MS);
     timer.current = setTimeout(() => setArmedFor(null), 5000);
   }, []);
-  return { armedFor, arm, disarm };
+  const tooSoon = useCallback(() => Date.now() - armedAt.current < CONFIRM_DELAY_MS, []);
+  return { armedFor, arm, disarm, tooSoon, cooling };
 }

@@ -52,7 +52,7 @@ test("the draw: a wrong seed is refused (COMMITMENT_MISMATCH) and changes nothin
   await draw.getByLabel("Secret seed (64 hex characters)").fill(sha256Hex("not the seed"));
   await draw.getByLabel("Dice roll").fill("4");
   await draw.getByRole("button", { name: "Verify the seed and draw" }).click();
-  await draw.getByRole("button", { name: "Click again to draw the squads" }).click();
+  await draw.getByRole("button", { name: "Click again to draw with dice 4" }).click();
   await expect(draw.getByRole("alert")).toHaveText("COMMITMENT_MISMATCH: SHA-256 of that seed does not match the published commitment.");
   expect((await ev.n.one("select drawn_at from events where id = $1", [ev.n.eventId])).drawn_at).toBeNull();
   // The fields keep what was typed after a refusal.
@@ -60,7 +60,14 @@ test("the draw: a wrong seed is refused (COMMITMENT_MISMATCH) and changes nothin
 
   await draw.getByLabel("Secret seed (64 hex characters)").fill(seedOf(ev));
   await draw.getByRole("button", { name: "Verify the seed and draw" }).click();
-  await draw.getByRole("button", { name: "Click again to draw the squads" }).click();
+  // The confirmation names the dice: changed after the first click, the next click only asks again.
+  await draw.getByLabel("Dice roll").fill("5");
+  await draw.getByRole("button", { name: "Click again to draw with dice 4" }).click();
+  await expect(draw.getByRole("button", { name: "Click again to draw with dice 5" })).toBeVisible();
+  expect((await ev.n.one("select drawn_at from events where id = $1", [ev.n.eventId])).drawn_at).toBeNull();
+  await draw.getByLabel("Dice roll").fill("4");
+  await draw.getByRole("button", { name: "Click again to draw with dice 5" }).click();
+  await draw.getByRole("button", { name: "Click again to draw with dice 4" }).click();
 
   await expect(page.getByText("Draw verified.")).toBeVisible();
   await expect(page.getByText("Seed matches commitment", { exact: true })).toBeVisible();

@@ -88,6 +88,60 @@ test("a two-click button never acts on a target that changed between the clicks"
   await ev.n.q("update phases set ends_at = now() + interval '1 hour' where event_id = $1 and code = 'SQUAD_DRAW'", [ev.n.eventId]);
 });
 
+test("an open console: overdue is noticed live, a double-click is one click, and the console runs the clock", async ({ page }) => {
+  await loginAsStaff(page, ev, STAFF.lead);
+  // The organiser console calls tick() every second as a backup to pg_cron.
+  const tick = page.waitForRequest((r) => r.url().includes("/rest/v1/rpc/tick"));
+  await page.goto(`/admin/${ev.slug}`);
+  await tick;
+  await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
+
+  // Rendered before the planned end, still open after it: turning auto-advance on now asks first.
+  await ev.n.q("update events set auto_advance = false where id = $1", [ev.n.eventId]);
+  await ev.n.q("update phases set starts_at = now() - interval '1 minute', ends_at = now() + interval '4 seconds' where event_id = $1 and code = 'SQUAD_DRAW'", [ev.n.eventId]);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Turn auto-advance on" })).not.toHaveAttribute("title");
+  await expect(page.getByRole("button", { name: "Turn auto-advance on" })).toHaveAttribute("title", /planned end has passed/, { timeout: 15_000 });
+  await page.getByRole("button", { name: "Turn auto-advance on" }).click();
+  await expect(page.getByRole("button", { name: /^Click again: this advances to .+ now$/ })).toBeVisible();
+  expect((await ev.n.one("select auto_advance from events where id = $1", [ev.n.eventId])).auto_advance).toBe(false);
+  // And a one-click request that slips through is refused by the database.
+  expect(await ev.n.call(ev.n.lead, "set_auto_advance", ev.n.eventId, true)).toMatchObject({ ok: false, code: "OVERDUE" });
+  await ev.n.q("update phases set ends_at = now() + interval '1 hour' where event_id = $1 and code = 'SQUAD_DRAW'", [ev.n.eventId]);
+
+  // A double-click on a two-click button is one click: it arms, it does not pause.
+  await page.reload();
+  await page.getByRole("button", { name: "Pause" }).dblclick();
+  await expect(page.getByRole("button", { name: "Click again to pause the event" })).toBeVisible();
+  await page.waitForTimeout(1000);
+  expect((await ev.n.one("select paused from events where id = $1", [ev.n.eventId])).paused).toBe(false);
+});
+
+test("the Rounds page explains a waiting round as soon as its time comes", async ({ page }) => {
+  await loginAsStaff(page, ev, STAFF.lead);
+  await ev.n.q(
+    "update rounds set opens_at = now() + interval '4 seconds', closes_at = now() + interval '1 hour' where event_id = $1 and number = 1",
+    [ev.n.eventId],
+  );
+  await page.goto(`/admin/${ev.slug}/rounds`);
+  await expect(page.getByText("Next: round 1")).toBeVisible();
+  await expect(page.getByText(/^Round 1 opens when the event advances to Rounds 1–4\./)).toBeVisible({ timeout: 15_000 });
+});
+
+test("in Appeals, the Phase page follows the fairness officer's decisions without a reload", async ({ page }) => {
+  const [a, b] = ev.plan.teams.filter((t) => t.track === "FINANCE").map((t) => ev.n.teamId(t.code));
+  await ev.n.q("update events set current_phase = 'APPEALS' where id = $1", [ev.n.eventId]); // test-only jump
+  const flag = await ev.n.one("insert into flags (event_id, kind, team_ids, details) values ($1, 2, $2, '{}'::jsonb) returning id", [ev.n.eventId, [a, b]]);
+  await loginAsStaff(page, ev, STAFF.lead);
+  await page.goto(`/admin/${ev.slug}`);
+  await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
+  await expect(page.getByText("Waiting: Collusion flags are still open for the fairness officer.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Advance to Awards" })).toBeDisabled();
+  await ev.n.ok(ev.n.fairness, "decide_flag", flag.id, "CLEARED", "No collusion found.");
+  await expect(page.getByRole("button", { name: "Advance to Awards" })).toBeEnabled();
+  await expect(page.getByText("Waiting:")).toHaveCount(0);
+});
+
 test("the fairness officer follows the phase but has no phase controls", async ({ page }) => {
   await loginAsStaff(page, ev, STAFF.fairness);
   await page.goto(`/admin/${ev.slug}`);

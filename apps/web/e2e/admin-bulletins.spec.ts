@@ -94,12 +94,20 @@ test("the flash bulletin: prepared (a draft in the list), published with two cli
   await ev.n.q("update events set current_phase = 'ROUNDS_13_21' where id = $1", [ev.n.eventId]); // test-only jump to 04:00
   await page.reload();
   await expect(publish).toBeEnabled();
+  await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   await publish.click();
-  await flash.getByRole("button", { name: "Click again to publish the flash bulletin" }).click();
+  await expect(flash.getByRole("button", { name: "Click again to publish “Interest rates rise”" })).toBeVisible();
+  // Another organiser replaces the draft between the two clicks: the next click asks again, for the new draft.
+  await ev.n.org("prepare_flash_bulletin", ev.n.eventId, "Interest rates rise sharply", "Investors now want profit within 6 months.");
+  await expect(page.getByTestId("flash-state")).toContainText("Interest rates rise sharply");
+  await expect(publish).toBeVisible();
+  await publish.click();
+  await flash.getByRole("button", { name: "Click again to publish “Interest rates rise sharply”" }).click();
   await expect(page.getByTestId("flash-state")).toContainText("Published");
-  await expect(flash.getByRole("button", { name: "Publish the flash bulletin" })).toHaveCount(0);
-  const row = await ev.n.one("select published_at from bulletins where event_id = $1 and kind = 'FLASH'", [ev.n.eventId]);
-  expect(row.published_at).not.toBeNull();
+  await expect(flash.getByRole("status")).toHaveText("Flash bulletin published. The flash answers are open.");
+  await expect(publish).toBeDisabled();
+  const row = await ev.n.one("select title, published_at from bulletins where event_id = $1 and kind = 'FLASH'", [ev.n.eventId]);
+  expect(row).toMatchObject({ title: "Interest rates rise sharply", published_at: expect.any(Date) });
   await expect(list.filter({ hasText: "Interest rates rise" })).not.toContainText("Draft");
   await expect(list.first()).toContainText("Interest rates rise"); // newest first
 
@@ -115,4 +123,16 @@ test("the fairness officer reads every bulletin but cannot publish", async ({ pa
   await expect(page.getByRole("button", { name: "Publish bulletin" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Publish the flash bulletin/ })).toHaveCount(0);
   await expect(page.getByRole("list", { name: "Bulletins" }).getByRole("listitem")).toHaveCount(4);
+});
+
+test("a long link in a bulletin wraps: no page scrolls sideways, on a phone or a laptop", async ({ page }) => {
+  const url = "https://docs.example.org/forms/d/e/1FAIpQLSeXyZabcdefghijklmnopqrstuvwxyz0123456789abcdefghij/viewform";
+  await ev.n.org("publish_bulletin", ev.n.eventId, "GENERAL", "Feedback form", `Form: ${url}`);
+  await loginAsStaff(page, ev, STAFF.lead);
+  for (const viewport of [{ width: 390, height: 900 }, { width: 1280, height: 800 }]) {
+    await page.setViewportSize(viewport);
+    await bulletinsPage(page);
+    await expect(page.getByText(url, { exact: false }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+  }
 });

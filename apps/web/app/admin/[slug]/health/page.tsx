@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { TRACK_LABELS, TRACKS } from "@msim/engine";
 import { loadAdminEvent } from "@/lib/admin/event";
 import { ERROR_ROWS, loadHealthData } from "@/lib/admin/health-data";
@@ -6,6 +7,8 @@ import { clock, count } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
 import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { ConsoleStatus } from "./console-status";
+
+export const metadata: Metadata = { title: "Health" };
 
 const AREA_LABELS: Record<string, string> = { team: "Team portal", admin: "Control panel", display: "Big screen" };
 const ROLE_LABELS: Record<string, string> = { TEAM: "Team", ORGANISER: "Organiser", FAIRNESS: "Fairness officer", DISPLAY: "Display" };

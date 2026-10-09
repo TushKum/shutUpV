@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { currentViewer } from "@/lib/auth/viewer";
@@ -9,6 +10,8 @@ import { Badge, Notice, Panel, Table, Td, inputClass } from "@/components/ui/ui"
 import { ActionForm } from "@/components/ui/action";
 import { prepareFlashBulletin, uploadCrisisDeck, uploadProblemDeck } from "./actions";
 import type { ActionResult } from "@/lib/rpc";
+
+export const metadata: Metadata = { title: "Content" };
 
 const short = (text: string, max = 90) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 
@@ -142,7 +145,7 @@ function Upload({
       {lock ? (
         <p className="mt-2 text-sm text-slate-600">{lock}</p>
       ) : organiser ? (
-        <ActionForm action={action} submit={label} className="mt-2" resetOnSuccess>
+        <ActionForm action={action} submit={label} className="mt-2" maxFileBytes={MAX_CSV_BYTES} resetOnSuccess>
           <label className="block max-w-md">
             <span className="text-xs font-medium text-slate-600">CSV file (up to {MAX_CSV_BYTES / 1024} KB)</span>
             <input name="file" type="file" accept=".csv,text/csv" required className={inputClass} />
