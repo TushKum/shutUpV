@@ -203,7 +203,7 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Rounds (pending orders, clearing preview, IPO book, history), health
 - [x] Judge (runs, spread, seal missing, release; running the judge comes in Phase 6), exports (CSV)
 - [x] Ledger with two-person corrections, fairness (flags, decisions, team drill-down)
-- [x] Review (two rounds: 14 findings, then 25 in the fixes; all fixed with regression tests), all tests, summary
+- [x] Review (two rounds: 14 findings, then 24 in the fixes; all fixed and covered by tests), all tests, summary
 
 ### Phase 4 — Team portal (/team)
 - **Common to all tracks:** header with phase and countdown, bulletins, own cash and holdings, pitch book, Q&A board, public ledger, and crisis cards, plans and verdicts once public.
