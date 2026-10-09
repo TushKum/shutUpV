@@ -76,3 +76,22 @@ export function relative(t: string | Date, now: number): string {
   const span = min >= 120 ? `${Math.round(min / 60)} h` : `${min} min`;
   return diff > 0 ? `in ${span}` : `${span} ago`;
 }
+
+/** Integer cents from a bigint column (a number or its string form). Refuses anything that is not a whole number. */
+export function cents(v: number | string | bigint | null | undefined): number {
+  if (v === null || v === undefined || v === "") throw new Error("missing amount");
+  if (typeof v === "string" && !/^-?\d+$/.test(v.trim())) throw new Error(`not a whole number of cents: ${v}`);
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isSafeInteger(n)) throw new Error(`not a whole number of cents: ${String(v)}`);
+  return n;
+}
+
+/** "+3,000", "−500", "0". */
+export function signedCount(n: number): string {
+  return n > 0 ? `+${count(n)}` : n < 0 ? `−${count(-n)}` : "0";
+}
+
+/** "+$5,330.00", "−$21,320.00", "$0.00". */
+export function signedMoney(c: number): string {
+  return c > 0 ? `+${money(c)}` : money(c);
+}

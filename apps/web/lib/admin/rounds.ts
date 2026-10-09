@@ -14,7 +14,10 @@ import {
   type FundBook,
   type OrderType,
 } from "@msim/engine";
-import { count, money } from "@/lib/format";
+import { cents, signedCount, signedMoney } from "@/lib/format";
+import { fetchAll, PAGE_SIZE } from "@/lib/fetch-all";
+
+export { cents, signedCount, signedMoney, fetchAll, PAGE_SIZE };
 
 // ───────────────────────────── Rows as read through RLS ─────────────────────────────
 
@@ -87,24 +90,6 @@ export interface IpoBidRow {
 
 // ───────────────────────────── Conversions ─────────────────────────────
 
-/** Integer cents from a bigint column (a number or its string form). Refuses anything that is not a whole number. */
-export function cents(v: Cents | bigint | null | undefined): number {
-  if (v === null || v === undefined || v === "") throw new Error("missing amount");
-  if (typeof v === "string" && !/^-?\d+$/.test(v.trim())) throw new Error(`not a whole number of cents: ${v}`);
-  const n = typeof v === "number" ? v : Number(v);
-  if (!Number.isSafeInteger(n)) throw new Error(`not a whole number of cents: ${String(v)}`);
-  return n;
-}
-
-/** "+3,000", "−500", "0". */
-export function signedCount(n: number): string {
-  return n > 0 ? `+${count(n)}` : n < 0 ? `−${count(-n)}` : "0";
-}
-
-/** "+$5,330.00", "−$21,320.00", "$0.00". */
-export function signedMoney(c: number): string {
-  return c > 0 ? `+${money(c)}` : money(c);
-}
 
 const tickerOf = (companies: ReadonlyMap<string, CompanyRow>, id: string) => companies.get(id)?.ticker ?? "—";
 const byTicker = (a: { ticker: string }, b: { ticker: string }) => a.ticker.localeCompare(b.ticker);
@@ -450,22 +435,3 @@ export function roundHistory(prices: readonly ClearingPriceRow[], rounds: readon
 // ───────────────────────────── Paging ─────────────────────────────
 
 /** PostgREST returns at most this many rows per request. */
-export const PAGE_SIZE = 1000;
-
-/**
- * Reads every row of a query in pages (PostgREST caps a response at 1,000 rows). `page(from, to)` must apply a
- * stable order and `.range(from, to)`.
- */
-export async function fetchAll<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-  pageSize = PAGE_SIZE,
-): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await page(from, from + pageSize - 1);
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    out.push(...rows);
-    if (rows.length < pageSize) return out;
-  }
-}

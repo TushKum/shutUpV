@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEventChannel } from "@/lib/live/channel";
 
 export const SECTIONS = [
   { path: "", label: "Phase" },
@@ -51,16 +50,5 @@ export function AdminNav({ slug, fairness }: { slug: string; fairness: boolean }
         );
       })}
     </nav>
-  );
-}
-
-export function RealtimeDot() {
-  const { status } = useEventChannel();
-  const ok = status === "SUBSCRIBED";
-  return (
-    <span className="flex items-center gap-1 text-xs text-slate-500" title={`Realtime: ${status}`} data-realtime={status}>
-      <span className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-500" : status === "CONNECTING" ? "bg-amber-400" : "bg-red-500"}`} />
-      {ok ? "Live" : status === "CONNECTING" ? "Connecting" : "Offline"}
-    </span>
   );
 }

@@ -9,7 +9,8 @@ import { Heartbeat } from "@/lib/live/heartbeat";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Badge } from "@/components/ui/ui";
 import { ServerClock } from "@/components/ui/countdown";
-import { AdminNav, RealtimeDot } from "./nav";
+import { RealtimeDot } from "@/components/ui/realtime-dot";
+import { AdminNav } from "./nav";
 
 export const metadata: Metadata = { title: { template: "%s · Control panel", default: "Control panel" } };
 

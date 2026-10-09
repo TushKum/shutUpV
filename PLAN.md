@@ -206,6 +206,14 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Review (two rounds: 14 findings, then 24 in the fixes; all fixed and covered by tests), all tests, summary
 
 ### Phase 4 — Team portal (/team)
+- [x] Foundation: team layout (team, phase and countdown, trading and the round, cash and collateral, the latest bulletin, pause and disqualification notices), sections per track, team context loader, shared helpers moved out of the control panel
+- [ ] Common: home, bulletins, market (pitch book, prices, plans and verdicts, crisis cards), Q&A board, public ledger
+- [ ] Squad (Product and Consulting): problem card pick, pitch editor, shared plan editor, flash answer
+- [ ] Rescue: fee (propose and confirm), deal (broker proposes, all three sign)
+- [ ] Finance: IPO bids, order ticket with live validation and a max-quantity helper, open orders, positions, profit and loss, collateral
+- [ ] Consulting: calls on the 2 covered companies, earnings breakdown
+- [ ] Review, all tests, summary
+
 - **Common to all tracks:** header with phase and countdown, bulletins, own cash and holdings, pitch book, Q&A board, public ledger, and crisis cards, plans and verdicts once public.
 - **Product:**
   - problem card pick
