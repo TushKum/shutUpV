@@ -293,7 +293,61 @@ export function submissionStatus(
   };
 }
 
-// ───────────── The plan's cap (app.deal_signed_in_time, app.final_score) ─────────────
+export interface SubmissionVersion {
+  id: string;
+  submittedAt: string;
+  by: string;
+  words: number;
+  /** The version that will be judged (the one not superseded). */
+  current: boolean;
+  late: boolean;
+  content: Content;
+}
+
+/** Every submitted version of a type, newest first: the current (judged) one and those it superseded. */
+export function submissionVersions(subs: readonly SubmissionRow[], type: SubmissionType, deadline: string | null, p: PauseState): SubmissionVersion[] {
+  return subs
+    .filter((s) => s.type === type)
+    .sort((a, b) => Date.parse(b.submitted_at) - Date.parse(a.submitted_at))
+    .map((s) => ({
+      id: s.id,
+      submittedAt: s.submitted_at,
+      by: s.submitted_by_team,
+      words: s.word_count,
+      current: s.superseded_at === null,
+      late: submittedLate(s.submitted_at, deadline, p),
+      content: s.content,
+    }));
+}
+
+// ───────────── The plan's deadline and cap (app.final_score: late → 0, cap 50 without the deal) ─────────────
+
+/** Within this many event minutes of the plan deadline, its notice turns red. */
+export const PLAN_URGENT_MINUTES = 15;
+
+/** What the plan's hard deadline means for this squad now: before it, a warning (red when near); after it, the outcome. */
+export function planDeadline(
+  submittedAt: string | null,
+  deadline: string | null,
+  nowMs: number,
+  p: PauseState,
+  clockSpeed = 1,
+): { text: string; tone: Tone } {
+  const at = deadline ? clock(deadline) : "the deadline";
+  if (deadlinePassed(deadline, nowMs, p)) {
+    return submittedAt
+      ? { text: `The plan closed at ${at}. The version submitted at ${clock(submittedAt, true)} is the one judged.`, tone: "slate" }
+      : { text: `No plan was submitted by ${at}: the plan scores 0.`, tone: "red" };
+  }
+  const near = !!deadline && !deadlineFrozen(deadline, p) && Date.parse(deadline) - nowMs <= (PLAN_URGENT_MINUTES * 60_000) / clockSpeed;
+  const status = submittedAt
+    ? ` Your squad submitted at ${clock(submittedAt, true)}; submit again to replace that version.`
+    : " Your squad has not submitted a plan yet.";
+  return {
+    text: `Hard deadline ${at}: only a version submitted by then is judged; a late or missing plan scores 0.${status}`,
+    tone: near ? "red" : "amber",
+  };
+}
 
 export interface DealRow {
   executed_at: string | null;
@@ -302,16 +356,27 @@ export interface DealRow {
   signed_finance_at: string | null;
 }
 
-/** Is the plan safe from the cap at 50 (the deal fully signed by the deal deadline), and how to say it. */
-export function planCap(deal: DealRow | null | undefined, dealDeadline: string | null): { safe: boolean; text: string; tone: Tone } {
+/**
+ * Is the plan safe from the cap at 50 (the deal fully signed by the deal deadline, app.deal_signed_in_time), and how
+ * to say it: before the deadline as a warning, after it as the outcome.
+ */
+export function planCap(
+  deal: DealRow | null | undefined,
+  dealDeadline: string | null,
+  nowMs: number,
+  p: PauseState,
+): { safe: boolean; text: string; tone: Tone } {
   const by = dealDeadline ? clock(dealDeadline) : "the deadline";
-  if (deal?.executed_at && (!dealDeadline || Date.parse(deal.executed_at) <= Date.parse(dealDeadline))) {
+  if (deal?.executed_at && dealDeadline && Date.parse(deal.executed_at) <= Date.parse(dealDeadline)) {
     return { safe: true, text: `The deal was fully signed at ${clock(deal.executed_at)}: the plan score is not capped.`, tone: "green" };
+  }
+  if (deadlinePassed(dealDeadline, nowMs, p)) {
+    return { safe: false, text: `The deal was not fully signed by ${by}: the plan score is capped at 50.`, tone: "red" };
   }
   const signed = deal ? [deal.signed_product_at, deal.signed_consulting_at, deal.signed_finance_at].filter(Boolean).length : 0;
   return {
     safe: false,
-    text: `The deal is not fully signed (${signed} of 3 signatures). If it is not fully signed by ${by}, the plan score is capped at 50.`,
+    text: `The deal is not fully signed yet (${signed} of 3 signatures). If it is not fully signed by ${by}, the plan score is capped at 50.`,
     tone: "amber",
   };
 }

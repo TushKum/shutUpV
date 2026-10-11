@@ -3,11 +3,12 @@ import Link from "next/link";
 import { phaseReached, type SubmissionType } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadCompanyView } from "@/lib/team/market-data";
-import { historyLines, PUBLIC_FROM, SUBMISSION_TITLES, verdict } from "@/lib/team/market";
+import { BOOK_PUBLIC_FROM, historyLines, SUBMISSION_TITLES, verdict } from "@/lib/team/market";
 import { clock, money } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
 import type { PublicSubmission } from "@/lib/team/market-data";
 import { Submission } from "../submission";
+import { CrisisCard } from "../crisis-card";
 
 export const metadata: Metadata = { title: "Market" };
 
@@ -98,19 +99,15 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
       {types.includes("PITCH") ? <SubmissionPanel type="PITCH" s={submissions.PITCH} /> : null}
       {crisis ? (
         <Panel title="Crisis card">
-          <div className="border-l-4 border-red-600 bg-red-50/70 py-2 pl-3 pr-2" data-testid="crisis-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-red-800">{crisis.category}</p>
-            <h3 className="mt-1 font-semibold text-slate-900">{crisis.title}</h3>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{crisis.body}</p>
-          </div>
+          <CrisisCard card={crisis} />
         </Panel>
       ) : null}
 
       {types.includes("PLAN") ? <SubmissionPanel type="PLAN" s={submissions.PLAN} /> : null}
       {types.includes("FLASH") ? <SubmissionPanel type="FLASH" s={submissions.FLASH} /> : null}
-      {waiting.length ? (
+      {waiting.length || !phaseReached(status.phase, "CRISIS") ? (
         <p className="text-sm text-slate-500">
-          {waiting.map((t) => PUBLIC_FROM[t]).join(" ")}
+          {[...(phaseReached(status.phase, "CRISIS") ? [] : [BOOK_PUBLIC_FROM.CRISIS]), ...waiting.map((t) => BOOK_PUBLIC_FROM[t])].join(" ")}
         </p>
       ) : null}
 

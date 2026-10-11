@@ -1,5 +1,20 @@
 import { describe, expect, test } from "vitest";
-import { changeBp, changeText, historyLines, marketLines, marketOpensText, publicTypes, submissionSections, verdict, type PriceRow, type ScoreRow } from "./market";
+import {
+  BOOK_PUBLIC_FROM,
+  PUBLIC_FROM,
+  changeBp,
+  changeText,
+  historyLines,
+  marketLines,
+  marketOpensText,
+  openBooks,
+  parseBookKind,
+  publicTypes,
+  submissionSections,
+  verdict,
+  type PriceRow,
+  type ScoreRow,
+} from "./market";
 
 describe("price changes, exactly", () => {
   test("basis points rounded half-up; the brief's clearing and cap", () => {
@@ -80,6 +95,20 @@ describe("what is public", () => {
     expect(publicTypes("RESCUE_2", { ...none, PITCH: true })).toEqual(["PITCH"]);
     expect(publicTypes("PLANS_PUBLISHED", none)).toEqual(["PITCH", "PLAN"]);
     expect(publicTypes("ROUNDS_13_21", { PITCH: true, PLAN: true, FLASH: true })).toEqual(["PITCH", "PLAN", "FLASH"]);
+  });
+  test("books: the pitch book from Reading, crisis cards from the crisis, plans, then flash answers; ?type= is checked", () => {
+    const none = { PITCH: false, PLAN: false, FLASH: false };
+    expect(openBooks("BUILD", none)).toEqual([]);
+    expect(openBooks("READING", none)).toEqual(["PITCH"]);
+    expect(openBooks("CRISIS", { ...none, PITCH: true })).toEqual(["PITCH", "CRISIS"]);
+    expect(openBooks("PLANS_PUBLISHED", { ...none, PITCH: true })).toEqual(["PITCH", "CRISIS", "PLAN"]);
+    expect(openBooks("AWARDS", { PITCH: true, PLAN: true, FLASH: true })).toEqual(["PITCH", "CRISIS", "PLAN", "FLASH"]);
+    expect(parseBookKind("crisis")).toBe("CRISIS");
+    expect(parseBookKind(["plan", "x"])).toBe("PLAN");
+    expect(parseBookKind("JUDGE_RUNS")).toBe("PITCH");
+    expect(parseBookKind(undefined)).toBe("PITCH");
+    expect(BOOK_PUBLIC_FROM.CRISIS).toMatch(/at the crisis/);
+    expect(BOOK_PUBLIC_FROM.PLAN).toBe(PUBLIC_FROM.PLAN);
   });
   test("template sections in order; a missing or non-text section is empty", () => {
     const s = submissionSections("PITCH", { problem: "  Dirty water.  ", solution: 42, company_name: "AquaSense" });

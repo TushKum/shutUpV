@@ -7,6 +7,7 @@ import { boardRole, boardState, parseQaQuery, qaHref, type QaQuery, type Questio
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, count, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, buttonClass, inputClass } from "@/components/ui/ui";
+import { Countdown } from "@/components/ui/countdown";
 import { answerQuestion, postQuestion } from "./actions";
 import { AnswerForm, AskForm } from "./forms";
 
@@ -24,7 +25,8 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
   const state = boardState(status.phase);
   const role = boardRole(team.track);
   const sb = await supabaseServer();
-  const { data: times } = await sb.from("phases").select("code, starts_at").eq("event_id", event.id).in("code", ["READING", "CLOSE"]);
+  const { data: times, error } = await sb.from("phases").select("code, starts_at").eq("event_id", event.id).in("code", ["READING", "CLOSE"]);
+  if (error) throw new Error(`Could not read the schedule: ${error.message}`);
   const startOf = (code: string) => (times ?? []).find((t) => t.code === code)?.starts_at as string | undefined;
 
   if (state === "NOT_YET") {
@@ -53,9 +55,15 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
       {state === "CLOSED" ? (
         <Notice>The Q&A board closed at the close. Every question and answer stays readable.</Notice>
       ) : (
-        <p className="text-sm text-slate-600">
-          Open until the close{closes ? ` (${clock(closes)})` : ""}. Everything on the board is public; who asked is never shown, and answers are shown as their
-          company&apos;s.
+        <p className="text-sm text-slate-600" data-testid="qa-open">
+          Open until the close
+          {closes ? (
+            <>
+              {" "}
+              ({clock(closes)}, in <Countdown to={closes} passed="a moment" />)
+            </>
+          ) : null}
+          . Everything on the board is public; who asked is never shown (only that a fund asked), and answers are shown as their company&apos;s.
         </p>
       )}
 

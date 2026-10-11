@@ -127,8 +127,8 @@ export default async function TeamHome() {
             {team.track === "FINANCE" ? <Stat label="Collateral locked" value={money(team.collateral)} hint="Part of your cash, held against shorts" /> : null}
             <Stat
               label={holdings.closing ? "Holdings at closing prices" : "Holdings at market prices"}
-              value={holdings.lines.length ? money(holdings.total) : "—"}
-              hint={holdings.unpriced ? `${count(holdings.unpriced)} without a price yet` : undefined}
+              value={<span data-testid="home-holdings-value">{money(holdings.total)}</span>}
+              hint={holdings.unpriced ? `${count(holdings.unpriced)} ${holdings.unpriced === 1 ? "line" : "lines"} without a price until the IPO` : undefined}
             />
           </div>
           {holdings.lines.length === 0 ? (
@@ -138,7 +138,7 @@ export default async function TeamHome() {
               {holdings.lines.map((l) => (
                 <tr key={l.key}>
                   <Td mono className="font-semibold">
-                    {l.ticker}
+                    {l.ticker ?? <span className="font-sans font-normal text-slate-600">{l.name}</span>}
                   </Td>
                   <Td>{l.lotLabel}</Td>
                   <Td mono className="text-right">

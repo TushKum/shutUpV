@@ -8,9 +8,11 @@ import {
   otherSaver,
   pickState,
   planCap,
+  planDeadline,
   roleOf,
   sameContent,
   submissionStatus,
+  submissionVersions,
   submissionWindow,
   submittedLate,
   whoLabel,
@@ -242,20 +244,76 @@ describe("submission status (overview)", () => {
   });
 });
 
-describe("the plan's cap (deal signed by the deadline)", () => {
+describe("the plan's cap (deal signed by the deadline, app.deal_signed_in_time)", () => {
   const deadline = "2026-10-10T21:30:00.000Z"; // 03:00 IST
+  const before = T(deadline) - 60_000;
+  const signed = { signed_product_at: "x", signed_consulting_at: "x", signed_finance_at: "x" };
   test("fully signed in time: no cap; otherwise the cap at 50 is spelled out with the signatures so far", () => {
-    expect(planCap({ executed_at: "2026-10-10T21:00:00.000Z", signed_product_at: "x", signed_consulting_at: "x", signed_finance_at: "x" }, deadline)).toEqual({
+    expect(planCap({ executed_at: "2026-10-10T21:00:00.000Z", ...signed }, deadline, before, running)).toEqual({
       safe: true,
       text: "The deal was fully signed at 02:30: the plan score is not capped.",
       tone: "green",
     });
-    expect(planCap({ executed_at: null, signed_product_at: "x", signed_consulting_at: null, signed_finance_at: "x" }, deadline)).toEqual({
+    expect(planCap({ executed_at: null, signed_product_at: "x", signed_consulting_at: null, signed_finance_at: "x" }, deadline, before, running)).toEqual({
       safe: false,
-      text: "The deal is not fully signed (2 of 3 signatures). If it is not fully signed by 03:00, the plan score is capped at 50.",
+      text: "The deal is not fully signed yet (2 of 3 signatures). If it is not fully signed by 03:00, the plan score is capped at 50.",
       tone: "amber",
     });
-    expect(planCap(null, deadline).text).toContain("(0 of 3 signatures)");
-    expect(planCap({ executed_at: "2026-10-10T21:30:00.001Z", signed_product_at: "x", signed_consulting_at: "x", signed_finance_at: "x" }, deadline).safe).toBe(false);
+    expect(planCap(null, deadline, before, running).text).toContain("(0 of 3 signatures)");
+    // Executed after the deadline does not count (the database compares executed_at with the DEAL deadline).
+    expect(planCap({ executed_at: "2026-10-10T21:30:00.001Z", ...signed }, deadline, before, running).safe).toBe(false);
+  });
+
+  test("after the deadline the outcome is stated; while paused the deadline has not passed", () => {
+    expect(planCap(null, deadline, T(deadline) + 1, running)).toEqual({
+      safe: false,
+      text: "The deal was not fully signed by 03:00: the plan score is capped at 50.",
+      tone: "red",
+    });
+    expect(planCap({ executed_at: "2026-10-10T21:00:00.000Z", ...signed }, deadline, T(deadline) + 1, running).safe).toBe(true);
+    expect(planCap(null, deadline, T(deadline) + 1, { paused: true, pausedAt: "2026-10-10T21:29:00.000Z" }).tone).toBe("amber");
+  });
+});
+
+describe("the plan's hard deadline (a late or missing plan scores 0)", () => {
+  const deadline = "2026-10-10T21:30:00.000Z"; // 03:00 IST
+  test("before it: a warning, red within 15 event minutes; after it: the outcome", () => {
+    expect(planDeadline(null, deadline, T(deadline) - 16 * 60_000, running)).toEqual({
+      text: "Hard deadline 03:00: only a version submitted by then is judged; a late or missing plan scores 0. Your squad has not submitted a plan yet.",
+      tone: "amber",
+    });
+    expect(planDeadline(null, deadline, T(deadline) - 15 * 60_000, running).tone).toBe("red");
+    expect(planDeadline("2026-10-10T21:20:00.000Z", deadline, T(deadline) - 60_000, running)).toEqual({
+      text: "Hard deadline 03:00: only a version submitted by then is judged; a late or missing plan scores 0. Your squad submitted at 02:50:00; submit again to replace that version.",
+      tone: "red",
+    });
+    // A rehearsal at 10x: 15 event minutes are 90 real seconds.
+    expect(planDeadline(null, deadline, T(deadline) - 100_000, running, 10).tone).toBe("amber");
+    expect(planDeadline(null, deadline, T(deadline) - 80_000, running, 10).tone).toBe("red");
+    expect(planDeadline(null, deadline, T(deadline) + 1, running)).toEqual({ text: "No plan was submitted by 03:00: the plan scores 0.", tone: "red" });
+    expect(planDeadline("2026-10-10T21:20:00.000Z", deadline, T(deadline) + 1, running)).toEqual({
+      text: "The plan closed at 03:00. The version submitted at 02:50:00 is the one judged.",
+      tone: "slate",
+    });
+  });
+
+  test("paused before the deadline: not passed, and not near (the deadline moves on resume)", () => {
+    const paused = { paused: true, pausedAt: "2026-10-10T21:00:00.000Z" };
+    expect(planDeadline(null, deadline, T(deadline) + 60_000, paused).tone).toBe("amber");
+  });
+});
+
+describe("submitted versions", () => {
+  test("newest first, the current one marked, each with its time, team, words and lateness", () => {
+    const rows: SubmissionRow[] = [
+      { id: "a", type: "PLAN", content: { crisis: "One." }, word_count: 1, submitted_at: "2026-10-10T21:00:00.000Z", submitted_by_team: "p", superseded_at: "2026-10-10T21:10:00.000Z" },
+      { id: "b", type: "PLAN", content: { crisis: "One two." }, word_count: 2, submitted_at: "2026-10-10T21:10:00.000Z", submitted_by_team: "c", superseded_at: null },
+      { id: "x", type: "PITCH", content: {}, word_count: 9, submitted_at: "2026-10-10T17:00:00.000Z", submitted_by_team: "p", superseded_at: null },
+    ];
+    expect(submissionVersions(rows, "PLAN", "2026-10-10T21:05:00.000Z", running)).toEqual([
+      { id: "b", submittedAt: "2026-10-10T21:10:00.000Z", by: "c", words: 2, current: true, late: true, content: { crisis: "One two." } },
+      { id: "a", submittedAt: "2026-10-10T21:00:00.000Z", by: "p", words: 1, current: false, late: false, content: { crisis: "One." } },
+    ]);
+    expect(submissionVersions(rows, "FLASH", null, running)).toEqual([]);
   });
 });

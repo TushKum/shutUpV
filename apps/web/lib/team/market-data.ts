@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PhaseCode, SubmissionType } from "@msim/engine";
 import { supabaseServer } from "@/lib/supabase/server";
 import { fetchAll } from "@/lib/fetch-all";
-import { publicTypes, type ClearingRow, type ListedCompany, type PriceKind, type PriceRow, type Released, type ScoreRow } from "./market";
+import { publicTypes, type BookKind, type ClearingRow, type ListedCompany, type PriceKind, type PriceRow, type Released, type ScoreRow } from "./market";
 
 function must<T>(r: { data: T | null; error: { message: string } | null }, what: string): T {
   if (r.error) throw new Error(`Could not read ${what}: ${r.error.message}`);
@@ -144,23 +144,29 @@ export interface BookView {
   crises: Map<string, CrisisCardRow>;
 }
 
-/** Every company's public submission of one type (the pitch book, the plans, the flash answers). */
-export async function loadBook(eventId: string, type: SubmissionType): Promise<BookView> {
+/**
+ * Every company's public submission of one type (the pitch book, the plans, the flash answers) with its released
+ * score, or every company's crisis card. The page checks that the book is public (openBooks) before reading it.
+ */
+export async function loadBook(eventId: string, kind: BookKind): Promise<BookView> {
   const sb = await supabaseServer();
+  const type = kind === "CRISIS" ? null : kind;
   const [companies, subs, scores, crises] = await Promise.all([
     loadCompanies(sb, eventId),
-    fetchAll<PublicSubmission>((from, to) =>
-      sb
-        .from("submissions")
-        .select("company_id, type, content, word_count, submitted_at")
-        .eq("event_id", eventId)
-        .eq("type", type)
-        .is("superseded_at", null)
-        .order("id")
-        .range(from, to),
-    ),
-    sb.from("scores").select(SCORE_COLUMNS).eq("event_id", eventId).eq("type", type).then((r) => must(r, "the scores") as ScoreRow[]),
-    type === "PLAN"
+    type
+      ? fetchAll<PublicSubmission>((from, to) =>
+          sb
+            .from("submissions")
+            .select("company_id, type, content, word_count, submitted_at")
+            .eq("event_id", eventId)
+            .eq("type", type)
+            .is("superseded_at", null)
+            .order("id")
+            .range(from, to),
+        )
+      : Promise.resolve([]),
+    type ? sb.from("scores").select(SCORE_COLUMNS).eq("event_id", eventId).eq("type", type).then((r) => must(r, "the scores") as ScoreRow[]) : Promise.resolve([]),
+    kind === "PLAN" || kind === "CRISIS"
       ? sb.from("crisis_cards").select("id, category, title, body").eq("event_id", eventId).then((r) => must(r, "the crisis cards") as CrisisCardRow[])
       : Promise.resolve([]),
   ]);

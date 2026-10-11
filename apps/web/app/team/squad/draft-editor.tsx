@@ -13,7 +13,9 @@ import { clock } from "@/lib/format";
 import { useServerNow } from "@/lib/live/clock";
 import {
   MAX_CONTENT_CHARS,
+  afterResult,
   backupOf,
+  closedView,
   contentChars,
   draftPayload,
   editorReducer,
@@ -106,21 +108,18 @@ export function DraftEditor(props: DraftEditorProps) {
   }, [dirty, live]);
 
   const [pending, start] = useTransition();
+  // A submit in flight (it saves first): Save waits for it, so the two never race each other's version.
+  const [submitting, setSubmitting] = useState(false);
   const [saveResult, setSaveResult] = useState<DraftResult | null>(null);
-  const handle = (r: DraftResult) => {
-    if (r.ok && r.draft) dispatch({ type: "saved", draft: r.draft });
-    else if (r.code === "VERSION_CONFLICT" && r.draft) dispatch({ type: "conflict", draft: r.draft });
-    else dispatch({ type: "failed" });
-  };
   const payload = draftPayload(type, state.fields);
   const save = () => {
-    if (!live || !dirty || state.theirs || pending) return;
+    if (!live || !dirty || state.theirs || pending || submitting) return;
     const sent = payload;
     const base = state.base.version;
     dispatch({ type: "saving", fields: sent });
     start(async () => {
       const r = (await safely(() => saveDraft(type, sent, base))) as DraftResult;
-      handle(r);
+      dispatch(afterResult(r));
       setSaveResult(r);
       router.refresh();
     });
@@ -128,17 +127,27 @@ export function DraftEditor(props: DraftEditorProps) {
   const submit = async () => {
     const sent = dirty ? payload : null;
     if (sent) dispatch({ type: "saving", fields: sent });
-    const r = (await safely(() => submitDraft(type, sent, state.base.version))) as DraftResult;
-    handle(r);
-    setSaveResult(null);
-    return r;
+    setSubmitting(true);
+    try {
+      const r = (await safely(() => submitDraft(type, sent, state.base.version))) as DraftResult;
+      dispatch(afterResult(r));
+      setSaveResult(null);
+      return r;
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const stats = wordStats(type, state.fields);
-  const problem = submitProblem(type, state.fields);
+  // Open: the text on screen, based on a saved version. Closed: the latest saved version, and apart from it any text
+  // typed here that was never saved.
+  const closed = live ? null : closedView(state);
+  const fields = closed ? closed.fields : state.fields;
+  const version = closed ? closed.shown : state.base;
+  const stats = wordStats(type, fields);
+  const problem = submitProblem(type, fields);
   const tooBig = contentChars(payload) > MAX_CONTENT_CHARS;
-  const isSubmitted = !!props.submitted && sameFields(type, fieldsOf(type, props.submitted.content), state.fields);
-  const ticker = state.fields.ticker ?? "";
+  const isSubmitted = !!props.submitted && sameFields(type, fieldsOf(type, props.submitted.content), fields);
+  const ticker = fields.ticker ?? "";
   const confirm = `Click again to ${dirty ? "save and " : ""}submit ${words(stats.total)}${type === "PITCH" && ticker ? ` as ${ticker}` : ""}`;
   const who = (teamId: string | null) => whoLabel(squad, me, teamId);
   const fieldClass = (readOnly: boolean) => `${inputClass} ${readOnly ? "bg-slate-50 text-slate-700" : ""}`;
@@ -153,10 +162,10 @@ export function DraftEditor(props: DraftEditorProps) {
       }}
     >
       <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600" data-testid="draft-version">
-        {state.base.version > 0 ? (
+        {version.version > 0 ? (
           <span>
-            Version {state.base.version} · saved by <strong className="text-slate-900">{who(state.base.updatedBy)}</strong> at{" "}
-            <span className="font-mono">{clock(state.base.updatedAt, true)}</span>
+            Version {version.version} · saved by <strong className="text-slate-900">{who(version.updatedBy)}</strong> at{" "}
+            <span className="font-mono">{clock(version.updatedAt, true)}</span>
           </span>
         ) : (
           <span>Not saved yet.</span>
@@ -166,12 +175,21 @@ export function DraftEditor(props: DraftEditorProps) {
 
       {!live ? (
         <Notice tone={editable ? "amber" : "slate"}>
-          {editable ? `${SUBMISSION_LABELS[type]} closed at ${clock(deadline, true)}.` : props.closedNote}
-          {dirty && editable ? " Your unsaved changes were not saved." : ""}
+          <span data-testid="draft-closed">{editable ? `The ${SUBMISSION_LABELS[type].toLowerCase()} closed at ${clock(deadline, true)}.` : props.closedNote}</span>
         </Notice>
       ) : null}
 
-      {state.theirs ? (
+      {closed?.unsaved ? (
+        <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-inset ring-amber-200" data-testid="draft-unsaved">
+          <p className="font-semibold">Not saved: the text below was typed on this screen but never saved, so it is not part of the draft.</p>
+          <details className="mt-2">
+            <summary className="cursor-pointer font-medium">See the unsaved text</summary>
+            <FieldsText type={type} fields={closed.unsaved} />
+          </details>
+        </div>
+      ) : null}
+
+      {live && state.theirs ? (
         <div role="alert" className="rounded-md bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-inset ring-amber-200" data-testid="draft-conflict">
           <p className="font-semibold">
             {otherSaver(squad, me, state.theirs.updatedBy)} saved version {state.theirs.version} at {clock(state.theirs.updatedAt, true)} while you were
@@ -220,7 +238,7 @@ export function DraftEditor(props: DraftEditorProps) {
         </div>
       ) : null}
 
-      {state.notice ? (
+      {state.notice && (live || state.notice.kind === "updated") ? (
         <div role="status" className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-inset ring-sky-200">
           <span>
             {state.notice.kind === "updated"
@@ -245,7 +263,7 @@ export function DraftEditor(props: DraftEditorProps) {
             </label>
             <input
               id={`${uid}-company_name`}
-              value={state.fields.company_name ?? ""}
+              value={fields.company_name ?? ""}
               onChange={(e) => dispatch({ type: "edit", key: "company_name", value: e.target.value })}
               readOnly={!live}
               maxLength={60}
@@ -279,7 +297,7 @@ export function DraftEditor(props: DraftEditorProps) {
       {TEMPLATES[type].map((f) => {
         const id = `${uid}-${f.key}`;
         const n = stats.perField[f.key] ?? 0;
-        const text = state.fields[f.key] ?? "";
+        const text = fields[f.key] ?? "";
         return (
           <div key={f.key}>
             <div className="flex items-baseline justify-between gap-2">
@@ -342,14 +360,14 @@ export function DraftEditor(props: DraftEditorProps) {
             </p>
           ) : null}
           <div className="flex flex-wrap items-start gap-2">
-            <button type="submit" disabled={!dirty || !!state.theirs || pending} className={buttonClass.secondary}>
+            <button type="submit" disabled={!dirty || !!state.theirs || pending || submitting} className={buttonClass.secondary}>
               {pending ? "Saving…" : dirty ? "Save draft" : "Saved"}
             </button>
             <ActionButton
               variant="primary"
               action={submit}
               confirm={confirm}
-              disabled={!!state.theirs || pending || problem !== null || (isSubmitted && !dirty)}
+              disabled={!!state.theirs || pending || submitting || problem !== null || (isSubmitted && !dirty)}
             >
               {isSubmitted && !dirty ? "Submitted" : dirty ? "Save and submit" : "Submit"}
             </ActionButton>

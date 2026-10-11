@@ -528,7 +528,8 @@ export interface PricedCompany {
 export interface HoldingLine {
   key: string;
   companyId: string;
-  ticker: string;
+  /** Null before the company has a ticker (the squad's own company before its pitch card). */
+  ticker: string | null;
   name: string;
   lot: LotType;
   lotLabel: string;
@@ -542,8 +543,8 @@ export interface HoldingLine {
 
 export interface HoldingsView {
   lines: HoldingLine[];
-  /** Sum of the priced lines (cents). */
-  total: number;
+  /** Sum of the priced lines (cents); null when no line has a price yet. */
+  total: number | null;
   /** Lines without a price yet (before the IPO). */
   unpriced: number;
   /** Prices are the closing prices (the market has closed). */
@@ -569,7 +570,7 @@ export function holdingsView(holdings: readonly HoldingRow[], companies: readonl
       return {
         key: `${h.company_id}:${h.lot}`,
         companyId: h.company_id,
-        ticker: c?.ticker ?? "—",
+        ticker: c?.ticker ?? null,
         name: c?.name ?? "Your squad's company",
         lot: h.lot,
         lotLabel: LOT_LABELS[h.lot],
@@ -578,6 +579,6 @@ export function holdingsView(holdings: readonly HoldingRow[], companies: readonl
         value: v,
       };
     })
-    .sort((a, b) => a.ticker.localeCompare(b.ticker) || lotOrder(a.lot) - lotOrder(b.lot));
-  return { lines, total, unpriced, closing };
+    .sort((a, b) => (a.ticker ?? "").localeCompare(b.ticker ?? "") || lotOrder(a.lot) - lotOrder(b.lot));
+  return { lines, total: lines.length > unpriced ? total : null, unpriced, closing };
 }

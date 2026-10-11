@@ -214,6 +214,27 @@ export function editorReducer(s: EditorState, a: EditorAction): EditorState {
   }
 }
 
+/**
+ * What a save or submit result does to the editor. A refusal for a newer version offers that version. Any other
+ * result that carries a draft carries one this screen saved (Submit saves first; submit_submission may still refuse,
+ * e.g. TICKER_TAKEN), so it becomes the base: a refresh bringing it back is then not mistaken for another save.
+ */
+export function afterResult(r: { code?: string; draft?: DraftSnapshot }): EditorAction {
+  if (r.code === "VERSION_CONFLICT" && r.draft) return { type: "conflict", draft: r.draft };
+  if (r.draft) return { type: "saved", draft: r.draft };
+  return { type: "failed" };
+}
+
+/**
+ * What a closed editor (deadline passed, or this team does not write it) shows: the latest saved version, and the
+ * text typed here that was never saved (null when there is none), so it is not mistaken for the saved draft.
+ */
+export function closedView(s: EditorState): { shown: DraftSnapshot; fields: Fields; unsaved: Fields | null } {
+  const shown = s.theirs ?? s.base;
+  const fields = fieldsOf(s.type, shown.content);
+  return { shown, fields, unsaved: isDirty(s) && !sameFields(s.type, s.fields, fields) ? s.fields : null };
+}
+
 // ───────────── This device's backup of unsaved text ─────────────
 
 /** Unsaved text kept in this browser tab (sessionStorage), so a reload or a phone that drops the tab loses nothing. */

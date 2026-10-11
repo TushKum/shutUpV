@@ -3,10 +3,11 @@ import Link from "next/link";
 import { phaseReached } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadMarketList, loadReleased } from "@/lib/team/market-data";
-import { marketLines, marketOpensText, publicTypes, sign, SUBMISSION_TITLES } from "@/lib/team/market";
+import { marketLines, marketOpensText, openBooks, sign } from "@/lib/team/market";
 import { supabaseServer } from "@/lib/supabase/server";
 import { bp, money } from "@/lib/format";
-import { Notice, Panel, Table, Td } from "@/components/ui/ui";
+import { Badge, Notice, Panel, Table, Td } from "@/components/ui/ui";
+import { BookTabs } from "./tabs";
 
 export const metadata: Metadata = { title: "Market" };
 
@@ -14,12 +15,13 @@ const TONE = { 1: "text-emerald-700", 0: "text-slate-500", [-1]: "text-red-700" 
 const ARROW = { 1: "▲", 0: "■", [-1]: "▼" } as const;
 
 // Market: every listed company with its ticker, name, IPO price, market price and the last cleared round's move,
-// in ticker order (never ranked). Each row opens the company's page (pitch, plan, verdicts, crisis card, flash answer,
-// price history). Before Reading, when the market opens.
+// in ticker order (never ranked). Each row opens the company's page (pitch, verdicts, crisis card, plan, flash
+// answer, price history); the books gather one kind of public work for every company. Before Reading, when the
+// market opens. Prices change only at a broadcast (clearing, crisis, tiers), which refreshes the page.
 export default async function MarketPage() {
-  const { event, status } = await loadTeamContext();
+  const { event, status, company: own } = await loadTeamContext();
+  const sb = await supabaseServer();
   if (!phaseReached(status.phase, "READING")) {
-    const sb = await supabaseServer();
     const { data } = await sb.from("phases").select("starts_at").eq("event_id", event.id).eq("code", "READING").maybeSingle<{ starts_at: string }>();
     return (
       <Panel title="Market">
@@ -27,25 +29,13 @@ export default async function MarketPage() {
       </Panel>
     );
   }
-  const sb = await supabaseServer();
   const [list, released] = await Promise.all([loadMarketList(event.id), loadReleased(sb, event.id)]);
   const lines = marketLines(list.companies, list.lastRound?.rows ?? []);
-  const books = publicTypes(status.phase, released);
 
   return (
     <div className="space-y-6">
-      <Panel
-        title={`Listed companies (${lines.length})`}
-        actions={
-          <nav aria-label="Books" className="flex flex-wrap gap-2 text-sm">
-            {books.map((t) => (
-              <Link key={t} href={`/team/market/book?type=${t}`} className="rounded-md px-2 py-1 font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50">
-                {t === "PITCH" ? "Pitch book" : t === "PLAN" ? "Rescue plans" : "Flash answers"}
-              </Link>
-            ))}
-          </nav>
-        }
-      >
+      <BookTabs open={openBooks(status.phase, released)} current="PRICES" />
+      <Panel title={`Listed companies (${lines.length})`}>
         {!released.PITCH ? (
           <p className="mb-3 text-sm text-slate-600">IPO prices are released at the IPO, with the pitch scores. Until then, read the pitch book.</p>
         ) : null}
@@ -57,15 +47,18 @@ export default async function MarketPage() {
           {lines.map((l) => {
             const s = l.change ? sign(l.change.bp) : 0;
             return (
-              <tr key={l.id}>
+              <tr key={l.id} data-testid={`market-${l.ticker}`}>
                 <Td mono className="font-semibold">
                   <Link href={`/team/market/${l.ticker}`} className="underline underline-offset-2">
                     {l.ticker}
                   </Link>
                 </Td>
                 <Td>
-                  <span className="block max-w-[14rem] truncate" title={l.name}>
-                    {l.name}
+                  <span className="flex items-center gap-1.5">
+                    <span className="block max-w-[14rem] truncate" title={l.name}>
+                      {l.name}
+                    </span>
+                    {own?.id === l.id ? <Badge tone="violet">Yours</Badge> : null}
                   </span>
                 </Td>
                 <Td mono className="text-right">
@@ -88,8 +81,8 @@ export default async function MarketPage() {
           })}
         </Table>
         <p className="mt-3 text-xs text-slate-500">
-          In ticker order. Open a company for its {books.map((t) => SUBMISSION_TITLES[t].toLowerCase()).join(", ")}
-          {books.length ? ", " : ""}verdicts and price history.
+          In ticker order. {list.lastRound ? `The last column is the move in round ${list.lastRound.number}, the last round cleared. ` : ""}Open a company for
+          everything public about it and its price history, round by round.
         </p>
       </Panel>
     </div>

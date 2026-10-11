@@ -2,8 +2,10 @@ import { describe, expect, test } from "vitest";
 import { submissionWords } from "@msim/engine";
 import {
   MAX_CONTENT_CHARS,
+  afterResult,
   backupKey,
   backupOf,
+  closedView,
   contentChars,
   draftPayload,
   editorReducer,
@@ -180,6 +182,30 @@ describe("the editor when several screens save the same draft", () => {
     const s = run(start(), edit("answer", "Same."), { type: "server", draft: snap(2, { answer: "Same." }) });
     expect(s).toMatchObject({ base: { version: 2 }, theirs: null });
     expect(isDirty(s)).toBe(false);
+  });
+
+  test("a result: a newer version refused for is offered; any other result with a draft makes it the base", () => {
+    expect(afterResult({ code: "VERSION_CONFLICT", draft: snap(3, {}) })).toEqual({ type: "conflict", draft: snap(3, {}) });
+    expect(afterResult({ draft: snap(2, {}) })).toEqual({ type: "saved", draft: snap(2, {}) });
+    // Submit saved version 2, then submit_submission refused (TICKER_TAKEN): version 2 is still this screen's save.
+    expect(afterResult({ code: "TICKER_TAKEN", draft: snap(2, {}) })).toEqual({ type: "saved", draft: snap(2, {}) });
+    expect(afterResult({ code: "DEADLINE_PASSED" })).toEqual({ type: "failed" });
+    expect(afterResult({ code: "VERSION_CONFLICT" })).toEqual({ type: "failed" });
+    // So a refresh bringing that version back later is not offered as someone else's, even with more typed since.
+    let s = run(start(), edit("answer", "Mine."), { type: "saving", fields: { answer: "Mine." } });
+    s = run(s, afterResult({ code: "TICKER_TAKEN", draft: snap(2, { answer: "Mine." }, "p") }), edit("answer", "Mine. More."));
+    s = run(s, { type: "server", draft: snap(2, { answer: "Mine." }, "p") });
+    expect(s).toMatchObject({ base: { version: 2 }, theirs: null, fields: { answer: "Mine. More." } });
+  });
+
+  test("closed: the latest saved version is shown, and text typed here that was never saved is kept apart", () => {
+    expect(closedView(start())).toEqual({ shown: v1, fields: { answer: "First answer." }, unsaved: null });
+    expect(closedView(run(start(), edit("answer", "Mine.")))).toEqual({ shown: v1, fields: { answer: "First answer." }, unsaved: { answer: "Mine." } });
+    const offered = run(start(), edit("answer", "Mine."), { type: "server", draft: snap(2, { answer: "Theirs." }) });
+    expect(closedView(offered)).toMatchObject({ shown: { version: 2 }, fields: { answer: "Theirs." }, unsaved: { answer: "Mine." } });
+    // Nothing typed here, but a newer version offered after a refused submit: nothing is unsaved.
+    const refused = run(start(), { type: "conflict", draft: snap(2, { answer: "Theirs." }) });
+    expect(closedView(refused)).toMatchObject({ shown: { version: 2 }, unsaved: null });
   });
 
   test("edits of the ticker are normalised", () => {

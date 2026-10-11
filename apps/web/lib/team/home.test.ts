@@ -205,8 +205,9 @@ describe("holdings", () => {
   });
   test("before the IPO the retained shares have no price; after the close the closing price is used", () => {
     const before = holdingsView([{ company_id: "c", lot: "RETAINED", qty: 60000 }], companies);
-    expect(before.lines[0]).toMatchObject({ ticker: "—", name: "Your squad's company", lotLabel: "Retained (locked)", value: null });
-    expect(before).toMatchObject({ total: 0, unpriced: 1 });
+    expect(before.lines[0]).toMatchObject({ ticker: null, name: "Your squad's company", lotLabel: "Retained (locked)", value: null });
+    expect(before).toMatchObject({ total: null, unpriced: 1 });
+    expect(holdingsView([], companies)).toMatchObject({ lines: [], total: null, unpriced: 0 });
     const closed = holdingsView([{ company_id: "a", lot: "RETAINED", qty: 51000 }], [{ ...companies[0]!, closing_price: 1263 }]);
     expect(closed).toMatchObject({ total: 51000 * 1263, closing: true });
   });

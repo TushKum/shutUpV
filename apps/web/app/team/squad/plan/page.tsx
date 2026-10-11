@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { RULES } from "@msim/engine";
-import { clock } from "@/lib/format";
 import { loadTeamContext } from "@/lib/team/context";
-import { planCap, submissionWindow } from "@/lib/team/squad";
+import { currentSubmission, submissionWindow } from "@/lib/team/squad";
 import { loadSquadWorkspace, pauseOf, windowInput } from "@/lib/team/squad-data";
-import { Notice, Panel } from "@/components/ui/ui";
+import { RefreshAt } from "@/lib/live/refresh-at";
+import { Panel } from "@/components/ui/ui";
 import { Due } from "../due";
 import { squadGate } from "../parts";
 import { SubmissionEditor } from "../submission";
+import { PlanRules } from "./plan-rules";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -19,7 +20,8 @@ export default async function PlanPage() {
   if (gate) return gate;
   const ws = await loadSquadWorkspace(ctx);
   const win = submissionWindow("PLAN", ctx.team.track, windowInput(ctx, ws));
-  const cap = planCap(ws.deal, ws.deadlines.DEAL ?? null);
+  const cur = currentSubmission(ws.submissions, "PLAN");
+  const dealDeadline = ws.deadlines.DEAL ?? null;
   return (
     <Panel
       title="Rescue plan"
@@ -29,15 +31,21 @@ export default async function PlanPage() {
         </span>
       }
     >
+      {/* The deal is signed elsewhere (Rescue) and its signatures send no realtime message: re-read at its deadline. */}
+      <RefreshAt at={dealDeadline} />
       <p className="mb-3 text-sm text-slate-600">
         Up to {RULES.WORD_LIMIT.PLAN} words, written together by your squad&apos;s Product and Consulting teams: each save shows here for both. The judge
         also reads your pitch card, your crisis card and a summary of the deal.
       </p>
-      <div className="mb-4 space-y-2" data-testid="plan-rules">
-        <Notice tone="red">
-          Hard deadline{win.deadline ? ` ${clock(win.deadline)}` : ""}: a late plan scores 0. Only a version submitted by then is judged.
-        </Notice>
-        <Notice tone={cap.tone}>{cap.text}</Notice>
+      <div className="mb-4">
+        <PlanRules
+          deadline={win.deadline}
+          dealDeadline={dealDeadline}
+          deal={ws.deal}
+          submittedAt={cur?.submitted_at ?? null}
+          clockSpeed={ctx.event.clock_speed}
+          {...pauseOf(ctx)}
+        />
       </div>
       <SubmissionEditor ctx={ctx} ws={ws} type="PLAN" win={win} />
     </Panel>

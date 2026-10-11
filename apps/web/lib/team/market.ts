@@ -170,6 +170,28 @@ export const PUBLIC_FROM: Record<SubmissionType, string> = {
   FLASH: "Flash answers go public once the flash scores are released.",
 };
 
+// ───────────────────────────── Books ─────────────────────────────
+
+/** A book: every company's public submission of one type, or every company's crisis card. */
+export type BookKind = SubmissionType | "CRISIS";
+export const BOOK_KINDS: readonly BookKind[] = ["PITCH", "CRISIS", "PLAN", "FLASH"];
+export const BOOK_TITLES: Record<BookKind, string> = { PITCH: "Pitch book", CRISIS: "Crisis cards", PLAN: "Rescue plans", FLASH: "Flash answers" };
+
+/** The books that are public now, in the order of the night (crisis cards from the crisis, as the crisis_cards policy). */
+export function openBooks(phase: PhaseCode, released: Released): BookKind[] {
+  const types = publicTypes(phase, released);
+  return BOOK_KINDS.filter((k) => (k === "CRISIS" ? phaseReached(phase, "CRISIS") : types.includes(k)));
+}
+
+/** The book named in the address (?type=), the pitch book by default. */
+export function parseBookKind(raw: string | string[] | undefined): BookKind {
+  const v = (Array.isArray(raw) ? raw[0] : raw)?.trim().toUpperCase() ?? "";
+  return (BOOK_KINDS as readonly string[]).includes(v) ? (v as BookKind) : "PITCH";
+}
+
+/** When a book goes public, for a page that is waiting for it. */
+export const BOOK_PUBLIC_FROM: Record<BookKind, string> = { ...PUBLIC_FROM, CRISIS: "Crisis cards go public at the crisis, when every company gets one." };
+
 /** The template sections of a submission, in order, with the text as submitted ("" when a section was left empty). */
 export function submissionSections(type: SubmissionType, content: Readonly<Record<string, unknown>>): { key: string; label: string; text: string }[] {
   return TEMPLATES[type].map((f) => {
