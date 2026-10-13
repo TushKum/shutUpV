@@ -26,7 +26,7 @@ test("every track sees its team, where the night is, its cash and the sections o
     const cash = (await ev.n.one("select cash_cents from teams where code = $1", [code])).cash_cents;
     await expect(page.getByTestId("team-cash")).toHaveText(`$${(Number(cash) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`);
     await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link")).toHaveText([...expected[track]]);
-    await expect(page.getByText("Collateral locked")).toHaveCount(track === "FINANCE" ? 1 : 0);
+    await expect(page.locator("header").getByText("Collateral locked")).toHaveCount(track === "FINANCE" ? 1 : 0);
     await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   }
 });

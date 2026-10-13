@@ -143,7 +143,11 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
 
   await listRow(page, 0).getByRole("link", { name: ticker(0) }).click();
   await expect(page).toHaveURL(new RegExp(`/team/market/${ticker(0)}$`));
-  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch66\/100\+5% on the IPO price$/);
+  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch66\/100\+5% on the IPO price/);
+  // Why: the published judge run's points per rubric line and its rationale.
+  await page.getByTestId("verdict-PITCH").getByText("Why this score").click();
+  await expect(page.getByTestId("verdict-PITCH")).toContainText("Problem and how many people have it25/25");
+  await expect(page.getByTestId("verdict-PITCH")).toContainText("One. Two. Three.");
   await expect(history(page)).toHaveCount(2);
   await expect(history(page).nth(0).getByRole("cell")).toHaveText(["IPO price", /^\d\d:\d\d$/, "$10.50", "—", "$10.50", "Pitch tier +5% on $10.00"]);
   await expect(history(page).nth(1).getByRole("cell")).toHaveText([
@@ -155,7 +159,7 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
     "Net +3,000 (buy 3,500 · sell 500 · short 0 · cover 0)",
   ]);
   await page.goto(`/team/market/${ticker(2)}`);
-  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch45\/100−5% on the IPO price$/);
+  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch45\/100−5% on the IPO price/);
 });
 
 test("the crisis: −15% on every price, each company's crisis card, and the crisis cards book", async ({ page }) => {
@@ -241,7 +245,7 @@ test("the rescue and Plans published: plans with their crisis cards; verdicts on
   await expect(page.getByRole("region", { name: `${ticker(2)} rescue plans` })).toContainText("No submission on time: scored 0.");
 
   await page.goto(`/team/market/${ticker(0)}`);
-  await expect(page.getByTestId("verdict-PLAN")).toHaveText(/^Rescue plan88\/100\+20% on the price$/);
+  await expect(page.getByTestId("verdict-PLAN")).toHaveText(/^Rescue plan88\/100\+20% on the price/);
   await expect(page.getByTestId("submission-PLAN")).toBeVisible();
   const tier = history(page).filter({ hasText: "Plan tier" });
   await expect(tier.getByRole("cell").nth(5)).toHaveText("+20% on the market and AI prices");
@@ -291,7 +295,7 @@ test("flash news: the FLASH bulletin stands out; flash answers and their verdict
     "Our answerLicensing is profitable by month 9.",
   );
   await page.goto(`/team/market/${ticker(0)}`);
-  await expect(page.getByTestId("verdict-FLASH")).toHaveText(/^Flash answer80\/100\+5% on the price$/);
+  await expect(page.getByTestId("verdict-FLASH")).toHaveText(/^Flash answer80\/100\+5% on the price/);
   await expect(page.getByRole("list", { name: "Verdicts" }).getByRole("listitem")).toHaveCount(3);
   await expect(history(page).filter({ hasText: "Flash tier" }).getByRole("cell").nth(5)).toHaveText("+5% on the market and AI prices");
 });
