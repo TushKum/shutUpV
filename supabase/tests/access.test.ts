@@ -59,14 +59,16 @@ describe("grants", () => {
        order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
       "admin_health", "advance_phase", "answer_question", "cancel_order", "close_round_now", "confirm_fee",
-      "decide_correction", "decide_flag", "edit_deal", "edit_order", "event_status", "extend_event", "make_call", "pause_event",
-      "pick_problem_card", "ping", "place_ipo_bid", "place_order", "post_question", "prepare_flash_bulletin",
-      "propose_fee", "publish_bulletin", "publish_flash_bulletin", "release_scores", "request_correction",
+      "decide_correction", "decide_flag", "draw_summary", "edit_deal", "edit_order", "event_status", "extend_event",
+      "lottery_record_rows", "make_call", "pause_event", "pick_problem_card", "ping", "place_ipo_bid", "place_order",
+      "post_question", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin", "rankings",
+      "release_scores", "request_correction",
       "resume_event", "run_lottery", "save_draft", "seal_missing_scores", "server_time", "set_auto_advance",
       "set_seed_commitment", "sign_deal", "submit_submission", "tick", "upload_crisis_deck", "upload_problem_deck",
     ]);
     for (const r of rows) {
-      expect(r.anon, r.proname).toBe(false);
+      // The lottery record is public once the seed is revealed (anyone may check the draw); nothing else is.
+      expect(r.anon, r.proname).toBe(r.proname === "lottery_record_rows");
       expect(r.prosecdef, r.proname).toBe(true);
       expect(r.proconfig, r.proname).toEqual(["search_path=\"\""]);
     }
@@ -77,7 +79,8 @@ describe("grants", () => {
     expect(seal.rows[0]).toEqual({ svc: true, auth: false });
     const anonAny = await db.pool.query(`
       select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-       where n.nspname in ('public', 'app') and has_function_privilege('anon', p.oid, 'EXECUTE')`);
+       where n.nspname in ('public', 'app') and has_function_privilege('anon', p.oid, 'EXECUTE')
+         and p.oid <> 'public.lottery_record_rows(text)'::regprocedure`);
     expect(anonAny.rows[0].n).toBe(0);
   });
 

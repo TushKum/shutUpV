@@ -1,7 +1,7 @@
 // GET /api/rankings[?event=<id>] — final values, ranks and awards.
 // Teams read their own event; staff and the display pass ?event=. 401 when signed out, 403 before the reveal
 // (teams and the display: AWARDS; organisers and the fairness officer: SETTLEMENT). Row-level security applies the
-// same rule in the database, so this check is a second lock, not the only one.
+// same rule in the database (and public.rankings once more), so this check is a second lock, not the only one.
 
 import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/auth/viewer";
@@ -32,20 +32,11 @@ export async function GET(request: Request) {
   const decision = decideRankingsAccess(viewer.role, event?.current_phase ?? null);
   if (!decision.ok) return reply(decision.status, { error: decision.error });
 
-  const [results, awards] = await Promise.all([
-    sb
-      .from("results")
-      .select("track, final_value_cents, start_value_cents, return_bp, rank, eligible, teams(code, name)")
-      .eq("event_id", eventId)
-      .order("track")
-      .order("rank", { ascending: true, nullsFirst: false }),
-    sb
-      .from("awards")
-      .select("code, place, metric, teams(code, name), companies(ticker, name)")
-      .eq("event_id", eventId)
-      .order("code")
-      .order("place"),
-  ]);
-  if (results.error || awards.error) return reply(500, { error: "Could not read the rankings." });
-  return reply(200, { event: eventId, phase: event!.current_phase, results: results.data, awards: awards.data });
+  // public.rankings applies the same rule again in the database and adds every team's code and name (a team may read
+  // only its own row of `teams`, so names cannot come from a plain select).
+  const { data, error } = await sb.rpc("rankings", { p_event: eventId });
+  if (error) return reply(500, { error: "Could not read the rankings." });
+  if (!data) return reply(403, { error: "Rankings are revealed at the awards." });
+  const { results, awards } = data as { results: unknown[]; awards: unknown[] };
+  return reply(200, { event: eventId, phase: event!.current_phase, results, awards });
 }

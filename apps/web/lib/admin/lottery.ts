@@ -10,15 +10,16 @@ export interface LotteryRows {
   seed: string;
   dice: string;
   teams: { id: string; code: string; track: Track }[];
-  problemCards: { id: string; number: number; sector: string; title: string }[];
+  /** The public record (lottery_record_rows) carries only the card numbers; staff also read the text. */
+  problemCards: { id: string; number: number; sector?: string; title?: string }[];
   squads: {
     number: number;
     product_team_id: string;
     consulting_team_id: string;
     finance_team_id: string;
     dealt_card_ids: string[];
-    chosen_card_id: string | null;
-    chosen_by_default: boolean;
+    chosen_card_id?: string | null;
+    chosen_by_default?: boolean;
   }[];
   coverage: { consultant_team_id: string; company_id: string }[];
   companies: { id: string; product_team_id: string; ticker: string | null; crisis_card_id: string | null }[];
@@ -61,7 +62,7 @@ export function squadViews(rows: LotteryRows): SquadView[] {
   const { code, card, covers } = index(rows);
   const show = (id: string) => {
     const c = card.get(id);
-    return c ? { number: c.number, title: c.title } : { number: null, title: "Unknown card" };
+    return c ? { number: c.number, title: c.title ?? `Card ${c.number}` } : { number: null, title: "Unknown card" };
   };
   return [...rows.squads]
     .sort((a, b) => a.number - b.number)
@@ -72,7 +73,7 @@ export function squadViews(rows: LotteryRows): SquadView[] {
       finance: code(s.finance_team_id),
       dealt: s.dealt_card_ids.map(show),
       chosen: s.chosen_card_id ? show(s.chosen_card_id) : null,
-      chosenByDefault: s.chosen_by_default,
+      chosenByDefault: s.chosen_by_default ?? false,
       covers: covers(s.consulting_team_id),
     }));
 }
