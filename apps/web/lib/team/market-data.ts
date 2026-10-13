@@ -89,7 +89,7 @@ export interface CompanyView {
   types: SubmissionType[];
 }
 
-const SCORE_COLUMNS = "company_id, type, final_score, median, tier_bp, capped, late, missing, penalty";
+const SCORE_COLUMNS = "company_id, type, final_score, median, tier_bp, capped, late, missing, penalty, breakdown, rationale";
 
 /** One company by ticker, with everything public about it; null when no listed company has that ticker. */
 export async function loadCompanyView(eventId: string, ticker: string, phase: PhaseCode): Promise<CompanyView | null> {

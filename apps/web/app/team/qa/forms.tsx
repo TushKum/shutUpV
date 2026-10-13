@@ -12,6 +12,7 @@ import type { ActionResult } from "@/lib/rpc";
 import { ANSWER_MAX_WORDS, QUESTION_MAX_CHARS, ANSWER_MAX_CHARS, answerCheck, questionCheck } from "@/lib/team/qa";
 import { count } from "@/lib/format";
 import { ResultMessage } from "@/components/ui/action";
+import { useCarried, useCarrier } from "@/lib/live/feedback";
 import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 
@@ -24,14 +25,18 @@ interface PostState {
 
 function usePost(action: Action) {
   const router = useRouter();
-  return useActionState<PostState, FormData>(
+  const carrier = useCarrier();
+  const state = useActionState<PostState, FormData>(
     async (prev, form) => {
       const r = await safely(() => action(prev.result, form));
+      carrier.deliver(r);
       router.refresh();
       return { result: r, accepted: prev.accepted + (r.ok ? 1 : 0) };
     },
     { result: null, accepted: 0 },
   );
+  useCarried(carrier, state[0].result);
+  return state;
 }
 
 function PostForm({ action, children, label }: { action: Action; children: (pending: boolean) => ReactNode; label: string }) {

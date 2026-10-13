@@ -4,6 +4,7 @@
 // half-up) and never through floating point.
 
 import {
+  RUBRICS,
   TEMPLATES,
   divRoundHalfUp,
   phaseReached,
@@ -212,6 +213,15 @@ export interface ScoreRow {
   late: boolean;
   missing: boolean;
   penalty: number;
+  /** The published judge run's points per rubric line, and its rationale (decision 10). */
+  breakdown?: Record<string, unknown> | null;
+  rationale?: string | null;
+}
+
+export interface VerdictLine {
+  label: string;
+  points: number | null;
+  max: number;
 }
 
 export interface Verdict {
@@ -220,6 +230,9 @@ export interface Verdict {
   tier: string;
   tierSign: -1 | 0 | 1;
   notes: string[];
+  /** The rubric lines with the published run's points (empty when nothing was judged, e.g. a missing submission). */
+  lines: VerdictLine[];
+  rationale: string | null;
 }
 
 /** A released score as the market sees it: the final score, its tier and why it is what it is. */
@@ -236,7 +249,16 @@ export function verdict(s: ScoreRow): Verdict {
     tier: s.type === "PITCH" ? `${bp(tier)} on the IPO price` : `${bp(tier)} on the price`,
     tierSign: sign(tier),
     notes,
+    lines: verdictLines(s.type, s.breakdown ?? null),
+    rationale: s.rationale?.trim() ? s.rationale.trim() : null,
   };
+}
+
+/** The rubric lines in order with the published run's points (null when absent). */
+export function verdictLines(type: SubmissionType, breakdown: Record<string, unknown> | null): VerdictLine[] {
+  if (!breakdown) return [];
+  const points = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : null);
+  return RUBRICS[type].map((l) => ({ label: l.label, points: points(breakdown[l.key]), max: l.max }));
 }
 
 /** "The market opens at 22:30, when the pitch book goes public." */

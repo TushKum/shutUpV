@@ -140,7 +140,21 @@ export class Night {
       n,
     ]);
     await this.ok(this.lead, "tick", this.eventId);
-    assert.equal((await this.one("select status from rounds where event_id = $1 and number = $2", [this.eventId, n])).status, "OPEN", `round ${n} opens`);
+    assert.equal(await this.roundReaches(n, "OPEN"), "OPEN", `round ${n} opens`);
+  }
+
+  /**
+   * Waits (ticking again) until round n has `status`. On the local stack pg_cron's heartbeat may hold the event's
+   * tick lock at the moment the driver ticks, which then does nothing; the heartbeat or the next tick does the work.
+   */
+  async roundReaches(n: number, status: string, timeoutMs = 10_000): Promise<string> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const now = (await this.one("select status from rounds where event_id = $1 and number = $2", [this.eventId, n])).status as string;
+      if (now === status || Date.now() > deadline) return now;
+      await new Promise((r) => setTimeout(r, 200));
+      await this.ok(this.lead, "tick", this.eventId);
+    }
   }
 
   // ───────────── State ─────────────
@@ -199,7 +213,7 @@ export class Night {
     const started = performance.now();
     await this.ok(this.lead, "tick", this.eventId);
     this.clearings.push({ round: n, orders: orders.length, ms: performance.now() - started });
-    assert.equal((await this.one("select status from rounds where id = $1", [round.id])).status, "CLEARED", `round ${n} clears`);
+    assert.equal(await this.roundReaches(n, "CLEARED"), "CLEARED", `round ${n} clears`);
 
     const after = await this.fundBooks();
     const newPrices = await this.prices();

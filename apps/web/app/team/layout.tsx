@@ -7,11 +7,13 @@ import { clock, money } from "@/lib/format";
 import { ClockProvider } from "@/lib/live/clock";
 import { EventChannel } from "@/lib/live/channel";
 import { Heartbeat } from "@/lib/live/heartbeat";
+import { FeedbackBar, FeedbackProvider } from "@/lib/live/feedback";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Badge } from "@/components/ui/ui";
 import { Countdown, ServerClock } from "@/components/ui/countdown";
 import { RealtimeDot } from "@/components/ui/realtime-dot";
 import { TeamNav } from "./nav";
+import { PhaseEnd } from "./phase-end";
 
 export const metadata: Metadata = { title: { template: "%s · Team", default: "Team" } };
 
@@ -33,6 +35,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   return (
     <ClockProvider serverTime={status.server_time}>
       <EventChannel eventId={event.id}>
+        <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <div className="min-h-screen bg-slate-50">
           <header className="border-b border-slate-200 bg-white">
@@ -54,11 +57,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                 <dt className="text-xs text-slate-500">Phase</dt>
                 <dd className="font-semibold" data-testid="team-phase">
                   {PHASE_LABELS[status.phase]}
-                  {status.phase_ends_at ? (
-                    <span className="ml-1 font-normal text-slate-600">
-                      · ends in <Countdown to={status.phase_ends_at} passed="now" />
-                    </span>
-                  ) : null}
+                  <PhaseEnd endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} />
                 </dd>
               </div>
               <div>
@@ -112,8 +111,10 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
               <span className="font-semibold text-slate-900 underline-offset-2 hover:underline">{latest.title}</span>
             </Link>
           ) : null}
+          <FeedbackBar className="mx-auto max-w-5xl px-4 pt-3" />
           <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
         </div>
+      </FeedbackProvider>
       </EventChannel>
     </ClockProvider>
   );

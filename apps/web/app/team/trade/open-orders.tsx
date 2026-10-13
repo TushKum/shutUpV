@@ -12,6 +12,7 @@ import { editContext, maxOrder, orderLabel, parseShares, previewOrder, type Orde
 import { clock, count, money } from "@/lib/format";
 import { useServerNow } from "@/lib/live/clock";
 import { ActionButton, ResultMessage } from "@/components/ui/action";
+import { useCarried, useCarrier } from "@/lib/live/feedback";
 import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 
@@ -61,11 +62,14 @@ function EditOrder({ ctx, line, label, action }: { ctx: OrderContext; line: Orde
   const unchanged = parseShares(qty) === line.qty;
   // A refusal the screen predicts is not sent; a change the screen cannot check is (the exchange decides).
   const sendable = (preview.state === "OK" || preview.state === "UNKNOWN") && !unchanged;
+  const carrier = useCarrier();
   const [result, dispatch, pending] = useActionState<ActionResult | null, FormData>(async (prev, form) => {
     const r = await safely(() => action(prev, form));
+    carrier.deliver(r);
     router.refresh();
     return r;
   }, null);
+  useCarried(carrier, result);
   return (
     <form
       aria-label={`Change ${label}`}

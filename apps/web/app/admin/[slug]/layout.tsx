@@ -6,6 +6,7 @@ import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { ClockProvider } from "@/lib/live/clock";
 import { EventChannel } from "@/lib/live/channel";
 import { Heartbeat } from "@/lib/live/heartbeat";
+import { FeedbackBar, FeedbackProvider } from "@/lib/live/feedback";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Badge } from "@/components/ui/ui";
 import { ServerClock } from "@/components/ui/countdown";
@@ -25,6 +26,7 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
   return (
     <ClockProvider serverTime={status.server_time}>
       <EventChannel eventId={event.id} staff>
+        <FeedbackProvider>
         <Heartbeat eventId={event.id} area="admin" tick={organiser} />
         <div className="min-h-screen bg-slate-50">
           <header className="border-b border-slate-200 bg-white">
@@ -51,8 +53,10 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
             </div>
             <AdminNav slug={slug} fairness={viewer!.role === "FAIRNESS"} />
           </header>
+          <FeedbackBar className="mx-auto max-w-7xl px-4 pt-4" />
           <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
         </div>
+      </FeedbackProvider>
       </EventChannel>
     </ClockProvider>
   );

@@ -18,6 +18,7 @@ import { ORDER_TYPE_INFO, clientRef, companyPosition, maxOrder, newNonce, orderL
 import { clock, count, money } from "@/lib/format";
 import { useServerNow } from "@/lib/live/clock";
 import { ResultMessage } from "@/components/ui/action";
+import { useCarried, useCarrier } from "@/lib/live/feedback";
 import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 
@@ -51,15 +52,20 @@ export function OrderTicket({
   const now = useServerNow(1000);
   const closed = now >= new Date(round.closesAt).getTime();
 
+  const carrier = useCarrier();
   const [result, dispatch, pending] = useActionState<ActionResult | null, FormData>(async (prev, form) => {
     const r = await safely(() => action(prev, form));
+    carrier.deliver(r);
     if (r.ok) {
       nonce.current = null;
       setQty("");
+    } else if (r.code === "ORDER_CHANGED") {
+      nonce.current = null; // the earlier order is no longer pending: the next press places a new one
     }
     router.refresh();
     return r;
   }, null);
+  useCarried(carrier, result);
 
   const company = companies.find((c) => c.id === picked) ?? null;
   const companyId = company?.id ?? "";

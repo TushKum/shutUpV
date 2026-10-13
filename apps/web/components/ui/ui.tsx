@@ -7,7 +7,7 @@ export function Panel({ title, actions, children, className = "" }: { title?: Re
     <section className={`min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm ${className}`}>
       {title || actions ? (
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-          {title ? <h2 className="text-base font-semibold text-slate-900">{title}</h2> : <span />}
+          {title ? <h2 className="min-w-0 text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">{title}</h2> : <span />}
           {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
         </header>
       ) : null}

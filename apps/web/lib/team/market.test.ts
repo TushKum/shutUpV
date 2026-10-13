@@ -136,7 +136,7 @@ describe("verdicts", () => {
     ...s,
   });
   test("final score and tier, with the reasons: capped (CampusCart), late, missing, the injection penalty", () => {
-    expect(verdict(score({}))).toEqual({ title: "Rescue plan", score: "88/100", tier: "+20% on the price", tierSign: 1, notes: [] });
+    expect(verdict(score({}))).toEqual({ title: "Rescue plan", score: "88/100", tier: "+20% on the price", tierSign: 1, notes: [], lines: [], rationale: null });
     expect(verdict(score({ type: "PITCH", final_score: 66, median: 66, tier_bp: 500 })).tier).toBe("+5% on the IPO price");
     const capped = verdict(score({ final_score: 50, median: 78, tier_bp: 0, capped: true }));
     expect(capped).toMatchObject({ score: "50/100", tier: "0% on the price", tierSign: 0 });
@@ -144,5 +144,35 @@ describe("verdicts", () => {
     expect(verdict(score({ final_score: 0, tier_bp: -2000, late: true })).notes).toEqual(["Submitted late: scored 0."]);
     expect(verdict(score({ final_score: 0, tier_bp: -2000, missing: true })).tierSign).toBe(-1);
     expect(verdict(score({ final_score: 35, penalty: 10, tier_bp: -2000 })).notes[0]).toMatch(/^−10 points/);
+  });
+});
+
+describe("verdict detail", () => {
+  test("the published run's points per rubric line and its rationale", () => {
+    const v = verdict({
+      company_id: "c",
+      type: "FLASH",
+      final_score: 70,
+      median: 70,
+      tier_bp: 500,
+      capped: false,
+      late: false,
+      missing: false,
+      penalty: 0,
+      breakdown: { responds_to_news: 35, realistic: "20", clear: 15 },
+      rationale: "  Answers the news. Plausible. Clear.  ",
+    });
+    expect(v.lines).toEqual([
+      { label: "Responds directly to the news", points: 35, max: 50 },
+      { label: "Realistic", points: 20, max: 30 },
+      { label: "Clear", points: 15, max: 20 },
+    ]);
+    expect(v.rationale).toBe("Answers the news. Plausible. Clear.");
+  });
+
+  test("a missing submission has no breakdown", () => {
+    const v = verdict({ company_id: "c", type: "PLAN", final_score: 0, median: 0, tier_bp: -2000, capped: false, late: false, missing: true, penalty: 0, breakdown: null, rationale: null });
+    expect(v.lines).toEqual([]);
+    expect(v.rationale).toBeNull();
   });
 });

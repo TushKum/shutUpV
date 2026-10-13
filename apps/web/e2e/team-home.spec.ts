@@ -53,7 +53,7 @@ test("before the draw: when it happens, nothing to do yet, no squad and no share
   await expect(page.getByTestId("home-squad")).toHaveText(`Not drawn yet. Squads are drawn at ${draw}.`);
   await expect(comingUp(page).first()).toContainText(`Squad draw: your squad and company${draw}`);
   await expect(comingUp(page).nth(1)).toContainText(`Problem card pick closes${await deadline("PROBLEM_PICK")}`);
-  await expect(comingUp(page).nth(1).getByRole("link", { name: "Problem card pick closes" })).toHaveAttribute("href", "/team/squad");
+  await expect(comingUp(page).nth(1).getByRole("link", { name: "Problem card pick closes" })).toHaveAttribute("href", "/team/squad/problem");
   await expect(page.getByText("Shares are issued at the squad draw.")).toBeVisible();
   await expect(page.getByTestId("home-cash")).toHaveText("$0.00");
   await expect(page.getByText("No bulletins yet.")).toBeVisible();
@@ -71,7 +71,7 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(pickTask).toContainText(`Choose one of the three cards dealt to your squad by ${pick}; otherwise the first card is assigned.`);
   await expect(pickTask).toContainText(`Problem card pick · ${pick}`);
   await expect(pickTask.locator(".font-mono").last()).toHaveText(/^\d+:\d\d(:\d\d)?$/); // the live countdown
-  await expect(pickTask.getByRole("link", { name: "Open Squad" })).toHaveAttribute("href", "/team/squad");
+  await expect(pickTask.getByRole("link", { name: "Open the problem cards" })).toHaveAttribute("href", "/team/squad/problem");
   await expect(task(page, "PITCH").getByRole("heading")).toHaveText("Write and submit your pitch card");
   await expect(page.getByTestId("home-squad")).toHaveText("Squad 01");
   await expect(page.getByTestId("home-company")).toHaveText("Named, with its ticker, on the pitch card (by the pitch deadline).");
@@ -98,7 +98,7 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
 
   await home(page, a.f_code);
   await expect(page.getByTestId("home-idle")).toHaveText("Nothing needs doing right now. Watch the bulletins and the market.");
-  await expect(comingUp(page).getByRole("link", { name: "IPO bids close" })).toHaveAttribute("href", "/team/trade");
+  await expect(comingUp(page).getByRole("link", { name: "IPO bids close" })).toHaveAttribute("href", "/team/trade/ipo");
   await expect(page.getByTestId("home-cash")).toHaveText("$450,000.00");
   await expect(page.getByText("Collateral locked").last()).toBeVisible();
   await expect(holdingRows(page).first().getByRole("cell")).toHaveText(["Your squad's company", "Squad lot", "5,000", "—", "—"]);
@@ -149,7 +149,7 @@ test("Reading and the IPO: read the book, a question waits for its answer, then 
   const ipo = task(page, "IPO_BIDS");
   await expect(ipo.getByRole("heading")).toHaveText("Place IPO bids");
   await expect(ipo).toContainText(`IPO bids · ${await deadline("IPO_BIDS")}`);
-  await expect(ipo.getByRole("link", { name: "Open Trade" })).toHaveAttribute("href", "/team/trade");
+  await expect(ipo.getByRole("link", { name: "Open IPO bids" })).toHaveAttribute("href", "/team/trade/ipo");
   await expect(ipo).toHaveAttribute("data-state", "todo");
   await expect(holdingRows(page).first().getByRole("cell")).toHaveText([ticker(0), "Squad lot", "5,000", "$10.50", "$52,500.00"]);
   await ev.n.ok(ev.n.team(a.f_code), "place_ipo_bid", s[1]!.company_id, 1000);

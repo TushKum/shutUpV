@@ -106,9 +106,16 @@ export interface HomePlan {
 }
 
 const SQUAD = "/team/squad";
+const PROBLEM = "/team/squad/problem";
+const PITCH = "/team/squad/pitch";
+const PLAN = "/team/squad/plan";
+const FLASH = "/team/squad/flash";
 const RESCUE = "/team/rescue";
 const CALLS = "/team/calls";
 const TRADE = "/team/trade";
+const IPO = "/team/trade/ipo";
+/** Each submission's own form. */
+const FORM: Record<"PITCH" | "PLAN" | "FLASH", string> = { PITCH, PLAN, FLASH };
 const QA = "/team/qa";
 const BOOK = "/team/market/book";
 
@@ -157,16 +164,17 @@ const UPCOMING_TITLES: Record<DeadlineCode, string> = {
 function hrefFor(track: Track, code: DeadlineCode): string | null {
   switch (code) {
     case "PROBLEM_PICK":
+      return track === "FINANCE" ? null : PROBLEM;
     case "PITCH":
     case "PLAN":
     case "FLASH":
-      return track === "FINANCE" ? null : SQUAD;
+      return track === "FINANCE" ? null : FORM[code];
     case "CALL_1":
     case "CALL_2":
     case "CALL_3":
       return track === "CONSULTING" ? CALLS : null;
     case "IPO_BIDS":
-      return track === "FINANCE" ? TRADE : null;
+      return track === "FINANCE" ? IPO : null;
     case "FEE":
     case "DEAL_BONUS":
     case "DEAL":
@@ -249,6 +257,11 @@ function task(f: HomeFacts, code: DeadlineCode | null, t: Omit<HomeTask, "due" |
 
 const LINK_LABELS: Record<string, string> = {
   [SQUAD]: "Open Squad",
+  [PROBLEM]: "Open the problem cards",
+  [PITCH]: "Open the pitch card",
+  [PLAN]: "Open the rescue plan",
+  [FLASH]: "Open the flash answer",
+  [IPO]: "Open IPO bids",
   [RESCUE]: "Open Rescue",
   [CALLS]: "Open Calls",
   [TRADE]: "Open Trade",
@@ -331,7 +344,7 @@ function submissionTask(f: HomeFacts, type: "PITCH" | "PLAN" | "FLASH"): HomeTas
     state = "todo";
     detail = `${about[type]} Due ${at}.`;
   }
-  return task(f, type, { key: type, title: titles[type], detail, href: SQUAD, state });
+  return task(f, type, { key: type, title: titles[type], detail, href: FORM[type], state });
 }
 
 function callTask(f: HomeFacts, n: 1 | 2 | 3): HomeTask {
@@ -373,7 +386,7 @@ export function homePlan(f: HomeFacts): HomePlan {
             : f.track === "PRODUCT"
               ? `Choose one of the three cards dealt to your squad by ${clock(deadlineAt(f, "PROBLEM_PICK"))}; otherwise the first card is assigned.`
               : "You can read the three cards dealt to your squad.",
-          href: SQUAD,
+          href: PROBLEM,
           state: p.problemPicked ? "done" : f.track === "PRODUCT" ? "todo" : "info",
         }),
       );
@@ -409,7 +422,7 @@ export function homePlan(f: HomeFacts): HomePlan {
             p.ipoBids > 0
               ? `${plural(p.ipoBids, "bid")} placed; you can change them until ${clock(deadlineAt(f, "IPO_BIDS"))}.`
               : "Up to 4,000 shares per company (not your own squad's), within your cash at IPO prices.",
-          href: TRADE,
+          href: IPO,
           state: p.ipoBids > 0 ? "done" : "todo",
         }),
       );

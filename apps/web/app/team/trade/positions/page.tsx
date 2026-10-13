@@ -51,7 +51,7 @@ export default async function PositionsPage() {
           <Stat label="Cash" value={money(totals.cash)} />
           <Stat label="Long shares" value={money(totals.longValue)} hint="Exchange and squad lots" />
           <Stat label="Short shares" value={money(totals.shortValue)} hint={closed ? "Covered at the close" : "What covering would cost"} />
-          <Stat label="Unrealised profit and loss" value={<span data-testid="portfolio-pnl">{signedMoney(totals.unrealised)}</span>} />
+          <Stat label={closed ? "Profit and loss at closing prices" : "Unrealised profit and loss"} value={<span data-testid="portfolio-pnl">{signedMoney(totals.unrealised)}</span>} />
         </div>
         {totals.unpriced > 0 ? (
           <p className="mt-2 text-xs text-slate-500">
@@ -109,7 +109,11 @@ export default async function PositionsPage() {
 
       <Panel title="Collateral and limits">
         <div className="space-y-4 text-sm">
-          {coll.blocked ? (
+          {closed ? (
+            <Notice>
+              <span data-testid="collateral-status">The market has closed: every short was covered at the closing price and no more orders are taken.</span>
+            </Notice>
+          ) : coll.blocked ? (
             <Notice tone="red">
               <span data-testid="collateral-status">
                 Blocked: your cash ({money(coll.cash)}) is below your locked collateral ({money(coll.locked)}), short by {money(coll.deficit)}. New buys and shorts are

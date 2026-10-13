@@ -82,7 +82,7 @@ describe("what to do now, per track and phase", () => {
     const f = facts("PRODUCT", "SQUAD_DRAW", "21:02");
     const plan = homePlan(f);
     expect(plan.now.map((t) => t.key)).toEqual(["PROBLEM_PICK", "PITCH"]);
-    expect(plan.now[0]).toMatchObject({ title: "Pick your problem card", href: "/team/squad", state: "todo", due: at("21:10") });
+    expect(plan.now[0]).toMatchObject({ title: "Pick your problem card", href: "/team/squad/problem", state: "todo", due: at("21:10") });
     expect(plan.now[0]!.detail).toContain("21:10");
     const picked = homePlan({ ...f, progress: progress({ problemPicked: true }) });
     expect(picked.now[0]).toMatchObject({ state: "done" });
@@ -106,7 +106,7 @@ describe("what to do now, per track and phase", () => {
   test("Finance during the IPO: place IPO bids (Trade) until 23:30; not while paused or once allocated", () => {
     const f = facts("FINANCE", "IPO", "23:20");
     const plan = homePlan(f);
-    expect(plan.now[0]).toMatchObject({ key: "IPO_BIDS", title: "Place IPO bids", href: "/team/trade", due: at("23:30"), state: "todo" });
+    expect(plan.now[0]).toMatchObject({ key: "IPO_BIDS", title: "Place IPO bids", href: "/team/trade/ipo", due: at("23:30"), state: "todo" });
     expect(plan.now.map((t) => t.key)).toEqual(["IPO_BIDS", "QA"]);
     expect(homePlan({ ...f, progress: progress({ ipoBids: 3 }) }).now[0]).toMatchObject({ state: "done", detail: expect.stringContaining("3 bids placed") });
     expect(windowOpen({ ...f, paused: true, pausedAt: at("23:19") }, "IPO_BIDS")).toBe(false);

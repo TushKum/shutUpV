@@ -207,11 +207,11 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 
 ### Phase 4 — Team portal (/team)
 - [x] Foundation: team layout (team, phase and countdown, trading and the round, cash and collateral, the latest bulletin, pause and disqualification notices), sections per track, team context loader, shared helpers moved out of the control panel
-- [ ] Common: home, bulletins, market (pitch book, prices, plans and verdicts, crisis cards), Q&A board, public ledger
-- [ ] Squad (Product and Consulting): problem card pick, pitch editor, shared plan editor, flash answer
-- [ ] Rescue: fee (propose and confirm), deal (broker proposes, all three sign)
-- [ ] Finance: IPO bids, order ticket with live validation and a max-quantity helper, open orders, positions, profit and loss, collateral
-- [ ] Consulting: calls on the 2 covered companies, earnings breakdown
+- [x] Common: home, bulletins, market (pitch book, prices, plans and verdicts, crisis cards), Q&A board, public ledger
+- [x] Squad (Product and Consulting): problem card pick, pitch editor, shared plan editor, flash answer
+- [x] Rescue: fee (propose and confirm), deal (broker proposes, all three sign)
+- [x] Finance: IPO bids, order ticket with live validation and a max-quantity helper, open orders, positions, profit and loss, collateral
+- [x] Consulting: calls on the 2 covered companies, earnings breakdown
 - [ ] Review, all tests, summary
 
 - **Common to all tracks:** header with phase and countdown, bulletins, own cash and holdings, pitch book, Q&A board, public ledger, and crisis cards, plans and verdicts once public.
@@ -370,6 +370,16 @@ Real time = `starts_at + offset ÷ clock_speed`.
 73. **The Setup gate checks the problem deck's size** (squads + 2), the same rule as the upload and the draw, so a short deck from a seed file is caught before the event starts, not at 21:00.
 74. **The organiser console's backup tick really runs** (every second, as key decision 7 in section 1 says): a supabase-js call is sent only once awaited, which the first version missed.
 75. **Control panel pages** have their own titles ("Ledger · Control panel"), the event name as the page heading, tables that scroll sideways can be reached by keyboard, and organiser text (a link in a bulletin) wraps instead of widening the page.
+76. **The team portal shows what is public to everyone, the same for every team.** The market (prices, the pitch book from Reading, the crisis cards from the crisis, the rescue plans from Plans published, the flash answers once their scores are released) never shows a squad's own unreleased plan or flash answer early, although RLS lets the squad read it in its workspace. Released verdicts show the score, the tier, the reasons (capped, late, missing, penalty) and the published judge run's points per rubric line and rationale. Nothing is ranked anywhere before AWARDS.
+77. **Teams are named by role, never by code.** A team cannot read another team's row, so partners are "the Product team", "the fund (Finance)"; Q&A shows "A fund asked" and "<TICKER> answered"; the public ledger uses squad-and-role labels.
+78. **Home says what to do now**, per track and phase, from the deadlines and the same windows the game functions use (pause-aware), with a countdown and a link straight to the form (the problem cards, the pitch card, the IPO bids…), then what is coming up, the team's cash and holdings, its squad and the latest bulletins.
+79. **One click or two in the portal.** Two clicks: picking the problem card, submitting a pitch, plan or flash answer, confirming the fee and signing the deal (the confirmation names what is sent: "Click again to sign 8,571 shares at $7.00 ($59,997.00)"). One click: saving a draft, proposing a fee or deal terms, a call, a question or an answer, placing, editing or cancelling an order, an IPO bid: each can be changed until its deadline or the round's close, and a second click would slow the last minute of a round.
+80. **Live validation agrees with the database.** The order ticket checks every order as it is typed with the engine's validateOrder and maxQuantity on the fund's own view (built as app.order_context builds it), shows the engine's refusal text and the reserve or collateral it locks, and a "Max" button. An order the screen cannot check is still sent: the database decides. Orders carry a client reference, so a double click or a retry after a lost answer places one order; if that order has since been cancelled or changed, the screen says so instead of "Already placed".
+81. **The shared plan editor merges per section.** Every save names the version it started from. When the partner saved meanwhile, sections changed on one side only merge automatically; only a section both teams changed differently asks which text to keep (both shown), and unsaved text is never lost (it is also kept per tab). A screen with nothing typed takes the newer version.
+82. **Pages that change without a realtime message re-read while it matters:** squad editors every 10 s while their window is open, Rescue every 10 s during the fee and deal windows, Orders and IPO bids every 10 s while they accept input, Home every 15 s while a squad window is open; every page also re-reads when its next deadline passes. With 150 teams this is at most about 15 page reads a second, well inside what the server takes.
+83. **A result is never lost.** When the control that ran an action disappears right after it (the round closed, the row moved, the item left a list), its result moves to a bar at the top of the page: an order refused at the close still says why. This applies to the control panel too.
+84. **A pause freezes the order book.** Placing, editing and cancelling an order are all refused while the event is paused (migration 16 adds the pause check to cancel_order), so the book that resumes is the book that was frozen.
+85. **The header says what a phase is waiting for** once its planned end has passed ("waiting for the pitch scores", "waiting for the fairness officer"), instead of "ends in now".
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

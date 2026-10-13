@@ -10,6 +10,7 @@ import type { CallDirection } from "@msim/engine";
 import type { ActionResult } from "@/lib/rpc";
 import type { PauseState } from "@/lib/team/rescue";
 import { ResultMessage } from "@/components/ui/action";
+import { useCarryOver } from "@/lib/live/feedback";
 import { safely } from "@/components/ui/action-helpers";
 import { useDeadlineOpen } from "../rescue/parts";
 import { makeCall } from "./actions";
@@ -34,10 +35,12 @@ export function CallChoice({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [result, setResult] = useState<ActionResult | null>(null);
+  const deliver = useCarryOver(result);
   const open = useDeadlineOpen(due, pause);
   const send = (d: CallDirection) =>
     start(async () => {
       const r = await safely(() => makeCall(companyId, no, d, label, due));
+      deliver(r);
       setResult(r);
       router.refresh();
     });

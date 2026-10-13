@@ -12,6 +12,7 @@ import type { ActionResult } from "@/lib/rpc";
 import { money } from "@/lib/format";
 import { dealPreview, dollarsText, feePreview, type PauseState, type Preview } from "@/lib/team/rescue";
 import { ResultMessage } from "@/components/ui/action";
+import { useCarried, useCarrier } from "@/lib/live/feedback";
 import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 import { useDeadlineOpen } from "./parts";
@@ -20,11 +21,15 @@ type Action = (prev: ActionResult | null, form: FormData) => Promise<ActionResul
 
 function useSend(action: Action) {
   const router = useRouter();
-  return useActionState<ActionResult | null, FormData>(async (prev, form) => {
+  const carrier = useCarrier();
+  const state = useActionState<ActionResult | null, FormData>(async (prev, form) => {
     const r = await safely(() => action(prev, form));
+    carrier.deliver(r);
     router.refresh();
     return r;
   }, null);
+  useCarried(carrier, state[0]);
+  return state;
 }
 
 /** The live check under a form: the refusal the database would give, or the terms it would record. */

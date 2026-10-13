@@ -39,6 +39,16 @@ export async function placeOrder(_prev: ActionResult | null, form: FormData): Pr
   const order = (r.data?.order ?? {}) as PlacedOrder;
   const what = `${order.type ?? type} ${count(order.qty ?? qty)} ${ticker}`.trim();
   if (r.data?.duplicate === true) {
+    // The same reference was sent before (a double click, a retry after a lost answer). If that order has since been
+    // cancelled, filled or changed, nothing is pending as the fund intends: say so, and the next press is a new order.
+    if (order.status !== "PENDING" || order.qty !== qty) {
+      const since = order.status === "CANCELLED" ? "cancelled" : order.status === "FILLED" ? "filled" : order.qty !== qty ? "changed" : "closed";
+      return {
+        ok: false,
+        code: "ORDER_CHANGED",
+        message: `That order (${what}) was placed earlier and has since been ${since}; nothing new was placed. Press Place again to place it now.`,
+      };
+    }
     return { ...r, message: `Already placed: ${what} (the same order was sent twice; no second order was made).` };
   }
   return { ...r, message: `Order placed: ${what}. It fills at this round's clearing price; you can edit or cancel it until the round closes.` };

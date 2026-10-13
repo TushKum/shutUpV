@@ -3,6 +3,7 @@ import Link from "next/link";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadBook, loadReleased } from "@/lib/team/market-data";
 import { BOOK_PUBLIC_FROM, BOOK_TITLES, openBooks, parseBookKind, verdict } from "@/lib/team/market";
+import { VerdictDetail } from "../verdict-detail";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Badge, Notice, Panel } from "@/components/ui/ui";
 import { Submission } from "../submission";
@@ -88,6 +89,7 @@ export default async function BookPage({ searchParams }: PageProps<"/team/market
                   ) : null}
                   {s ? <Submission type={kind} s={s} /> : <p className="text-sm text-slate-500">Nothing was submitted on time.</p>}
                   {v?.notes.length ? <p className="mt-2 text-xs text-slate-500">{v.notes.join(" ")}</p> : null}
+                  {v ? <VerdictDetail v={v} /> : null}
                 </>
               )}
             </Panel>

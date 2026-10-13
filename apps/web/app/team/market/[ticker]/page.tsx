@@ -4,6 +4,7 @@ import { phaseReached, type SubmissionType } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadCompanyView } from "@/lib/team/market-data";
 import { BOOK_PUBLIC_FROM, historyLines, SUBMISSION_TITLES, verdict } from "@/lib/team/market";
+import { VerdictDetail } from "../verdict-detail";
 import { clock, money } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
 import type { PublicSubmission } from "@/lib/team/market-data";
@@ -89,6 +90,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
                       {n}
                     </p>
                   ))}
+                  <VerdictDetail v={v} />
                 </li>
               );
             })}

@@ -8,16 +8,10 @@ import { useRouter } from "next/navigation";
 import type { ActionResult } from "@/lib/rpc";
 import { buttonClass } from "./ui";
 import { CONFIRM_DELAY_MS, confirmLabel, oversizedFile, safely } from "./action-helpers";
+import { ResultMessage } from "./result-message";
+import { useCarried, useCarrier, useCarryOver } from "@/lib/live/feedback";
 
-export function ResultMessage({ result }: { result: ActionResult | null }) {
-  if (!result) return null;
-  const text = result.message ?? (result.ok ? "Done." : result.code ?? "Refused.");
-  return (
-    <p role={result.ok ? "status" : "alert"} className={`mt-2 text-sm ${result.ok ? "text-emerald-700" : "text-red-700"}`}>
-      {result.ok ? text : `${result.code && result.code !== "ERROR" && result.code !== "NOT_ALLOWED" ? `${result.code}: ` : ""}${text}`}
-    </p>
-  );
-}
+export { ResultMessage };
 
 /**
  * Runs `action` on click. With `confirm`, the first click asks for a second one ("Click again to …"), so a stray
@@ -45,6 +39,7 @@ export function ActionButton({
   const [pending, start] = useTransition();
   const { armedFor, arm, disarm, tooSoon, cooling } = useArming();
   const [result, setResult] = useState<ActionResult | null>(null);
+  const deliver = useCarryOver(result);
   const armed = confirm !== undefined && armedFor === confirm;
   const run = () => {
     if (armedFor !== null && confirm === undefined) {
@@ -59,6 +54,7 @@ export function ActionButton({
     disarm();
     start(async () => {
       const r = await safely(action);
+      deliver(r);
       setResult(r);
       router.refresh();
     });
@@ -102,15 +98,18 @@ export function ActionForm({
   const router = useRouter();
   const { armedFor, arm, disarm, tooSoon, cooling } = useArming();
   const [local, setLocal] = useState<ActionResult | null>(null);
+  const carrier = useCarrier();
   // `accepted` counts accepted submissions; as the form's key it clears the fields only after one of them.
   const [{ result, accepted }, dispatch, pending] = useActionState<{ result: ActionResult | null; accepted: number }, FormData>(
     async (prev, form) => {
       const r = await safely(() => action(prev.result, form));
+      carrier.deliver(r);
       router.refresh();
       return { result: r, accepted: prev.accepted + (r.ok ? 1 : 0) };
     },
     { result: null, accepted: 0 },
   );
+  useCarried(carrier, local ?? result);
   return (
     <form
       className={className}

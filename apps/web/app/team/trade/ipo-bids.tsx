@@ -14,6 +14,7 @@ import { ipoMax, previewIpoBid, type IpoView } from "@/lib/team/trade";
 import { count, money } from "@/lib/format";
 import { useServerNow } from "@/lib/live/clock";
 import { ResultMessage } from "@/components/ui/action";
+import { useCarried, useCarrier } from "@/lib/live/feedback";
 import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 
@@ -43,11 +44,14 @@ export function IpoBids({ view, items, deadline }: { view: IpoView; items: IpoRo
 function IpoRow({ view, item, saved, closed }: { view: IpoView; item: IpoRowItem; saved: number; closed: boolean }) {
   const router = useRouter();
   const [qty, setQty] = useState(saved > 0 ? String(saved) : "");
+  const carrier = useCarrier();
   const [result, dispatch, pending] = useActionState<ActionResult | null, FormData>(async (prev, form) => {
     const r = await safely(() => item.action(prev, form));
+    carrier.deliver(r);
     router.refresh();
     return r;
   }, null);
+  useCarried(carrier, result);
   const preview = previewIpoBid(view, item.id, qty);
   const unchanged = preview.state === "OK" && preview.qty === saved;
   const inputId = `ipo-qty-${item.id}`;
