@@ -13,11 +13,14 @@ import {
   fieldsOf,
   initEditor,
   isDirty,
+  mergeFields,
   normaliseTicker,
   parseBackup,
   rowsFor,
   sameFields,
+  sectionNames,
   submitProblem,
+  theirText,
   toSnapshot,
   toSubmitted,
   wordStats,
@@ -103,6 +106,38 @@ describe("word counts (the engine's, which SQL also uses)", () => {
   });
 });
 
+describe("merging section by section", () => {
+  const empty = fieldsOf("PLAN", {});
+  const plan = (f: Record<string, string>) => ({ ...empty, ...f });
+
+  test("unchanged here takes theirs; unchanged there or the same on both sides keeps mine; changed differently on both sides is a conflict", () => {
+    const base = plan({ crisis: "B", new_plan: "B", money: "B", deal: "B", risks: "B" });
+    const mine = plan({ crisis: "B", new_plan: "Mine", money: "Same", deal: "Mine", risks: "B" });
+    const theirs = plan({ crisis: "Theirs", new_plan: "B", money: "Same", deal: "Theirs", risks: "" });
+    expect(mergeFields("PLAN", base, mine, theirs)).toEqual({
+      fields: plan({ crisis: "Theirs", new_plan: "Mine", money: "Same", deal: "Mine", risks: "" }),
+      taken: ["crisis", "risks"],
+      conflicts: ["deal"],
+    });
+  });
+
+  test("a section already waiting for a choice still waits, unless theirs now matches mine", () => {
+    const base = plan({ crisis: "Theirs" });
+    const mine = plan({ crisis: "Mine", money: "Mine" });
+    expect(mergeFields("PLAN", base, mine, plan({ crisis: "Theirs" }), ["crisis"]).conflicts).toEqual(["crisis"]);
+    expect(mergeFields("PLAN", base, mine, plan({ crisis: "Theirs again" }), ["crisis"]).conflicts).toEqual(["crisis"]);
+    expect(mergeFields("PLAN", base, mine, plan({ crisis: "Mine" }), ["crisis"])).toMatchObject({ conflicts: [], fields: { crisis: "Mine" } });
+  });
+
+  test("sections are named in the template's order", () => {
+    expect(sectionNames("PLAN", ["crisis"])).toBe("The crisis");
+    expect(sectionNames("PLAN", ["money", "crisis"])).toBe("The crisis and The money");
+    expect(sectionNames("PLAN", ["risks", "crisis", "money"])).toBe("The crisis, The money and Risks");
+    expect(sectionNames("PITCH", ["ticker"])).toBe("Ticker");
+    expect(sectionNames("PLAN", [])).toBe("");
+  });
+});
+
 describe("the editor when several screens save the same draft", () => {
   const v1 = snap(1, { answer: "First answer." }, "p");
   const start = () => initEditor("FLASH", v1);
@@ -111,7 +146,7 @@ describe("the editor when several screens save the same draft", () => {
     const s = run(start(), { type: "server", draft: snap(2, { answer: "Their answer." }) });
     expect(s.fields.answer).toBe("Their answer.");
     expect(s.base.version).toBe(2);
-    expect(s.theirs).toBeNull();
+    expect(s.conflicts).toEqual([]);
     expect(s.notice).toEqual({ kind: "updated", draft: snap(2, { answer: "Their answer." }) });
     expect(isDirty(s)).toBe(false);
   });
@@ -122,30 +157,73 @@ describe("the editor when several screens save the same draft", () => {
     expect(run(s, { type: "server", draft: snap(0, {}) })).toBe(s);
   });
 
-  test("typed text is never replaced: a newer version is offered instead", () => {
-    const s = run(start(), edit("answer", "My new answer."), { type: "server", draft: snap(2, { answer: "Their answer." }) });
-    expect(s.fields.answer).toBe("My new answer.");
-    expect(s.base.version).toBe(1);
-    expect(s.theirs?.version).toBe(2);
-    expect(isDirty(s)).toBe(true);
-    // A refusal for a version already offered changes nothing; a still newer one replaces the offer.
-    expect(run(s, { type: "conflict", draft: snap(2, { answer: "Their answer." }) })).toEqual(s);
-    expect(run(s, { type: "server", draft: snap(3, { answer: "Newer." }) }).theirs?.version).toBe(3);
+  test("B1: the two teams' edits to different sections merge on their own; the next save sends both", () => {
+    // Product and Consulting both open the empty plan. Consulting types in The new plan; Product types in The crisis and saves.
+    const v0 = snap(0, {});
+    let consulting = run(initEditor("PLAN", v0), edit("new_plan", "License the sensors to councils."));
+    const productV1 = snap(1, { ...fieldsOf("PLAN", {}), crisis: "Our supplier stopped deliveries." }, "p");
+    consulting = run(consulting, { type: "server", draft: productV1 });
+    expect(consulting.fields).toMatchObject({ crisis: "Our supplier stopped deliveries.", new_plan: "License the sensors to councils." });
+    expect(consulting).toMatchObject({ base: { version: 1 }, conflicts: [], notice: { kind: "merged", draft: productV1, keys: ["crisis"] } });
+    // Only Consulting's own section is unsaved now, and the next save names version 1 with both sections.
+    expect(isDirty(consulting)).toBe(true);
+    expect(backupOf(consulting)?.baseVersion).toBe(1);
+    expect(draftPayload("PLAN", consulting.fields)).toMatchObject({ crisis: "Our supplier stopped deliveries.", new_plan: "License the sensors to councils." });
   });
 
-  test("a save refused for a newer version (VERSION_CONFLICT) offers that version and keeps the typed text", () => {
-    const typed = run(start(), edit("answer", "Mine."));
-    const s = run(typed, { type: "saving", fields: { answer: "Mine." } }, { type: "conflict", draft: snap(2, { answer: "Theirs." }) });
-    expect(s).toMatchObject({ fields: { answer: "Mine." }, theirs: { version: 2 }, saving: null });
-  });
-
-  test("load their version: the typed text is set aside and can be put back; the next save then replaces their version", () => {
-    let s = run(start(), edit("answer", "Mine."), { type: "server", draft: snap(2, { answer: "Theirs." }) }, { type: "loadTheirs" });
-    expect(s.fields.answer).toBe("Theirs.");
+  test("the same section changed differently on both screens is a real conflict; the other sections still merge", () => {
+    const v1plan = snap(1, { ...fieldsOf("PLAN", {}), crisis: "Supplier stopped." }, "p");
+    const typed = run(initEditor("PLAN", v1plan), edit("money", "The fund pays for one year."), edit("new_plan", "Sell to councils."));
+    const v2plan = snap(2, { ...fieldsOf("PLAN", {}), crisis: "Supplier stopped.", money: "Six months.", risks: "Councils may refuse." }, "p");
+    const s = run(typed, { type: "server", draft: v2plan });
+    expect(s.conflicts).toEqual(["money"]);
+    expect(s.fields).toMatchObject({ money: "The fund pays for one year.", new_plan: "Sell to councils.", risks: "Councils may refuse." });
+    expect(theirText(s, "money")).toBe("Six months.");
     expect(s.base.version).toBe(2);
-    expect(s.theirs).toBeNull();
-    expect(s.stash).toEqual({ fields: { answer: "Mine." }, basedOn: 1, why: "loaded" });
-    expect(s.notice?.kind).toBe("loaded");
+    expect(s.notice).toEqual({ kind: "merged", draft: v2plan, keys: ["risks"] });
+  });
+
+  test("local edits survive a merge, also through later versions while a choice waits", () => {
+    let s = run(start(), edit("answer", "My new answer."), { type: "server", draft: snap(2, { answer: "Their answer." }) });
+    expect(s).toMatchObject({ fields: { answer: "My new answer." }, base: { version: 2 }, conflicts: ["answer"] });
+    expect(isDirty(s)).toBe(true);
+    // A refusal for the version already merged changes nothing; a still newer one keeps the choice waiting.
+    expect(run(s, { type: "conflict", draft: snap(2, { answer: "Their answer." }), action: "save" })).toEqual(s);
+    s = run(s, { type: "server", draft: snap(3, { answer: "Newer." }) });
+    expect(s).toMatchObject({ fields: { answer: "My new answer." }, base: { version: 3 }, conflicts: ["answer"] });
+    // A version with this screen's text needs no choice; typing back to their text does not either.
+    expect(run(s, { type: "server", draft: snap(4, { answer: "My new answer." }) })).toMatchObject({ conflicts: [], base: { version: 4 } });
+    expect(run(s, edit("answer", "Newer.")).conflicts).toEqual([]);
+  });
+
+  test("unchanged sections take theirs, even emptied ones; sections typed in keep the typed text", () => {
+    const base = snap(1, { ...fieldsOf("PLAN", {}), crisis: "C1", money: "M1", risks: "R1" }, "p");
+    const s = run(initEditor("PLAN", base), edit("risks", "R mine"), { type: "server", draft: snap(2, { crisis: "C2", money: "", risks: "R1" }, "c") });
+    expect(s.fields).toMatchObject({ crisis: "C2", money: "", risks: "R mine" });
+    expect(s).toMatchObject({ conflicts: [], notice: { kind: "merged", keys: ["crisis", "money"] } });
+  });
+
+  test("a save refused for a newer version (VERSION_CONFLICT) merges it and keeps the typed text", () => {
+    const typed = run(start(), edit("answer", "Mine."));
+    const s = run(typed, { type: "saving", fields: { answer: "Mine." } }, { type: "conflict", draft: snap(2, { answer: "Theirs." }), action: "save" });
+    expect(s).toMatchObject({ fields: { answer: "Mine." }, base: { version: 2 }, conflicts: ["answer"], saving: null });
+  });
+
+  test("F2: a screen with nothing typed shows the newer version a submit was refused for, and offers no choice", () => {
+    const v2 = snap(2, { answer: "Theirs." }, "c");
+    const s = run(start(), afterResult({ code: "VERSION_CONFLICT", draft: v2 }, "submit"));
+    expect(s).toMatchObject({ fields: { answer: "Theirs." }, base: v2, conflicts: [], notice: { kind: "refused", draft: v2, action: "submit" } });
+    expect(isDirty(s)).toBe(false);
+    // Nothing is left to send: the old text cannot replace theirs by accident.
+    expect(backupOf(s)).toBeNull();
+    expect(run(s, { type: "keepMine" })).toBe(s);
+  });
+
+  test("use their text: the typed text of that section is set aside and can be put back; the next save then names their version", () => {
+    let s = run(start(), edit("answer", "Mine."), { type: "server", draft: snap(2, { answer: "Theirs." }) }, { type: "useTheirs", keys: ["answer"] });
+    expect(s.fields.answer).toBe("Theirs.");
+    expect(s).toMatchObject({ base: { version: 2 }, conflicts: [] });
+    expect(s.stash).toEqual({ fields: { answer: "Mine." }, basedOn: 2, why: "loaded" });
     expect(isDirty(s)).toBe(false);
     s = run(s, { type: "restoreStash" });
     expect(s.fields.answer).toBe("Mine.");
@@ -155,85 +233,110 @@ describe("the editor when several screens save the same draft", () => {
     expect(run(s, { type: "dropStash" }).stash).toBeNull();
   });
 
-  test("keep my text: the offered version becomes the base, so the next save replaces it", () => {
-    const s = run(start(), edit("answer", "Mine."), { type: "server", draft: snap(2, { answer: "Theirs." }) }, { type: "keepMine" });
-    expect(s).toMatchObject({ fields: { answer: "Mine." }, base: { version: 2 }, theirs: null, notice: { kind: "kept" } });
-    expect(isDirty(s)).toBe(true);
+  test("putting set-aside text back changes only its sections", () => {
+    const v1plan = snap(1, { ...fieldsOf("PLAN", {}), crisis: "C1" }, "p");
+    let s = run(initEditor("PLAN", v1plan), edit("crisis", "C mine"), { type: "server", draft: snap(2, { crisis: "C2" }, "c") }, { type: "useTheirs" });
+    s = run(s, { type: "server", draft: snap(3, { crisis: "C2", money: "M3" }, "c") });
+    expect(s.fields).toMatchObject({ crisis: "C2", money: "M3" });
+    s = run(s, { type: "restoreStash" });
+    expect(s.fields).toMatchObject({ crisis: "C mine", money: "M3" });
+  });
+
+  test("keep my text: chosen section by section; the next save replaces their text there only", () => {
+    const v1plan = snap(1, fieldsOf("PLAN", {}), "p");
+    const both = run(initEditor("PLAN", v1plan), edit("crisis", "C mine"), edit("money", "M mine"), {
+      type: "server",
+      draft: snap(2, { crisis: "C theirs", money: "M theirs", risks: "R theirs" }, "c"),
+    });
+    expect(both.conflicts).toEqual(["crisis", "money"]);
+    const one = run(both, { type: "keepMine", keys: ["crisis"] });
+    expect(one).toMatchObject({ conflicts: ["money"], notice: { kind: "kept", keys: ["crisis"] } });
+    const s = run(one, { type: "useTheirs", keys: ["money"] });
+    expect(s.conflicts).toEqual([]);
+    expect(draftPayload("PLAN", s.fields)).toMatchObject({ crisis: "C mine", money: "M theirs", risks: "R theirs" });
+    expect(s.base.version).toBe(2);
+    // Every section at once (replace their version with mine where both changed).
+    expect(run(both, { type: "keepMine" })).toMatchObject({ conflicts: [], fields: { crisis: "C mine", money: "M mine", risks: "R theirs" } });
+    expect(run(both, { type: "useTheirs" }).stash?.fields).toEqual({ crisis: "C mine", money: "M mine" });
   });
 
   test("a save coming back with a refresh before its answer is not a conflict, even if more was typed meanwhile", () => {
     let s = run(start(), edit("answer", "Mine."), { type: "saving", fields: { answer: "Mine." } }, edit("answer", "Mine. More."));
     s = run(s, { type: "server", draft: snap(2, { answer: "Mine." }, "p") });
-    expect(s).toMatchObject({ base: { version: 2 }, theirs: null, fields: { answer: "Mine. More." } });
+    expect(s).toMatchObject({ base: { version: 2 }, conflicts: [], fields: { answer: "Mine. More." } });
     s = run(s, { type: "saved", draft: snap(2, { answer: "Mine." }, "p") });
     expect(s).toMatchObject({ base: { version: 2 }, saving: null });
     expect(isDirty(s)).toBe(true);
   });
 
-  test("saved: the saved version is the base; an offer older than it is dropped, a newer one kept", () => {
+  test("saved: the saved version is the base; an answer older than a version already merged does not move it back", () => {
     const typed = run(start(), edit("answer", "Mine."));
-    expect(run(typed, { type: "saved", draft: snap(2, { answer: "Mine." }, "p") })).toMatchObject({ base: { version: 2 }, theirs: null, notice: null });
-    const offered = { ...typed, theirs: snap(3, { answer: "Theirs." }) };
-    expect(run(offered, { type: "saved", draft: snap(2, { answer: "Mine." }, "p") }).theirs?.version).toBe(3);
+    expect(run(typed, { type: "saved", draft: snap(2, { answer: "Mine." }, "p") })).toMatchObject({ base: { version: 2 }, conflicts: [], notice: null });
+    const merged = run(typed, { type: "server", draft: snap(3, { answer: "Theirs." }) });
+    expect(run(merged, { type: "saved", draft: snap(2, { answer: "Mine." }, "p") })).toMatchObject({ base: { version: 3 }, conflicts: ["answer"] });
     expect(run(typed, { type: "saving", fields: { answer: "Mine." } }, { type: "failed" }).saving).toBeNull();
   });
 
   test("the same text saved elsewhere is simply taken as the base", () => {
     const s = run(start(), edit("answer", "Same."), { type: "server", draft: snap(2, { answer: "Same." }) });
-    expect(s).toMatchObject({ base: { version: 2 }, theirs: null });
+    expect(s).toMatchObject({ base: { version: 2 }, conflicts: [], notice: null });
     expect(isDirty(s)).toBe(false);
   });
 
-  test("a result: a newer version refused for is offered; any other result with a draft makes it the base", () => {
-    expect(afterResult({ code: "VERSION_CONFLICT", draft: snap(3, {}) })).toEqual({ type: "conflict", draft: snap(3, {}) });
+  test("a result: a newer version refused for is merged or shown; any other result with a draft makes it the base", () => {
+    expect(afterResult({ code: "VERSION_CONFLICT", draft: snap(3, {}) })).toEqual({ type: "conflict", draft: snap(3, {}), action: "save" });
+    expect(afterResult({ code: "VERSION_CONFLICT", draft: snap(3, {}) }, "submit")).toEqual({ type: "conflict", draft: snap(3, {}), action: "submit" });
     expect(afterResult({ draft: snap(2, {}) })).toEqual({ type: "saved", draft: snap(2, {}) });
     // Submit saved version 2, then submit_submission refused (TICKER_TAKEN): version 2 is still this screen's save.
     expect(afterResult({ code: "TICKER_TAKEN", draft: snap(2, {}) })).toEqual({ type: "saved", draft: snap(2, {}) });
     expect(afterResult({ code: "DEADLINE_PASSED" })).toEqual({ type: "failed" });
     expect(afterResult({ code: "VERSION_CONFLICT" })).toEqual({ type: "failed" });
-    // So a refresh bringing that version back later is not offered as someone else's, even with more typed since.
+    // So a refresh bringing that version back later is not taken for someone else's, even with more typed since.
     let s = run(start(), edit("answer", "Mine."), { type: "saving", fields: { answer: "Mine." } });
     s = run(s, afterResult({ code: "TICKER_TAKEN", draft: snap(2, { answer: "Mine." }, "p") }), edit("answer", "Mine. More."));
     s = run(s, { type: "server", draft: snap(2, { answer: "Mine." }, "p") });
-    expect(s).toMatchObject({ base: { version: 2 }, theirs: null, fields: { answer: "Mine. More." } });
+    expect(s).toMatchObject({ base: { version: 2 }, conflicts: [], fields: { answer: "Mine. More." } });
   });
 
   test("closed: the latest saved version is shown, and text typed here that was never saved is kept apart", () => {
     expect(closedView(start())).toEqual({ shown: v1, fields: { answer: "First answer." }, unsaved: null });
     expect(closedView(run(start(), edit("answer", "Mine.")))).toEqual({ shown: v1, fields: { answer: "First answer." }, unsaved: { answer: "Mine." } });
-    const offered = run(start(), edit("answer", "Mine."), { type: "server", draft: snap(2, { answer: "Theirs." }) });
-    expect(closedView(offered)).toMatchObject({ shown: { version: 2 }, fields: { answer: "Theirs." }, unsaved: { answer: "Mine." } });
-    // Nothing typed here, but a newer version offered after a refused submit: nothing is unsaved.
-    const refused = run(start(), { type: "conflict", draft: snap(2, { answer: "Theirs." }) });
+    const waiting = run(start(), edit("answer", "Mine."), { type: "server", draft: snap(2, { answer: "Theirs." }) });
+    expect(closedView(waiting)).toMatchObject({ shown: { version: 2 }, fields: { answer: "Theirs." }, unsaved: { answer: "Mine." } });
+    // Nothing typed here, and a newer version shown after a refused submit: nothing is unsaved.
+    const refused = run(start(), { type: "conflict", draft: snap(2, { answer: "Theirs." }), action: "submit" });
     expect(closedView(refused)).toMatchObject({ shown: { version: 2 }, unsaved: null });
   });
 
-  test("edits of the ticker are normalised", () => {
+  test("edits of the ticker are normalised; the pitch's name and ticker merge like its sections", () => {
     const s = run(initEditor("PITCH", snap(0, {})), edit("ticker", "aq-s"));
     expect(s.fields.ticker).toBe("AQS");
+    const merged = run(s, { type: "server", draft: snap(1, { company_name: "Aqua", ticker: "AQX" }, "p") });
+    expect(merged).toMatchObject({ fields: { company_name: "Aqua", ticker: "AQS" }, conflicts: ["ticker"], notice: { kind: "merged", keys: ["company_name"] } });
   });
 });
 
 describe("this device's backup of unsaved text", () => {
   const v2 = snap(2, { answer: "Saved." });
-  test("kept only while something is unsaved", () => {
+  test("kept only while something is unsaved, with the text it was based on and the sections waiting for a choice", () => {
     const s = initEditor("FLASH", v2);
     expect(backupOf(s)).toBeNull();
-    expect(backupOf(run(s, edit("answer", "Typed.")))).toEqual({ baseVersion: 2, fields: { answer: "Typed." } });
+    expect(backupOf(run(s, edit("answer", "Typed.")))).toEqual({ baseVersion: 2, fields: { answer: "Typed." }, baseFields: { answer: "Saved." }, conflicts: [] });
+    const waiting = run(s, edit("answer", "Typed."), { type: "server", draft: snap(3, { answer: "Theirs." }) });
+    expect(backupOf(waiting)).toEqual({ baseVersion: 3, fields: { answer: "Typed." }, baseFields: { answer: "Theirs." }, conflicts: ["answer"] });
     expect(backupKey("sq", "tm", "PLAN")).toBe("msim:draft:sq:tm:PLAN");
   });
 
-  test("restored as typed text when it was based on the version shown; set aside when the draft has moved on", () => {
+  test("restored as typed text when it was based on the version shown, with its choices still waiting", () => {
     const s = initEditor("FLASH", v2);
     expect(run(s, { type: "backup", backup: { baseVersion: 2, fields: { answer: "Typed." } }, editable: true })).toMatchObject({
       fields: { answer: "Typed." },
-      notice: { kind: "restored" },
+      conflicts: [],
+      notice: { kind: "restored", merged: [] },
       backupChecked: true,
     });
-    expect(run(s, { type: "backup", backup: { baseVersion: 1, fields: { answer: "Old typed." } }, editable: true })).toMatchObject({
-      fields: { answer: "Saved." },
-      stash: { fields: { answer: "Old typed." }, basedOn: 1, why: "backup" },
-    });
+    const waiting = { baseVersion: 2, fields: { answer: "Typed." }, baseFields: { answer: "Saved." }, conflicts: ["answer"] };
+    expect(run(s, { type: "backup", backup: waiting, editable: true })).toMatchObject({ fields: { answer: "Typed." }, conflicts: ["answer"] });
     // Closed, the same as the screen, or none: nothing to do. Only the first look counts.
     expect(run(s, { type: "backup", backup: { baseVersion: 2, fields: { answer: "Typed." } }, editable: false }).fields.answer).toBe("Saved.");
     expect(run(s, { type: "backup", backup: { baseVersion: 2, fields: { answer: "Saved." } }, editable: true }).notice).toBeNull();
@@ -242,11 +345,36 @@ describe("this device's backup of unsaved text", () => {
     expect(run(checked, { type: "backup", backup: { baseVersion: 2, fields: { answer: "Typed." } }, editable: true })).toBe(checked);
   });
 
+  test("based on an older version: merged with the saved one section by section", () => {
+    const saved = snap(3, { ...fieldsOf("PLAN", {}), crisis: "C3", money: "M3" }, "c");
+    const s = initEditor("PLAN", saved);
+    const backup = { baseVersion: 2, baseFields: { ...fieldsOf("PLAN", {}), crisis: "C2", money: "M2" }, fields: { ...fieldsOf("PLAN", {}), crisis: "C2", money: "M mine", risks: "R mine" } };
+    expect(run(s, { type: "backup", backup, editable: true })).toMatchObject({
+      fields: { crisis: "C3", money: "M mine", risks: "R mine" },
+      conflicts: ["money"],
+      notice: { kind: "restored", merged: ["crisis"] },
+      stash: null,
+    });
+  });
+
+  test("an older backup without the text it was based on is set aside, only where it differs", () => {
+    const s = initEditor("PLAN", snap(3, { ...fieldsOf("PLAN", {}), crisis: "C3" }));
+    const r = run(s, { type: "backup", backup: { baseVersion: 1, fields: { ...fieldsOf("PLAN", {}), crisis: "C3", money: "Old typed." } }, editable: true });
+    expect(r).toMatchObject({ fields: { crisis: "C3", money: "" }, stash: { fields: { money: "Old typed." }, basedOn: 1, why: "backup" } });
+    expect(run(r, { type: "restoreStash" }).fields).toMatchObject({ crisis: "C3", money: "Old typed." });
+  });
+
   test("a stored backup is read defensively", () => {
     expect(parseBackup("FLASH", null)).toBeNull();
     expect(parseBackup("FLASH", "{not json")).toBeNull();
     expect(parseBackup("FLASH", JSON.stringify({ baseVersion: "2", fields: {} }))).toBeNull();
     expect(parseBackup("FLASH", JSON.stringify({ baseVersion: 2, fields: { answer: "A", x: 1 } }))).toEqual({ baseVersion: 2, fields: { answer: "A" } });
+    expect(parseBackup("FLASH", JSON.stringify({ baseVersion: 2, fields: { answer: "A" }, baseFields: { answer: "B" }, conflicts: ["answer", "x", 3] }))).toEqual({
+      baseVersion: 2,
+      fields: { answer: "A" },
+      baseFields: { answer: "B" },
+      conflicts: ["answer"],
+    });
   });
 });
 

@@ -3,10 +3,12 @@
 // when the squad edits the same draft from several screens.
 //
 // Optimistic concurrency: every save names the version it was based on (save_draft's p_expected_version). A newer
-// version saved elsewhere arrives either with a page refresh or as the refusal of a save (VERSION_CONFLICT, with the
-// newer draft). If nothing was typed here, the newer version is simply shown; if something was typed, the typed text
-// stays and the screen offers to load the other version (the typed text is then set aside, not lost, and can be put
-// back) or to keep the typed text (the next save replaces the other version).
+// version saved elsewhere arrives either with a page refresh or as the refusal of a save or submit (VERSION_CONFLICT,
+// with the newer draft). If nothing was typed here, the newer version is simply shown (also after a refused submit:
+// sending the old text again would overwrite the newer one). If something was typed, the two are merged section by
+// section from the version the typed text was based on: the other screen's changes to sections not typed in here
+// are taken at once, the typed text stays, and only a section changed differently on both sides waits for a choice
+// (keep the typed text, so the next save replaces theirs there, or use theirs, setting the typed text aside).
 
 import { RULES, TEMPLATES, submissionWords, validateSubmission, wordCount, type SubmissionType } from "@msim/engine";
 
@@ -98,29 +100,88 @@ export function contentChars(payload: Fields): number {
   return 2 + entries.reduce((n, [k, v]) => n + JSON.stringify(k).length + 2 + JSON.stringify(v).length, 0) + 2 * (entries.length - 1);
 }
 
+// ───────────── Merging section by section ─────────────
+
+export interface Merge {
+  fields: Fields;
+  /** Sections where the saved version's text was taken (nothing was typed in them here). */
+  taken: string[];
+  /** Sections changed here and, differently, in the saved version: the typed text stays until a choice is made. */
+  conflicts: string[];
+}
+
+/**
+ * A three-way merge, section by section, of the text typed here (`mine`) and a newer saved version (`theirs`), both
+ * from the version the typed text was based on (`base`). A section unchanged here takes theirs; a section unchanged
+ * there, or changed to the same text on both sides, keeps mine; only a section changed differently on both sides is
+ * a conflict (mine stays on screen until a choice is made). `pending` sections were already waiting for a choice
+ * against `base`: they still are, unless theirs now matches mine.
+ */
+export function mergeFields(type: SubmissionType, base: Fields, mine: Fields, theirs: Fields, pending: readonly string[] = []): Merge {
+  const out: Merge = { fields: {}, taken: [], conflicts: [] };
+  for (const { key } of fieldSpecs(type)) {
+    const b = base[key] ?? "";
+    const m = mine[key] ?? "";
+    const t = theirs[key] ?? "";
+    if (m === t) {
+      out.fields[key] = m;
+    } else if (m === b) {
+      out.fields[key] = t;
+      out.taken.push(key);
+    } else {
+      out.fields[key] = m;
+      if (t !== b || pending.includes(key)) out.conflicts.push(key);
+    }
+  }
+  return out;
+}
+
+/** "The crisis", "The crisis and The money", "The crisis, The money and Risks" (in the template's order). */
+export function sectionNames(type: SubmissionType, keys: readonly string[]): string {
+  const labels = fieldSpecs(type)
+    .filter((f) => keys.includes(f.key))
+    .map((f) => f.label);
+  return labels.length <= 1 ? (labels[0] ?? "") : `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
+}
+
 // ───────────── Editor state ─────────────
 
 export interface Stash {
+  /** Only the sections set aside: putting them back leaves every other section as it is. */
   fields: Fields;
   /** The version the set-aside text was based on. */
   basedOn: number;
+  /** "loaded": the saved version's text was chosen over it; "backup": found in this tab's backup, too old to merge. */
   why: "loaded" | "backup";
 }
 
+/** Which action a refusal (VERSION_CONFLICT) answered. */
+export type Refused = "save" | "submit";
+
 export type EditorNotice =
+  /** Nothing was typed here: the newer version is shown. */
   | { kind: "updated"; draft: DraftSnapshot }
-  | { kind: "loaded"; draft: DraftSnapshot }
-  | { kind: "kept"; draft: DraftSnapshot }
-  | { kind: "restored" };
+  /** Nothing was typed here and a save or submit was refused for a newer version: that version is shown, not the old one sent. */
+  | { kind: "refused"; draft: DraftSnapshot; action: Refused }
+  /** A newer version's changes to `keys` were merged into the text typed here. */
+  | { kind: "merged"; draft: DraftSnapshot; keys: string[] }
+  /** The text typed here was kept in `keys`: the next save replaces the saved version's text there. */
+  | { kind: "kept"; draft: DraftSnapshot; keys: string[] }
+  /** This tab's unsaved text was put back after a reload; a newer version's changes to `merged` were merged into it. */
+  | { kind: "restored"; merged: string[] };
 
 export interface EditorState {
   type: SubmissionType;
   fields: Fields;
-  /** The saved version the text on screen is based on: the next save names its version. */
+  /** The latest saved version seen here: the text on screen is based on it, and the next save names its version. */
   base: DraftSnapshot;
-  /** A newer saved version not shown, because text was typed here meanwhile. */
-  theirs: DraftSnapshot | null;
-  /** Typed text set aside when the other version was loaded (or found in this device's backup). */
+  /**
+   * Sections changed here and, differently, in `base` by another save: the text typed here is still on screen and
+   * waits for a choice (keep it, so the next save replaces theirs; or use theirs, setting it aside). Save and Submit
+   * wait for every choice. Never a section whose text equals the saved one.
+   */
+  conflicts: string[];
+  /** Typed text set aside when the saved version's text was chosen (or found in this device's backup). */
   stash: Stash | null;
   notice: EditorNotice | null;
   /** The text of a save in flight (a refresh may bring that version back before the save's answer does). */
@@ -134,17 +195,19 @@ export type EditorAction =
   | { type: "server"; draft: DraftSnapshot }
   | { type: "saving"; fields: Fields }
   | { type: "saved"; draft: DraftSnapshot }
-  | { type: "conflict"; draft: DraftSnapshot }
+  | { type: "conflict"; draft: DraftSnapshot; action: Refused }
   | { type: "failed" }
-  | { type: "loadTheirs" }
-  | { type: "keepMine" }
+  /** Keep the typed text in these conflicting sections (all of them when omitted): the next save replaces theirs. */
+  | { type: "keepMine"; keys?: string[] }
+  /** Use the saved version's text in these conflicting sections (all of them when omitted); the typed text is set aside. */
+  | { type: "useTheirs"; keys?: string[] }
   | { type: "restoreStash" }
   | { type: "dropStash" }
   | { type: "dismissNotice" }
   | { type: "backup"; backup: Backup | null; editable: boolean };
 
 export function initEditor(type: SubmissionType, draft: DraftSnapshot): EditorState {
-  return { type, fields: fieldsOf(type, draft.content), base: draft, theirs: null, stash: null, notice: null, saving: null, backupChecked: false };
+  return { type, fields: fieldsOf(type, draft.content), base: draft, conflicts: [], stash: null, notice: null, saving: null, backupChecked: false };
 }
 
 /** Text typed here that the base version does not have. */
@@ -152,75 +215,113 @@ export function isDirty(s: EditorState): boolean {
   return !sameFields(s.type, s.fields, fieldsOf(s.type, s.base.content));
 }
 
-/** A newer saved version arrived (from a refresh or a refused save). */
-function newer(s: EditorState, draft: DraftSnapshot, fromConflict: boolean): EditorState {
-  if (draft.version <= s.base.version || (s.theirs && draft.version <= s.theirs.version)) return s;
-  const theirFields = fieldsOf(s.type, draft.content);
-  // Our own save coming back with the refresh, or the same text saved elsewhere: nothing to resolve.
-  if ((s.saving && sameFields(s.type, s.saving, theirFields)) || sameFields(s.type, s.fields, theirFields)) {
-    return { ...s, base: draft, theirs: null };
-  }
-  if (!isDirty(s) && !fromConflict) {
-    return { ...s, fields: theirFields, base: draft, theirs: null, notice: { kind: "updated", draft } };
-  }
-  return { ...s, theirs: draft };
+/** The saved version's text of each conflicting section (what "their text" is). */
+export function theirText(s: EditorState, key: string): string {
+  return fieldsOf(s.type, s.base.content)[key] ?? "";
 }
+
+/** A newer saved version arrived: from a refresh, or as the refusal of this screen's save or submit. */
+function newer(s: EditorState, draft: DraftSnapshot, refused: Refused | null): EditorState {
+  if (draft.version <= s.base.version) return s;
+  const theirs = fieldsOf(s.type, draft.content);
+  // Our own save coming back with the refresh (before its answer): its text is the base, and what was typed since stays.
+  if (s.saving && s.conflicts.length === 0 && sameFields(s.type, s.saving, theirs)) return { ...s, base: draft };
+  // Nothing typed here: the newer version is shown, whatever was refused (sending the old text again would overwrite it).
+  if (!isDirty(s)) {
+    if (!refused && sameFields(s.type, s.fields, theirs)) return { ...s, base: draft, conflicts: [] };
+    return { ...s, fields: theirs, base: draft, conflicts: [], notice: refused ? { kind: "refused", draft, action: refused } : { kind: "updated", draft } };
+  }
+  // Typed text: merged section by section. Their changes to sections not typed in here are taken at once; only a
+  // section changed differently on both sides waits for a choice. The next save names the newer version.
+  const m = mergeFields(s.type, fieldsOf(s.type, s.base.content), s.fields, theirs, s.conflicts);
+  const notice: EditorNotice | null = m.taken.length > 0 ? { kind: "merged", draft, keys: m.taken } : m.conflicts.length > 0 ? null : s.notice;
+  return { ...s, fields: m.fields, base: draft, conflicts: m.conflicts, notice };
+}
+
+/** The conflicting sections an action names (all of them when it names none). */
+const chosen = (s: EditorState, keys: string[] | undefined) => (keys ? s.conflicts.filter((k) => keys.includes(k)) : s.conflicts);
 
 export function editorReducer(s: EditorState, a: EditorAction): EditorState {
   switch (a.type) {
-    case "edit":
-      return { ...s, fields: { ...s.fields, [a.key]: a.key === "ticker" ? normaliseTicker(a.value) : a.value } };
+    case "edit": {
+      const value = a.key === "ticker" ? normaliseTicker(a.value) : a.value;
+      // A conflicting section typed back to the saved text needs no choice any more.
+      const conflicts = s.conflicts.includes(a.key) && value === theirText(s, a.key) ? s.conflicts.filter((k) => k !== a.key) : s.conflicts;
+      return { ...s, fields: { ...s.fields, [a.key]: value }, conflicts };
+    }
     case "server":
-      return newer(s, a.draft, false);
+      return newer(s, a.draft, null);
     case "saving":
       return { ...s, saving: a.fields };
     case "saved": {
-      const base = a.draft.version >= s.base.version ? a.draft : s.base;
-      return { ...s, base, saving: null, theirs: s.theirs && s.theirs.version > base.version ? s.theirs : null, notice: null };
+      // A save answered after a newer version arrived does not move the base back.
+      if (a.draft.version < s.base.version) return { ...s, saving: null };
+      return { ...s, base: a.draft, saving: null, conflicts: [], notice: null };
     }
     case "conflict":
-      return newer({ ...s, saving: null }, a.draft, true);
+      return newer({ ...s, saving: null }, a.draft, a.action);
     case "failed":
       return { ...s, saving: null };
-    case "loadTheirs": {
-      if (!s.theirs) return s;
-      const theirFields = fieldsOf(s.type, s.theirs.content);
-      const keep = !sameFields(s.type, s.fields, theirFields) && !sameFields(s.type, s.fields, fieldsOf(s.type, s.base.content));
-      return {
-        ...s,
-        fields: theirFields,
-        base: s.theirs,
-        theirs: null,
-        stash: keep ? { fields: s.fields, basedOn: s.base.version, why: "loaded" } : s.stash,
-        notice: { kind: "loaded", draft: s.theirs },
-      };
+    case "keepMine": {
+      const keys = chosen(s, a.keys);
+      if (keys.length === 0) return s;
+      return { ...s, conflicts: s.conflicts.filter((k) => !keys.includes(k)), notice: { kind: "kept", draft: s.base, keys } };
     }
-    case "keepMine":
-      return s.theirs ? { ...s, base: s.theirs, theirs: null, notice: { kind: "kept", draft: s.theirs } } : s;
-    case "restoreStash":
-      return s.stash ? { ...s, fields: { ...s.stash.fields }, stash: null, notice: null } : s;
+    case "useTheirs": {
+      const keys = chosen(s, a.keys);
+      if (keys.length === 0) return s;
+      const saved = fieldsOf(s.type, s.base.content);
+      const aside: Fields = Object.fromEntries(keys.map((k) => [k, s.fields[k] ?? ""]));
+      const fields = { ...s.fields, ...Object.fromEntries(keys.map((k) => [k, saved[k] ?? ""])) };
+      // Set aside with what was already set aside (a section set aside twice keeps the latest text).
+      const stash: Stash = s.stash ? { ...s.stash, fields: { ...s.stash.fields, ...aside } } : { fields: aside, basedOn: s.base.version, why: "loaded" };
+      return { ...s, fields, conflicts: s.conflicts.filter((k) => !keys.includes(k)), stash, notice: null };
+    }
+    case "restoreStash": {
+      if (!s.stash) return s;
+      const fields = { ...s.fields, ...s.stash.fields };
+      const saved = fieldsOf(s.type, s.base.content);
+      return { ...s, fields, conflicts: s.conflicts.filter((k) => fields[k] !== saved[k]), stash: null, notice: null };
+    }
     case "dropStash":
       return { ...s, stash: null };
     case "dismissNotice":
       return { ...s, notice: null };
-    case "backup": {
-      if (s.backupChecked) return s;
-      const done = { ...s, backupChecked: true };
-      const b = a.backup;
-      if (!b || !a.editable || sameFields(s.type, b.fields, s.fields)) return done;
-      if (b.baseVersion === s.base.version) return { ...done, fields: { ...s.fields, ...b.fields }, notice: { kind: "restored" } };
-      return { ...done, stash: { fields: { ...s.fields, ...b.fields }, basedOn: b.baseVersion, why: "backup" } };
-    }
+    case "backup":
+      return s.backupChecked ? s : restoreBackup({ ...s, backupChecked: true }, a.editable ? a.backup : null);
   }
 }
 
 /**
- * What a save or submit result does to the editor. A refusal for a newer version offers that version. Any other
- * result that carries a draft carries one this screen saved (Submit saves first; submit_submission may still refuse,
- * e.g. TICKER_TAKEN), so it becomes the base: a refresh bringing it back is then not mistaken for another save.
+ * This tab's unsaved text, found after a reload (the screen shows the saved version, nothing typed yet). Based on
+ * the version shown: put back as it was, with its sections still waiting for a choice. Based on an older version
+ * whose text it kept: merged with the saved version like any other newer version. Otherwise set aside, to put back
+ * by hand.
  */
-export function afterResult(r: { code?: string; draft?: DraftSnapshot }): EditorAction {
-  if (r.code === "VERSION_CONFLICT" && r.draft) return { type: "conflict", draft: r.draft };
+function restoreBackup(s: EditorState, b: Backup | null): EditorState {
+  if (!b || sameFields(s.type, b.fields, s.fields)) return s;
+  const saved = fieldsOf(s.type, s.base.content);
+  if (b.baseVersion === s.base.version) {
+    const fields = { ...s.fields, ...b.fields };
+    return { ...s, fields, conflicts: (b.conflicts ?? []).filter((k) => fields[k] !== saved[k]), notice: { kind: "restored", merged: [] } };
+  }
+  if (b.baseFields && b.baseVersion < s.base.version) {
+    const m = mergeFields(s.type, b.baseFields, b.fields, saved, b.conflicts ?? []);
+    if (sameFields(s.type, m.fields, saved)) return s;
+    return { ...s, fields: m.fields, conflicts: m.conflicts, notice: { kind: "restored", merged: m.taken } };
+  }
+  const aside = Object.fromEntries(Object.entries(b.fields).filter(([k, v]) => v !== (s.fields[k] ?? "")));
+  return { ...s, stash: { fields: aside, basedOn: b.baseVersion, why: "backup" } };
+}
+
+/**
+ * What a save or submit result does to the editor. A refusal for a newer version brings that version (merged with
+ * what was typed here, or shown if nothing was). Any other result that carries a draft carries one this screen
+ * saved (Submit saves first; submit_submission may still refuse, e.g. TICKER_TAKEN), so it becomes the base: a
+ * refresh bringing it back is then not mistaken for another save.
+ */
+export function afterResult(r: { code?: string; draft?: DraftSnapshot }, action: Refused = "save"): EditorAction {
+  if (r.code === "VERSION_CONFLICT" && r.draft) return { type: "conflict", draft: r.draft, action };
   if (r.draft) return { type: "saved", draft: r.draft };
   return { type: "failed" };
 }
@@ -230,9 +331,7 @@ export function afterResult(r: { code?: string; draft?: DraftSnapshot }): Editor
  * text typed here that was never saved (null when there is none), so it is not mistaken for the saved draft.
  */
 export function closedView(s: EditorState): { shown: DraftSnapshot; fields: Fields; unsaved: Fields | null } {
-  const shown = s.theirs ?? s.base;
-  const fields = fieldsOf(s.type, shown.content);
-  return { shown, fields, unsaved: isDirty(s) && !sameFields(s.type, s.fields, fields) ? s.fields : null };
+  return { shown: s.base, fields: fieldsOf(s.type, s.base.content), unsaved: isDirty(s) ? s.fields : null };
 }
 
 // ───────────── This device's backup of unsaved text ─────────────
@@ -241,15 +340,25 @@ export function closedView(s: EditorState): { shown: DraftSnapshot; fields: Fiel
 export interface Backup {
   baseVersion: number;
   fields: Fields;
+  /** The text of the base version, so a newer saved version can be merged with it (absent in an older backup). */
+  baseFields?: Fields;
+  /** Sections still waiting for a choice between the typed text and the base version's. */
+  conflicts?: string[];
 }
 
 export function backupKey(squadId: string, teamId: string, type: SubmissionType): string {
   return `msim:draft:${squadId}:${teamId}:${type}`;
 }
 
-/** What to keep in the backup: the unsaved text and its base version, or null when there is nothing unsaved. */
+/** What to keep in the backup: the unsaved text and its base, or null when there is nothing unsaved. */
 export function backupOf(s: EditorState): Backup | null {
-  return isDirty(s) ? { baseVersion: s.base.version, fields: draftPayload(s.type, s.fields) } : null;
+  if (!isDirty(s)) return null;
+  return {
+    baseVersion: s.base.version,
+    fields: draftPayload(s.type, s.fields),
+    baseFields: fieldsOf(s.type, s.base.content),
+    conflicts: [...s.conflicts],
+  };
 }
 
 export function parseBackup(type: SubmissionType, raw: string | null): Backup | null {
@@ -257,9 +366,15 @@ export function parseBackup(type: SubmissionType, raw: string | null): Backup | 
   try {
     const v = JSON.parse(raw) as unknown;
     if (!v || typeof v !== "object") return null;
-    const { baseVersion, fields } = v as { baseVersion?: unknown; fields?: unknown };
+    const { baseVersion, fields, baseFields, conflicts } = v as { baseVersion?: unknown; fields?: unknown; baseFields?: unknown; conflicts?: unknown };
     if (!Number.isSafeInteger(baseVersion) || !fields || typeof fields !== "object") return null;
-    return { baseVersion: baseVersion as number, fields: fieldsOf(type, fields as Record<string, unknown>) };
+    const out: Backup = { baseVersion: baseVersion as number, fields: fieldsOf(type, fields as Record<string, unknown>) };
+    if (baseFields && typeof baseFields === "object" && !Array.isArray(baseFields)) out.baseFields = fieldsOf(type, baseFields as Record<string, unknown>);
+    if (Array.isArray(conflicts)) {
+      const known = fieldSpecs(type).map((f) => f.key);
+      out.conflicts = conflicts.filter((k): k is string => typeof k === "string" && known.includes(k));
+    }
+    return out;
   } catch {
     return null;
   }
