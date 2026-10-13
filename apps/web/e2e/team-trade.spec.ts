@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { PoolClient } from "pg";
-import { ORDER_MESSAGES, buyReserve, clearingPrice, mulRate, shortReserve } from "@msim/engine";
+import { ORDER_MESSAGES, buyReserve, clearingPrice, mulRate, shortCollateral, shortReserve } from "@msim/engine";
 import { e2ePool, seedE2eEvent, type E2eEvent } from "./support/event";
 import { pitchesReleased } from "./support/game";
 import { loginAsTeam } from "./support/login";
@@ -209,18 +209,62 @@ test("positions: lots, average cost, value, profit and loss, return, collateral 
   await noSidewaysScroll(page);
 });
 
-test("the database's refusal is shown: an order from another device, and the rate limit", async ({ page }) => {
-  await ev.n.openRound(2);
+test("round 2 opens on screen; another device's orders reach the page; the database's refusal is shown", async ({ page }) => {
   await as(page, fund, "/team/trade");
-  // Another device of the same fund buys 500 ERB: this page does not know (orders send no broadcast).
-  await ev.n.ok(ev.n.team(fund), "place_order", companyId(1), "BUY", 500);
+  const r2 = await ev.n.one("select opens_at from rounds where event_id = $1 and number = 2", [ev.n.eventId]);
+  await expect(page.getByTestId("trading-notice")).toContainText(`Trading is closed between rounds. Round 2 opens at ${ist(r2.opens_at)} (in `);
+  // The round opens by the heartbeat and broadcasts: the ticket appears without a reload.
+  await ev.n.openRound(2);
+  await expect(page.getByRole("heading", { name: "Order ticket · round 2" })).toBeVisible();
+  await expect(page.getByTestId("trading-notice")).toHaveCount(0);
+
+  // Another device of the same fund buys 500 ERB: orders send no broadcast, so this page does not know yet.
+  const other = await ev.n.ok(ev.n.team(fund), "place_order", companyId(1), "BUY", 500);
   await order(page, 1, "BUY", "100");
   await expect(page.getByTestId("order-reserve")).toBeVisible();
   await ticket(page).getByRole("button", { name: "Place BUY 100 ERB" }).click();
   await expect(ticket(page).getByText(`LONG_LIMIT: ${ORDER_MESSAGES.LONG_LIMIT}`)).toBeVisible();
   // The page re-read itself after the refusal: the other device's order is listed.
   await expect(page.getByTestId("open-order").filter({ hasText: "BUY 500 ERB" })).toBeVisible();
+  await expect(page.getByLabel("Your position in ERB")).toContainText("Can still buy (4,000 limit)0");
 
+  // The other device cancels it: this page re-reads itself within 10 s while the round is open, with no action here.
+  await ev.n.ok(ev.n.team(fund), "cancel_order", other.order.id);
+  await expect(page.getByTestId("open-order")).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.getByLabel("Your position in ERB")).toContainText("Can still buy (4,000 limit)500");
+  await expect(ticket(page).getByRole("button", { name: "Place BUY 100 ERB" })).toBeEnabled();
+});
+
+test("a pause freezes the round's orders and says why; they can be changed again on resume", async ({ page }) => {
+  await as(page, fund, "/team/trade");
+  await order(page, 2, "SHORT", "100");
+  const shortReserveText = `Collateral reserved until the clearing: ${usd(shortReserve(100, 1040))}`;
+  await expect(page.getByTestId("order-reserve")).toContainText(shortReserveText);
+  await ticket(page).getByRole("button", { name: "Place SHORT 100 ERC" }).click();
+  await expect(ticket(page).getByText("Order placed: SHORT 100 ERC.")).toBeVisible();
+  // The reserve the ticket showed is the one the database locked.
+  const placed = await ev.n.one("select reserve_cents, entry_price from orders where team_id = $1 and type = 'SHORT' and status = 'PENDING'", [ev.n.teamId(fund)]);
+  expect([Number(placed.reserve_cents), placed.entry_price]).toEqual([shortReserve(100, 1040), 1040]);
+  const row = page.getByTestId("open-order").filter({ hasText: "SHORT 100 ERC" });
+  await expect(row.getByRole("button", { name: "Cancel order" })).toBeVisible();
+
+  await ev.n.org("pause_event", ev.n.eventId);
+  await expect(page.getByTestId("trading-notice")).toHaveText(
+    "The event is paused: orders are refused until it resumes. Round 2 carries on then, and its closing time moves later by the length of the pause.",
+  );
+  await expect(ticket(page)).toHaveCount(0);
+  await expect(page.getByTestId("open-orders-state")).toHaveText("paused: no changes until the event resumes");
+  await expect(row.getByRole("button", { name: "Cancel order" })).toHaveCount(0);
+  expect(await ev.n.call(ev.n.team(fund), "place_order", companyId(2), "SHORT", 10)).toMatchObject({ ok: false, code: "TRADING_PAUSED" });
+
+  await ev.n.org("resume_event", ev.n.eventId);
+  await expect(ticket(page)).toBeVisible();
+  await expect(row.getByRole("button", { name: "Cancel order" })).toBeVisible();
+  await expect(page.getByTestId("trading-notice")).toHaveCount(0);
+});
+
+test("the rate limit is shown, and nothing is placed", async ({ page }) => {
+  await as(page, fund, "/team/trade");
   // 20 order actions per 10 seconds per fund: another device uses them up.
   await order(page, 2, "COVER", "10");
   for (let i = 0; i < 25; i++) {
@@ -232,26 +276,51 @@ test("the database's refusal is shown: an order from another device, and the rat
   expect((await ev.n.q("select 1 from orders where team_id = $1 and type = 'COVER'", [ev.n.teamId(fund)])).length).toBe(0);
 });
 
-test("a pause closes the ticket and says why; a collateral deficit blocks buys and shorts", async ({ page }) => {
-  await as(page, fund, "/team/trade");
-  await expect(ticket(page)).toBeVisible();
-  await ev.n.org("pause_event", ev.n.eventId);
-  await expect(page.getByTestId("trading-notice")).toContainText("The event is paused: orders are refused until it resumes.");
-  await expect(ticket(page)).toHaveCount(0);
-  await ev.n.org("resume_event", ev.n.eventId);
-  await expect(ticket(page)).toBeVisible();
-
+test("a collateral deficit blocks buys and shorts, never sells and covers", async ({ page }) => {
   // A deficit takes a squeeze over many rounds; here the fund's cash is set below its collateral (test only).
   const team = await ev.n.one("select cash_cents, collateral_cents from teams where code = $1", [fund]);
-  await ev.n.q("update teams set cash_cents = collateral_cents - 100 where code = $1", [fund]);
-  await page.reload();
-  await expect(page.getByTestId("collateral-blocked")).toContainText("short by $1.00: new buys and shorts are blocked until cash covers it");
-  await order(page, 2, "BUY", "1");
-  await expect(preview(page)).toHaveText(`The exchange would refuse this order: ${ORDER_MESSAGES.COLLATERAL_DEFICIT}`);
-  await order(page, 2, "COVER", "10");
-  await expect(page.getByTestId("order-reserve")).toBeVisible();
-  await page.goto("/team/trade/positions");
-  await expect(page.getByTestId("collateral-status")).toContainText("Blocked: your cash");
-  await ev.n.q("update teams set cash_cents = $2 where code = $1", [fund, team.cash_cents]);
   expect(Number(team.collateral_cents)).toBeGreaterThan(0);
+  await ev.n.q("update teams set cash_cents = collateral_cents - 100 where code = $1", [fund]);
+  try {
+    await as(page, fund, "/team/trade");
+    await expect(page.getByTestId("collateral-blocked")).toContainText("short by $1.00: new buys and shorts are blocked until cash covers it");
+    await order(page, 2, "BUY", "1");
+    await expect(preview(page)).toHaveText(`The exchange would refuse this order: ${ORDER_MESSAGES.COLLATERAL_DEFICIT}`);
+    await order(page, 2, "SHORT", "1");
+    await expect(preview(page)).toHaveText(`The exchange would refuse this order: ${ORDER_MESSAGES.COLLATERAL_DEFICIT}`);
+    await order(page, 2, "COVER", "10");
+    await expect(page.getByTestId("order-reserve")).toHaveText("Nothing is reserved: covering releases more collateral than it costs.");
+    await page.goto("/team/trade/positions");
+    await expect(page.getByTestId("collateral-status")).toContainText("Blocked: your cash");
+  } finally {
+    await ev.n.q("update teams set cash_cents = $2 where code = $1", [fund, team.cash_cents]);
+  }
+});
+
+test("round 2 clears on a phone: the short's average, its value and the collateral at the new price are the database's", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await as(page, fund, "/team/trade/positions");
+  await expect(page.getByTestId("position-ERC-SHORT")).toContainText("ERC Short1,000");
+  await ev.n.clearRound(2); // checked against the engine's clearRound by the driver; the page re-reads on the broadcast
+  const erc = clearingPrice(1040, -100);
+  expect(erc).toBe(1039);
+  const short = await ev.n.one("select h.qty, h.cost_cents from holdings h join teams t on t.id = h.team_id where t.code = $1 and h.company_id = $2 and h.lot = 'SHORT'", [
+    fund,
+    companyId(2),
+  ]);
+  expect([short.qty, Number(short.cost_cents)]).toEqual([1100, 1_040_000 + 100 * erc]);
+  // 1,100 short: proceeds $11,439 ($10.40 average), worth −$11,429 at $10.39, so +$10.
+  await expect(page.getByTestId("position-ERC-SHORT")).toContainText(`ERC Short1,100−$11,429.00+$10.00$10.39$10.40`);
+  const team = await ev.n.one("select collateral_cents from teams where code = $1", [fund]);
+  expect(Number(team.collateral_cents)).toBe(shortCollateral(1100, erc));
+  await expect(page.getByTestId("collateral-locked")).toHaveText(usd(shortCollateral(1100, erc)));
+  await expect(page.getByTestId("collateral-required")).toHaveText(usd(shortCollateral(1100, erc)));
+  await expect(page.getByTestId("exposure-of-cap")).toHaveText(`${usd(1100 * erc)} of $250,000.00`);
+  await noSidewaysScroll(page);
+
+  await page.getByRole("navigation", { name: "Trading views" }).getByRole("link", { name: "History" }).click();
+  const round2 = page.getByRole("region", { name: "Orders of round 2" });
+  await expect(round2.getByTestId("history-order").filter({ hasText: "SHORT" })).toContainText(`SHORT ERC100${usd(erc)}+${usd(100 * erc)}Filled$10.40`);
+  await expect(round2.getByTestId("history-order").filter({ hasText: "BUY" })).toContainText("BUY ERB500——Cancelled$10.76");
+  await noSidewaysScroll(page);
 });

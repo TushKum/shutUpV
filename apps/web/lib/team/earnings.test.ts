@@ -117,6 +117,14 @@ describe("a consultant's earnings", () => {
         { kind: "CALL_EARNINGS", cash_delta_cents: 1_000_000 },
         { kind: "FEE", cash_delta_cents: 2_000_000 },
       ]),
-    ).toBe(3_400_000);
+    ).toEqual({ total: 3_400_000, plan: 1_900_000, deal: 500_000, calls: 1_000_000 });
+    // A negative plan bonus is taken from the cash: −$10,000 + $5,000 + 3 × $2,500 = +$2,500.
+    expect(
+      bonusesPaid([
+        { kind: "BONUS_PLAN", cash_delta_cents: -1_000_000 },
+        { kind: "BONUS_DEAL", cash_delta_cents: 500_000 },
+        { kind: "CALL_EARNINGS", cash_delta_cents: 750_000 },
+      ]),
+    ).toEqual({ total: 250_000, plan: -1_000_000, deal: 500_000, calls: 750_000 });
   });
 });

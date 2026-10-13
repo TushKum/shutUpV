@@ -47,6 +47,21 @@ async function phone(page: Page) {
 
 const row = (page: Page, no: number, label: string): Locator => page.getByTestId(`call-${no}-${label}`);
 
+/**
+ * The Night driver's openRound/clearRound, tolerating the pg_cron heartbeat: when the heartbeat ticks at the same
+ * moment, the driver's own tick does nothing (one tick at a time per event) and the heartbeat opens or clears the
+ * round a moment later.
+ */
+async function roundTo(n: number, want: "OPEN" | "CLEARED") {
+  try {
+    await (want === "OPEN" ? ev.n.openRound(n) : ev.n.clearRound(n));
+  } catch (e) {
+    if (!/^round \d+ (opens|clears)$/.test((e as Error).message)) throw e;
+    const status = async () => (await ev.n.one("select status from rounds where event_id = $1 and number = $2", [ev.n.eventId, n])).status;
+    await expect.poll(status, { timeout: 10_000 }).toBe(want);
+  }
+}
+
 test("before the draw the calls wait for it; after it, call 1 is open on two numbered companies", async ({ page }) => {
   consultant = ev.plan.teams.find((t) => t.track === "CONSULTING")!.code;
   await phone(page);
@@ -123,8 +138,9 @@ test("in Reading the companies are named; a call can be changed until it is due,
   await expect(row(page, 1, A.ticker).getByRole("button", { name: "SELL" })).toBeEnabled();
   await expect(page.getByTestId("call-1-due")).toHaveAttribute("data-state", "OPEN");
   await expect(row(page, 1, A.ticker).getByRole("button", { name: "SELL" })).toHaveCount(0, { timeout: 20_000 });
-  await expect(page.getByTestId("call-1-due")).toHaveAttribute("data-state", "PASSED");
   await expect(page.getByTestId("call-1")).toHaveAttribute("data-stage", "CLOSED");
+  await expect(page.getByTestId("call-1-due")).toHaveAttribute("data-state", "CLOSED");
+  await expect(page.getByTestId("call-1-due")).toContainText("closed");
   await expect(row(page, 1, A.ticker).getByTestId("call-current")).toContainText("Your call: BUY");
   await expect(row(page, 1, A.ticker).getByTestId("call-current")).toContainText("closed, awaiting judging");
   expect(await ev.n.call(ev.n.team(consultant), "make_call", A.id, 1, "SELL")).toMatchObject({ ok: false, code: "CALL_CLOSED" });
@@ -137,9 +153,9 @@ test("call 1 is judged at the round 4 price: baseline, judged price, right or wr
   await ev.n.advanceTo("ROUNDS_1_4");
   // A fund outside A's squad buys 1,000 A in round 1: +1%, $10.50 → $10.61. B does not move.
   const fund = s.find((x) => x.company_id !== A.id)!.f_code;
-  await ev.n.openRound(1);
+  await roundTo(1, "OPEN");
   await ev.n.ok(ev.n.team(fund), "place_order", A.id, "BUY", 1000);
-  await ev.n.clearRound(1);
+  await roundTo(1, "CLEARED");
   // Advancing to the crisis clears rounds 2–4; call 1 is judged when round 4 clears.
   await ev.n.advanceTo("CRISIS");
 
@@ -186,8 +202,8 @@ test("call 2 opens at the plan release and is judged at the flash tier; call 3 a
   // Rounds 13–17, no flash answers (0: −5%), the flash tier: call 2 is judged and call 3 opens.
   await ev.n.advanceTo("ROUNDS_13_21");
   for (const r of [13, 14, 15, 16, 17]) {
-    await ev.n.openRound(r);
-    await ev.n.clearRound(r);
+    await roundTo(r, "OPEN");
+    await roundTo(r, "CLEARED");
   }
   await ev.n.deadlinePassed("FLASH");
   await ev.n.org("seal_missing_scores", ev.n.eventId, "FLASH");
@@ -230,7 +246,9 @@ test("after settlement the earnings are final: fee, fee shares at the closing pr
   // $20,000 + $6,780 + $5,000 − $10,000 + 3 × $2,500 = $29,280.
   await expect(page.getByTestId("earnings-secured")).toHaveText("$29,280.00");
   await expect(page.getByText("Final total")).toBeVisible();
-  await expect(page.getByTestId("earnings-paid")).toContainText("+$2,500.00");
+  await expect(page.getByTestId("earnings-paid")).toHaveText(
+    "Settlement paid your bonuses and call earnings into your cash: +$2,500.00 (plan bonus −$10,000.00, deal bonus +$5,000.00, calls +$7,500.00).",
+  );
   // The settlement's own figure agrees: cash + fee shares × closing price.
   const r = await ev.n.one("select final_value_cents from results where team_id = $1", [ev.n.teamId(consultant)]);
   expect(Number(r.final_value_cents)).toBe(2_928_000);

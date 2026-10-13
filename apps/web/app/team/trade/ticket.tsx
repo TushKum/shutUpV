@@ -66,6 +66,9 @@ export function OrderTicket({
   const preview = previewOrder(ctx, companyId, type, qty);
   const pos = company ? companyPosition(ctx, company.id) : null;
   const parsed = parseShares(qty);
+  // A refusal the screen predicts is not sent; an order the screen cannot check is (the exchange decides).
+  const placeLabel =
+    company !== null && parsed !== null && (preview.state === "OK" || preview.state === "UNKNOWN") ? `Place ${orderLabel(type, parsed, company.ticker)}` : null;
 
   return (
     <form
@@ -73,7 +76,7 @@ export function OrderTicket({
       className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
-        if (closed || !company || parsed === null) return;
+        if (closed || pending || !company || parsed === null || placeLabel === null) return;
         const form = new FormData(e.currentTarget);
         nonce.current ??= newNonce();
         form.set("client_ref", clientRef(nonce.current, company.id, type, parsed));
@@ -190,8 +193,8 @@ export function OrderTicket({
       ) : null}
 
       <div>
-        <button type="submit" disabled={pending || closed || preview.state !== "OK"} className={buttonClass.primary}>
-          {pending ? "Placing…" : preview.state === "OK" && company ? `Place ${orderLabel(type, preview.qty, company.ticker)}` : "Place order"}
+        <button type="submit" disabled={pending || closed || placeLabel === null} className={buttonClass.primary}>
+          {pending ? "Placing…" : (placeLabel ?? "Place order")}
         </button>
       </div>
       <ResultMessage result={result} />

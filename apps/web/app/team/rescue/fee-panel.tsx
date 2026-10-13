@@ -33,7 +33,7 @@ export function FeePanel({
       title="Advisor fee"
       actions={
         <span className="text-sm text-slate-600">
-          Due <Due at={deadline} pause={pause} testId="fee-due" />
+          Due <Due at={deadline} pause={pause} testId="fee-due" closed={fee.stage === "AGREED" ? "paid" : null} />
         </span>
       }
     >
@@ -91,16 +91,18 @@ export function FeePanel({
                     </li>
                   ))}
                 </ul>
-                {fee.canConfirm ? (
+                {/* Mounted for as long as the proposal is open, so the result of a confirmation stays on screen. */}
+                {fee.party ? (
                   <div className="mt-3">
                     <ClosingActionButton
                       closesAt={deadline}
                       pause={pause}
                       variant="primary"
+                      disabled={!fee.canConfirm}
                       action={confirmFee.bind(null, p.version)}
-                      confirm={`Click again to confirm ${feeTermsText(p)}`}
+                      confirm={fee.canConfirm ? `Click again to confirm ${feeTermsText(p)}` : undefined}
                     >
-                      Confirm this fee
+                      {fee.mine ? "Confirmed" : "Confirm this fee"}
                     </ClosingActionButton>
                   </div>
                 ) : null}
@@ -131,7 +133,9 @@ export function FeePanel({
             />
             <p className="mt-2 text-xs text-slate-500">
               A new proposal resets both confirmations: both teams then confirm the new version.
-              {companyCash === null ? " The company's cash and retained shares are checked by the server when you propose." : ""}
+              {companyCash === null
+                ? " The company's cash and retained shares are checked by the server when you propose, and again when the fee is paid."
+                : ` Your company has ${money(companyCash)} cash${retained !== null ? ` and ${retained.toLocaleString("en-US")} retained shares` : ""}.`}
             </p>
           </div>
         ) : null}

@@ -36,7 +36,7 @@ export function DealPanel({
       title="Rescue deal"
       actions={
         <span className="text-sm text-slate-600">
-          Due <Due at={deadlines.DEAL} pause={pause} testId="deal-due" />
+          Due <Due at={deadlines.DEAL} pause={pause} testId="deal-due" closed={deal.stage === "SIGNED" ? "signed" : null} />
         </span>
       }
     >
@@ -51,7 +51,7 @@ export function DealPanel({
           <div className="rounded-md bg-slate-50 px-3 py-2">
             <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Deal bonus</dt>
             <dd>
-              Fully signed by <Due at={deadlines.DEAL_BONUS} pause={pause} testId="deal-bonus-due" />: the Consulting team earns {money(RULES.DEAL_BONUS)}.{" "}
+              Fully signed by <Due at={deadlines.DEAL_BONUS} pause={pause} testId="deal-bonus-due" closed={deal.bonus === "YES" ? "signed" : null} />: the Consulting team earns {money(RULES.DEAL_BONUS)}.{" "}
               <OutcomeBadge testId="deal-bonus" value={deal.bonus} yes="Bonus earned" no="No bonus" />
             </dd>
           </div>
@@ -120,16 +120,18 @@ export function DealPanel({
               </p>
             ) : null}
             {warning && deal.stage === "OPEN" ? <p className="mt-2 text-amber-800">{warning}</p> : null}
-            {deal.canSign ? (
+            {/* Mounted for as long as the terms can be signed, so the result of a signature stays on screen. */}
+            {deal.stage === "OPEN" && deal.complete ? (
               <div className="mt-3">
                 <ClosingActionButton
                   closesAt={deadlines.DEAL}
                   pause={pause}
                   variant="primary"
+                  disabled={!deal.canSign}
                   action={signDeal.bind(null, deal.version)}
-                  confirm={`Click again to sign ${dealTermsText(deal)}`}
+                  confirm={deal.canSign ? `Click again to sign ${dealTermsText(deal)}` : undefined}
                 >
-                  Sign version {deal.version}
+                  {deal.mine ? `Signed version ${deal.version}` : `Sign version ${deal.version}`}
                 </ClosingActionButton>
               </div>
             ) : null}

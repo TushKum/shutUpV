@@ -87,7 +87,8 @@ export default async function EarningsPage() {
         </p>
         {settled ? (
           <p className="mt-2 text-sm text-slate-700" data-testid="earnings-paid">
-            Settlement paid your bonuses and call earnings into your cash: {signedMoney(paid)}.
+            Settlement paid your bonuses and call earnings into your cash: {signedMoney(paid.total)} (plan bonus {signedMoney(paid.plan)}, deal bonus{" "}
+            {signedMoney(paid.deal)}, calls {signedMoney(paid.calls)}).
           </p>
         ) : null}
       </Panel>

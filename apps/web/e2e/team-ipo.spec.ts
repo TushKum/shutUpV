@@ -93,6 +93,13 @@ test("IPO phase on a phone: every company but its own at its IPO price, checked 
   await row(page, "ERB").getByLabel("Shares of ERB").fill("4,000");
   await row(page, "ERB").getByRole("button", { name: "Save bid" }).click();
   await expect(row(page, "ERB").getByTestId("ipo-saved")).toHaveText("Your bid: 4,000 shares ($42,000.00)");
+
+  // A bid saved on the fund's other device sends no broadcast: the open page re-reads itself within 10 s.
+  await ev.n.ok(ev.n.team(fund), "place_ipo_bid", s[3]!.company_id, 100);
+  await expect(row(page, "ERD").getByTestId("ipo-saved")).toHaveText("Your bid: 100 shares ($1,050.00)", { timeout: 20_000 });
+  await expect(page.getByTestId("ipo-committed")).toHaveText("$43,050.00");
+  await ev.n.ok(ev.n.team(fund), "place_ipo_bid", s[3]!.company_id, 0);
+  await expect(row(page, "ERD").getByTestId("ipo-saved")).toHaveText("No bid", { timeout: 20_000 });
 });
 
 test("the whole book must fit the cash: the preview and Max agree with the database", async ({ page }) => {

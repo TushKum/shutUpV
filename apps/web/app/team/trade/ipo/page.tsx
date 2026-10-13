@@ -4,6 +4,7 @@ import { loadTeamContext } from "@/lib/team/context";
 import { loadTradeData } from "@/lib/team/trade-data";
 import { ipoBook, ipoResults, ipoView, ipoWindow, type IpoResultLine } from "@/lib/team/trade";
 import { clock, count, money } from "@/lib/format";
+import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { RefreshAt } from "@/lib/live/refresh-at";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
@@ -18,8 +19,8 @@ const RULES_TEXT =
 
 // The IPO: during the IPO phase, every company the fund may bid for with its IPO price and the fund's saved bids
 // (each saved on its own, checked as it is typed); after the allocation, the shares received and the cash paid. Bids
-// are the fund's own and change only by its own actions; the page re-reads itself at the deadline, and the allocation
-// broadcasts.
+// send no broadcast, so while bids are open the page re-reads itself every 10 s (a bid saved on the fund's other
+// device) and at the deadline; the allocation broadcasts.
 export default async function IpoPage() {
   const ctx = await loadTeamContext();
   const gate = tradeGate(ctx);
@@ -81,6 +82,7 @@ export default async function IpoPage() {
   return (
     <div className="space-y-4">
       <RefreshAt at={win === "OPEN" ? deadline : null} />
+      <AutoRefresh everyMs={10_000} active={win === "OPEN"} />
       {win === "OPEN" ? (
         <p className="text-sm text-slate-700" data-testid="ipo-state">
           IPO bids are open until {clock(deadline)}

@@ -55,10 +55,15 @@ export default async function CallsPage() {
 
   return (
     <div className="space-y-4">
-      {windows.map((w) => (w.stage === "OPEN" ? <RefreshAt key={w.no} at={w.due} /> : null))}
+      {/* An open window closes at its due time: re-read the page then (a release or the close is broadcast). */}
+      {windows.map((w) => (w.stage === "OPEN" && w.due && Date.parse(w.due) > input.nowMs ? <RefreshAt key={w.no} at={w.due} /> : null))}
       <Panel title="Your calls">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Stat label="Covered" value={companies.map((c) => c.label).join(" · ")} />
+          <Stat
+            label="Covered"
+            value={unnamed ? `${companies.length} companies` : companies.map((c) => c.label).join(" · ")}
+            hint={unnamed ? "Named from the Reading phase" : undefined}
+          />
           <Stat label="Judged" value={`${summary.judged} of ${summary.judged + summary.pending}`} />
           <Stat label="Correct" value={summary.correct} />
           <Stat label="Earned" value={money(summary.earnings)} hint={`${money(RULES.CALL_EARNING)} per correct call`} />
@@ -69,7 +74,7 @@ export default async function CallsPage() {
         </p>
         {unnamed ? (
           <p className="mt-2 text-sm text-slate-600">
-            Your covered companies&apos; names and pitches are public from the Reading phase (22:30); until then they are numbered.
+            Your covered companies&apos; names and pitches are public from the Reading phase; until then they are numbered.
           </p>
         ) : null}
       </Panel>
@@ -87,7 +92,7 @@ export default async function CallsPage() {
             }
             actions={
               <span className="text-sm text-slate-600">
-                Due <Due at={w.due} pause={pause} testId={`call-${w.no}-due`} passed="closed" />
+                Due <Due at={w.due} pause={pause} testId={`call-${w.no}-due`} passed="closed" closed={judged || w.stage === "CLOSED" ? "closed" : null} />
               </span>
             }
           >
@@ -101,7 +106,7 @@ export default async function CallsPage() {
                   <li key={company.id} className="flex flex-wrap items-start justify-between gap-3 py-3" data-testid={`call-${w.no}-${company.label}`}>
                     <div className="min-w-0">
                       <p className="font-semibold text-slate-900">
-                        <span className="font-mono">{company.label}</span>
+                        <span className={company.ticker ? "font-mono" : undefined}>{company.label}</span>
                         {company.name ? <span className="ml-1 font-normal text-slate-600">{company.name}</span> : null}
                       </p>
                       <CallState cell={cell} />

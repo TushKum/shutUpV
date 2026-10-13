@@ -70,7 +70,7 @@ function IpoRow({ view, item, saved, closed }: { view: IpoView; item: IpoRowItem
         className="mt-2"
         onSubmit={(e) => {
           e.preventDefault();
-          if (closed) return;
+          if (closed || pending || preview.state !== "OK" || unchanged) return;
           const form = new FormData(e.currentTarget);
           startTransition(() => dispatch(form));
         }}

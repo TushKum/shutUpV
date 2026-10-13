@@ -37,6 +37,12 @@ export function deadlineState(at: string | null | undefined, nowMs: number, p: P
   return nowMs > Date.parse(at) ? "PASSED" : "OPEN";
 }
 
+/** What a due time shows: a settled matter (a fee paid, a deal signed, a call window closed) shows no countdown. */
+export function dueState(at: string | null | undefined, nowMs: number, p: PauseState, settled: boolean): DeadlineState | "CLOSED" {
+  if (!at) return "NONE";
+  return settled ? "CLOSED" : deadlineState(at, nowMs, p);
+}
+
 export type Deadlines = Partial<Record<DeadlineCode, string>>;
 
 // ───────────── The squad's three teams ─────────────
@@ -76,7 +82,7 @@ export interface TimelineItem {
 /** What the rescue asks of the squad after the crisis, in the order of the night, at the event's own times. */
 export function rescueTimeline(deadlines: Deadlines): TimelineItem[] {
   const items: [DeadlineCode, string][] = [
-    ["FEE", "Advisor fee: the Product and Consulting teams both confirm the same terms, or the default fee of $22,500 cash is paid."],
+    ["FEE", "The Product and Consulting teams both confirm the same terms, or the default fee of $22,500 cash is paid."],
     ["DEAL_BONUS", "Rescue deal fully signed by all three teams: the Consulting team earns a $5,000 deal bonus."],
     ["DEAL", "Hard deadline for the deal and the rescue plan: without a fully signed deal, the plan score is capped at 50."],
   ];

@@ -16,6 +16,7 @@ import {
   newNonce,
   nextRound,
   openOrders,
+  openOrdersState,
   orderHistory,
   orderLabel,
   parseShares,
@@ -340,7 +341,17 @@ describe("tradingNotice", () => {
       next: { number: 3, opensAt: "2026-10-08T18:30:00Z", phase: "ROUNDS_1_4" },
     });
     expect(tradingNotice({ ...s, trading: "HALTED", nowMs: new Date("2026-10-08T18:30:01Z").getTime() }, between)?.text).toBe("Round 3 opens in a moment.");
-    expect(tradingNotice({ ...s, trading: "PAUSED", paused: true }, rounds)?.text).toMatch(/^The event is paused: orders are refused until it resumes/);
+    // Paused during round 2: round 2 carries on after the pause, so round 3 is not announced.
+    expect(tradingNotice({ ...s, trading: "PAUSED", paused: true }, rounds)).toEqual({
+      tone: "amber",
+      text: "The event is paused: orders are refused until it resumes. Round 2 carries on then, and its closing time moves later by the length of the pause.",
+      next: null,
+    });
+    // Paused between rounds: the next round is named (its time moves with the pause).
+    expect(tradingNotice({ ...s, trading: "PAUSED", paused: true }, between)).toMatchObject({
+      text: "The event is paused: orders are refused until it resumes. Round opening times and the rest of the schedule move later by the length of the pause.",
+      next: { number: 3 },
+    });
     expect(tradingNotice({ ...s, phase: "BREAK", trading: "PAUSED" }, rounds)?.text).toBe("Trading is paused for the break.");
     expect(tradingNotice({ ...s, phase: "CRISIS", trading: "HALTED" }, rounds)?.text).toMatch(/crisis/);
     expect(tradingNotice({ ...s, phase: "PLANS_PUBLISHED", trading: "HALTED" }, rounds)?.text).toMatch(/plans are scored/);
@@ -366,6 +377,19 @@ describe("tradingNotice", () => {
   it("the next round is the lowest scheduled one", () => {
     expect(nextRound(rounds)?.number).toBe(3);
     expect(nextRound([])).toBeNull();
+  });
+});
+
+describe("openOrdersState", () => {
+  const closesAt = "2026-10-08T18:30:00Z";
+  const before = new Date("2026-10-08T18:29:59Z").getTime();
+  const after = new Date(closesAt).getTime();
+  it("editable while the round accepts orders, frozen during a pause, clearing once the round has closed", () => {
+    expect(openOrdersState({ accepting: true, paused: false, closesAt, nowMs: before })).toBe("EDITABLE");
+    expect(openOrdersState({ accepting: false, paused: true, closesAt, nowMs: before })).toBe("PAUSED");
+    expect(openOrdersState({ accepting: false, paused: false, closesAt, nowMs: before })).toBe("CLEARING");
+    expect(openOrdersState({ accepting: true, paused: false, closesAt, nowMs: after })).toBe("CLEARING");
+    expect(openOrdersState({ accepting: false, paused: true, closesAt, nowMs: after })).toBe("CLEARING");
   });
 });
 

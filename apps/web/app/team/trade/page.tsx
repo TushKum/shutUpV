@@ -3,8 +3,9 @@ import Link from "next/link";
 import { RULES, phaseReached } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { fundContext, loadTradeData } from "@/lib/team/trade-data";
-import { fundSummary, openOrders, tradingNotice, type TradingNotice } from "@/lib/team/trade";
+import { fundSummary, openOrders, openOrdersState, tradingNotice, type TradingNotice } from "@/lib/team/trade";
 import { clock, money } from "@/lib/format";
+import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { RefreshAt } from "@/lib/live/refresh-at";
 import { Notice, Panel } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
@@ -17,8 +18,10 @@ export const metadata: Metadata = { title: "Trade" };
 
 // Orders: the fund's cash and limits, the order ticket while a round is open (or why trading is closed and when the
 // next round opens), and the open round's orders with their countdown. Clearings, phase changes and pauses broadcast,
-// so the page re-reads itself then; the fund's own orders change only by its own actions, which re-read it too. The
-// page also re-reads itself when the round's closing time or the next round's opening time passes.
+// so the page re-reads itself then, and after each of its own actions. The page also re-reads itself when the round's
+// closing time or the next round's opening time passes, and every 10 s while a round accepts orders: an order placed
+// on the fund's other device, or a rescue deal a partner signs last, sends no broadcast, and a stale view could
+// otherwise refuse an order the exchange would accept.
 export default async function TradePage() {
   const ctx = await loadTeamContext();
   const gate = tradeGate(ctx);
@@ -49,6 +52,7 @@ export default async function TradePage() {
   const accepting = status.trading === "OPEN" && status.open_round !== null && !status.paused;
   const ordersRound = open.length > 0 ? (data.rounds.find((r) => r.number === open[0]!.roundNumber) ?? null) : null;
   const shownRound = status.open_round ?? (ordersRound ? { number: ordersRound.number, closes_at: ordersRound.closes_at } : null);
+  const ordersState = shownRound ? openOrdersState({ accepting, paused: status.paused, closesAt: shownRound.closes_at, nowMs }) : null;
   const tradable: TicketCompany[] = data.companies
     .filter((c) => c.market_price !== null && c.id !== own?.id)
     .map((c) => ({ id: c.id, ticker: c.ticker!, name: c.name, price: c.market_price! }));
@@ -57,6 +61,7 @@ export default async function TradePage() {
   return (
     <div className="space-y-4">
       <RefreshAt at={accepting ? status.open_round!.closes_at : (notice?.next?.opensAt ?? null)} />
+      <AutoRefresh everyMs={10_000} active={accepting} />
 
       {notice ? <ClosedNotice notice={notice} nowMs={nowMs} ipo={status.phase === "IPO"} /> : null}
 
@@ -102,12 +107,18 @@ export default async function TradePage() {
             <Panel
               title={`Open orders · round ${shownRound.number}`}
               actions={
-                accepting ? (
+                ordersState === "EDITABLE" ? (
                   <span className="text-sm text-slate-600">
                     editable for <Countdown to={shownRound.closes_at} passed="—" className="font-semibold text-slate-900" />
                   </span>
+                ) : ordersState === "PAUSED" ? (
+                  <span className="text-sm text-amber-800" data-testid="open-orders-state">
+                    paused: no changes until the event resumes
+                  </span>
                 ) : (
-                  <span className="text-sm text-amber-800">closed at {clock(shownRound.closes_at, true)}: clearing</span>
+                  <span className="text-sm text-amber-800" data-testid="open-orders-state">
+                    closed at {clock(shownRound.closes_at, true)}: clearing
+                  </span>
                 )
               }
             >

@@ -6,6 +6,7 @@ import {
   dealView,
   deadlineState,
   dollarsText,
+  dueState,
   feePreview,
   feeTermsText,
   feeView,
@@ -35,6 +36,14 @@ describe("deadlines and teams", () => {
     expect(deadlineState(FEE_AT, T(FEE_AT) + 60_000, { paused: true, pausedAt: "2026-10-10T19:30:00.000Z" })).toBe("PAUSED");
     expect(deadlineState(FEE_AT, T(FEE_AT) + 60_000, { paused: true, pausedAt: "2026-10-10T19:40:00.000Z" })).toBe("PASSED");
     expect(deadlineState(null, 0, running)).toBe("NONE");
+  });
+
+  test("a settled matter shows no countdown, before or after its time", () => {
+    expect(dueState(FEE_AT, T(FEE_AT) - 60_000, running, false)).toBe("OPEN");
+    expect(dueState(FEE_AT, T(FEE_AT) - 60_000, running, true)).toBe("CLOSED");
+    expect(dueState(FEE_AT, T(FEE_AT) + 60_000, running, true)).toBe("CLOSED");
+    expect(dueState(FEE_AT, T(FEE_AT) + 60_000, running, false)).toBe("PASSED");
+    expect(dueState(null, 0, running, true)).toBe("NONE");
   });
 
   test("teams are named by their role, never by code", () => {

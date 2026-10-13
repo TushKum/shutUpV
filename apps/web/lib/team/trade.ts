@@ -470,11 +470,19 @@ export function tradingNotice(
     return { tone: "slate", text: "The market has closed. Every short was covered at the closing price; no more orders.", next: null };
   }
   if (s.paused) {
-    return {
-      tone: "amber",
-      text: "The event is paused: orders are refused until it resumes. Round closing times and the rest of the schedule move later by the length of the pause.",
-      next,
-    };
+    // A round interrupted by the pause carries on when the event resumes (its close moves later); it comes first.
+    const interrupted = rounds.find((r) => r.status === "OPEN" && new Date(r.closes_at).getTime() > s.nowMs);
+    return interrupted
+      ? {
+          tone: "amber",
+          text: `The event is paused: orders are refused until it resumes. Round ${interrupted.number} carries on then, and its closing time moves later by the length of the pause.`,
+          next: null,
+        }
+      : {
+          tone: "amber",
+          text: "The event is paused: orders are refused until it resumes. Round opening times and the rest of the schedule move later by the length of the pause.",
+          next,
+        };
   }
   if (s.phase === "BREAK") return { tone: "amber", text: "Trading is paused for the break.", next };
   if (!phaseReached(s.phase, "ROUNDS_1_4")) return { tone: "blue", text: "Trading starts with round 1.", next };
@@ -542,6 +550,19 @@ export function openOrders(orders: readonly OrderRow[], rounds: readonly RoundRo
     .filter((o) => o.status === "PENDING" && rmap.get(o.round_id)?.status === "OPEN")
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((o) => lineOf(o, rmap, cmap));
+}
+
+export type OpenOrdersState = "EDITABLE" | "PAUSED" | "CLEARING";
+
+/**
+ * What can happen to the open round's orders now: editable while the round accepts orders, frozen while the event is
+ * paused before the round's close (the round carries on after the pause), and waiting for the clearing once the
+ * round has reached its closing time.
+ */
+export function openOrdersState(s: { accepting: boolean; paused: boolean; closesAt: string; nowMs: number }): OpenOrdersState {
+  if (s.nowMs >= new Date(s.closesAt).getTime()) return "CLEARING";
+  if (s.accepting) return "EDITABLE";
+  return s.paused ? "PAUSED" : "CLEARING";
 }
 
 export interface HistoryRound {

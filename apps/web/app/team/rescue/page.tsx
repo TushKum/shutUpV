@@ -32,13 +32,15 @@ export default async function RescuePage() {
   const fee = feeView({ ...base, deadline: data.deadlines.FEE ?? null, fee: data.fee });
   const deal = dealView({ ...base, deadlines: data.deadlines, deal: data.deal, postCrisis: ctx.company?.post_crisis_price ?? null });
   const live = fee.stage === "OPEN" || fee.stage === "DEFAULT_PENDING" || deal.stage === "OPEN";
+  // Only a deadline still ahead needs a re-read when it passes (RefreshAt re-reads at once for one already passed).
+  const ahead = (at: string | undefined) => (at && Date.parse(at) > nowMs ? at : null);
 
   return (
     <div className="space-y-4">
       <AutoRefresh everyMs={10_000} active={live} />
-      <RefreshAt at={data.deadlines.FEE} />
-      <RefreshAt at={data.deadlines.DEAL_BONUS} />
-      <RefreshAt at={data.deadlines.DEAL} />
+      <RefreshAt at={ahead(data.deadlines.FEE)} />
+      <RefreshAt at={ahead(data.deadlines.DEAL_BONUS)} />
+      <RefreshAt at={ahead(data.deadlines.DEAL)} />
       <CrisisPanel
         applied={crisisApplied}
         startsAt={data.crisisStartsAt}

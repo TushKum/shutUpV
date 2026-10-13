@@ -176,7 +176,18 @@ export function earnings(i: EarningsInput): Earnings {
   return { lines, secured, projected, pending, final: lines.every((l) => l.status === "FINAL") };
 }
 
-/** What settlement pays as cash (the bonuses and call earnings), for the "paid" note. */
-export function bonusesPaid(rows: readonly { kind: string; cash_delta_cents: number }[]): number {
-  return rows.filter((r) => r.kind === "BONUS_PLAN" || r.kind === "BONUS_DEAL" || r.kind === "CALL_EARNINGS").reduce((s, r) => s + r.cash_delta_cents, 0);
+/** What settlement paid into this team's cash (the bonuses and call earnings), in total and per kind. */
+export interface Paid {
+  total: number;
+  plan: number;
+  deal: number;
+  calls: number;
+}
+
+export function bonusesPaid(rows: readonly { kind: string; cash_delta_cents: number }[]): Paid {
+  const sum = (kind: string) => rows.filter((r) => r.kind === kind).reduce((s, r) => s + r.cash_delta_cents, 0);
+  const plan = sum("BONUS_PLAN");
+  const deal = sum("BONUS_DEAL");
+  const calls = sum("CALL_EARNINGS");
+  return { total: plan + deal + calls, plan, deal, calls };
 }

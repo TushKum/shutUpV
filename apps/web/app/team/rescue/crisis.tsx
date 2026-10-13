@@ -32,7 +32,7 @@ export function CrisisPanel({
         <div className="space-y-3 text-sm text-slate-700" data-testid="crisis-before">
           <p>
             At {startsAt ? clock(startsAt) : "00:30"} trading halts and every company is dealt a crisis card, drawn by the same verifiable lottery as the
-            squads (10 categories, 5 companies each). Both the market price and the AI price of every company are multiplied by 0.85 (−15%), rounded to the
+            squads, from 10 crisis categories. Both the market price and the AI price of every company are multiplied by 0.85 (−15%), rounded to the
             cent: the result is your company&apos;s <span className="font-semibold">post-crisis price</span>, which the rescue deal is priced from.
           </p>
           <p>Then your squad rescues the company:</p>

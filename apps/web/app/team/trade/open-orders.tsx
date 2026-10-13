@@ -8,7 +8,7 @@ import { startTransition, useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { OrderContext } from "@msim/engine";
 import type { ActionResult } from "@/lib/rpc";
-import { editContext, maxOrder, orderLabel, previewOrder, type OrderLine } from "@/lib/team/trade";
+import { editContext, maxOrder, orderLabel, parseShares, previewOrder, type OrderLine } from "@/lib/team/trade";
 import { clock, count, money } from "@/lib/format";
 import { useServerNow } from "@/lib/live/clock";
 import { ActionButton, ResultMessage } from "@/components/ui/action";
@@ -55,9 +55,12 @@ export function OpenOrders({ ctx, items, closesAt, accepting }: { ctx: OrderCont
 function EditOrder({ ctx, line, label, action }: { ctx: OrderContext; line: OrderLine; label: string; action: OpenOrderItem["edit"] }) {
   const router = useRouter();
   const [qty, setQty] = useState(String(line.qty));
+  const [maxNote, setMaxNote] = useState<string | null>(null);
   const ectx = editContext(ctx, line.id);
   const preview = previewOrder(ectx, line.companyId, line.type, qty);
-  const unchanged = preview.state === "OK" && preview.qty === line.qty;
+  const unchanged = parseShares(qty) === line.qty;
+  // A refusal the screen predicts is not sent; a change the screen cannot check is (the exchange decides).
+  const sendable = (preview.state === "OK" || preview.state === "UNKNOWN") && !unchanged;
   const [result, dispatch, pending] = useActionState<ActionResult | null, FormData>(async (prev, form) => {
     const r = await safely(() => action(prev, form));
     router.refresh();
@@ -69,6 +72,7 @@ function EditOrder({ ctx, line, label, action }: { ctx: OrderContext; line: Orde
       className="min-w-0"
       onSubmit={(e) => {
         e.preventDefault();
+        if (pending || !sendable) return;
         const form = new FormData(e.currentTarget);
         startTransition(() => dispatch(form));
       }}
@@ -83,7 +87,10 @@ function EditOrder({ ctx, line, label, action }: { ctx: OrderContext; line: Orde
           inputMode="numeric"
           autoComplete="off"
           value={qty}
-          onChange={(e) => setQty(e.target.value)}
+          onChange={(e) => {
+            setQty(e.target.value);
+            setMaxNote(null);
+          }}
           className={`${narrowInput} font-mono`}
         />
         <button
@@ -91,17 +98,26 @@ function EditOrder({ ctx, line, label, action }: { ctx: OrderContext; line: Orde
           className={buttonClass.secondary}
           onClick={() => {
             const m = maxOrder(ectx, line.companyId, line.type);
-            if (m.max > 0) setQty(String(m.max));
+            if (m.max > 0) {
+              setQty(String(m.max));
+              setMaxNote(null);
+            } else setMaxNote(`No ${line.type} of ${line.ticker} would pass right now: ${m.reason ?? "check the limits under Positions."}`);
           }}
         >
           Max
         </button>
-        <button type="submit" disabled={pending || preview.state !== "OK" || unchanged} className={buttonClass.primary}>
+        <button type="submit" disabled={pending || !sendable} className={buttonClass.primary}>
           {pending ? "Saving…" : "Change quantity"}
         </button>
       </div>
-      {preview.state === "REFUSED" || preview.state === "UNKNOWN" ? (
+      {maxNote ? (
+        <p className="mt-1 text-sm text-red-700" role="alert">
+          {maxNote}
+        </p>
+      ) : preview.state === "REFUSED" ? (
         <p className="mt-1 text-sm text-red-700">The exchange would refuse this change: {preview.message}</p>
+      ) : preview.state === "UNKNOWN" ? (
+        <p className="mt-1 text-sm text-amber-800">{preview.message}</p>
       ) : preview.state === "OK" && !unchanged && preview.reserve > 0 ? (
         <p className="mt-1 text-xs text-slate-600">
           {count(preview.qty)} shares reserve {money(preview.reserve)}; available cash after the change {money(preview.availableAfter)}.

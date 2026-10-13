@@ -102,10 +102,12 @@ test("the fee: a live check, a proposal, confirmations reset by a new proposal, 
   await product.goto("/team/rescue");
   await expect(product.getByTestId("fee-proposal")).toContainText("Proposed by the Consulting team");
   await expect(product.getByTestId("fee-terms")).toHaveText("$20,000.00 cash + 1,000 shares (value $30,500.00)");
+  const productProposal = product.getByTestId("fee-proposal");
   await twoClicks(product, "Confirm this fee", "Click again to confirm $20,000.00 cash + 1,000 shares (value $30,500.00)");
-  await expect(product.getByRole("status")).toContainText("You confirmed version 2.");
+  await expect(productProposal.getByRole("status")).toHaveText("You confirmed version 2. The fee is paid when the other team confirms the same version.");
   await expect(product.getByTestId("fee-confirm-PRODUCT")).toContainText("Confirmed");
-  await expect(product.getByTestId("fee-proposal")).toContainText("Waiting for the Consulting team to confirm it.");
+  await expect(productProposal).toContainText("Waiting for the Consulting team to confirm it.");
+  await expect(productProposal.getByRole("button", { name: "Confirmed" })).toBeDisabled();
 
   // A new proposal resets the confirmations.
   await page.reload();
@@ -119,16 +121,26 @@ test("the fee: a live check, a proposal, confirmations reset by a new proposal, 
   await expect(product.getByTestId("fee-confirm-PRODUCT")).toContainText("Not confirmed");
   await expect(product.getByTestId("fee-terms")).toHaveText("$22,000.00 cash + 1,000 shares (value $32,500.00)");
 
-  // A confirmation of the old version is refused by the database.
-  expect(await ev.n.call(ev.n.team(x.p_code), "confirm_fee", 2)).toMatchObject({ ok: false, code: "VERSION_CONFLICT" });
+  // The terms change again while the Product team's page still shows version 3: its confirmation is refused, the
+  // refusal stays on screen and the page shows the new version.
+  await ev.n.ok(ev.n.team(x.c_code), "propose_fee", 2_200_000, 1000);
+  await twoClicks(product, "Confirm this fee", "Click again to confirm $22,000.00 cash + 1,000 shares (value $32,500.00)");
+  await expect(productProposal.getByRole("alert")).toHaveText(
+    "VERSION_CONFLICT: Not confirmed: the proposal changed since this page showed it. Review the new terms, then confirm.",
+  );
+  await expect(productProposal).toContainText("On the table: version 4");
+  await expect(product.getByTestId("fee-confirm-PRODUCT")).toContainText("Not confirmed");
 
   await twoClicks(product, "Confirm this fee", "Click again to confirm $22,000.00 cash + 1,000 shares (value $32,500.00)");
-  await expect(product.getByRole("status")).toContainText("You confirmed version 3.");
+  await expect(productProposal.getByRole("status")).toContainText("You confirmed version 4.");
   await page.reload();
   await twoClicks(page, "Confirm this fee", /Click again to confirm \$22,000\.00/);
-  await expect(page.getByRole("status")).toContainText("Both teams confirmed: the fee of $22,000.00 cash + 1,000 shares (value $32,500.00) has been paid");
+  // The second confirmation pays the fee: the page shows what was paid.
   await expect(page.getByTestId("fee")).toHaveAttribute("data-stage", "AGREED");
   await expect(page.getByTestId("fee-outcome")).toContainText("Agreed fee paid at");
+  await expect(page.getByTestId("fee-due")).toHaveAttribute("data-state", "CLOSED");
+  await expect(page.getByTestId("fee-due")).toContainText("paid");
+  await expect(page.getByTestId("fee-outcome")).toContainText("$22,000.00 cash + 1,000 shares (value $32,500.00), from the Product team to the Consulting team.");
   await expect(page.getByRole("form", { name: "Propose a fee" })).toHaveCount(0);
   expect((await ev.n.one("select qty from holdings where team_id = $1 and lot = 'FEE'", [ev.n.teamId(x.c_code)])).qty).toBe(1000);
 
@@ -178,7 +190,7 @@ test("the deal: Consulting's price in the band, the fund's amount, signatures re
   await noSideScroll(page);
 
   // The fund sets the amount and sees the shares and the cash moved.
-  const fund = await screen(browser, x.f_code);
+  const fund = await screen(browser, x.f_code, 390);
   await fund.goto("/team/rescue");
   const amountForm = fund.getByRole("form", { name: "Set the amount" });
   await amountForm.getByLabel("Amount the fund invests (US$)").fill("90000");
@@ -196,9 +208,10 @@ test("the deal: Consulting's price in the band, the fund's amount, signatures re
   await expect(product.getByRole("form", { name: "Propose the price" })).toHaveCount(0);
   await expect(product.getByRole("form", { name: "Set the amount" })).toHaveCount(0);
   await twoClicks(product, "Sign version 3", "Click again to sign 8,000 shares at $7.50 ($60,000.00)");
-  await expect(product.getByRole("status")).toContainText("You signed version 3.");
+  await expect(product.getByTestId("deal-terms").getByRole("status")).toHaveText("You signed version 3. The deal executes when all three teams have signed it.");
   await expect(product.getByTestId("deal-sign-PRODUCT")).toContainText("Signed");
   await expect(product.getByTestId("deal-terms")).toContainText("Waiting for the Consulting team and the fund (Finance).");
+  await expect(product.getByRole("button", { name: "Signed version 3" })).toBeDisabled();
 
   await page.reload();
   await expect(page.getByTestId("deal-sign-PRODUCT")).toContainText("Signed");
@@ -210,20 +223,37 @@ test("the deal: Consulting's price in the band, the fund's amount, signatures re
   await expect(page.getByTestId("deal-sign-PRODUCT")).toContainText("Not signed");
   await product.reload();
   await expect(product.getByTestId("deal-sign-PRODUCT")).toContainText("Not signed");
-  expect(await ev.n.call(ev.n.team(x.p_code), "sign_deal", 3)).toMatchObject({ ok: false, code: "VERSION_CONFLICT" });
-
   await twoClicks(product, "Sign version 4", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
-  await expect(product.getByRole("status")).toContainText("You signed version 4.");
+  await expect(product.getByTestId("deal-terms").getByRole("status")).toContainText("You signed version 4.");
+
+  // The Consulting team sends its price again while the fund's page still shows version 4: every signature is reset,
+  // the fund's signature is refused, the refusal stays on screen and the page shows version 5.
   await fund.reload();
+  await expect(fund.getByTestId("deal-sign-PRODUCT")).toContainText("Signed");
+  await ev.n.ok(ev.n.team(x.c_code), "edit_deal", null, 700);
   await twoClicks(fund, "Sign version 4", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
-  await expect(fund.getByRole("status")).toContainText("You signed version 4.");
-  await page.reload();
-  await twoClicks(page, "Sign version 4", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
-  await expect(page.getByRole("status")).toContainText(
-    "Signed by all three teams: 8,571 shares moved from the Product team's retained shares into the fund's squad lot, and $59,997.00 was paid to the company.",
+  await expect(fund.getByTestId("deal-terms").getByRole("alert")).toHaveText(
+    "VERSION_CONFLICT: Not signed: the terms changed since this page showed them. Review the new terms, then sign.",
   );
+  await expect(fund.getByTestId("deal-terms")).toContainText("Terms: version 5");
+  await expect(fund.getByTestId("deal-sign-PRODUCT")).toContainText("Not signed");
+  await twoClicks(fund, "Sign version 5", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
+  await expect(fund.getByTestId("deal-terms").getByRole("status")).toHaveText("You signed version 5. The deal executes when all three teams have signed it.");
+  await noSideScroll(fund);
+  await product.reload();
+  await twoClicks(product, "Sign version 5", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
+  await expect(product.getByTestId("deal-terms").getByRole("status")).toContainText("You signed version 5.");
+  await page.reload();
+  await expect(page.getByTestId("deal-sign-PRODUCT")).toContainText("Signed");
+  await expect(page.getByTestId("deal-sign-FINANCE")).toContainText("Signed");
+  await expect(page.getByTestId("deal-sign-CONSULTING")).toContainText("Not signed");
+  await twoClicks(page, "Sign version 5", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
+  // The third signature executes the deal: the page shows what moved.
   await expect(page.getByTestId("deal")).toHaveAttribute("data-stage", "SIGNED");
-  await expect(page.getByTestId("deal-outcome")).toContainText("8,571 shares at $7.00");
+  await expect(page.getByTestId("deal-outcome")).toContainText(
+    "8,571 shares at $7.00 moved from the Product team's retained shares into the fund's squad lot, and $59,997.00 was paid to the company.",
+  );
+  await expect(page.getByTestId("deal-due")).toContainText("signed");
   await expect(page.getByTestId("deal-bonus")).toHaveAttribute("data-value", "YES");
   await expect(page.getByTestId("deal-bonus")).toContainText("Bonus earned");
   await expect(page.getByTestId("deal-cap")).toContainText("No cap");
