@@ -7,7 +7,9 @@ import { loginAsTeam } from "./support/login";
 test.describe.configure({ mode: "serial" });
 
 // The squad's shared work after the crisis: the rescue plan co-edited by the Product team (laptop) and the
-// Consulting team (phone), its hard deadline and the cap when the deal is not signed, then the flash answer.
+// Consulting team (phone) — edits to different sections merge, a section both changed asks which text to keep, a
+// submit from a screen behind a newer save never overwrites it — its hard deadline and the cap when the deal is not
+// signed, then the flash answer.
 //
 // Both squad specs (this one and team-squad) use the team-code prefix I, and team codes are unique across events:
 // the two files take turns (a Postgres advisory lock held for the whole file), and each purges the other's event.
@@ -39,10 +41,13 @@ async function screen(browser: Browser, code: string, width = 1280): Promise<Pag
 
 const noSideScroll = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 const planEditor = (page: Page) => page.getByRole("form", { name: "Rescue plan editor" });
+/** The squad's saved plan draft, as the database has it. */
+const planDraft = (companyId: string) =>
+  ev.n.one<{ version: number; content: Record<string, string> }>("select version, content from submission_drafts where company_id = $1 and type = 'PLAN'", [companyId]);
 const HHMM = /\d\d:\d\d/;
 
-test("Product and Consulting co-edit the plan: each sees the other's saves; typed text is never overwritten", async ({ page, browser }) => {
-  test.setTimeout(150_000); // three waits for the other screen's 10-second re-read
+test("B1: Product and Consulting type in different sections at once and both are kept; a section both changed asks which text to keep", async ({ page, browser }) => {
+  test.setTimeout(180_000); // four waits for the other screen's 10-second re-read
   const x = s[0]!;
   await loginAsTeam(page, ev, x.p_code);
   await page.goto("/team/squad/plan");
@@ -60,64 +65,116 @@ test("Product and Consulting co-edit the plan: each sees the other's saves; type
   );
   await expect(product.getByTestId("word-total")).toHaveText("0 / 500 words");
 
+  // Both screens type, in different sections; Product saves first (version 1).
+  await phone.getByLabel("The new plan").fill("License the sensors to councils.");
   await product.getByLabel("The crisis").fill("Our supplier stopped deliveries.");
   await product.getByRole("button", { name: "Save draft" }).click();
   await expect(product.getByRole("status").filter({ hasText: /^Saved version 1 at/ })).toBeVisible();
 
-  // The Consulting screen re-reads while the plan is open: nothing typed there, so the new version is shown.
-  await expect(phone.getByLabel("The crisis")).toHaveValue("Our supplier stopped deliveries.", { timeout: 20_000 });
-  await expect(phone.getByTestId("draft-version")).toContainText("Version 1 · saved by Product at");
-  await expect(phone.getByRole("status").filter({ hasText: /^Updated to version 1, saved by Product at/ })).toBeVisible();
-
-  // Both type; Product saves first. Consulting's typed text stays, and the newer version is offered.
-  await phone.getByLabel("The new plan").fill("License the sensors to councils.");
-  await product.getByLabel("The money").fill("The rescue covers six months.");
-  await product.getByRole("button", { name: "Save draft" }).click();
-  await expect(product.getByRole("status").filter({ hasText: /^Saved version 2 at/ })).toBeVisible();
-  const conflict = phone.getByTestId("draft-conflict");
-  await expect(conflict).toContainText(/The Product team saved version 2 at \d\d:\d\d:\d\d while you were editing\./, { timeout: 20_000 });
+  // The phone re-reads every 10 seconds: Product's section is merged in, the phone's own section stays typed, and
+  // Save is still offered (it will name version 1).
+  await expect(
+    phone.getByRole("status").filter({
+      hasText: /^Merged the Product team's changes to The crisis \(version 1, saved at \d\d:\d\d:\d\d\)\. Your own changes are still here, not saved yet\./,
+    }),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(phone.getByLabel("The crisis")).toHaveValue("Our supplier stopped deliveries.");
   await expect(phone.getByLabel("The new plan")).toHaveValue("License the sensors to councils.");
-  await expect(phone.getByRole("button", { name: "Save draft" })).toBeDisabled();
-  await conflict.getByText("See their version").click();
-  await expect(conflict).toContainText("The rescue covers six months.");
+  await expect(phone.getByTestId("draft-conflict")).toHaveCount(0);
+  await expect(phone.getByTestId("draft-version")).toContainText("Version 1 · saved by Product at");
+  await expect(phone.getByText("Unsaved changes")).toBeVisible();
   await noSideScroll(consulting);
-
-  // Load theirs (Consulting's text is set aside), then add Consulting's part again and save on top of version 2.
-  await conflict.getByRole("button", { name: "Load their version" }).click();
-  await expect(phone.getByLabel("The money")).toHaveValue("The rescue covers six months.");
-  await expect(phone.getByLabel("The new plan")).toHaveValue("");
-  await expect(phone.getByTestId("draft-stash")).toContainText("License the sensors to councils.");
-  await phone.getByLabel("The new plan").fill("License the sensors to councils.");
-  await phone.getByTestId("draft-stash").getByRole("button", { name: "Discard it" }).click();
-  await expect(phone.getByTestId("draft-stash")).toHaveCount(0);
   await phone.getByRole("button", { name: "Save draft" }).click();
-  await expect(phone.getByRole("status").filter({ hasText: /^Saved version 3 at/ })).toBeVisible();
-  await expect(phone.getByTestId("draft-version")).toContainText("Version 3 · saved by your team");
+  await expect(phone.getByRole("status").filter({ hasText: /^Saved version 2 at/ })).toBeVisible();
+  expect(await planDraft(x.company_id)).toMatchObject({
+    version: 2,
+    content: { crisis: "Our supplier stopped deliveries.", new_plan: "License the sensors to councils." },
+  });
 
+  // Product's screen (nothing typed since its save) shows version 2, with both sections.
   await expect(product.getByLabel("The new plan")).toHaveValue("License the sensors to councils.", { timeout: 20_000 });
-  await expect(product.getByTestId("draft-version")).toContainText("Version 3 · saved by Consulting at");
-  await expect(product.getByTestId("word-total")).toHaveText("14 / 500 words");
+  await expect(product.getByLabel("The crisis")).toHaveValue("Our supplier stopped deliveries.");
+  await expect(product.getByTestId("draft-version")).toContainText("Version 2 · saved by Consulting at");
+  await expect(product.getByRole("status").filter({ hasText: /^Updated to version 2, saved by Consulting at/ })).toBeVisible();
 
-  // Consulting submits (two clicks); Product's screen shows who submitted.
-  await phone.getByRole("button", { name: "Submit", exact: true }).click();
-  await phone.getByRole("button", { name: "Click again to submit 14 words" }).click();
-  await expect(phone.getByText(/^Submitted at \d\d:\d\d:\d\d \(14 words\)\. This version is the one judged/)).toBeVisible();
-  await expect(page.getByTestId("submitted-versions")).toContainText(/by Consulting · 14 words Current · judged/, { timeout: 20_000 });
+  // The same section changed on both screens (and another only by Product): the phone takes Product's other section,
+  // shows both texts of the shared one, and waits for a choice before it saves.
+  await phone.getByLabel("The money").fill("The fund pays for one year.");
+  await product.getByLabel("The money").fill("The rescue covers six months.");
+  await product.getByLabel("Risks").fill("Councils may refuse.");
+  await product.getByRole("button", { name: "Save draft" }).click();
+  await expect(product.getByRole("status").filter({ hasText: /^Saved version 3 at/ })).toBeVisible();
+  const conflict = phone.getByTestId("draft-conflict");
+  await expect(conflict).toContainText(/The Product team saved version 3 at \d\d:\d\d:\d\d while you were editing\./, { timeout: 20_000 });
+  await expect(conflict).toContainText("You both changed The money: choose which text to keep below.");
+  const money = phone.getByTestId("conflict-money");
+  await expect(money.getByTestId("conflict-mine")).toContainText("The fund pays for one year.");
+  await expect(money.getByTestId("conflict-theirs")).toContainText("The rescue covers six months.");
+  await expect(money.getByTestId("conflict-theirs")).toContainText("version 3, saved by Product");
+  await expect(phone.getByLabel("The money")).toHaveValue("The fund pays for one year.");
+  await expect(phone.getByLabel("Risks")).toHaveValue("Councils may refuse.");
+  await expect(phone.getByRole("status").filter({ hasText: /^Merged the Product team's changes to Risks \(version 3/ })).toBeVisible();
+  await expect(phone.getByRole("button", { name: "Save draft" })).toBeDisabled();
+  await expect(phone.getByRole("button", { name: "Save and submit" })).toBeDisabled();
+  await noSideScroll(consulting);
+  // Keeping the phone's text replaces Product's in that section only.
+  await money.getByRole("button", { name: "Keep my text" }).click();
+  await expect(phone.getByTestId("draft-conflict")).toHaveCount(0);
+  await expect(phone.getByRole("status").filter({ hasText: "You kept your text in The money: your next save replaces their text there." })).toBeVisible();
+  await phone.getByRole("button", { name: "Save draft" }).click();
+  await expect(phone.getByRole("status").filter({ hasText: /^Saved version 4 at/ })).toBeVisible();
+  expect((await planDraft(x.company_id)).content).toMatchObject({
+    crisis: "Our supplier stopped deliveries.",
+    new_plan: "License the sensors to councils.",
+    money: "The fund pays for one year.",
+    risks: "Councils may refuse.",
+  });
+  await expect(product.getByLabel("The money")).toHaveValue("The fund pays for one year.", { timeout: 20_000 });
+  await expect(product.getByTestId("draft-version")).toContainText("Version 4 · saved by Consulting at");
+  await expect(product.getByTestId("word-total")).toHaveText("18 / 500 words");
+
+  // F2: Product (nothing typed) submits before its re-read has shown Consulting's newer save. The submit is refused,
+  // the newer version is shown, and nothing offers to send the old text over it. (Product's tab reports itself
+  // hidden meanwhile, so its 10-second re-read cannot show the newer version first.)
+  await page.evaluate(() => Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" }));
+  await phone.getByLabel("Next three steps").fill("Sign the deal this week.");
+  await phone.getByRole("button", { name: "Save draft" }).click();
+  await expect(phone.getByRole("status").filter({ hasText: /^Saved version 5 at/ })).toBeVisible();
+  await expect(product.getByTestId("draft-version")).toContainText("Version 4 · saved by Consulting at");
+  await product.getByRole("button", { name: "Submit", exact: true }).click();
+  await product.getByRole("button", { name: "Click again to submit 18 words" }).click();
+  await expect(
+    product.getByRole("status").filter({ hasText: /^Not submitted: the Consulting team saved version 5, which is shown now\. Check it, then submit\./ }),
+  ).toBeVisible();
+  await expect(product.getByLabel("Next three steps")).toHaveValue("Sign the deal this week.");
+  await expect(product.getByTestId("draft-version")).toContainText("Version 5 · saved by Consulting at");
+  await expect(product.getByTestId("draft-conflict")).toHaveCount(0);
+  await expect(product.getByRole("button", { name: /Keep my text|Replace/ })).toHaveCount(0);
+  await expect(product.getByRole("button", { name: "Saved" })).toBeDisabled();
+  expect(await planDraft(x.company_id)).toMatchObject({ version: 5, content: { next_steps: "Sign the deal this week.", money: "The fund pays for one year." } });
+  expect(await ev.n.one("select count(*)::int as n from submissions where company_id = $1 and type = 'PLAN'", [x.company_id])).toEqual({ n: 0 });
+  await page.evaluate(() => Reflect.deleteProperty(document, "visibilityState"));
+
+  // Product submits what it now sees (two clicks); Consulting's screen shows who submitted.
+  await product.getByRole("button", { name: "Submit", exact: true }).click();
+  await product.getByRole("button", { name: "Click again to submit 23 words" }).click();
+  await expect(product.getByText(/^Submitted at \d\d:\d\d:\d\d \(23 words\)\. This version is the one judged/)).toBeVisible();
   await expect(page.getByTestId("plan-deadline-rule")).toContainText(/Your squad submitted at \d\d:\d\d:\d\d; submit again to replace that version\./);
+  await expect(consulting.getByTestId("submitted-versions")).toContainText(/by Product · 23 words Current · judged/, { timeout: 20_000 });
 
   // Text typed on the phone and not saved survives a reload of the tab.
-  await phone.getByLabel("Risks").fill("Councils may refuse.");
+  await phone.getByLabel("Time to recovery").fill("Nine months.");
   consulting.on("dialog", (d) => void d.accept());
   await consulting.reload();
-  await expect(planEditor(consulting).getByLabel("Risks")).toHaveValue("Councils may refuse.");
+  await expect(planEditor(consulting).getByLabel("Time to recovery")).toHaveValue("Nine months.");
   await expect(consulting.getByText("Restored the unsaved text you typed on this device. Save it to keep it.")).toBeVisible();
   await expect(planEditor(consulting).getByText("Unsaved changes")).toBeVisible();
   await noSideScroll(consulting);
 
   await consulting.goto("/team/squad");
   await expect(consulting.getByTestId("status-PLAN")).toContainText("Submitted");
-  await expect(consulting.getByTestId("draft-PLAN")).toContainText(/Version 3 · 14 words · saved by your team at/);
-  await expect(consulting.getByTestId("submitted-PLAN")).toContainText(/by your team · 14 words · on time · current \(judged\)/);
+  await expect(consulting.getByTestId("draft-PLAN")).toContainText(/Version 5 · 23 words · saved by your team at/);
+  await expect(consulting.getByTestId("submitted-PLAN")).toContainText(/by Product · 23 words · on time · current \(judged\)/);
   await noSideScroll(consulting);
   await consulting.context().close();
 });

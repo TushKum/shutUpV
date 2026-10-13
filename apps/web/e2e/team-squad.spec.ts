@@ -164,25 +164,38 @@ test("the pitch card on a phone: template fields, live word counts, save, a save
   await expect(editor.getByTestId("draft-version")).toContainText("Version 1 · saved by your team at");
   await expect(editor.getByRole("button", { name: "Saved" })).toBeDisabled();
 
-  // This screen types more while the same team saves from another device; then it saves: refused, the text is kept.
+  // This screen types more while the same team saves from another device (another problem text, other customers);
+  // then it saves: refused, and the two are merged section by section. The other device's problem is taken, as
+  // nothing was typed there here; Customers was changed on both, so the screen asks which text to keep.
   await editor.getByLabel("Customers").fill("Small-town water boards.");
-  await ev.n.ok(ev.n.team(x.p_code), "save_draft", "PITCH", { company_name: "Aqua Sense", ticker: "AQS", problem: "Unsafe water.", customers: "Town councils." }, 1);
-  // (The page may also have re-read the newer version on its own, which offers the same choice and disables Save.)
+  await ev.n.ok(ev.n.team(x.p_code), "save_draft", "PITCH", {
+    company_name: "Aqua Sense",
+    ticker: "AQS",
+    problem: "Unsafe water in small villages.",
+    solution: "Cheap sensors in every tank, read by phone.",
+    customers: "Town councils.",
+  }, 1);
+  // (The page may also have re-read the newer version on its own, which merges the same way and disables Save.)
   await editor.getByRole("button", { name: "Save draft" }).click({ timeout: 3000 }).catch(() => {});
   const conflict = editor.getByTestId("draft-conflict");
   await expect(conflict).toContainText(/Your team \(on another device\) saved version 2 at \d\d:\d\d:\d\d while you were editing\./);
+  await expect(conflict).toContainText("You both changed Customers");
   await expect(editor.getByLabel("Customers")).toHaveValue("Small-town water boards.");
+  await expect(editor.getByLabel("The problem")).toHaveValue("Unsafe water in small villages.");
   await expect(editor.getByRole("button", { name: "Save draft" })).toBeDisabled();
-  await conflict.getByRole("button", { name: "Load their version" }).click();
+  const customers = editor.getByTestId("conflict-customers");
+  await expect(customers.getByTestId("conflict-mine")).toContainText("Small-town water boards.");
+  await expect(customers.getByTestId("conflict-theirs")).toContainText("Town councils.");
+  await noSideScroll(page);
+  await customers.getByRole("button", { name: "Use their text" }).click();
   await expect(editor.getByLabel("Customers")).toHaveValue("Town councils.");
-  await expect(editor.getByLabel("The problem")).toHaveValue("Unsafe water.");
   await expect(editor.getByTestId("draft-version")).toContainText("Version 2 · saved by your team");
   const stash = editor.getByTestId("draft-stash");
-  await expect(stash).toContainText("Your text from before you loaded the newer version is set aside here.");
+  await expect(stash).toContainText("You chose their text in Customers. Your text there is set aside here.");
   await expect(stash).toContainText("Small-town water boards.");
   await stash.getByRole("button", { name: "Put my text back" }).click();
   await expect(editor.getByLabel("Customers")).toHaveValue("Small-town water boards.");
-  await expect(editor.getByLabel("The problem")).toHaveValue("Unsafe water in small towns.");
+  await expect(editor.getByLabel("The problem")).toHaveValue("Unsafe water in small villages.");
   await editor.getByRole("button", { name: "Save draft" }).click();
   await expect(editor.getByRole("status").filter({ hasText: /^Saved version 3 at/ })).toBeVisible();
 
