@@ -75,7 +75,7 @@ Before the event leaves Setup it needs the seed commitment and both decks (the s
 
 ## The lottery seed
 
-The day before the event, run `pnpm new-seed`. Keep the seed secret, publish the commitment, and enter the commitment (with `pnpm seed --commitment …` or in /admin) while the event is still in SETUP: it is fixed once the event starts. At 21:00 an organiser enters the seed and the dice roll; the display shows the commitment and the dice. The seed is revealed at the crisis (00:30), and anyone can then download the lottery record and run:
+The day before the event, run `pnpm new-seed`. Keep the seed secret, publish the commitment, and enter the commitment (with `pnpm seed --commitment …` or in /admin) while the event is still in SETUP: it is fixed once the event starts. At 21:00 an organiser enters the seed and the dice roll; the big screen shows the commitment, the dice and the seed check. The seed is revealed at the crisis (00:30) and shown on the big screen; anyone can then download the lottery record, without signing in, from `https://<app>/api/lottery-record?event=<slug>` (before the reveal it answers 404) and run:
 
 ```bash
 pnpm verify-lottery --file lottery-record.json --commitment <the commitment published the day before>
