@@ -116,8 +116,9 @@ export function DraftEditor(props: DraftEditorProps) {
   // A submit in flight (it saves first): Save waits for it, so the two never race each other's version.
   const [submitting, setSubmitting] = useState(false);
   const [saveResult, setSaveResult] = useState<DraftResult | null>(null);
-  // A save's answer outlives the editor (the deadline closes it, the page moves on): the page's feedback bar shows it.
-  useCarryOver(saveResult);
+  // A save's or submit's answer outlives the editor: if the editor goes away (the deadline closed it, the page moved
+  // on) before the answer comes back or just after it is shown, the page's feedback bar shows it.
+  const deliver = useCarryOver(saveResult);
   const payload = draftPayload(type, state.fields);
   const choosing = state.conflicts.length > 0;
   const save = () => {
@@ -127,6 +128,7 @@ export function DraftEditor(props: DraftEditorProps) {
     dispatch({ type: "saving", fields: sent });
     start(async () => {
       const r = (await safely(() => saveDraft(type, sent, base))) as DraftResult;
+      deliver(r);
       dispatch(afterResult(r));
       setSaveResult(r);
       router.refresh();
@@ -138,6 +140,7 @@ export function DraftEditor(props: DraftEditorProps) {
     setSubmitting(true);
     try {
       const r = (await safely(() => submitDraft(type, sent, state.base.version))) as DraftResult;
+      deliver(r);
       dispatch(afterResult(r, "submit"));
       setSaveResult(null);
       return r;
