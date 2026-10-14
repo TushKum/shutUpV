@@ -296,12 +296,15 @@ test("a deal not fully signed at the deadline: the open page closes, no bonus, t
   await ev.n.ok(ev.n.team(y.c_code), "edit_deal", null, 700);
   const d = (await ev.n.ok(ev.n.team(y.f_code), "edit_deal", 5_000_000, null)).deal;
   await ev.n.ok(ev.n.team(y.p_code), "sign_deal", d.version);
-  await ev.n.q("update deadlines set at = now() + interval '8 seconds' where event_id = $1 and code in ('DEAL_BONUS', 'DEAL')", [ev.n.eventId]);
+  // The deadline is 25 s away: enough for signing in and loading the page under load, which must see the deal still
+  // open before it closes on screen.
+  test.setTimeout(120_000);
+  await ev.n.q("update deadlines set at = now() + interval '25 seconds' where event_id = $1 and code in ('DEAL_BONUS', 'DEAL')", [ev.n.eventId]);
   await loginAsTeam(page, ev, y.c_code);
   await page.goto("/team/rescue");
   await expect(page.getByTestId("deal-sign-PRODUCT")).toContainText("Signed");
   await expect(page.getByRole("button", { name: `Sign version ${d.version}` })).toBeEnabled();
-  await expect(page.getByTestId("deal-outcome")).toContainText("not fully signed by the deadline", { timeout: 20_000 });
+  await expect(page.getByTestId("deal-outcome")).toContainText("not fully signed by the deadline", { timeout: 40_000 });
   await expect(page.getByTestId("deal")).toHaveAttribute("data-stage", "CLOSED");
   await expect(page.getByRole("button", { name: /^Sign version/ })).toHaveCount(0);
   await expect(page.getByTestId("deal-cap")).toContainText("Plan capped at 50");
