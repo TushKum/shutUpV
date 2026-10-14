@@ -33,6 +33,7 @@ export function BoardPages({
   closed,
   serverTime,
   highlightUntil,
+  compact = false,
 }: {
   tiles: BoardTile[];
   /** The last cleared round's number (null before any round has cleared). */
@@ -42,6 +43,8 @@ export function BoardPages({
   serverTime: string;
   /** Server time (ms) until which the tiles that moved in the last round are highlighted. */
   highlightUntil: number | null;
+  /** Less height for the tiles (a bulletin banner or the pause strip is shown): one step smaller type. */
+  compact?: boolean;
 }) {
   const live = useServerNow(500);
   const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
@@ -53,9 +56,9 @@ export function BoardPages({
 
   return (
     <>
-      <div className="grid min-h-0 flex-1 grid-cols-5 grid-rows-5 gap-x-3 gap-y-1.5 px-6 py-2" data-testid="board-page-tiles" data-page={page + 1}>
+      <div className="grid min-h-0 flex-1 grid-cols-5 grid-rows-5 gap-x-3 gap-y-1 px-6 py-2" data-testid="board-page-tiles" data-page={page + 1}>
         {pageOf(tiles, page).map((t) => (
-          <Tile key={t.id} tile={t} round={round} glow={glow} />
+          <Tile key={t.id} tile={t} round={round} glow={glow} size={compact ? SIZES.compact : SIZES.normal} />
         ))}
       </div>
       <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-white/15 px-8 text-[28px] text-slate-300">
@@ -85,22 +88,43 @@ export function BoardPages({
   );
 }
 
-function Tile({ tile: t, round, glow }: { tile: BoardTile; round: number | null; glow: boolean }) {
+/** Type sizes of a tile: normal fills the board under the header; compact fits under a two-line bulletin and the pause strip. */
+const SIZES = {
+  normal: {
+    pad: "py-2",
+    ticker: "text-[52px]",
+    arrow: "text-[44px]",
+    name: "text-[28px] leading-[1.2]",
+    pending: "text-[30px]",
+    fit: { normal: { price: "text-[44px]", change: "text-[34px]" }, small: { price: "text-[44px]", change: "text-[28px]" }, smaller: { price: "text-[40px]", change: "text-[26px]" } },
+  },
+  compact: {
+    pad: "py-1",
+    ticker: "text-[40px]",
+    arrow: "text-[36px]",
+    name: "text-[24px] leading-[1.15]",
+    pending: "text-[26px]",
+    fit: { normal: { price: "text-[38px]", change: "text-[28px]" }, small: { price: "text-[38px]", change: "text-[24px]" }, smaller: { price: "text-[34px]", change: "text-[22px]" } },
+  },
+} satisfies Record<string, { pad: string; ticker: string; arrow: string; name: string; pending: string; fit: Record<PriceRowFit, { price: string; change: string }> }>;
+type Size = (typeof SIZES)[keyof typeof SIZES];
+
+function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number | null; glow: boolean; size: Size }) {
   const tone = toneOf(t.changeBp);
   const lit = glow && t.move !== null ? GLOW[t.move] : "";
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-white/15 bg-white/[0.06] px-4 py-2 transition-[background-color,box-shadow] duration-1000 ${lit}`}
+      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-white/15 bg-white/[0.06] px-4 ${size.pad} transition-[background-color,box-shadow] duration-1000 ${lit}`}
       data-testid={`tile-${t.ticker}`}
       data-lit={lit ? "true" : undefined}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[52px] leading-none font-black tracking-tight" data-testid="tile-ticker">
+        <span className={`leading-none font-black tracking-tight ${size.ticker}`} data-testid="tile-ticker">
           {t.ticker}
         </span>
         {t.move ? (
           <span
-            className={`shrink-0 text-[44px] leading-none ${TEXT[MOVE_TONE[t.move]]}`}
+            className={`shrink-0 leading-none ${size.arrow} ${TEXT[MOVE_TONE[t.move]]}`}
             data-testid="tile-move"
             data-move={t.move}
             aria-label={`${MOVE_WORDS[t.move]} in round ${round}`}
@@ -110,7 +134,7 @@ function Tile({ tile: t, round, glow }: { tile: BoardTile; round: number | null;
         ) : null}
       </div>
       <div className="flex min-w-0 items-baseline gap-3">
-        <p className="min-w-0 flex-1 truncate text-[28px] leading-[1.2] text-slate-300" data-testid="tile-name">
+        <p className={`min-w-0 flex-1 truncate text-slate-300 ${size.name}`} data-testid="tile-name">
           {t.name}
         </p>
         {t.closing ? (
@@ -120,24 +144,28 @@ function Tile({ tile: t, round, glow }: { tile: BoardTile; round: number | null;
         ) : null}
       </div>
       {t.price === null ? (
-        <p className="text-[30px] leading-[1.2] font-semibold text-slate-400" data-testid="tile-pending">
+        <p className={`leading-[1.2] font-semibold text-slate-400 ${size.pending}`} data-testid="tile-pending">
           IPO price pending
         </p>
       ) : (
-        <PriceRow price={money(t.price)} change={bp(t.changeBp)} tone={tone} />
+        <PriceRow price={money(t.price)} change={bp(t.changeBp)} tone={tone} fit={size.fit} />
       )}
     </div>
   );
 }
 
-const FIT: Record<PriceRowFit, { price: string; change: string }> = {
-  normal: { price: "text-[44px]", change: "text-[34px]" },
-  small: { price: "text-[44px]", change: "text-[28px]" },
-  smaller: { price: "text-[40px]", change: "text-[26px]" },
-};
-
-function PriceRow({ price, change, tone }: { price: string; change: string; tone: "up" | "down" | "flat" }) {
-  const fit = FIT[priceRowFit(price, change)];
+function PriceRow({
+  price,
+  change,
+  tone,
+  fit: fits,
+}: {
+  price: string;
+  change: string;
+  tone: "up" | "down" | "flat";
+  fit: Record<PriceRowFit, { price: string; change: string }>;
+}) {
+  const fit = fits[priceRowFit(price, change)];
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className={`shrink-0 leading-none font-bold tabular-nums ${fit.price}`} data-testid="tile-price">

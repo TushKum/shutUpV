@@ -141,7 +141,7 @@ describe("pitchSummary", () => {
     const s = pitchSummary([p("CCC", 60, 1050), p("AAA", 60, 1050), p("BBB", null, null)]);
     expect(s.top.map((r) => r.ticker)).toEqual(["AAA", "CCC"]);
     expect(s).toMatchObject({ listed: 2, low: 1050, high: 1050 });
-    expect(pitchSummary([])).toEqual({ listed: 0, low: null, high: null, top: [] });
+    expect(pitchSummary([])).toEqual({ listed: 0, low: null, high: null, top: [], moreTied: 0 });
   });
 });
 
@@ -269,5 +269,19 @@ describe("competitionRanks", () => {
     expect(competitionRanks([90, 80, 80, 60])).toEqual([1, 2, 2, 4]);
     expect(competitionRanks([])).toEqual([]);
     expect(competitionRanks([null, null])).toEqual([1, 1]);
+  });
+});
+
+describe("pitchSummary ties across the cut", () => {
+  const row = (ticker: string, score: number) => ({ ticker, name: null, score, ipoPrice: 1050 });
+  test("counts the companies left out that share the last shown score", () => {
+    const s = pitchSummary([row("AAA", 90), row("BBB", 82), row("CCC", 82), row("DDD", 82), row("EEE", 82), row("FFF", 82), row("GGG", 70)]);
+    expect(s.top.map((r) => r.ticker)).toEqual(["AAA", "BBB", "CCC", "DDD", "EEE"]);
+    expect(s.moreTied).toBe(1);
+  });
+  test("no tie across the cut, or fewer companies than the limit: none", () => {
+    expect(pitchSummary([row("AAA", 90), row("BBB", 80), row("CCC", 70), row("DDD", 60), row("EEE", 50), row("FFF", 40)]).moreTied).toBe(0);
+    expect(pitchSummary([row("AAA", 90)]).moreTied).toBe(0);
+    expect(pitchSummary([]).moreTied).toBe(0);
   });
 });

@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
-import { sha256Hex } from "@msim/engine";
+import { aiPrice, applyTier, closingPrice, crisisShock, divRoundHalfUp, formatCents, marketClose, sha256Hex, tierBp } from "@msim/engine";
 import { seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { drawn, seedOf } from "./support/game";
 import { loginAsStaff } from "./support/login";
 
-// The big screen's takeovers from the draw to the crisis, on one event walked forward through the real game
-// functions: the squad draw with the seed check (and never the seed), the pitch verdicts with the IPO prices, and the
-// crisis with every company's card, its price −15% and the seed reveal. Each takeover arrives live, without a
+// The big screen's takeovers from the draw to the closing bell, on one event walked forward through the real game
+// functions: the squad draw with the seed check (and never the seed), the pitch verdicts with the IPO prices, the
+// crisis with every company's card, its price −15% and the seed reveal, the plan and flash verdicts with the risers
+// and fallers, and the closing bell with each company's closing price. Each takeover arrives live, without a
 // reload, and no team name is ever on the screen.
 
 test.describe.configure({ mode: "serial" });
@@ -123,4 +124,217 @@ test("the crisis shows each company's card and its price −15%, and the seed re
   await page.reload();
   await expect(page.getByTestId("crisis-seed-check")).toHaveText("✓ SHA-256(seed) = commitment");
   await expect(page.getByTestId("crisis-EUA")).toContainText("$8.93");
+});
+
+// ───────────── After the crisis: the plan and flash verdicts and the closing bell ─────────────
+
+type Probe = Window & { __marker?: number };
+/** Marks the page's window: still marked later means the screen changed without a reload. */
+const markWindow = (page: Page) => page.evaluate(() => void ((window as Probe).__marker = 1));
+const sameWindow = (page: Page) => page.evaluate(() => (window as Probe).__marker === 1);
+
+/** Basis points as the screen writes a change: 2000 → "+20%", -1857 → "−18.57%", 0 → "0%". */
+const pct = (b: number) => {
+  if (b === 0) return "0%";
+  const a = Math.abs(b) / 100;
+  return `${b > 0 ? "+" : "−"}${Number.isInteger(a) ? a : a.toFixed(2).replace(/0$/, "")}%`;
+};
+
+/** Saves the squad's draft of a plan or flash answer (as its Product team) and submits it. */
+async function submitWork(x: (typeof s)[number], type: "PLAN" | "FLASH") {
+  const p = ev.n.team(x.p_code);
+  const draft = await ev.n.one("select version from submission_drafts where squad_id = $1 and type = $2", [x.id, type]);
+  const content =
+    type === "FLASH"
+      ? { answer: "Licensing is profitable by month 9 with no loans." }
+      : {
+          crisis: "The chip is unavailable for 18 months.",
+          new_plan: "License the software.",
+          money: "Costs $60,000.",
+          deal: "$42,000 at $7.00.",
+          time_to_recovery: "Nine months.",
+          risks: "Partners may refuse.",
+          next_steps: "Sign two partners.",
+        };
+  await ev.n.ok(p, "save_draft", type, content, draft.version);
+  await ev.n.ok(p, "submit_submission", type);
+}
+
+interface TierMove {
+  ticker: string;
+  name: string;
+  score: number;
+  tier_bp: number;
+  before: number;
+  after: number;
+  ai_before: number;
+  ai_after: number;
+}
+
+/** The release's recorded price moves (PLAN_TIER or FLASH_TIER), each checked against the engine's tier rules. */
+async function tierMoves(type: "PLAN" | "FLASH"): Promise<TierMove[]> {
+  const rows = await ev.n.q<TierMove>(
+    `select c.ticker, c.name, s.final_score as score, rp.tier_bp, rp.market_before as before, rp.market_after as after, rp.ai_before, rp.ai_after
+       from round_prices rp join companies c on c.id = rp.company_id join scores s on s.company_id = c.id and s.type = $2
+      where rp.event_id = $1 and rp.kind = $3 order by c.ticker`,
+    [ev.n.eventId, type, `${type}_TIER`],
+  );
+  expect(rows.map((r) => r.ticker)).toEqual(["EUA", "EUB", "EUC"]);
+  for (const r of rows) {
+    expect(r.tier_bp, r.ticker).toBe(tierBp(type, r.score));
+    expect(r.after, r.ticker).toBe(applyTier(r.before, r.tier_bp)); // half-up
+    expect(r.ai_after, r.ticker).toBe(applyTier(r.ai_before, r.tier_bp));
+  }
+  return rows;
+}
+
+/**
+ * The tier verdicts on the screen: the count up · unchanged · down, each riser and faller with its score, tier and
+ * price before → after, and a 0% company in neither column.
+ */
+async function seeTierVerdicts(page: Page, rows: TierMove[]) {
+  const up = rows.filter((r) => r.tier_bp > 0).length;
+  const down = rows.filter((r) => r.tier_bp < 0).length;
+  await expect(page.getByTestId("verdicts-summary")).toHaveText(
+    `Every price moved by the company's tier: ${up} up · ${rows.length - up - down} unchanged · ${down} down`,
+  );
+  for (const r of rows) {
+    const riser = page.getByTestId(`verdicts-risers-${r.ticker}`);
+    const faller = page.getByTestId(`verdicts-fallers-${r.ticker}`);
+    const line = `${r.ticker} ${r.name} ${r.score} ${pct(r.tier_bp)} ${formatCents(r.before)} → ${formatCents(r.after)}`;
+    await expect(r.tier_bp > 0 ? riser : faller).toHaveCount(r.tier_bp === 0 ? 0 : 1);
+    await expect(r.tier_bp > 0 ? faller : riser).toHaveCount(0);
+    if (r.tier_bp !== 0) await expect(r.tier_bp > 0 ? riser : faller).toHaveText(line, { useInnerText: true });
+  }
+}
+
+test("the plan verdicts show the risers and fallers with score, tier and price before → after, live", async ({ page }) => {
+  // 03:30, through the real functions: EUA's deal is signed by all three teams and its plan judged 88; EUB's plan is
+  // judged 78 but capped at 50 (no deal by 03:00): 0%, in neither column; EUC sends no plan and seal_missing_scores
+  // gives it 0. Rounds 5–12 clear untraded on the way, so every price starts from the post-crisis price.
+  test.setTimeout(150_000);
+  await screen(page);
+  await markWindow(page);
+  const [a, b] = s;
+  await ev.n.advanceTo("RESCUE_2");
+  await ev.n.ok(ev.n.team(a.c_code), "edit_deal", null, 700);
+  const deal = (await ev.n.ok(ev.n.team(a.f_code), "edit_deal", 4_200_000, null)).deal;
+  for (const code of [a.p_code, a.c_code, a.f_code]) await ev.n.ok(ev.n.team(code), "sign_deal", deal.version);
+  await submitWork(a, "PLAN");
+  await submitWork(b, "PLAN");
+  await ev.n.deadlinePassed("PLAN");
+  await ev.n.deadlinePassed("DEAL");
+  await ev.n.advanceTo("PLANS_PUBLISHED");
+  expect(await ev.n.judge(a.company_id, "PLAN", [88, 88, 88])).toMatchObject({ ok: true, final: 88, capped: false });
+  expect(await ev.n.judge(b.company_id, "PLAN", [78, 78, 78])).toMatchObject({ ok: true, final: 50, capped: true });
+  expect(await ev.n.org("seal_missing_scores", ev.n.eventId, "PLAN")).toMatchObject({ sealed_missing: 1 });
+  await ev.n.advanceTo("VERDICTS");
+  await expect(page.getByRole("heading", { name: "Rescue plan verdicts" })).toHaveCount(0);
+
+  await ev.n.org("release_scores", ev.n.eventId, "PLAN");
+  await expect(page.getByRole("heading", { name: "Rescue plan verdicts" })).toBeVisible({ timeout: 10_000 });
+  const rows = await tierMoves("PLAN");
+  expect(rows.map((r) => r.score)).toEqual([88, 50, 0]);
+  expect(rows.map((r) => Math.sign(r.tier_bp))).toEqual([1, 0, -1]); // a riser, an unchanged company and a faller
+  for (const r of rows) expect(r.before, r.ticker).toBe(crisisShock(1050)); // $10.50 IPO −15%, untraded since
+  await seeTierVerdicts(page, rows);
+  await noTeamNames(page);
+  expect(await sameWindow(page)).toBe(true); // live: no reload
+});
+
+test("the flash verdicts after round 17 show the risers and fallers, live", async ({ page }) => {
+  // 04:20: trading reopens, the flash news is published (its takeover first), every squad answers and the answers
+  // are judged 80, 30 and 60; rounds 13–17 clear untraded, and the release after round 17 moves both prices.
+  test.setTimeout(150_000);
+  await screen(page);
+  await markWindow(page);
+  await ev.n.advanceTo("ROUNDS_13_21");
+  await ev.n.org("prepare_flash_bulletin", ev.n.eventId, "Interest rates rise", "Investors want a path to profit within 12 months.");
+  await ev.n.org("publish_flash_bulletin", ev.n.eventId);
+  await expect(page.getByRole("heading", { name: "Flash news" })).toBeVisible({ timeout: 10_000 });
+  for (const x of s) await submitWork(x, "FLASH");
+  await ev.n.deadlinePassed("FLASH");
+  for (let r = 13; r <= 17; r++) {
+    await ev.n.openRound(r);
+    await ev.n.clearRound(r);
+  }
+  for (const [i, total] of [80, 30, 60].entries()) {
+    expect(await ev.n.judge(s[i].company_id, "FLASH", [total, total, total])).toMatchObject({ ok: true, final: total });
+  }
+  await expect(page.getByRole("heading", { name: "Flash verdicts" })).toHaveCount(0);
+
+  await ev.n.org("release_scores", ev.n.eventId, "FLASH");
+  await expect(page.getByRole("heading", { name: "Flash verdicts" })).toBeVisible({ timeout: 10_000 });
+  const rows = await tierMoves("FLASH");
+  expect(rows.map((r) => Math.sign(r.tier_bp))).toEqual([1, -1, 0]);
+  // Each moved from where the plan tier left it (rounds 13–17 were untraded).
+  const plan = await tierMoves("PLAN");
+  for (const [i, r] of rows.entries()) expect(r.before, r.ticker).toBe(plan[i]!.after);
+  await seeTierVerdicts(page, rows);
+  await noTeamNames(page);
+  expect(await sameWindow(page)).toBe(true);
+});
+
+test("the closing bell shows each company's closing price and its change since the IPO, live", async ({ page }) => {
+  // 05:00: rounds 18–21 clear through the tick, with trades in rounds 20 and 21 so EUA's and EUB's market prices move
+  // away from their AI prices (EUC is untraded); the step into CLOSE runs close_market. Market close = (round 20 +
+  // round 21) ÷ 2 and closing price = (market close + AI price) ÷ 2, both half-up; the change is in bp, half-up.
+  test.setTimeout(150_000);
+  await screen(page);
+  await markWindow(page);
+  const [a, b, c] = s;
+  for (const r of [18, 19]) {
+    await ev.n.openRound(r);
+    await ev.n.clearRound(r);
+  }
+  await ev.n.openRound(20);
+  await ev.n.orderNet(a.company_id, 5000, [b.f_code, c.f_code]); // +5%
+  await ev.n.orderNet(b.company_id, 2000, [a.f_code, c.f_code]); // +2%
+  await ev.n.clearRound(20);
+  await ev.n.openRound(21);
+  await ev.n.orderNet(a.company_id, -3000, [b.f_code, c.f_code]); // −3%
+  await ev.n.orderNet(b.company_id, -1000, [a.f_code, c.f_code]); // −1%
+  await ev.n.clearRound(21);
+  await expect(page.getByRole("heading", { name: "Closing bell" })).toHaveCount(0);
+
+  await ev.n.advanceTo("CLOSE");
+  await expect(page.getByRole("heading", { name: "Closing bell" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("closing-headline")).toHaveText("The market is closed");
+
+  const rows = await ev.n.q<{ ticker: string; name: string; ipo: number; r20: number; r21: number; ai: number; market: number; closing: number }>(
+    `select c.ticker, c.name, c.ipo_price as ipo, c.ai_price as ai, c.closing_market_price as market, c.closing_price as closing,
+            (select rp.market_after from round_prices rp join rounds r on r.id = rp.round_id where rp.company_id = c.id and rp.kind = 'CLEARING' and r.number = 20) as r20,
+            (select rp.market_after from round_prices rp join rounds r on r.id = rp.round_id where rp.company_id = c.id and rp.kind = 'CLEARING' and r.number = 21) as r21
+       from companies c where c.event_id = $1 and c.ticker is not null order by c.ticker`,
+    [ev.n.eventId],
+  );
+  expect(rows.map((r) => r.ticker)).toEqual(["EUA", "EUB", "EUC"]);
+  const plan = await tierMoves("PLAN");
+  const flash = await tierMoves("FLASH");
+  const closing = rows.map((r, i) => {
+    // The AI price ignores trading: IPO −15%, then the plan and flash tiers.
+    expect(r.ai, r.ticker).toBe(aiPrice(r.ipo, plan[i]!.tier_bp, flash[i]!.tier_bp));
+    expect(r.market, r.ticker).toBe(marketClose(r.r20, r.r21));
+    expect(r.closing, r.ticker).toBe(closingPrice(marketClose(r.r20, r.r21), r.ai));
+    return { ...r, changeBp: divRoundHalfUp((r.closing - r.ipo) * 10_000, r.ipo) };
+  });
+  expect(closing[0]!.market).not.toBe(closing[0]!.ai); // EUA's trades moved its market price away from the AI price
+  expect(closing[1]!.market).not.toBe(closing[1]!.ai);
+  expect(closing.map((r) => Math.sign(r.changeBp))).toEqual([1, -1, -1]);
+
+  for (const r of closing) {
+    const id = `closing-${r.changeBp > 0 ? "gainers" : "losers"}-${r.ticker}`;
+    await expect(page.getByTestId(id)).toHaveText(`${r.ticker} ${r.name} ${formatCents(r.ipo)} → ${formatCents(r.closing)} ${pct(r.changeBp)}`, {
+      useInnerText: true,
+    });
+  }
+  // The biggest fall first.
+  const losers = closing.filter((r) => r.changeBp < 0).sort((x, y) => x.changeBp - y.changeBp);
+  await expect(page.getByTestId("closing-losers").locator("[data-testid^=closing-losers-]")).toHaveText(
+    losers.map((r) => new RegExp(`^${r.ticker}`)),
+  );
+  await expect(page.getByTestId("closing-gainers").locator("[data-testid^=closing-gainers-]")).toHaveCount(1);
+  await expect(page.getByTestId("closing-awards")).toHaveText("Final results are announced at the awards.");
+  await noTeamNames(page);
+  expect(await sameWindow(page)).toBe(true);
 });

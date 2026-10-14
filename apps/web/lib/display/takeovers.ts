@@ -102,17 +102,23 @@ export interface PitchSummary<T> {
   high: number | null;
   /** The highest IPO prices: highest score first, then the higher price, then ticker. */
   top: T[];
+  /** Companies left out of `top` that share the last shown company's score (a tie across the cut). */
+  moreTied: number;
 }
 
 /** The pitch release: how many companies are listed, the range of IPO prices and the top `limit`. */
 export function pitchSummary<T extends PitchRow>(rows: readonly T[], limit = 5): PitchSummary<T> {
   const listed = rows.filter((r) => r.ipoPrice !== null);
   const prices = listed.map((r) => r.ipoPrice!);
+  const sorted = [...listed].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || b.ipoPrice! - a.ipoPrice! || byTicker(a, b));
+  const top = sorted.slice(0, limit);
+  const last = top.at(-1);
   return {
     listed: listed.length,
     low: prices.length ? Math.min(...prices) : null,
     high: prices.length ? Math.max(...prices) : null,
-    top: [...listed].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || b.ipoPrice! - a.ipoPrice! || byTicker(a, b)).slice(0, limit),
+    top,
+    moreTied: last ? sorted.slice(limit).filter((r) => r.score === last.score).length : 0,
   };
 }
 

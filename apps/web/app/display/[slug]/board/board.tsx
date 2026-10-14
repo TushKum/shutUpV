@@ -11,7 +11,7 @@ import { clock } from "@/lib/format";
 import { loadBoard, loadReadingStart } from "./data";
 import { BoardPages } from "./pages";
 
-export async function Board({ event, status }: { event: DisplayEvent; status: EventStatus }) {
+export async function Board({ event, status, compact = false }: { event: DisplayEvent; status: EventStatus; compact?: boolean }) {
   if (!phaseReached(status.phase, "READING")) {
     const reading = await loadReadingStart(event.id);
     return (
@@ -45,6 +45,7 @@ export async function Board({ event, status }: { event: DisplayEvent; status: Ev
         closed={tiles.some((t) => t.closing)}
         serverTime={status.server_time}
         highlightUntil={highlightUntil(round?.cleared_at)}
+        compact={compact}
       />
     </div>
   );

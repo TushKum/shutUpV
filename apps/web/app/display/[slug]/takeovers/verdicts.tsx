@@ -70,6 +70,11 @@ async function PitchVerdicts({ eventId }: { eventId: string }) {
             </li>
           ))}
         </ol>
+        {s.moreTied > 0 ? (
+          <p className="mt-2 px-5 text-[30px] text-slate-300" data-testid="verdicts-more-tied">
+            and {s.moreTied} more with the same score
+          </p>
+        ) : null}
       </section>
     </div>
   );

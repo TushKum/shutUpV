@@ -12,7 +12,7 @@ import { loadCompanies, loadCrisisCards, loadPriceMoves, lotteryRecordAddress } 
 import { HexGroups, PriceMove } from "./parts";
 import { Pager } from "./pager";
 
-/** 4 columns × 5 rows; with 50 companies, three pages (17, 17, 16). */
+/** 5 columns × 4 rows; with 50 companies, three pages (17, 17, 16). */
 const PER_PAGE = 20;
 
 interface CrisisCompany {
@@ -65,15 +65,15 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
                     </p>
                   ) : null}
                 </div>
-                <ul className="grid min-h-0 flex-1 grid-cols-4 grid-rows-5 gap-3" data-testid="crisis-companies">
+                <ul className="grid min-h-0 flex-1 grid-cols-5 grid-rows-4 gap-3" data-testid="crisis-companies">
                   {page.map((c) => (
                     <li
                       key={c.id}
                       className="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden rounded-xl border-2 border-red-500/50 bg-red-950/50 px-4"
                       data-testid={`crisis-${c.ticker}`}
                     >
-                      {/* A wide ticker with long prices wraps the price under the ticker instead of leaving the card. */}
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      {/* The price move sits under the ticker on every card, so a wide ticker with long prices fits too. */}
+                      <div className="flex flex-col items-start">
                         <span className="text-[36px] leading-[1.1] font-black">{c.ticker}</span>
                         <PriceMove before={c.before} after={c.after} tone="down" className="text-[32px] leading-[1.1]" />
                       </div>

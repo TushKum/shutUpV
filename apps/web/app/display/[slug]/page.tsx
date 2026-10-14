@@ -38,15 +38,15 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
                 <>
                   <TakeoverView event={event} takeover={takeover} />
                   {/* A pause must show in the hall during a takeover too. */}
-                  {status.paused ? <PauseStrip className="absolute inset-x-0 bottom-0" /> : null}
+                  {status.paused ? <PauseStrip className="absolute inset-x-0 bottom-0 py-1 text-[28px] leading-[1.1]" /> : null}
                 </>
               ) : null
             }
           >
             <DisplayHeader event={event} status={status} />
             <BulletinBanner bulletin={bulletin} />
-            {status.paused ? <PauseStrip className="shrink-0" /> : null}
-            <Board event={event} status={status} />
+            {status.paused ? <PauseStrip className="shrink-0 py-2 text-[36px] leading-tight" /> : null}
+            <Board event={event} status={status} compact={bulletin !== null || status.paused} />
           </ScreenSwitch>
         </Stage>
       </EventChannel>
@@ -54,9 +54,10 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
   );
 }
 
-function PauseStrip({ className }: { className: string }) {
+/** The pause strip: under the banner (36 px), or thinner over a takeover, inside the frame's bottom padding. */
+function PauseStrip({ className = "py-2 text-[36px] leading-tight" }: { className?: string }) {
   return (
-    <p className={`bg-amber-400 py-2 text-center text-[36px] leading-tight font-black text-black ${className}`} data-testid="display-paused">
+    <p className={`bg-amber-400 text-center font-black text-black ${className}`} data-testid="display-paused">
       The event is paused. Deadlines move later by the length of the pause.
     </p>
   );
