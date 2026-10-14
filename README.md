@@ -5,7 +5,7 @@ Live trading simulation for a one-night college competition: 150 teams (50 Produ
 - **Stack:** Next.js (App Router, TypeScript, Tailwind) on Vercel, and Supabase (Postgres, Auth, Realtime, RLS).
 - **Plan:** see [`PLAN.md`](PLAN.md) for the architecture, the schema, the phases, the assumptions and the open questions.
 
-> Status: **Phase 4 (team portal)** done, waiting for approval. Every game rule runs in the database, organisers run the night from `/admin` and teams play it from `/team` on a laptop or phone; the big screen and the judge come next.
+> Status: **Phase 5 (big screen)** done, waiting for approval. Every game rule runs in the database, organisers run the night from `/admin`, teams play it from `/team` on a laptop or phone, and the projector shows it on `/display`; the AI judge comes next.
 
 ## Repository
 

@@ -244,7 +244,7 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Foundation: event picker, `/display/<slug>` on a 1920×1080 stage scaled to the window, header, bulletin banner, pause strip, takeover selection from stored moments, realtime refresh with a 10 s fallback, heartbeat
 - [x] Ticker board (50 tickers, 25 per page every 20 s, price, change since IPO, last round's arrow, moved tiles light up after a clearing)
 - [x] Takeovers: squad draw (seed check), crisis (cards, −15%, seed reveal), verdicts (top movers), flash news, closing bell, awards
-- [ ] Review (two reviewers: 15 findings, all fixed and covered by tests), all tests, summary
+- [x] Review (two reviewers: 15 findings, then a screenshot check of the fixes: 4 more; all fixed and covered by tests), all tests, summary
 
 ### Phase 6 — AI judge pipeline
 Prompts stored in `prompts/`. Sanitise and anonymise each submission, wrap it in XML, return structured JSON output, validate it with up to 2 retries. Run 3 times, plus 2 more if the spread is over 10, and take the median. Store every run. Work runs through a database queue with parallel workers and rate-limit backoff, with a progress view. A backup-model switch, release that applies tiers atomically, a re-run for appeals, and a calibration page with 10 sample pitches.
@@ -392,7 +392,7 @@ Real time = `starts_at + offset ÷ clock_speed`.
 89. **The draw takeover shows the seed check without the seed:** the commitment, the dice, the number of squads and "SHA-256 of the seed matches the commitment ✓" (`run_lottery` refuses a seed that does not match, so a stored draw is a verified one). The seed is shown at the crisis takeover, with the address of the public record (Q1).
 90. **The display has no controls.** It picks its event (straight to it when there is only one), re-reads itself on every broadcast and every 10 s while realtime is down, and every projector shows the same board page (the page follows the server clock).
 91. **A pause freezes every countdown.** While the event is paused, `event_status` keeps reporting the round that was open when the pause began (even after its planned close passes; migration 18), and every screen counts deadlines against the moment the pause began, as the database already does: each countdown stands still at the time that was left, and moves on after the resume, when the schedule has moved later by the pause. The big screen says "Round N is paused with 3:12" and shows the pause strip over a takeover too.
-92. **Screens recover by themselves.** A failed read on the big screen shows "Reconnecting…" and tries again every 5 s (an error boundary, not a dead error page). When a realtime connection comes back after a drop, the page re-reads itself once, because broadcasts sent while it was down are not replayed (team and admin screens too).
+92. **Screens recover by themselves.** A failed read on the big screen shows "Reconnecting…" and tries again every 5 s (an error boundary, not a dead error page). Each time a realtime channel becomes live (when it is first joined, and again after a drop) the page re-reads itself once, because broadcasts sent before the join or while it was down are not replayed (team and admin screens too).
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 
