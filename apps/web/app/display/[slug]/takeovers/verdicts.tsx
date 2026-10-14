@@ -4,7 +4,7 @@
 // company names are public; no team appears.
 
 import { VERDICT_TITLES, TAKEOVER_TITLES, type VerdictType } from "@/lib/display/takeover";
-import { pitchSummary, verdictMovers, type PitchRow, type VerdictRow } from "@/lib/display/takeovers";
+import { competitionRanks, pitchSummary, verdictMovers, type PitchRow, type VerdictRow } from "@/lib/display/takeovers";
 import { bp, count, money } from "@/lib/format";
 import type { TakeoverProps } from "./index";
 import { TakeoverFrame } from "./frame";
@@ -28,6 +28,8 @@ async function PitchVerdicts({ eventId }: { eventId: string }) {
     .filter((c) => score.has(c.id))
     .map((c) => ({ id: c.id, ticker: c.ticker, name: c.name, score: score.get(c.id) ?? null, ipoPrice: c.ipo_price }));
   const s = pitchSummary(rows);
+  // Tied scores share a number (the top list is sorted by score first).
+  const ranks = competitionRanks(s.top.map((r) => r.score));
   if (s.listed === 0) return <Neutral>The IPO prices will appear here.</Neutral>;
   return (
     <div className="flex h-full flex-col gap-8">
@@ -59,7 +61,7 @@ async function PitchVerdicts({ eventId }: { eventId: string }) {
               className="grid grid-cols-[4rem_minmax(0,1fr)_12rem_16rem] items-center gap-6 rounded-xl bg-white/[0.06] px-5 py-1.5"
               data-testid={`verdicts-top-${r.ticker}`}
             >
-              <span className="text-[40px] font-black text-slate-400 tabular-nums">{i + 1}</span>
+              <span className="text-[40px] font-black text-slate-400 tabular-nums">{ranks[i]}</span>
               <p className="min-w-0 truncate text-[40px] leading-tight">
                 <b className="font-black">{r.ticker}</b> <span className="text-[32px] text-slate-300">{r.name ?? ""}</span>
               </p>

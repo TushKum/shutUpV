@@ -90,17 +90,17 @@ function Tile({ tile: t, round, glow }: { tile: BoardTile; round: number | null;
   const lit = glow && t.move !== null ? GLOW[t.move] : "";
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-white/15 bg-white/[0.06] px-4 py-1 transition-[background-color,box-shadow] duration-1000 ${lit}`}
+      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-white/15 bg-white/[0.06] px-4 py-2 transition-[background-color,box-shadow] duration-1000 ${lit}`}
       data-testid={`tile-${t.ticker}`}
       data-lit={lit ? "true" : undefined}
     >
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[52px] leading-[0.85] font-black tracking-tight" data-testid="tile-ticker">
+        <span className="text-[52px] leading-none font-black tracking-tight" data-testid="tile-ticker">
           {t.ticker}
         </span>
         {t.move ? (
           <span
-            className={`shrink-0 text-[44px] leading-[0.85] ${TEXT[MOVE_TONE[t.move]]}`}
+            className={`shrink-0 text-[44px] leading-none ${TEXT[MOVE_TONE[t.move]]}`}
             data-testid="tile-move"
             data-move={t.move}
             aria-label={`${MOVE_WORDS[t.move]} in round ${round}`}
@@ -140,10 +140,10 @@ function PriceRow({ price, change, tone }: { price: string; change: string; tone
   const fit = FIT[priceRowFit(price, change)];
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className={`shrink-0 leading-[0.85] font-bold tabular-nums ${fit.price}`} data-testid="tile-price">
+      <span className={`shrink-0 leading-none font-bold tabular-nums ${fit.price}`} data-testid="tile-price">
         {price}
       </span>
-      <span className={`min-w-0 leading-[0.85] font-bold tabular-nums ${fit.change} ${CHANGE[tone]}`} data-testid="tile-change">
+      <span className={`min-w-0 leading-none font-bold tabular-nums ${fit.change} ${CHANGE[tone]}`} data-testid="tile-change">
         {change}
       </span>
     </div>

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { sha256Hex } from "@msim/engine";
 import {
+  competitionRanks,
   awardMetric,
   capPodium,
   changeBp,
@@ -259,5 +260,14 @@ describe("paging", () => {
     expect(pageAt(t + 60_000, 3)).toBe(pageAt(t, 3));
     expect(pageAt(t, 1)).toBe(0);
     expect(pageAt(Number.NaN, 2)).toBe(0);
+  });
+});
+
+describe("competitionRanks", () => {
+  test("equal scores share a rank and the next rank skips", () => {
+    expect(competitionRanks([95, 95, 95, 80, 70])).toEqual([1, 1, 1, 4, 5]);
+    expect(competitionRanks([90, 80, 80, 60])).toEqual([1, 2, 2, 4]);
+    expect(competitionRanks([])).toEqual([]);
+    expect(competitionRanks([null, null])).toEqual([1, 1]);
   });
 });

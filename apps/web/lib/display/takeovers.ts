@@ -116,6 +116,14 @@ export function pitchSummary<T extends PitchRow>(rows: readonly T[], limit = 5):
   };
 }
 
+/**
+ * Competition ranks (1, 1, 1, 4) for rows already sorted best first: equal scores share a number, so a tie never
+ * reads as a winner chosen by ticker.
+ */
+export function competitionRanks(scores: readonly (number | null)[]): number[] {
+  return scores.map((score, i) => scores.indexOf(score) === i ? i + 1 : scores.indexOf(score) + 1);
+}
+
 // ───────────── Closing bell ─────────────
 
 export interface ClosingRow {

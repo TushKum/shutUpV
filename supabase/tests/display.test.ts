@@ -120,3 +120,31 @@ describe("rankings", () => {
     expect(await b.call(b.team([...b.ev.teams.keys()][0]!), "rankings", n.eventId)).toBeNull();
   });
 });
+
+describe("event_status while paused", () => {
+  test("the round open at the pause stays the open round, even past its planned close; it closes later after the resume", async () => {
+    const n = await drawn();
+    await setPhase(db.pool, n.eventId, "ROUNDS_1_4");
+    await n.q(
+      "update rounds set status = 'OPEN', opened_at = now(), opens_at = now() - interval '20 minutes', closes_at = now() + interval '10 minutes' where event_id = $1 and number = 1",
+      [n.eventId],
+    );
+    expect(await n.call(display(n), "event_status", n.eventId)).toMatchObject({ trading: "OPEN", open_round: { number: 1 } });
+
+    await n.org("pause_event", n.eventId);
+    // Ten minutes of pause have gone by, and the round's planned close (5 minutes into the pause) has passed.
+    await n.q("update events set paused_at = now() - interval '10 minutes' where id = $1", [n.eventId]);
+    await n.q("update rounds set closes_at = now() - interval '5 minutes' where event_id = $1 and number = 1", [n.eventId]);
+    const paused = await n.call(display(n), "event_status", n.eventId);
+    expect(paused).toMatchObject({ paused: true, trading: "PAUSED", open_round: { number: 1 }, next_round: { number: 2 } });
+    // What it had left when the pause began: 5 minutes.
+    expect(Date.parse(paused.open_round.closes_at) - Date.parse(paused.paused_at)).toBe(5 * 60_000);
+
+    await n.org("resume_event", n.eventId);
+    const resumed = await n.call(display(n), "event_status", n.eventId);
+    expect(resumed).toMatchObject({ paused: false, trading: "OPEN", open_round: { number: 1 } });
+    const left = Date.parse(resumed.open_round.closes_at) - Date.parse(resumed.server_time);
+    expect(left).toBeGreaterThan(4.9 * 60_000);
+    expect(left).toBeLessThanOrEqual(5 * 60_000);
+  });
+});

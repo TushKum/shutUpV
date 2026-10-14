@@ -117,9 +117,10 @@ test("before AWARDS no team name is on the screen; at AWARDS the podiums and the
   await award("PRODUCT_TOP3", 1, product[1]!, { final_value: 73_413_000, return_bp: 46_826 });
   await award("PRODUCT_TOP3", 2, product[0]!, { final_value: 57_488_000, return_bp: 14_976 });
   await award("PRODUCT_TOP3", 2, product[2]!, { final_value: 57_488_000, return_bp: 14_976 });
-  await award("CONSULTING_TOP3", 1, consulting[2]!, { final_value: 6_663_000, return_bp: 3_326 });
-  await award("CONSULTING_TOP3", 2, consulting[0]!, { final_value: 5_500_000, return_bp: 1_000 });
-  await award("CONSULTING_TOP3", 3, consulting[1]!, { final_value: 4_900_000, return_bp: -200 });
+  // Consulting is ranked by final value only: settlement records no return for it (start value 0, return null).
+  await award("CONSULTING_TOP3", 1, consulting[2]!, { final_value: 6_663_000, return_bp: null });
+  await award("CONSULTING_TOP3", 2, consulting[0]!, { final_value: 5_500_000, return_bp: null });
+  await award("CONSULTING_TOP3", 3, consulting[1]!, { final_value: 4_900_000, return_bp: null });
   await award("FINANCE_TOP3", 1, finance[0]!, { final_value: 61_000_000, return_bp: 2_200 });
   await award("FINANCE_TOP3", 2, finance[2]!, { final_value: 52_500_000, return_bp: 500 });
   await award("FINANCE_TOP3", 3, finance[1]!, { final_value: 48_000_000, return_bp: -400 });
@@ -159,7 +160,10 @@ test("before AWARDS no team name is on the screen; at AWARDS the podiums and the
     await expect(place("FINANCE", i + 1)).toContainText(name(code));
     await expect(place("FINANCE", i + 1)).toContainText(code);
   }
-  await expect(place("CONSULTING", 3)).toContainText("−2%");
+  // Consulting lines end with the final value: no return and no stray "—".
+  await expect(place("CONSULTING", 1).getByTestId("award-numbers")).toHaveText(/\$66,630\.00$/);
+  await expect(place("CONSULTING", 3)).not.toContainText("—");
+  await expect(place("FINANCE", 3)).toContainText("−4%");
 
   const turnaround = page.getByTestId("awards-BEST_TURNAROUND");
   await expect(turnaround).toContainText("Best turnaround");

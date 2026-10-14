@@ -1,12 +1,12 @@
 "use client";
 
-// A countdown (or the time since) against the server clock.
+// A countdown (or the time since) against the server clock; it stands still while the event is paused.
 
 import { countdown } from "@/lib/format";
-import { useServerNow } from "@/lib/live/clock";
+import { useDeadlineNow, useServerNow } from "@/lib/live/clock";
 
 export function Countdown({ to, passed = "passed", className = "" }: { to: string | null | undefined; passed?: string; className?: string }) {
-  const now = useServerNow(1000);
+  const now = useDeadlineNow(1000);
   if (!to) return <span className={className}>—</span>;
   const ms = new Date(to).getTime() - now;
   // The server rendered a second or so earlier; the clock text is expected to differ.

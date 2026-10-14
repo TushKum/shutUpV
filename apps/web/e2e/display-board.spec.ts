@@ -136,12 +136,15 @@ test("more than 25 companies: 25 tiles to a page, a new page every 20 s by the s
   const all = (await ev.n.q("select ticker from companies where event_id = $1 order by ticker collate \"C\"", [ev.n.eventId])).map((r) => r.ticker);
   expect(all).toHaveLength(26);
 
-  await expect(page.getByTestId("board-page")).toHaveText("1 / 2", { timeout: 25_000 });
+  // Each check runs early in its page's 20-s slot, so the page cannot turn in the middle of it.
+  await waitForSlot(page, 0);
+  await expect(page.getByTestId("board-page")).toHaveText("1 / 2");
   await expect(tickers(page)).toHaveText(all.slice(0, 25));
   await expect(page.getByTestId("tile-pending")).toHaveCount(25); // IPO prices come with the pitch scores
   await expect(page.getByTestId("board-legend")).toHaveText("IPO prices are set when the pitch scores are released.");
 
-  await expect(page.getByTestId("board-page")).toHaveText("2 / 2", { timeout: 25_000 });
+  await waitForSlot(page, 1);
+  await expect(page.getByTestId("board-page")).toHaveText("2 / 2");
   await expect(tickers(page)).toHaveText(all.slice(25));
   expect(all[25]).toBe("ZABA");
 

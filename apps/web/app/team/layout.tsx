@@ -33,7 +33,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
     .maybeSingle<{ id: string; kind: string; title: string; published_at: string }>();
   const finance = team.track === "FINANCE";
   return (
-    <ClockProvider serverTime={status.server_time}>
+    <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
       <EventChannel eventId={event.id}>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />

@@ -1,6 +1,6 @@
 // The top of the big screen: the event clock, the phase, the round with its countdown to the close, and a badge
 // reading OPEN, HALTED or PAUSED. Everything is from event_status (the server's view), counted down against the
-// server clock.
+// server clock; during a pause the countdowns stand still (the schedule moves later by the pause on resume).
 
 import { PHASE_LABELS } from "@msim/engine";
 import type { EventStatus } from "@/lib/event-status";
@@ -32,18 +32,25 @@ export function DisplayHeader({ event, status }: { event: DisplayEvent; status: 
       <div className="text-center" data-testid="display-round">
         {status.open_round ? (
           <>
-            <p className="text-[32px] font-semibold text-slate-300">Round {status.open_round.number} closes in</p>
-            <p className="text-[76px] leading-none font-black">
-              <Countdown to={status.open_round.closes_at} passed="clearing…" />
+            <p className="text-[32px] font-semibold text-slate-300">
+              {status.paused ? `Round ${status.open_round.number} is paused with` : `Round ${status.open_round.number} closes in`}
+            </p>
+            {/* While paused the countdown stands still at the time the round had left when the pause began. */}
+            <p className={`text-[76px] leading-none font-black ${status.paused ? "text-amber-300" : ""}`}>
+              <Countdown to={status.open_round.closes_at} passed={status.paused ? "0:00" : "clearing…"} />
             </p>
           </>
         ) : status.next_round ? (
           <>
-            <p className="text-[32px] font-semibold text-slate-300">Round {status.next_round.number} opens at</p>
-            <p className="font-mono text-[76px] leading-none font-black tabular-nums">{clock(status.next_round.opens_at)}</p>
+            <p className="text-[32px] font-semibold text-slate-300">Round {status.next_round.number} opens</p>
+            {status.paused ? (
+              <p className="text-[56px] leading-none font-black text-amber-300">after the pause</p>
+            ) : (
+              <p className="font-mono text-[76px] leading-none font-black tabular-nums">at {clock(status.next_round.opens_at)}</p>
+            )}
           </>
         ) : (
-          <PhaseTimer endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} />
+          <PhaseTimer endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} paused={status.paused} />
         )}
       </div>
 

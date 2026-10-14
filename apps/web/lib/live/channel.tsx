@@ -3,6 +3,7 @@
 // The event's private realtime channel. A message is only a signal: the screen re-fetches its data from the server
 // (through RLS), so a message never needs to be trusted for its content. Status is shared with the heartbeat. Staff
 // consoles also listen on the event's staff channel (drafts, requests and settings that teams must not hear of).
+// Messages sent while the connection was down are not replayed, so the screen re-reads itself once it is back.
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -66,6 +67,17 @@ export function EventChannel({
       if (staffChannel) void sb.removeChannel(staffChannel);
     };
   }, [eventId, staff, router, refreshDelayMs]);
+
+  // Back after a drop: whatever was broadcast meanwhile was missed, so read the page again once.
+  const wasLive = useRef(false);
+  const previous = useRef<ChannelStatus>(status);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = status;
+    if (status !== "SUBSCRIBED") return;
+    if (wasLive.current && before !== "SUBSCRIBED") router.refresh();
+    wasLive.current = true;
+  }, [status, router]);
 
   return <ChannelContext.Provider value={{ status, last }}>{children}</ChannelContext.Provider>;
 }

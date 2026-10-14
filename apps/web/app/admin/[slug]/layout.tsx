@@ -24,7 +24,7 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
   const status = await loadEventStatus(event.id);
   const organiser = viewer!.role === "ORGANISER";
   return (
-    <ClockProvider serverTime={status.server_time}>
+    <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
       <EventChannel eventId={event.id} staff>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="admin" tick={organiser} />

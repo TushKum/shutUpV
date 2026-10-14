@@ -21,7 +21,11 @@ export interface TakeoverMoments {
   awardsAt: string | null;
 }
 
-/** How long each takeover stays up, in real seconds (also at a rehearsal's faster clock). AWARDS stays up. */
+/**
+ * How long each takeover stays up, in seconds at the night's real speed. A rehearsal's faster clock shortens them in
+ * proportion (never below TAKEOVER_MIN_SECONDS), so they do not hide the board for most of its short rounds. AWARDS
+ * stays up.
+ */
 export const TAKEOVER_SECONDS: Record<Exclude<TakeoverKind, "AWARDS">, number> = {
   DRAW: 180,
   CRISIS: 120,
@@ -29,6 +33,14 @@ export const TAKEOVER_SECONDS: Record<Exclude<TakeoverKind, "AWARDS">, number> =
   FLASH: 90,
   CLOSING_BELL: 90,
 };
+export const TAKEOVER_MIN_SECONDS = 30;
+
+/** How long a takeover stays up at the event's clock speed, in ms (null: it stays up). */
+export function takeoverMs(kind: TakeoverKind, clockSpeed = 1): number | null {
+  if (kind === "AWARDS") return null;
+  const speed = Number.isFinite(clockSpeed) && clockSpeed > 1 ? clockSpeed : 1;
+  return Math.max(TAKEOVER_MIN_SECONDS, TAKEOVER_SECONDS[kind] / speed) * 1000;
+}
 
 export interface ActiveTakeover {
   kind: TakeoverKind;
@@ -52,24 +64,26 @@ function candidates(m: TakeoverMoments): Omit<ActiveTakeover, "until">[] {
 }
 
 /**
- * The takeover on screen at `nowMs` (server time): of the moments that have happened and whose takeover has not run
- * out, the latest one (a newer takeover replaces an older one at once). Null: show the ticker board.
+ * The takeover on screen at `nowMs` (server time): the latest moment that has happened, while its takeover lasts.
+ * A newer takeover replaces an older one at once, and once the newest has run out the board comes back: an older
+ * takeover that would still have time left never returns. Null: show the ticker board.
  */
-export function activeTakeover(m: TakeoverMoments, nowMs: number): ActiveTakeover | null {
-  let best: ActiveTakeover | null = null;
-  let bestAt = -Infinity;
+export function activeTakeover(m: TakeoverMoments, nowMs: number, clockSpeed = 1): ActiveTakeover | null {
+  let latest: Omit<ActiveTakeover, "until"> | null = null;
+  let latestAt = -Infinity;
   for (const c of candidates(m)) {
     const at = Date.parse(c.at);
     if (Number.isNaN(at) || at > nowMs) continue;
-    const until = c.kind === "AWARDS" ? null : at + TAKEOVER_SECONDS[c.kind] * 1000;
-    if (until !== null && nowMs >= until) continue;
     // Equal times: the later stage of the night wins (candidates are listed in night order).
-    if (at >= bestAt) {
-      best = { ...c, until: until === null ? null : new Date(until).toISOString() };
-      bestAt = at;
+    if (at >= latestAt) {
+      latest = c;
+      latestAt = at;
     }
   }
-  return best;
+  if (!latest) return null;
+  const ms = takeoverMs(latest.kind, clockSpeed);
+  if (ms !== null && nowMs >= latestAt + ms) return null;
+  return { ...latest, until: ms === null ? null : new Date(latestAt + ms).toISOString() };
 }
 
 /** Display names of the takeovers (the strip at the top of each). */

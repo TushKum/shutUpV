@@ -64,11 +64,11 @@ test("the draw takes over the screen live; after a reload it shows the rest, the
   await expect(page.getByRole("heading", { name: "Squad draw" })).toBeVisible();
   await expect(page.getByTestId("board")).toHaveCount(0);
 
-  // As if the draw had happened 176 s ago: a reload shows the last few seconds of it, then the board.
-  await ev.n.q("update events set drawn_at = now() - interval '176 seconds' where id = $1", [ev.n.eventId]);
+  // As if the draw had happened 170 s ago: a reload shows the last few seconds of it, then the board.
+  await ev.n.q("update events set drawn_at = now() - interval '170 seconds' where id = $1", [ev.n.eventId]);
   await page.reload();
   await expect(page.getByTestId("takeover")).toBeVisible();
-  await expect(page.getByTestId("board")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("board")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("takeover")).toHaveCount(0);
   await expect(page.getByTestId("display-phase")).toHaveText("Squad draw");
 });

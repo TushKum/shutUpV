@@ -69,10 +69,11 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
                   {page.map((c) => (
                     <li
                       key={c.id}
-                      className="flex min-h-0 min-w-0 flex-col justify-center rounded-xl border-2 border-red-500/50 bg-red-950/50 px-4"
+                      className="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden rounded-xl border-2 border-red-500/50 bg-red-950/50 px-4"
                       data-testid={`crisis-${c.ticker}`}
                     >
-                      <div className="flex items-baseline justify-between gap-3">
+                      {/* A wide ticker with long prices wraps the price under the ticker instead of leaving the card. */}
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                         <span className="text-[36px] leading-[1.1] font-black">{c.ticker}</span>
                         <PriceMove before={c.before} after={c.after} tone="down" className="text-[32px] leading-[1.1]" />
                       </div>

@@ -18,10 +18,25 @@ const MEDAL: Record<number, string> = {
 
 /** Type sizes by how many teams share a podium (ties): the column always fits its teams. */
 const DENSITY = {
-  large: { medal: "h-[72px] w-[72px] text-[44px]", name: "line-clamp-2 text-[40px] leading-[1.12]", list: "gap-5", place: "space-y-3" },
-  compact: { medal: "h-14 w-14 text-[34px]", name: "truncate text-[32px] leading-tight", list: "gap-3", place: "space-y-1.5" },
-  dense: { medal: "h-12 w-12 text-[30px]", name: "truncate text-[30px] leading-tight", list: "gap-2", place: "space-y-1" },
+  large: {
+    medal: "h-[72px] w-[72px] text-[44px]",
+    name: "line-clamp-2 text-[40px] leading-[1.12]",
+    longName: "line-clamp-3 text-[34px] leading-[1.12]",
+    list: "gap-5",
+    place: "space-y-3",
+  },
+  compact: {
+    medal: "h-14 w-14 text-[34px]",
+    name: "truncate text-[32px] leading-tight",
+    longName: "line-clamp-2 text-[28px] leading-tight",
+    list: "gap-3",
+    place: "space-y-1.5",
+  },
+  dense: { medal: "h-12 w-12 text-[30px]", name: "truncate text-[30px] leading-tight", longName: "truncate text-[26px] leading-tight", list: "gap-2", place: "space-y-1" },
 };
+type Density = (typeof DENSITY)[keyof typeof DENSITY];
+/** Team names longer than this get the smaller type of their density (names may be up to 80 characters). */
+const LONG_NAME = 40;
 
 export async function AwardsTakeover({ event, takeover }: TakeoverProps) {
   const awards = await loadAwards(event.id);
@@ -36,7 +51,7 @@ export async function AwardsTakeover({ event, takeover }: TakeoverProps) {
               <TrackPodium key={p.track} podium={p} />
             ))}
           </div>
-          <div className="grid h-[256px] shrink-0 grid-cols-3 gap-8">
+          <div className="grid h-[280px] shrink-0 grid-cols-3 gap-8">
             {specialAwards(awards).map((s) => (
               <section
                 key={s.code}
@@ -57,7 +72,7 @@ export async function AwardsTakeover({ event, takeover }: TakeoverProps) {
                         {w.teams?.name ?? w.companies?.name ?? "—"} <span className="font-mono text-[28px] font-normal text-slate-300">{who(w)}</span>
                       </p>
                     ))}
-                    <p className="mt-1 truncate text-[28px] leading-snug text-white">
+                    <p className="mt-1 line-clamp-2 text-[28px] leading-snug text-white">
                       {s.winners.length > 3 ? `and ${s.winners.length - 3} more tied · ` : "Tied · "}
                       {awardMetric(s.winners[0]!)}
                     </p>
@@ -95,7 +110,7 @@ function TrackPodium({ podium }: { podium: Podium }) {
               </span>
               <div className={`min-w-0 flex-1 ${d.place}`}>
                 {pl.winners.map((w, i) => (
-                  <PodiumTeam key={i} award={w} name={d.name} />
+                  <PodiumTeam key={i} award={w} density={d} />
                 ))}
               </div>
             </li>
@@ -107,14 +122,19 @@ function TrackPodium({ podium }: { podium: Podium }) {
   );
 }
 
-function PodiumTeam({ award, name }: { award: AwardRow; name: string }) {
+function PodiumTeam({ award, density }: { award: AwardRow; density: Density }) {
   const n = podiumNumbers(award);
   const tone = n.changeBp === null ? "text-slate-300" : n.changeBp >= 0 ? "text-emerald-400" : "text-red-400";
+  const name = award.teams?.name ?? "—";
   return (
     <div className="min-w-0">
-      <p className={`font-bold break-words ${name}`}>{award.teams?.name ?? "—"}</p>
-      <p className="truncate text-[28px] leading-tight text-slate-300 tabular-nums">
-        <span className="font-mono text-white">{award.teams?.code ?? "—"}</span> · {n.value} · <span className={`font-bold ${tone}`}>{n.change}</span>
+      <p className={`font-bold break-words ${name.length > LONG_NAME ? density.longName : density.name}`}>{name}</p>
+      {/* Code, final value and return each stay whole; a long line wraps the return onto its own line. Consulting
+          teams are ranked by final value only (settlement records no return for them), so no return is shown. */}
+      <p className="flex flex-wrap gap-x-3 text-[28px] leading-tight text-slate-300 tabular-nums" data-testid="award-numbers">
+        <span className="font-mono whitespace-nowrap text-white">{award.teams?.code ?? "—"}</span>
+        <span className="whitespace-nowrap">· {n.value}</span>
+        {n.changeBp !== null ? <span className={`font-bold whitespace-nowrap ${tone}`}>· {n.change}</span> : null}
       </p>
     </div>
   );
@@ -127,9 +147,10 @@ function who(a: AwardRow): string {
 }
 
 function SpecialWinner({ award }: { award: AwardRow }) {
+  const winner = award.teams?.name ?? award.companies?.name ?? "—";
   return (
     <div className="mt-1 min-w-0">
-      <p className="truncate text-[40px] leading-[1.15] font-bold">{award.teams?.name ?? award.companies?.name ?? "—"}</p>
+      <p className={`font-bold ${winner.length > 30 ? "line-clamp-2 text-[32px] leading-[1.15]" : "truncate text-[40px] leading-[1.15]"}`}>{winner}</p>
       <p className="truncate text-[28px] leading-snug text-slate-300">{who(award)}</p>
       <p className="line-clamp-2 text-[28px] leading-snug text-white">{awardMetric(award)}</p>
     </div>

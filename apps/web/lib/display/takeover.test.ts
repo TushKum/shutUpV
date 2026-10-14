@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { activeTakeover, TAKEOVER_SECONDS, type TakeoverMoments } from "./takeover";
+import { activeTakeover, TAKEOVER_MIN_SECONDS, TAKEOVER_SECONDS, takeoverMs, type TakeoverMoments } from "./takeover";
 
 const T0 = Date.parse("2026-10-14T15:30:00.000Z"); // 21:00 IST
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -63,5 +63,27 @@ describe("activeTakeover", () => {
 
   test("an unreadable time is ignored", () => {
     expect(activeTakeover({ ...NONE, drawnAt: "not a time" }, T0)).toBeNull();
+  });
+
+  test("an older takeover never comes back once a newer one has run out", () => {
+    // The pitch scores were released 10 s after the draw: the draw would still have time left when the verdicts end.
+    const m = { ...NONE, drawnAt: iso(T0), verdicts: [{ type: "PITCH" as const, at: iso(T0 + 10_000) }] };
+    expect(activeTakeover(m, T0 + 5_000)?.kind).toBe("DRAW");
+    expect(activeTakeover(m, T0 + 20_000)?.kind).toBe("VERDICTS");
+    expect(activeTakeover(m, T0 + 10_000 + TAKEOVER_SECONDS.VERDICTS * 1000 + 5_000)).toBeNull();
+  });
+
+  test("a rehearsal's faster clock shortens takeovers in proportion, but not below the minimum", () => {
+    expect(takeoverMs("DRAW", 1)).toBe(180_000);
+    expect(takeoverMs("DRAW", 2)).toBe(90_000);
+    expect(takeoverMs("DRAW", 10)).toBe(TAKEOVER_MIN_SECONDS * 1000);
+    expect(takeoverMs("FLASH", 10)).toBe(TAKEOVER_MIN_SECONDS * 1000);
+    expect(takeoverMs("AWARDS", 10)).toBeNull();
+    // A nonsense speed counts as real time.
+    expect(takeoverMs("CRISIS", 0)).toBe(120_000);
+    const m = { ...NONE, verdicts: [{ type: "PLAN" as const, at: iso(T0) }] };
+    expect(activeTakeover(m, T0 + 29_000, 10)).toMatchObject({ kind: "VERDICTS", until: iso(T0 + 30_000) });
+    expect(activeTakeover(m, T0 + 30_000, 10)).toBeNull();
+    expect(activeTakeover({ ...NONE, awardsAt: iso(T0) }, T0 + 86_400_000, 10)?.kind).toBe("AWARDS");
   });
 });

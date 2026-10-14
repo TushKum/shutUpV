@@ -53,7 +53,7 @@ export function FlashFit({ title, body, published }: { title: string; body: stri
   return (
     <div ref={boxRef} className="flex h-full flex-col gap-8 overflow-hidden" data-testid="flash-news">
       <p className="shrink-0 text-[32px] font-bold tracking-wide text-amber-300 uppercase">
-        Flash news · <span className="font-mono tabular-nums">{published}</span>
+        Published <span className="font-mono tabular-nums">{published}</span>
       </p>
       {/* Centred in the space left when it is short; at the top (auto margins collapse) when it fills it. */}
       <div className="my-auto flex flex-col gap-8">
