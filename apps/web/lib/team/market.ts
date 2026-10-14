@@ -76,7 +76,7 @@ export function marketLines(companies: readonly ListedCompany[], lastRound: read
 
 // ───────────────────────────── Price history ─────────────────────────────
 
-export type PriceKind = "IPO" | "CLEARING" | "CRISIS" | "PLAN_TIER" | "FLASH_TIER" | "CLOSE";
+export type PriceKind = "IPO" | "CLEARING" | "CRISIS" | "PLAN_TIER" | "FLASH_TIER" | "CLOSE" | "APPEAL";
 
 export interface PriceRow {
   id: number | string;
@@ -108,12 +108,18 @@ export interface HistoryLine {
   detail: string;
 }
 
-const KIND_ORDER: Record<PriceKind, number> = { IPO: 0, CLEARING: 1, CRISIS: 1, PLAN_TIER: 1, FLASH_TIER: 1, CLOSE: 2 };
+/** For steps recorded in the same transaction (the last clearing and the close): the order of the night. */
+const KIND_ORDER: Record<PriceKind, number> = { IPO: 0, CLEARING: 1, CRISIS: 1, PLAN_TIER: 1, FLASH_TIER: 1, CLOSE: 2, APPEAL: 3 };
 
-/** Every price change of one company, in the order it happened (IPO first, the close last). */
+/**
+ * Every price change of one company, in the order it happened (IPO first, the close last, then any technical appeal
+ * applied after the close). An appeal changes the AI price (and after the close the closing price); the market prices
+ * that already happened stay as they were.
+ */
 export function historyLines(rows: readonly PriceRow[]): HistoryLine[] {
+  let closed = false;
   return [...rows]
-    .sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || Number(a.id) - Number(b.id))
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || Number(a.id) - Number(b.id))
     .map((r): HistoryLine => {
       const base = { key: String(r.id), at: r.created_at, price: r.market_after, ai: r.ai_after };
       const moved = (before: number | null) => ({
@@ -134,6 +140,7 @@ export function historyLines(rows: readonly PriceRow[]): HistoryLine[] {
         case "FLASH_TIER":
           return { ...base, ...moved(r.market_before), label: "Flash tier", detail: `${bp(r.tier_bp ?? 0)} on the market and AI prices` };
         case "CLOSE":
+          closed = true;
           return {
             ...base,
             label: "Closing price",
@@ -141,6 +148,13 @@ export function historyLines(rows: readonly PriceRow[]): HistoryLine[] {
             changeSign: 0,
             detail: `(market ${money(r.market_before)} + AI ${money(r.ai_after)}) ÷ 2`,
           };
+        case "APPEAL": {
+          const ai = `AI price ${money(r.ai_before)} → ${money(r.ai_after)} (tier ${bp(r.tier_bp ?? 0)})`;
+          // After the close the row's prices are the closing prices; before it the market price did not move.
+          return closed
+            ? { ...base, ...moved(r.market_before), label: "Technical appeal", detail: `${ai}; closing price ${money(r.market_before)} → ${money(r.market_after)}` }
+            : { ...base, label: "Technical appeal", change: "—", changeSign: 0, detail: ai };
+        }
       }
     });
 }

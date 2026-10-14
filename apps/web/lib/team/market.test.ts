@@ -85,6 +85,21 @@ describe("price history", () => {
     expect(lines[3]).toMatchObject({ change: "+$1.84 (+20%)", detail: "+20% on the market and AI prices" });
     expect(lines[4]).toMatchObject({ price: 1263, detail: "(market $14.00 + AI $11.26) ÷ 2" });
   });
+  test("a technical appeal: after the close it moves the closing price; before it only the AI price", () => {
+    const close = row({ id: 9, kind: "CLOSE", market_before: 780, market_after: 815, ai_after: 850, created_at: "2026-10-08T23:30:00Z" });
+    const after = historyLines([
+      row({ id: 12, kind: "APPEAL", market_before: 815, market_after: 773, ai_before: 850, ai_after: 765, tier_bp: -1000, created_at: "2026-10-09T00:35:00Z" }),
+      close,
+    ]);
+    expect(after.map((l) => l.label)).toEqual(["Closing price", "Technical appeal"]);
+    expect(after[1]).toMatchObject({ price: 773, changeSign: -1, ai: 765, detail: "AI price $8.50 → $7.65 (tier −10%); closing price $8.15 → $7.73" });
+    const before = historyLines([
+      row({ id: 5, kind: "APPEAL", market_before: 790, market_after: 790, ai_before: 850, ai_after: 765, tier_bp: -1000, created_at: "2026-10-08T22:10:00Z" }),
+      row({ id: 6, kind: "CLEARING", round_number: 13, market_before: 790, market_after: 800, created_at: "2026-10-08T22:20:00Z" }),
+    ]);
+    expect(before.map((l) => l.label)).toEqual(["Technical appeal", "Round 13"]);
+    expect(before[0]).toMatchObject({ price: 790, change: "—", detail: "AI price $8.50 → $7.65 (tier −10%)" });
+  });
 });
 
 describe("what is public", () => {
