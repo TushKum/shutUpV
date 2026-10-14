@@ -4,9 +4,10 @@
 // (through RLS), so a message never needs to be trusted for its content. Status is shared with the heartbeat. Staff
 // consoles also listen on the event's staff channel (drafts, requests and settings that teams must not hear of).
 // Messages sent before the channel was joined (between the page render and the subscription) or while the connection
-// was down are not replayed, so the screen re-reads itself each time the channel becomes live.
+// was down are not replayed, so the screen re-reads itself each time the channel becomes live, and reports itself
+// live (SUBSCRIBED) only once that read is done: "Live" means joined and up to date.
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
@@ -39,8 +40,9 @@ export function EventChannel({
   const router = useRouter();
   const [eventStatus, setEventStatus] = useState<ChannelStatus>("CONNECTING");
   const [staffStatus, setStaffStatus] = useState<ChannelStatus>("CONNECTING");
-  // A console is live only when every channel it listens on is.
-  const status: ChannelStatus = eventStatus !== "SUBSCRIBED" || !staff ? eventStatus : staffStatus;
+  // A console is joined only when every channel it listens on is.
+  const joined: ChannelStatus = eventStatus !== "SUBSCRIBED" || !staff ? eventStatus : staffStatus;
+  const [caughtUp, setCaughtUp] = useState(false);
   const [last, setLast] = useState<ChannelMessage | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,8 +60,12 @@ export function EventChannel({
     (async () => {
       await sb.realtime.setAuth();
       if (cancelled) return;
-      channel.subscribe((s: string) => setEventStatus(s as ChannelStatus));
-      staffChannel?.subscribe((s: string) => setStaffStatus(s as ChannelStatus));
+      const track = (set: (s: ChannelStatus) => void) => (s: string) => {
+        set(s as ChannelStatus);
+        if (s !== "SUBSCRIBED") setCaughtUp(false);
+      };
+      channel.subscribe(track(setEventStatus));
+      staffChannel?.subscribe(track(setStaffStatus));
     })();
     return () => {
       cancelled = true;
@@ -69,13 +75,23 @@ export function EventChannel({
     };
   }, [eventId, staff, router, refreshDelayMs]);
 
-  // Live (first, or back after a drop): whatever was broadcast before was missed, so read the page again once.
-  const previous = useRef<ChannelStatus>(status);
+  // Joined (first, or back after a drop): whatever was broadcast before was missed, so read the page again once. The
+  // "caught up" mark is set in the same transition as that read, so it lands with the refreshed page (or after 5 s at
+  // most, should the read never finish); a drop clears it (in the subscription callbacks above).
+  const [, startCatchUp] = useTransition();
+  const previous = useRef<ChannelStatus>(joined);
   useEffect(() => {
     const before = previous.current;
-    previous.current = status;
-    if (status === "SUBSCRIBED" && before !== "SUBSCRIBED") router.refresh();
-  }, [status, router]);
+    previous.current = joined;
+    if (joined !== "SUBSCRIBED" || before === "SUBSCRIBED") return;
+    startCatchUp(() => {
+      router.refresh();
+      setCaughtUp(true);
+    });
+    const fallback = setTimeout(() => setCaughtUp(true), 5000);
+    return () => clearTimeout(fallback);
+  }, [joined, router]);
+  const status: ChannelStatus = joined === "SUBSCRIBED" && !caughtUp ? "CONNECTING" : joined;
 
   return <ChannelContext.Provider value={{ status, last }}>{children}</ChannelContext.Provider>;
 }

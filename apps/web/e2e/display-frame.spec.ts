@@ -106,11 +106,9 @@ test("after a short realtime drop, the screen catches up on what it missed", asy
     ws.connectToServer();
     open.push(ws);
   });
+  // Live (SUBSCRIBED) means joined and caught up: the screen's own catch-up read when it joined is over, so only
+  // the read on reconnect can show the bulletin below.
   await screen(page);
-  // The screen also reads itself once when its channel first goes live (anything broadcast between the render and
-  // the subscription would be missed otherwise). That read must be over before the drop, or it could be the one that
-  // shows the bulletin: a fixed settle is the simplest sure way (it takes well under a second on a warm server).
-  await page.waitForTimeout(3000);
   await markWindow(page);
   const title = "Lost and found is at the desk";
   // Records in the page when the channel came back after the drop and when the banner first showed the bulletin.

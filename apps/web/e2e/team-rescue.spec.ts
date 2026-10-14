@@ -120,6 +120,8 @@ test("the fee: a live check, a proposal, confirmations reset by a new proposal, 
   await product.reload();
   await expect(product.getByTestId("fee-confirm-PRODUCT")).toContainText("Not confirmed");
   await expect(product.getByTestId("fee-terms")).toHaveText("$22,000.00 cash + 1,000 shares (value $32,500.00)");
+  // Live: the page has joined its channel and caught up, so what it shows from here on is version 3.
+  await expect(product.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
 
   // The terms change again while the Product team's page still shows version 3: its confirmation is refused, the
   // refusal stays on screen and the page shows the new version.
@@ -230,6 +232,8 @@ test("the deal: Consulting's price in the band, the fund's amount, signatures re
   // the fund's signature is refused, the refusal stays on screen and the page shows version 5.
   await fund.reload();
   await expect(fund.getByTestId("deal-sign-PRODUCT")).toContainText("Signed");
+  // Live: the page has joined its channel and caught up, so what it shows from here on is version 4.
+  await expect(fund.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   await ev.n.ok(ev.n.team(x.c_code), "edit_deal", null, 700);
   await twoClicks(fund, "Sign version 4", "Click again to sign 8,571 shares at $7.00 ($59,997.00)");
   await expect(fund.getByTestId("deal-terms").getByRole("alert")).toHaveText(
