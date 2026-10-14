@@ -73,6 +73,17 @@ Each event has its own control panel at `/admin/<slug>`. Organisers act; the fai
 
 Before the event leaves Setup it needs the seed commitment and both decks (the seed command loads `seed/problem-cards.csv` and `seed/crisis-cards.csv`, or upload them under Content).
 
+## The big screen (/display)
+
+Sign the projector in with the display account; it lands on `/display`, which goes straight to the event when there is only one (otherwise pick it). Use a browser in full-screen mode (F11): the screen is laid out at 1920×1080 and scales to any window, letterboxed on black. It has no controls and needs none during the night:
+
+- **Header:** the phase, the open round with its countdown to the close (or when the next round opens), the OPEN / HALTED / PAUSED badge and the event clock. During a pause the countdowns stand still.
+- **Bulletin banner:** the latest bulletin.
+- **Ticker board:** every listed company with its price, change since the IPO price and an arrow for the last round's move, 25 at a time; the page turns every 20 seconds (every projector shows the same page). Companies appear from the Reading phase.
+- **Takeovers:** the squad draw (with the seed check), the crisis (each company's card, the −15% and the revealed seed), each score release (top movers), the flash news, the closing bell and the awards. Each comes up by itself when the moment happens and gives way to the board after a few minutes; the awards stay up. Team names appear only in the awards.
+
+Every change reaches the screen within about a second over the event's realtime channel. If the connection drops, the screen re-reads itself every 10 seconds and once more when it is back; if a read fails it shows "Reconnecting…" and tries again by itself. A projector that is reloaded shows exactly what it showed before, including the rest of a takeover.
+
 ## The lottery seed
 
 The day before the event, run `pnpm new-seed`. Keep the seed secret, publish the commitment, and enter the commitment (with `pnpm seed --commitment …` or in /admin) while the event is still in SETUP: it is fixed once the event starts. At 21:00 an organiser enters the seed and the dice roll; the big screen shows the commitment, the dice and the seed check. The seed is revealed at the crisis (00:30) and shown on the big screen; anyone can then download the lottery record, without signing in, from `https://<app>/api/lottery-record?event=<slug>` (before the reveal it answers 404) and run:
