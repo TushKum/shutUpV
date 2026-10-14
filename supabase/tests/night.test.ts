@@ -3,9 +3,9 @@
 // invariants are checked along the way.
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { drawLottery, sha256Hex } from "@msim/engine";
+import { RUBRICS, drawLottery, sha256Hex, type SubmissionType } from "@msim/engine";
 import { createTestDb } from "./pg";
-import { rowsAs, user } from "./helpers";
+import { rowsAs, service, user } from "./helpers";
 import { Night } from "./night";
 
 let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -64,6 +64,17 @@ async function round(num: number, orders: () => Promise<void> = async () => {}) 
   await n.openRound(num);
   await orders();
   return n.clearRound(num);
+}
+
+/** A model output with this total that fits the rubric (the breakdown fills the rubric lines in order). */
+function judgeOutput(type: SubmissionType, total: number) {
+  let left = total;
+  const breakdown = Object.fromEntries(RUBRICS[type].map((line) => {
+    const v = Math.min(line.max, left);
+    left -= v;
+    return [line.key, v];
+  }));
+  return { ok: true, model: "test-model", prompt_sha: "b".repeat(64), request_text: "…", raw_response: "{}", breakdown, total, rationale: "One. Two. Three." };
 }
 
 const price = async (t: string) => (await n.one("select market_price from companies where id = $1", [company[t]])).market_price;
@@ -550,6 +561,78 @@ describe("a scripted night", () => {
     expect((await rowsAs(db.pool, team, "select count(*)::int as c from results")).at(0)!.c).toBe(0);
     expect((await rowsAs(db.pool, team, "select count(*)::int as c from awards")).at(0)!.c).toBe(0);
     await n.checkInvariants();
+  });
+
+  test("technical appeal: CampusCart's plan judged again moves its score, AI and closing prices, the shorts' cover, the plan bonus and the results; the market history stays", async () => {
+    await n.advanceTo("APPEALS");
+    const ccrt = company.CCRT!;
+    const c = await sq(roles.ccrt);
+    const cash = async (id: string) => BigInt((await n.one("select cash_cents from teams where id = $1", [id])).cash_cents);
+    const shorts = await n.q("select team_id, sum(share_delta)::int as qty from ledger_entries where company_id = $1 and kind = 'SHORT_CLOSE' and team_id is not null group by team_id", [ccrt]);
+    expect(shorts.length).toBeGreaterThan(0); // funds sold CCRT short in round 21 and were covered at the close
+    const shortCash = new Map(await Promise.all(shorts.map(async (t) => [t.team_id, await cash(t.team_id)] as const)));
+    const consultant = n.teamId(c.c_code);
+    const consultantCash = await cash(consultant);
+    const history = await n.q("select id, kind, market_after, ai_after from round_prices where company_id = $1 order by id", [ccrt]);
+    const product = await n.one("select final_value_cents, details from results where team_id = $1", [n.teamId(c.p_code)]);
+    const released = await n.one("select released_at from scores where company_id = $1 and type = 'PLAN'", [ccrt]);
+
+    // The re-run: a new generation of runs 1–3; the released score stays until the new one is applied.
+    expect(await n.org("rerun_judging", ccrt, "PLAN", "The judge's answer was cut off (max tokens).")).toMatchObject({ after_release: true, generation: 2 });
+    const runs: { run_id: string; submission_id: string; generation: number; run_no: number }[] = await n.call(service, "claim_judge_runs", n.eventId, 10);
+    expect(runs.map((r) => [r.generation, r.run_no])).toEqual([[2, 1], [2, 2], [2, 3]]);
+    await n.ok(service, "record_injections", runs[0]!.submission_id, "[]");
+    for (const [i, t] of [40, 40, 42].entries()) await n.ok(service, "finish_judge_run", runs[i]!.run_id, judgeOutput("PLAN", t));
+    const appeal = await n.one("select id, status, new_score from appeals where company_id = $1 and type = 'PLAN'", [ccrt]);
+    expect(appeal).toMatchObject({ status: "READY", new_score: { final: 40, median: 40, capped: true, tier_bp: -1000 } });
+    expect(await n.one("select final_score from scores where company_id = $1 and type = 'PLAN'", [ccrt])).toEqual({ final_score: 50 });
+    expect(await n.one("select app.gate_blocker($1) as b", [n.eventId])).toEqual({ b: "Collusion flags are still open for the fairness officer." });
+
+    const applied = await n.org("apply_appeal", appeal.id);
+    // 40 (still capped: no deal by 03:00) → −10%: AI $8.50 → $7.65; closing ($7.80 + $7.65) ÷ 2 = $7.725 → $7.73.
+    expect(applied.effects).toMatchObject({
+      score: { from: 50, to: 40 }, tier_bp: { from: 0, to: -1000 }, ai_price: { from: 850, to: 765 },
+      closing_price: { from: 815, to: 773 }, plan_bonus_cents: -500000, settled: true,
+    });
+    expect(await n.companyByTicker("CCRT")).toMatchObject({ market_price: 770, closing_market_price: 780, ai_price: 765, closing_price: 773, post_crisis_price: 935 });
+    expect(await n.one("select final_score, tier_bp, generation, status, released_at from scores where company_id = $1 and type = 'PLAN'", [ccrt]))
+      .toEqual({ final_score: 40, tier_bp: -1000, generation: 2, status: "RELEASED", released_at: released.released_at });
+    // The history that happened is kept; the appeal is a new row.
+    const after = await n.q("select id, kind, market_before, market_after, ai_before, ai_after, tier_bp from round_prices where company_id = $1 order by id", [ccrt]);
+    expect(after.slice(0, history.length).map(({ id, kind, market_after, ai_after }) => ({ id, kind, market_after, ai_after }))).toEqual(history);
+    expect(after.slice(history.length)).toEqual([
+      expect.objectContaining({ kind: "APPEAL", market_before: 815, market_after: 773, ai_before: 850, ai_after: 765, tier_bp: -1000 }),
+    ]);
+    // Shorts covered at the close paid $0.42 a share too much; the consultant gives back $500 × (50 − 40).
+    for (const t of shorts) expect(await cash(t.team_id), "short cover refund").toBe(shortCash.get(t.team_id)! + BigInt(t.qty) * 42n);
+    expect(applied.effects.short_cover_cents).toBe(-42 * shorts.reduce((a, t) => a + t.qty, 0));
+    const callDelta = applied.effects.calls.filter((x: { team_id: string }) => x.team_id === consultant).reduce((a: number, x: { cents: number }) => a + x.cents, 0);
+    expect(await cash(consultant)).toBe(consultantCash - 500000n + BigInt(callDelta));
+    // Results follow the new closing price.
+    const retained = product.details.retained as number;
+    expect((await n.one("select final_value_cents from results where team_id = $1", [n.teamId(c.p_code)])).final_value_cents)
+      .toBe(String(BigInt(product.final_value_cents) - 42n * BigInt(retained)));
+    expect(await n.one("select status from appeals where id = $1", [appeal.id])).toEqual({ status: "APPLIED" });
+    // Teams see the new score.
+    expect(await rowsAs(db.pool, n.team(c.p_code), "select final_score from scores where company_id = $1 and type = 'PLAN'", [ccrt])).toEqual([{ final_score: 40 }]);
+    expect(await n.call(n.lead, "apply_appeal", appeal.id)).toMatchObject({ ok: false, code: "NOT_READY" });
+    await n.checkInvariants();
+  });
+
+  test("technical appeal dismissed: the score stays, the runs in flight are dropped, a late report changes nothing", async () => {
+    const aqs = company.AQS!;
+    const before = await n.one("select final_score, generation from scores where company_id = $1 and type = 'FLASH'", [aqs]);
+    await n.org("rerun_judging", aqs, "FLASH", "A team says the judge misread the answer.");
+    const runs: { run_id: string }[] = await n.call(service, "claim_judge_runs", n.eventId, 10);
+    expect(runs).toHaveLength(3);
+    const appeal = await n.one("select id from appeals where company_id = $1 and type = 'FLASH' and status = 'JUDGING'", [aqs]);
+    await expect(n.call(n.lead, "dismiss_appeal", appeal.id, "no")).rejects.toThrow(/reason/);
+    await n.org("dismiss_appeal", appeal.id, "Re-read: the answer was judged correctly.");
+    expect(await n.call(service, "finish_judge_run", runs[0]!.run_id, judgeOutput("FLASH", 20))).toMatchObject({ ok: false, code: "NOT_RUNNING" });
+    expect(await n.org("retry_failed_runs", n.eventId, "FLASH")).toMatchObject({ retried: 0 });
+    expect(await n.one("select final_score, generation from scores where company_id = $1 and type = 'FLASH'", [aqs])).toEqual(before);
+    // A released pitch score is never judged again (it set the IPO price).
+    expect(await n.call(n.lead, "rerun_judging", aqs, "PITCH", "The judge was harsh.")).toMatchObject({ ok: false, code: "PITCH_RELEASED" });
   });
 
   test("fairness: flags must be decided before AWARDS; a disqualification removes teams from the rankings and awards", async () => {

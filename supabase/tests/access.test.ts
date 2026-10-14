@@ -26,7 +26,8 @@ const ALL_TABLES = [
   "crisis_cards", "squads", "companies", "coverage", "holdings", "orders", "ipo_bids", "round_prices", "fees",
   "deals", "submission_drafts", "submissions", "judge_runs", "scores", "injection_logs", "calls", "qa_questions",
   "qa_answers", "bulletins", "ledger_entries", "public_ledger", "corrections", "flags", "results", "awards",
-  "audit_log", "rate_limits", "error_log", "client_pings",
+  "audit_log", "rate_limits", "error_log", "client_pings", "judge_injection_checks", "appeals", "calibration_samples",
+  "calibration_runs",
 ];
 
 describe("grants", () => {
@@ -58,13 +59,14 @@ describe("grants", () => {
        where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
        order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
-      "admin_health", "advance_phase", "answer_question", "cancel_order", "close_round_now", "confirm_fee",
-      "decide_correction", "decide_flag", "draw_summary", "edit_deal", "edit_order", "event_status", "extend_event",
-      "lottery_record_rows", "make_call", "pause_event", "pick_problem_card", "ping", "place_ipo_bid", "place_order",
-      "post_question", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin", "rankings",
-      "release_scores", "request_correction",
-      "resume_event", "run_lottery", "save_draft", "seal_missing_scores", "server_time", "set_auto_advance",
-      "set_seed_commitment", "sign_deal", "submit_submission", "tick", "upload_crisis_deck", "upload_problem_deck",
+      "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "close_round_now", "confirm_fee",
+      "decide_correction", "decide_flag", "dismiss_appeal", "draw_summary", "edit_deal", "edit_order", "event_status",
+      "extend_event", "lottery_record_rows", "make_call", "pause_event", "pick_problem_card", "ping", "place_ipo_bid",
+      "place_order", "post_question", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin",
+      "rankings", "release_scores", "request_correction", "rerun_judging", "resume_event", "retry_failed_runs",
+      "run_lottery", "save_draft", "seal_missing_scores", "server_time", "set_auto_advance", "set_judge_model",
+      "set_seed_commitment", "sign_deal", "start_calibration", "start_judging", "submit_submission", "tick",
+      "upload_crisis_deck", "upload_problem_deck",
     ]);
     for (const r of rows) {
       // The lottery record is public once the seed is revealed (anyone may check the draw); nothing else is.
@@ -77,6 +79,18 @@ describe("grants", () => {
       "select has_function_privilege('service_role', 'public.seal_score(uuid, public.submission_type)', 'EXECUTE') as svc, has_function_privilege('authenticated', 'public.seal_score(uuid, public.submission_type)', 'EXECUTE') as auth",
     );
     expect(seal.rows[0]).toEqual({ svc: true, auth: false });
+    // So are the judge queue's worker functions: claiming, reading and reporting runs (Phase 6).
+    for (const f of [
+      "public.claim_judge_runs(uuid, integer)", "public.judge_input(uuid)", "public.record_injections(uuid, jsonb)",
+      "public.finish_judge_run(uuid, jsonb)", "public.claim_calibration_runs(uuid, integer)", "public.calibration_input(uuid)",
+      "public.finish_calibration_run(uuid, jsonb)",
+    ]) {
+      const r = await db.pool.query(
+        "select has_function_privilege('service_role', $1, 'EXECUTE') as svc, has_function_privilege('authenticated', $1, 'EXECUTE') as auth",
+        [f],
+      );
+      expect(r.rows[0], f).toEqual({ svc: true, auth: false });
+    }
     const anonAny = await db.pool.query(`
       select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
        where n.nspname in ('public', 'app') and has_function_privilege('anon', p.oid, 'EXECUTE')

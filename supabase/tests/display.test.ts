@@ -138,7 +138,8 @@ describe("event_status while paused", () => {
     const paused = await n.call(display(n), "event_status", n.eventId);
     expect(paused).toMatchObject({ paused: true, trading: "PAUSED", open_round: { number: 1 }, next_round: { number: 2 } });
     // What it had left when the pause began: 5 minutes.
-    expect(Date.parse(paused.open_round.closes_at) - Date.parse(paused.paused_at)).toBe(5 * 60_000);
+    // (Within a millisecond: the times are stored in microseconds and read in milliseconds.)
+    expect(Math.abs(Date.parse(paused.open_round.closes_at) - Date.parse(paused.paused_at) - 5 * 60_000)).toBeLessThanOrEqual(1);
 
     await n.org("resume_event", n.eventId);
     const resumed = await n.call(display(n), "event_status", n.eventId);
