@@ -156,32 +156,32 @@ export function ConfirmForm(props: Parameters<typeof ActionForm>[0] & { confirm:
 /** The first click of a two-click action: remembers what it confirms, for 5 seconds. */
 function useArming() {
   const [armedFor, setArmedFor] = useState<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Each arming restarts the 5 s window, even for the same label.
+  const [armings, setArmings] = useState(0);
   const armedAt = useRef(0);
   // Disabled for a moment after the first click, so the second click of a double-click lands on nothing.
   const [cooling, setCooling] = useState(false);
-  const coolTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-      if (coolTimer.current) clearTimeout(coolTimer.current);
-    },
-    [],
-  );
+  // The timers follow the state (not the click), so effects that run again without a remount (Fast Refresh, a route
+  // hidden and shown again) start them again instead of leaving the button armed or disabled for good.
+  useEffect(() => {
+    if (!cooling) return;
+    const t = setTimeout(() => setCooling(false), CONFIRM_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [cooling]);
+  useEffect(() => {
+    if (armedFor === null) return;
+    const t = setTimeout(() => setArmedFor(null), 5000);
+    return () => clearTimeout(t);
+  }, [armedFor, armings]);
   const disarm = useCallback(() => {
-    if (timer.current) clearTimeout(timer.current);
-    if (coolTimer.current) clearTimeout(coolTimer.current);
     setCooling(false);
     setArmedFor(null);
   }, []);
   const arm = useCallback((label: string) => {
-    if (timer.current) clearTimeout(timer.current);
-    if (coolTimer.current) clearTimeout(coolTimer.current);
     armedAt.current = Date.now();
     setArmedFor(label);
+    setArmings((n) => n + 1);
     setCooling(true);
-    coolTimer.current = setTimeout(() => setCooling(false), CONFIRM_DELAY_MS);
-    timer.current = setTimeout(() => setArmedFor(null), 5000);
   }, []);
   const tooSoon = useCallback(() => Date.now() - armedAt.current < CONFIRM_DELAY_MS, []);
   return { armedFor, arm, disarm, tooSoon, cooling };
