@@ -1,6 +1,18 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, test } from "vitest";
-import { classifyError, claudeJudge, judgeOnce, judgeParams, MAX_TOKENS, retryAfterMs, type MessagesClient } from "./call";
+import {
+  anthropicClient,
+  classifyError,
+  claudeJudge,
+  judgeOnce,
+  judgeParams,
+  MAX_TOKENS,
+  MODEL_CHECK_TTL_MS,
+  modelChecker,
+  retryAfterMs,
+  type MessagesClient,
+  type ModelsClient,
+} from "./call";
 import { outputSchema } from "./schema";
 
 const VALID = JSON.stringify({
@@ -140,25 +152,54 @@ describe("judgeOnce", () => {
     expect(r2.retryAfterMs).toBeUndefined();
   });
 
-  test("401 is not retryable and stops the worker (every run would fail the same way)", async () => {
+  test("401 goes back to the queue (the run is not failed) and stops the worker (every run would fail the same way)", async () => {
     const e = new Anthropic.AuthenticationError(401, errorBody("authentication_error", "invalid x-api-key"), "invalid x-api-key", new Headers(), "authentication_error");
-    const { client } = fakeClient([e]);
+    const { client, calls } = fakeClient([e]);
     const r = await judgeOnce(client, OPTS);
-    expect(r).toMatchObject({ ok: false, retryable: false, fatal: true });
-    if (!r.ok) expect(r.error).toContain("401");
+    expect(r).toMatchObject({ ok: false, retryable: true, fatal: true, status: 401 });
+    if (!r.ok) expect(r.error).toContain("401 authentication_error: invalid x-api-key");
+    expect(calls).toHaveLength(1);
   });
 
-  test("errors are classified by type: overload, server and network errors retry; bad requests and unknown models do not", () => {
+  test("configuration errors (401, 403, 404, 402) go back to the queue and stop the worker", () => {
     const h = new Headers();
-    expect(classifyError(new Anthropic.InternalServerError(529, errorBody("overloaded_error", "Overloaded"), "Overloaded", h, "overloaded_error"))).toMatchObject({ retryable: true });
+    const cases = [
+      new Anthropic.AuthenticationError(401, errorBody("authentication_error", "invalid x-api-key"), "invalid x-api-key", h, "authentication_error"),
+      new Anthropic.PermissionDeniedError(403, errorBody("permission_error", "no access"), "no access", h, "permission_error"),
+      new Anthropic.NotFoundError(404, errorBody("not_found_error", "model: claude-x"), "model: claude-x", h, "not_found_error"),
+      Anthropic.APIError.generate(402, errorBody("billing_error", "credit balance too low"), "credit balance too low", h),
+    ];
+    for (const e of cases) {
+      expect(classifyError(e)).toMatchObject({ retryable: true, fatal: true, status: e.status });
+    }
+    expect(classifyError(cases[3]).error).toBe("402 billing_error: credit balance too low");
+    // A problem outside the API (no credentials configured) is a setup problem too.
+    expect(classifyError(new Error("Could not resolve authentication method"))).toMatchObject({ retryable: true, fatal: true });
+    expect(classifyError(new Error("x")).status).toBeUndefined();
+  });
+
+  test("a 400 fails this run only: not retryable, does not stop the worker by itself, and carries its status", async () => {
+    const e = new Anthropic.BadRequestError(400, errorBody("invalid_request_error", "temperature is not supported"), "temperature is not supported", new Headers(), "invalid_request_error");
+    const c = classifyError(e);
+    expect(c).toEqual({ error: "400 invalid_request_error: temperature is not supported", retryable: false, status: 400 });
+    const { client } = fakeClient([e]);
+    expect(await judgeOnce(client, OPTS)).toMatchObject({ ok: false, retryable: false, status: 400 });
+  });
+
+  test("errors are classified by type: overload, server and network errors retry; other statuses fail the run", () => {
+    const h = new Headers();
+    expect(classifyError(new Anthropic.InternalServerError(529, errorBody("overloaded_error", "Overloaded"), "Overloaded", h, "overloaded_error"))).toMatchObject({ retryable: true, status: 529 });
     expect(classifyError(new Anthropic.InternalServerError(500, errorBody("api_error", "boom"), "boom", new Headers({ "retry-after": "3" }), "api_error"))).toMatchObject({ retryable: true, retryAfterMs: 3000 });
     expect(classifyError(new Anthropic.APIConnectionError({ message: "Connection error." }))).toMatchObject({ retryable: true });
     expect(classifyError(new Anthropic.APIConnectionTimeoutError())).toMatchObject({ retryable: true });
     expect(classifyError(new Anthropic.APIUserAbortError())).toMatchObject({ retryable: true });
-    expect(classifyError(new Anthropic.BadRequestError(400, errorBody("invalid_request_error", "temperature is not supported"), "temperature is not supported", h, "invalid_request_error"))).toMatchObject({ retryable: false, fatal: true });
-    expect(classifyError(new Anthropic.NotFoundError(404, errorBody("not_found_error", "model: x"), "model: x", h, "not_found_error"))).toMatchObject({ retryable: false, fatal: true });
-    expect(classifyError(new Anthropic.PermissionDeniedError(403, errorBody("permission_error", "no"), "no", h, "permission_error"))).toMatchObject({ retryable: false, fatal: true });
-    expect(classifyError(new Error("Could not resolve authentication method"))).toMatchObject({ retryable: false, fatal: true });
+    for (const e of [new Anthropic.APIConnectionError({ message: "x" }), new Anthropic.APIUserAbortError()]) {
+      expect(classifyError(e).fatal).toBeUndefined();
+    }
+    expect(classifyError(Anthropic.APIError.generate(408, undefined, "timeout", h))).toMatchObject({ retryable: true, status: 408 });
+    const tooLarge = classifyError(Anthropic.APIError.generate(413, errorBody("request_too_large", "too large"), "too large", h));
+    expect(tooLarge).toMatchObject({ retryable: false, status: 413 });
+    expect(tooLarge.fatal).toBeUndefined();
   });
 
   test("retry-after-ms wins over retry-after; an HTTP date counts from now", () => {
@@ -167,6 +208,67 @@ describe("judgeOnce", () => {
     expect(retryAfterMs(new Headers({ "retry-after": "Sat, 14 Nov 2026 21:00:30 GMT" }), now)).toBe(30_000);
     expect(retryAfterMs(new Headers({ "retry-after": "soon" }))).toBeUndefined();
     expect(retryAfterMs(undefined)).toBeUndefined();
+  });
+});
+
+describe("modelChecker (the start-up check)", () => {
+  function fakeModels(answers: (Error | null)[]) {
+    const calls: { model: string; options: unknown }[] = [];
+    const client: ModelsClient = {
+      models: {
+        async retrieve(model, _params, options) {
+          calls.push({ model, options });
+          const next = answers.shift();
+          if (next) throw next;
+          return { id: model, type: "model" };
+        },
+      },
+    };
+    return { client, calls };
+  }
+
+  test("asks the API about the model once, and trusts a success for 60 s", async () => {
+    let t = 1_000_000;
+    const { client, calls } = fakeModels([null, null]);
+    const check = modelChecker(client, { now: () => t });
+    expect(await check("claude-opus-5-5")).toEqual({ ok: true, cached: false });
+    expect(calls).toEqual([{ model: "claude-opus-5-5", options: { timeout: 20_000, maxRetries: 1 } }]);
+    t += MODEL_CHECK_TTL_MS - 1;
+    expect(await check("claude-opus-5-5")).toEqual({ ok: true, cached: true });
+    expect(calls).toHaveLength(1);
+    t += 1;
+    expect(await check("claude-opus-5-5")).toEqual({ ok: true, cached: false });
+    expect(calls).toHaveLength(2);
+  });
+
+  test("each model is checked on its own (a switch to the backup is checked too)", async () => {
+    const { client, calls } = fakeModels([null, null]);
+    const check = modelChecker(client, { now: () => 0 });
+    await check("claude-opus-5-5");
+    await check("claude-sonnet-5-5");
+    expect(calls.map((c) => c.model)).toEqual(["claude-opus-5-5", "claude-sonnet-5-5"]);
+  });
+
+  test("a failure says why, with its status, and is not remembered", async () => {
+    const h = new Headers();
+    const unknown = new Anthropic.NotFoundError(404, errorBody("not_found_error", "model: claude-x"), "model: claude-x", h, "not_found_error");
+    const badKey = new Anthropic.AuthenticationError(401, errorBody("authentication_error", "invalid x-api-key"), "invalid x-api-key", h, "authentication_error");
+    const { client, calls } = fakeModels([unknown, badKey, null]);
+    const check = modelChecker(client, { now: () => 0 });
+    expect(await check("claude-x")).toEqual({ ok: false, error: "404 not_found_error: model: claude-x", status: 404 });
+    expect(await check("claude-x")).toEqual({ ok: false, error: "401 authentication_error: invalid x-api-key", status: 401 });
+    expect(await check("claude-x")).toEqual({ ok: true, cached: false });
+    expect(calls).toHaveLength(3);
+    const network = fakeModels([new Anthropic.APIConnectionError({ message: "Connection error." })]);
+    expect(await modelChecker(network.client)("m")).toEqual({ ok: false, error: "network error: Connection error." });
+  });
+});
+
+describe("the SDK client", () => {
+  test("60 s a try and 2 retries (each run also has its own limit in the worker)", () => {
+    const client = anthropicClient();
+    expect(client.timeout).toBe(60_000);
+    expect(client.maxRetries).toBe(2);
   });
 });
 

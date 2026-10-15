@@ -5,7 +5,8 @@
 import type { SubmissionType } from "@msim/engine";
 
 export type JudgeSlot = "PRIMARY" | "BACKUP";
-export type JudgeEffort = "low" | "medium" | "high" | "xhigh" | "max";
+/** output_config.effort. Not xhigh or max: with thinking always on they need more than the 8,000 output tokens a call allows. */
+export type JudgeEffort = "low" | "medium" | "high";
 
 /** One row of public.claim_judge_runs(event, limit). */
 export interface ClaimedRun {
@@ -41,6 +42,8 @@ export interface DealInput {
   amount_cents: number | string | null;
   price_cents: number | string | null;
   shares: number | string | null;
+  /** The company's share price after the crisis: the deal's price is shown against it. */
+  post_crisis_price_cents?: number | string | null;
   deadline: string | null;
 }
 
@@ -57,6 +60,11 @@ export interface JudgeInput {
   company_name: string;
   /** Company, team and member names of the squad: each becomes the ticker. */
   names: string[];
+  /**
+   * The members' full names (also in `names`). Each part of these names (a first name used alone) is hidden too, in
+   * the submission and the pitch card.
+   */
+  member_names?: string[];
   submission_id: string;
   submission_text: string;
   /** PLAN only: the company's current pitch card. */
@@ -118,10 +126,12 @@ export type JudgeCallResult =
       retryable: boolean;
       retryAfterMs?: number;
       /**
-       * True when every other run would fail the same way (bad key, unknown model, a request the API rejects):
-       * the worker stops claiming new runs.
+       * True when every other run would fail the same way (bad key, no access, unknown model, billing): the run goes
+       * back to the queue and the worker stops claiming new runs.
        */
       fatal?: boolean;
+      /** The HTTP status of the API error, when there was one (the worker counts 400s in a row). */
+      status?: number;
       raw?: string;
       model: string;
       latencyMs: number;
@@ -143,10 +153,14 @@ export interface JudgeRequest {
 
 export type JudgeFn = (request: JudgeRequest) => Promise<JudgeCallResult>;
 
-/** The `result` argument of public.finish_judge_run / finish_calibration_run (docs/JUDGE.md). */
+/**
+ * The `result` argument of public.finish_judge_run / finish_calibration_run (docs/JUDGE.md). `attempt` is the claim's
+ * `attempts`: the database ignores a report for an earlier claim of the run (STALE).
+ */
 export type RunResult =
   | {
       ok: true;
+      attempt: number;
       model: string;
       prompt_sha: string;
       request_text: string;
@@ -158,6 +172,7 @@ export type RunResult =
     }
   | {
       ok: false;
+      attempt: number;
       model?: string;
       prompt_sha?: string;
       request_text?: string;
@@ -170,7 +185,8 @@ export type RunResult =
 
 /**
  * What finish_judge_run answers: {ok: true, status: 'DONE' | 'QUEUED' | 'FAILED', sealed?: {final, median, runs},
- * extra_runs?, appeal_ready?}, or {ok: false, code: 'NOT_RUNNING', …} for a run that was already reported.
+ * extra_runs?, appeal_ready?}, or {ok: false, code: 'NOT_RUNNING' | 'STALE', …} for a run that was already reported or
+ * has been claimed again since (both are ignored).
  */
 export interface FinishReply {
   ok: boolean;

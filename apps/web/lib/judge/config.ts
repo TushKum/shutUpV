@@ -1,5 +1,7 @@
 // The judge's settings, read from the environment (docs/JUDGE.md "Environment"). Pure: pass the environment in to
-// test it. A bad value is an error at start-up, before any run is claimed.
+// test it. A bad value is an error at start-up, before any run is claimed: so is JUDGE_TEMPERATURE with a model that
+// rejects sampling parameters (every call would be a 400), and an effort above high (with thinking always on, xhigh
+// and max need more output than MAX_TOKENS, and more than that needs streaming).
 
 import type { JudgeEffort, JudgeSlot } from "./types";
 
@@ -26,7 +28,27 @@ export const JUDGE_DEFAULTS = {
   fakeLatencyMs: 300,
 } as const;
 
-const EFFORTS: readonly JudgeEffort[] = ["low", "medium", "high", "xhigh", "max"];
+export const EFFORTS: readonly JudgeEffort[] = ["low", "medium", "high"];
+
+/**
+ * Model ids that answer HTTP 400 to temperature (and the other sampling parameters): the current Claude models.
+ * Matched as prefixes, so "claude-opus-5" covers claude-opus-5-5 too.
+ */
+export const NO_SAMPLING_MODELS: readonly string[] = [
+  "claude-opus-5",
+  "claude-sonnet-5",
+  "claude-haiku-5",
+  "claude-fable",
+  "claude-mythos",
+  "claude-opus-4-7",
+  "claude-opus-4-8",
+];
+
+/** Whether a model rejects temperature, top_p and top_k. */
+export function rejectsSampling(model: string): boolean {
+  const id = model.trim().toLowerCase();
+  return NO_SAMPLING_MODELS.some((prefix) => id.startsWith(prefix));
+}
 
 type Env = Record<string, string | undefined>;
 
@@ -46,7 +68,11 @@ function integer(env: Env, name: string, fallback: number, min: number, max: num
 
 export function judgeConfig(env: Env = process.env): JudgeConfig {
   const effort = (read(env, "JUDGE_EFFORT") ?? JUDGE_DEFAULTS.effort) as JudgeEffort;
-  if (!EFFORTS.includes(effort)) throw new Error(`JUDGE_EFFORT must be one of ${EFFORTS.join(", ")}, got "${effort}"`);
+  if (!EFFORTS.includes(effort)) {
+    throw new Error(
+      `JUDGE_EFFORT must be low, medium or high, got "${effort}" (xhigh and max need more output than a judging call allows)`,
+    );
+  }
 
   const t = read(env, "JUDGE_TEMPERATURE");
   let temperature: number | undefined;
@@ -62,11 +88,24 @@ export function judgeConfig(env: Env = process.env): JudgeConfig {
     throw new Error(`JUDGE_FAKE must be 1 or 0, got "${fakeFlag}"`);
   }
 
+  const models: Record<JudgeSlot, string> = {
+    PRIMARY: read(env, "JUDGE_MODEL") ?? JUDGE_DEFAULTS.model,
+    BACKUP: read(env, "JUDGE_BACKUP_MODEL") ?? JUDGE_DEFAULTS.backupModel,
+  };
+  if (temperature !== undefined) {
+    // Both slots: an organiser can switch to the backup in the middle of the night.
+    for (const [slot, variable] of [["PRIMARY", "JUDGE_MODEL"], ["BACKUP", "JUDGE_BACKUP_MODEL"]] as const) {
+      if (rejectsSampling(models[slot])) {
+        throw new Error(
+          `JUDGE_TEMPERATURE is set, but ${models[slot]} (${variable}) rejects temperature, so every judging call would ` +
+            `fail with HTTP 400. Unset JUDGE_TEMPERATURE, or use models that accept it in both slots (PLAN.md Q3).`,
+        );
+      }
+    }
+  }
+
   return {
-    models: {
-      PRIMARY: read(env, "JUDGE_MODEL") ?? JUDGE_DEFAULTS.model,
-      BACKUP: read(env, "JUDGE_BACKUP_MODEL") ?? JUDGE_DEFAULTS.backupModel,
-    },
+    models,
     ...(temperature !== undefined ? { temperature } : {}),
     effort,
     // claim_judge_runs hands out at most 50 runs per claim.

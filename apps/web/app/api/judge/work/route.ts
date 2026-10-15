@@ -2,20 +2,27 @@
 // While an organiser keeps "Run the judge here" on, the control panel calls this again and again: each call claims
 // runs from the queue for JUDGE_WORK_BUDGET_MS (50 s) with up to JUDGE_CONCURRENCY calls in parallel, waits for them,
 // and answers with what it did and what is left. Several open consoles share the queue (claims skip locked rows).
-// The fake judge (JUDGE_FAKE) is refused on a live event. The queue is worked as the service role; the organiser
-// check happens here first, and the claim and report functions are not callable by signed-in users at all.
+// The fake judge (JUDGE_FAKE) is refused on a live event. With the real model, the API is checked first with the
+// model of the event's current slot (no run used; a success is trusted for 60 s). It answers 502 when that check fails
+// or when the worker stopped on an error it cannot get past (lib/judge/reply.ts), so the console's loop switches off.
+// The queue is worked as the service role; the organiser check happens here first, and the claim and report
+// functions are not callable by signed-in users at all. prompts/ is read at run time: next.config.ts traces it in.
 
 import { NextResponse } from "next/server";
 import { getViewer } from "@/lib/auth/viewer";
 import {
+  checkJudgeModel,
   createJudge,
   fakeJudgeRefusal,
   hasApiCredential,
   judgeConfig,
+  modelCheckReply,
   promptLoader,
   queueCounts,
   runWorker,
   supabaseJudgeDb,
+  workReply,
+  type JudgeSlot,
 } from "@/lib/judge";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseService } from "@/lib/supabase/service";
@@ -62,9 +69,9 @@ export async function POST(request: Request) {
 
   const { data: event, error: eventError } = await sb
     .from("events")
-    .select("id, is_rehearsal")
+    .select("id, is_rehearsal, judge_model_slot")
     .eq("id", eventId)
-    .maybeSingle<{ id: string; is_rehearsal: boolean }>();
+    .maybeSingle<{ id: string; is_rehearsal: boolean; judge_model_slot: JudgeSlot }>();
   if (eventError) return reply(500, { error: "Could not read the event." });
   if (!event) return reply(404, { error: "There is no such event." });
 
@@ -82,6 +89,16 @@ export async function POST(request: Request) {
     prompts("FLASH");
   } catch (e) {
     return reply(500, { error: e instanceof Error ? e.message : String(e) });
+  }
+
+  // A bad key, no access or an unknown model shows here, before a run is claimed.
+  if (!config.fake) {
+    const slot: JudgeSlot = event.judge_model_slot === "BACKUP" ? "BACKUP" : "PRIMARY";
+    const check = await checkJudgeModel(config.models[slot]);
+    if (!check.ok) {
+      const r = modelCheckReply(config.models[slot], slot, check);
+      return reply(r.status, r.body);
+    }
   }
 
   const summary = await runWorker({
@@ -102,5 +119,6 @@ export async function POST(request: Request) {
   } catch {
     // The counts are a convenience; the work is done either way.
   }
-  return reply(200, { ...summary, fake: config.fake, remaining });
+  const r = workReply(summary, { fake: config.fake, remaining });
+  return reply(r.status, r.body);
 }

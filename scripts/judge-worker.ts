@@ -4,13 +4,16 @@
 //   pnpm judge-worker --event <slug> [--once]
 //
 // Reads .env: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY and the
-// JUDGE_* settings. It claims runs until the queue is empty, waiting for runs that are backing off or that another
-// worker holds, then exits. --once does one turn of JUDGE_WORK_BUDGET_MS instead. Ctrl-C once stops claiming and lets
-// the calls in flight finish; Ctrl-C twice aborts them (they go back to the queue). The fake judge (JUDGE_FAKE=1)
-// is refused on a live event.
+// JUDGE_* settings. It claims runs until neither the judge queue nor the calibration queue has anything queued or
+// running, waiting for runs that are backing off or that another worker holds, then exits. --once does one turn of
+// JUDGE_WORK_BUDGET_MS instead. Before each turn with the real model it checks the API with the model of the event's
+// current slot (no run used), and stops if that fails. Ctrl-C once stops claiming and lets the calls in flight
+// finish; Ctrl-C twice aborts them (they go back to the queue). The fake judge (JUDGE_FAKE=1) is refused on a live
+// event.
 
 import { createClient } from "@supabase/supabase-js";
 import {
+  checkJudgeModel,
   createJudge,
   fakeJudgeRefusal,
   hasApiCredential,
@@ -19,6 +22,8 @@ import {
   queueCounts,
   runWorker,
   supabaseJudgeDb,
+  type JudgeSlot,
+  type QueueCounts,
   type WorkerSummary,
 } from "../apps/web/lib/judge/index";
 import { parseArgs } from "./lib/args";
@@ -41,6 +46,7 @@ function line(s: Readonly<WorkerSummary>): string {
   const parts = [`done ${s.done}`, `retried ${s.retried}`, `failed ${s.failed}`];
   if (s.calibration) parts.push(`calibration ${s.calibration}`);
   parts.push(`sealed ${s.sealed}`);
+  if (s.ignored) parts.push(`ignored ${s.ignored}`);
   if (s.errors) parts.push(`report errors ${s.errors}`);
   const t = s.tokens;
   if (t.input_tokens || t.output_tokens) {
@@ -48,6 +54,8 @@ function line(s: Readonly<WorkerSummary>): string {
   }
   return `${parts.join(" · ")} · ${(s.ms / 1000).toFixed(1)} s`;
 }
+
+const busy = (c: QueueCounts) => c.queued > 0 || c.running > 0;
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -73,7 +81,7 @@ async function main(): Promise<number> {
     .from("events")
     .select("id, slug, name, is_rehearsal, judge_model_slot")
     .eq("slug", args.event)
-    .maybeSingle<{ id: string; slug: string; name: string; is_rehearsal: boolean; judge_model_slot: string }>();
+    .maybeSingle<{ id: string; slug: string; name: string; is_rehearsal: boolean; judge_model_slot: JudgeSlot }>();
   if (error) throw new Error(`could not read the event: ${error.message}`);
   if (!event) throw new Error(`there is no event with the slug ${args.event}`);
 
@@ -105,6 +113,22 @@ async function main(): Promise<number> {
   const judge = createJudge(config);
   let lastWait = "";
   for (;;) {
+    if (!config.fake) {
+      // The slot may have been switched since the last turn (set_judge_model): check the model it uses now.
+      const { data: current, error: slotError } = await sb
+        .from("events")
+        .select("judge_model_slot")
+        .eq("id", event.id)
+        .single<{ judge_model_slot: JudgeSlot }>();
+      if (slotError) throw new Error(`could not read the event: ${slotError.message}`);
+      const slot: JudgeSlot = current.judge_model_slot === "BACKUP" ? "BACKUP" : "PRIMARY";
+      const check = await checkJudgeModel(config.models[slot]);
+      if (!check.ok) {
+        console.error(`Stopped before claiming: the API check of ${config.models[slot]} (the ${slot} model) failed: ${check.error}`);
+        return 1;
+      }
+    }
+
     let lastPrint = Date.now();
     const s = await runWorker({
       db,
@@ -131,12 +155,15 @@ async function main(): Promise<number> {
     }
     if (once || s.stopped === "stopped" || s.stopped === "aborted") break;
 
-    const c = await queueCounts(sb, event.id);
-    if (c.queued === 0 && c.running === 0) {
-      console.log(`${time()}  Nothing left to judge: ${c.done} runs done, ${c.failed} failed.`);
+    const [c, cal] = await Promise.all([queueCounts(sb, event.id), queueCounts(sb, event.id, "calibration_runs")]);
+    if (!busy(c) && !busy(cal)) {
+      const calibration = cal.done || cal.failed ? `; calibration ${cal.done} done, ${cal.failed} failed` : "";
+      console.log(`${time()}  Nothing left to judge: ${c.done} runs done, ${c.failed} failed${calibration}.`);
       break;
     }
-    const wait = `${c.queued} queued (waiting to be tried again) and ${c.running} running elsewhere; looking again every ${WAIT_MS / 1000} s`;
+    const wait =
+      `judge runs ${c.queued} queued (waiting to be tried again) and ${c.running} running elsewhere, ` +
+      `calibration runs ${cal.queued} queued and ${cal.running} running elsewhere; looking again every ${WAIT_MS / 1000} s`;
     if (wait !== lastWait) console.log(`${time()}  ${wait}`);
     lastWait = wait;
     await sleep(WAIT_MS, stopper.signal);

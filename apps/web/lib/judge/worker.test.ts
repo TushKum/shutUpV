@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { SubmissionType } from "@msim/engine";
 import { fakeJudge } from "./fake";
-import { runWorker, toRunResult, type JudgeDb } from "./worker";
+import { BAD_REQUESTS_TO_STOP, ignoredReply, RUN_TIMEOUT_MS, runWorker, toRunResult, type JudgeDb } from "./worker";
 import {
   EMPTY_USAGE,
   type CalibrationInput,
@@ -137,6 +137,9 @@ class MemoryQueue implements JudgeDb {
 
   private complete(runId: string, result: RunResult): FinishReply {
     const r = this.run(runId);
+    // As finish_judge_run: a report for a run no longer in flight, or for an earlier claim of it, changes nothing.
+    if (r.status !== "RUNNING" && r.status !== "QUEUED") return { ok: false, code: "NOT_RUNNING", message: "This run has already been reported." };
+    if (result.attempt !== r.attempts) return { ok: false, code: "STALE", message: "This run was claimed again since; this report is ignored." };
     r.results.push(result);
     // As finish_judge_run: an ok run of a submission whose injection check was never recorded fails.
     if (result.ok && r.kind === "judge" && !this.recorded.has(r.submission)) r.status = "FAILED";
@@ -201,7 +204,7 @@ describe("runWorker", () => {
     const t0 = Date.now();
     const s = await runWorker({ ...base, db, judge: w.judge });
     const elapsed = Date.now() - t0;
-    expect(s).toMatchObject({ done: 150, failed: 0, retried: 0, claimed: 150, errors: 0, stopped: "empty" });
+    expect(s).toMatchObject({ done: 150, failed: 0, retried: 0, claimed: 150, errors: 0, ignored: 0, stopped: "empty" });
     expect(db.count("DONE")).toBe(150);
     expect(w.peak()).toBe(8);
     expect(elapsed).toBeLessThan(1500);
@@ -218,7 +221,7 @@ describe("runWorker", () => {
     expect(req.requestText).toBe(req.userText);
     expect(req.userText).toContain("AQS sells sensors.");
     const result = db.runs[0]!.results[0]!;
-    expect(result).toMatchObject({ ok: true, model: "fake-judge", prompt_sha: "sha-PLAN", request_text: req.requestText });
+    expect(result).toMatchObject({ ok: true, attempt: 1, model: "fake-judge", prompt_sha: "sha-PLAN", request_text: req.requestText });
     if (result.ok) expect(JSON.parse(result.raw_response)).toMatchObject({ total: result.total });
   });
 
@@ -232,7 +235,7 @@ describe("runWorker", () => {
     expect(s).toMatchObject({ done: 2, retried: 1, failed: 0, claimed: 3 });
     const retried = db.runs.find((r) => r.runNo === 2)!;
     expect(retried.results).toEqual([
-      expect.objectContaining({ ok: false, retryable: true, retry_after_ms: 7000, error: "429 rate_limit_error: slow down" }),
+      expect.objectContaining({ ok: false, attempt: 1, retryable: true, retry_after_ms: 7000, error: "429 rate_limit_error: slow down" }),
     ]);
     expect(retried.status).toBe("QUEUED");
     expect(retried.dueAt).toBeGreaterThan(Date.now() + 6000);
@@ -322,17 +325,126 @@ describe("runWorker", () => {
     expect(logs.some((l) => l.includes("calibration runs cannot be claimed"))).toBe(true);
   });
 
-  test("a fatal judge error (bad key, unknown model) stops claiming", async () => {
+  test("a configuration error (bad key, unknown model) stops claiming, and its runs go back to the queue", async () => {
     const db = new MemoryQueue();
     for (let i = 0; i < 10; i++) db.addSubmission(`sub-${i}`, `Pitch ${i}`);
     const s = await runWorker({
       ...base,
       concurrency: 4,
       db,
-      judge: async () => failure({ error: "401 authentication_error: invalid x-api-key", fatal: true }),
+      judge: async () => failure({ error: "401 authentication_error: invalid x-api-key", retryable: true, fatal: true, status: 401 }),
     });
-    expect(s).toMatchObject({ stopped: "fatal", reason: "401 authentication_error: invalid x-api-key", claimed: 4, failed: 4 });
-    expect(db.count("QUEUED")).toBe(26);
+    expect(s).toMatchObject({ stopped: "fatal", reason: "401 authentication_error: invalid x-api-key", claimed: 4, retried: 4, failed: 0 });
+    expect(db.count("QUEUED")).toBe(30);
+    expect(db.count("FAILED")).toBe(0);
+  });
+
+  test("a 400 fails that run and the worker carries on; three in a row stop it", async () => {
+    const db = new MemoryQueue();
+    for (let i = 0; i < 4; i++) db.addSubmission(`sub-${i}`, `Pitch ${i}`);
+    const bad = failure({ error: "400 invalid_request_error: temperature is not supported", status: 400 });
+    const s = await runWorker({ ...base, concurrency: 1, db, judge: async () => bad });
+    expect(BAD_REQUESTS_TO_STOP).toBe(3);
+    expect(s).toMatchObject({ stopped: "fatal", claimed: 3, failed: 3, retried: 0 });
+    expect(s.reason).toBe("3 requests in a row were refused (HTTP 400); the last: 400 invalid_request_error: temperature is not supported");
+    expect(db.count("FAILED")).toBe(3);
+    expect(db.count("QUEUED")).toBe(9);
+  });
+
+  test("an answer from the model between 400s resets the count", async () => {
+    const db = new MemoryQueue();
+    for (let i = 0; i < 4; i++) db.addSubmission(`sub-${i}`, `Pitch ${i}`);
+    const inner = fakeJudge({ latencyMs: 1 });
+    let n = 0;
+    // 400, 400, ok, 400, 400, invalid answer, 400, 400, ok, …: never three 400s in a row.
+    const judge: JudgeFn = async (r) => {
+      const k = n++ % 3;
+      if (k < 2) return failure({ error: "400 invalid_request_error: x", status: 400 });
+      return n % 2 === 0 ? failure({ error: "no valid answer in 3 attempts" }) : inner(r);
+    };
+    const s = await runWorker({ ...base, concurrency: 1, db, judge });
+    expect(s).toMatchObject({ stopped: "empty", claimed: 12, failed: 10, done: 2 });
+  });
+
+  test("a 429 or a network error between 400s does not reset the count", async () => {
+    const db = new MemoryQueue();
+    for (let i = 0; i < 4; i++) db.addSubmission(`sub-${i}`, `Pitch ${i}`);
+    const answers = [
+      failure({ error: "400 a", status: 400 }),
+      failure({ error: "429 rate_limit_error: slow down", retryable: true, status: 429 }),
+      failure({ error: "400 b", status: 400 }),
+      failure({ error: "network error: reset", retryable: true }),
+      failure({ error: "400 c", status: 400 }),
+    ];
+    const s = await runWorker({ ...base, concurrency: 1, db, judge: async () => answers.shift() ?? failure({}) });
+    expect(s).toMatchObject({ stopped: "fatal", claimed: 5, failed: 3, retried: 2 });
+    expect(s.reason).toContain("the last: 400 c");
+  });
+
+  test("each run has its own time limit: a slow call goes back to the queue as retryable", async () => {
+    expect(RUN_TIMEOUT_MS).toBe(150_000); // below the queue's 3-minute lease
+    const db = new MemoryQueue();
+    db.addSubmission("sub-1", "Pitch one", [1, 2]);
+    const inner = fakeJudge({ latencyMs: 1 });
+    const seen: AbortSignal[] = [];
+    const judge: JudgeFn = async (r) => {
+      seen.push(r.signal!);
+      return r.runNo === 1 ? fakeJudge({ latencyMs: 10_000 })(r) : inner(r);
+    };
+    const t0 = Date.now();
+    const s = await runWorker({ ...base, db, judge, runTimeoutMs: 80 });
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(s).toMatchObject({ done: 1, retried: 1, failed: 0, stopped: "empty" });
+    const slow = db.runs.find((r) => r.runNo === 1)!;
+    expect(slow.status).toBe("QUEUED");
+    expect(slow.results).toEqual([expect.objectContaining({ ok: false, retryable: true, attempt: 1, error: "the run took longer than 0.08 s" })]);
+    expect(seen[0]!.aborted).toBe(true);
+    expect(seen[1]!.aborted).toBe(false);
+  });
+
+  test("every report carries the claim's attempt; a report for an earlier claim is ignored (STALE), not an error", async () => {
+    const db = new MemoryQueue();
+    db.addSubmission("sub-1", "Pitch one", [1]);
+    const run = db.runs[0]!;
+    run.attempts = 2; // claimed twice before (claim_judge_runs counts up)
+    const inner = fakeJudge({ latencyMs: 1 });
+    const logs: string[] = [];
+    // While the call is in flight, the lease runs out and another worker claims the run again.
+    const judge: JudgeFn = async (r) => {
+      run.attempts++;
+      return inner(r);
+    };
+    const s = await runWorker({ ...base, db, judge, log: (l) => logs.push(l) });
+    expect(s).toMatchObject({ claimed: 1, done: 0, ignored: 1, errors: 0, failed: 0, retried: 0 });
+    expect(run.results).toEqual([]);
+    expect(run.status).toBe("RUNNING"); // the other worker's claim
+    expect(logs.some((l) => l.includes("report ignored (STALE)"))).toBe(true);
+
+    const fresh = new MemoryQueue();
+    fresh.addSubmission("sub-1", "Pitch one", [1]);
+    fresh.runs[0]!.attempts = 2;
+    await runWorker({ ...base, db: fresh, judge: inner });
+    expect(fresh.runs[0]!.results[0]).toMatchObject({ ok: true, attempt: 3 });
+  });
+
+  test("a report for a run that is no longer in flight is ignored (NOT_RUNNING)", async () => {
+    const db = new MemoryQueue();
+    db.addSubmission("sub-1", "Pitch one", [1]);
+    const inner = fakeJudge({ latencyMs: 1 });
+    const judge: JudgeFn = async (r) => {
+      db.runs[0]!.status = "DONE"; // reported by another worker meanwhile
+      return inner(r);
+    };
+    const s = await runWorker({ ...base, db, judge });
+    expect(s).toMatchObject({ ignored: 1, errors: 0, done: 0 });
+  });
+
+  test("calibration reports carry the claim's attempt too", async () => {
+    const db = new MemoryQueue();
+    db.addRun({ kind: "calibration", sampleNo: 5, runNo: 2, attempts: 3 });
+    const s = await runWorker({ ...base, db, judge: fakeJudge({ latencyMs: 1 }) });
+    expect(s).toMatchObject({ calibration: 1 });
+    expect(db.runs[0]!.results[0]).toMatchObject({ ok: true, attempt: 4 });
   });
 
   test("a request that cannot be built (missing prompt) goes back to the queue and stops the worker", async () => {
@@ -348,7 +460,7 @@ describe("runWorker", () => {
     });
     expect(s).toMatchObject({ stopped: "fatal", retried: 3, done: 0 });
     expect(s.reason).toContain("PITCH judge prompt is missing");
-    expect(db.runs[0]!.results[0]).toMatchObject({ ok: false, retryable: true });
+    expect(db.runs[0]!.results[0]).toMatchObject({ ok: false, retryable: true, attempt: 1 });
   });
 
   test("a claim error stops the worker and is reported", async () => {
@@ -388,7 +500,24 @@ describe("runWorker", () => {
 
 describe("toRunResult", () => {
   test("a failure carries retry_after_ms only when it is retryable", () => {
-    expect(toRunResult(failure({ retryable: true, retryAfterMs: 1234.4 }), "sha", "req")).toMatchObject({ retry_after_ms: 1234 });
-    expect(toRunResult(failure({ retryable: false, retryAfterMs: 1234 }), "sha", "req")).not.toHaveProperty("retry_after_ms");
+    expect(toRunResult(failure({ retryable: true, retryAfterMs: 1234.4 }), "sha", "req", 1)).toMatchObject({ retry_after_ms: 1234 });
+    expect(toRunResult(failure({ retryable: false, retryAfterMs: 1234 }), "sha", "req", 1)).not.toHaveProperty("retry_after_ms");
+  });
+
+  test("both outcomes carry the attempt", () => {
+    expect(toRunResult(failure({}), "sha", "req", 4)).toMatchObject({ ok: false, attempt: 4 });
+    const ok: JudgeCallResult = { ok: true, breakdown: { a: 1 }, total: 1, rationale: "r", raw: "{}", model: "m", latencyMs: 2.6, usage: EMPTY_USAGE, attempts: 1 };
+    expect(toRunResult(ok, "sha", "req", 2)).toEqual({
+      ok: true, attempt: 2, model: "m", prompt_sha: "sha", request_text: "req", raw_response: "{}", breakdown: { a: 1 }, total: 1, rationale: "r", latency_ms: 3,
+    });
+  });
+});
+
+describe("ignoredReply", () => {
+  test("STALE and NOT_RUNNING are ignored; other refusals and successes are not", () => {
+    expect(ignoredReply({ ok: false, code: "STALE" })).toBe("STALE");
+    expect(ignoredReply({ ok: false, code: "NOT_RUNNING" })).toBe("NOT_RUNNING");
+    expect(ignoredReply({ ok: false, code: "OTHER" })).toBeNull();
+    expect(ignoredReply({ ok: true, status: "DONE" })).toBeNull();
   });
 });

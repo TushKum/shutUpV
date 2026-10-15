@@ -1,4 +1,5 @@
-// The team portal's sections, per track: what each team can do on the night (the brief's /team list).
+// The team portal's sections, per track: what each team can do on the night (the brief's /team list), and the judge's
+// published prompts (Judging) for every track.
 
 import type { Track } from "@msim/engine";
 
@@ -13,6 +14,7 @@ const COMMON: TeamSection[] = [
   { path: "/qa", label: "Q&A" },
   { path: "/ledger", label: "Ledger" },
   { path: "/bulletins", label: "Bulletins" },
+  { path: "/judging", label: "Judging" },
 ];
 
 export const TEAM_SECTIONS: Record<Track, readonly TeamSection[]> = {

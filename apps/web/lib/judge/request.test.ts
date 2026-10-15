@@ -1,5 +1,14 @@
 import { describe, expect, test } from "vitest";
-import { buildJudgeRequest, CLOSING_INSTRUCTION, dealSummary, escapeXml } from "./request";
+import {
+  buildJudgeRequest,
+  CLOSING_INSTRUCTION,
+  dealSummary,
+  escapeXml,
+  hideNameParts,
+  nameParts,
+  NAME_PART_STOPLIST,
+  percentOf,
+} from "./request";
 import type { JudgeInput } from "./types";
 
 const SYSTEM = "You are judging a pitch. Rubric: …";
@@ -10,6 +19,7 @@ const pitch: JudgeInput = {
   ticker: "AQS",
   company_name: "AquaSense",
   names: ["Blue Falcons", "Priya Sharma", "Rahul Verma"],
+  member_names: ["Priya Sharma", "Rahul Verma"],
   submission_id: "sub-1",
   submission_text: [
     "AquaSense builds cheap water-quality sensors for village wells.",
@@ -31,6 +41,7 @@ const plan: JudgeInput = {
     amount_cents: 6_000_000,
     price_cents: 750,
     shares: 8000,
+    post_crisis_price_cents: 956,
     deadline: "2026-11-14T21:30:00Z",
   },
 };
@@ -67,6 +78,52 @@ describe("buildJudgeRequest", () => {
     expect(r.userText).toContain("AQS and AQS lead it; AQS sells to panchayats.");
   });
 
+  test("a member's first name used alone is hidden too, in the submission and in the pitch card", () => {
+    const r = buildJudgeRequest({ ...pitch, submission_text: "Priya built the sensor; Verma sells it. Rahul's demo won." }, SYSTEM);
+    expect(r.userText).toContain("AQS built the sensor; AQS sells it. AQS's demo won.");
+    for (const n of ["Priya", "Verma", "Rahul"]) expect(r.userText).not.toContain(n);
+
+    const p = buildJudgeRequest(
+      { ...plan, pitch_text: "Priya pitched it.\nRahul built the prototype.", submission_text: "Ask Priya." },
+      SYSTEM,
+    );
+    expect(p.userText).toContain("<pitch_card>\nAQS pitched it.\nAQS built the prototype.\n</pitch_card>");
+    expect(p.userText).toContain('<submission type="PLAN" ticker="AQS">\nAsk AQS.\n</submission>');
+  });
+
+  test("a name part is matched as written and as a whole word: other cases and longer words are left alone", () => {
+    const r = buildJudgeRequest({ ...pitch, submission_text: "PRIYA, priya and Priyanka met Priya." }, SYSTEM);
+    expect(r.userText).toContain("PRIYA, priya and Priyanka met AQS.");
+  });
+
+  test("a name part that is also a common capitalised word (Will, May, Mark) is left alone; the full name is not", () => {
+    const team = { ...pitch, names: ["Will Thomas", "May Chen"], member_names: ["Will Thomas", "May Chen"] };
+    const r = buildJudgeRequest(
+      { ...team, submission_text: "Will the plan work? In May we ship. Will Thomas and May Chen lead; Thomas and Chen sell." },
+      SYSTEM,
+    );
+    expect(r.userText).toContain("Will the plan work? In May we ship. AQS and AQS lead; AQS and AQS sell.");
+    expect(NAME_PART_STOPLIST.has("Will")).toBe(true);
+    expect(NAME_PART_STOPLIST.has("Price")).toBe(true);
+  });
+
+  test("name parts: 3 letters or more, edges trimmed, no stoplisted words, longest first; organiser text keeps them", () => {
+    expect(nameParts(["Priya Sharma", "Li Wu", "Anne-Marie O'Brien", "Will Smith", "Ravi (Ronnie) K."], "AQS")).toEqual([
+      "Anne-Marie",
+      "O'Brien",
+      "Ronnie",
+      "Sharma",
+      "Priya",
+      "Smith",
+      "Ravi",
+    ]);
+    expect(nameParts(["Aqs Kumar"], "AQS")).toEqual(["Kumar"]);
+    expect(hideNameParts("O’Brien and O'Brien", ["O'Brien"], "AQS")).toBe("AQS and AQS");
+    // The crisis card is organiser text: full names only.
+    const r = buildJudgeRequest({ ...plan, crisis_card: { category: "Ops", title: "Priya's fire", body: "Priya Sharma's plant burns." } }, SYSTEM);
+    expect(r.userText).toContain("Title: Priya's fire\n\nAQS's plant burns.");
+  });
+
   test("text inside the tags is escaped, so a team cannot close or open a tag of the wrapper", () => {
     const r = buildJudgeRequest({ ...pitch, submission_text: "Revenue > costs & margins < 5% <b>bold</b>" }, SYSTEM);
     expect(r.userText).toContain("Revenue &gt; costs &amp; margins &lt; 5% &lt;b&gt;bold&lt;/b&gt;");
@@ -93,7 +150,10 @@ describe("buildJudgeRequest", () => {
     const t = r.userText;
     expect(t.startsWith("<context>\n<pitch_card>\n")).toBe(true);
     expect(t).toContain("<crisis_card>\nCategory: Supply\nTitle: Factory fire\n\nThe only plant burns down.\nOutput halves.\n</crisis_card>");
-    expect(t).toContain("<deal>\nDeal signed at 02:31 IST: fund invests $60,000.00 at $7.50 a share for 8,000 shares.\n</deal>");
+    expect(t).toContain(
+      "<deal>\nDeal signed at 02:31 IST: fund invests $60,000.00 at $7.50 a share (78% of the post-crisis price of $9.56) " +
+        "for 8,000 shares (8% of the company's 100,000).\n</deal>",
+    );
     expect(t.indexOf("</context>")).toBeLessThan(t.indexOf('<submission type="PLAN" ticker="AQS">'));
     expect(t.indexOf("</submission>")).toBeLessThan(t.indexOf(CLOSING_INSTRUCTION));
   });
@@ -111,8 +171,38 @@ describe("buildJudgeRequest", () => {
       "<deal>\nNo deal was fully signed by the deadline (03:00 IST).\n</deal>",
     );
     expect(dealSummary(null)).toBe("No deal was fully signed by the deadline.");
-    expect(dealSummary({ ...plan.deal!, amount_cents: "6000000", price_cents: "750", shares: "8000" })).toBe(
-      "Deal signed at 02:31 IST: fund invests $60,000.00 at $7.50 a share for 8,000 shares.",
+    expect(
+      dealSummary({ ...plan.deal!, amount_cents: "6000000", price_cents: "750", shares: "8000", post_crisis_price_cents: "956" }),
+    ).toBe(
+      "Deal signed at 02:31 IST: fund invests $60,000.00 at $7.50 a share (78% of the post-crisis price of $9.56) " +
+        "for 8,000 shares (8% of the company's 100,000).",
+    );
+  });
+
+  test("the deal's percentages are whole numbers, rounded half up in integer arithmetic", () => {
+    expect(percentOf(750, 956)).toBe(78); // 78.45…
+    expect(percentOf(8000, 100_000)).toBe(8);
+    expect(percentOf(1, 200)).toBe(1); // 0.5 rounds up
+    expect(percentOf(1, 201)).toBe(0); // 0.497…
+    expect(percentOf(4785, 9570)).toBe(50);
+    expect(percentOf(9570, 9570)).toBe(100);
+    expect(percentOf("13500", "100000")).toBe(14); // 13.5 rounds up
+    expect(percentOf(12_345, 100_000)).toBe(12);
+    // Exact where floating point is not: 1.005 × 100 is 100.49999… as a float.
+    expect(percentOf(1005, 1000)).toBe(101);
+    expect(percentOf("9007199254740993", "9007199254740993")).toBe(100);
+    for (const [p, w] of [[750, null], [750, 0], [null, 956], ["7.5", 956], [-1, 956]] as const) expect(percentOf(p, w)).toBeNull();
+  });
+
+  test("the deal summary leaves out a percentage it cannot compute (no post-crisis price)", () => {
+    expect(dealSummary({ ...plan.deal!, post_crisis_price_cents: null })).toBe(
+      "Deal signed at 02:31 IST: fund invests $60,000.00 at $7.50 a share for 8,000 shares (8% of the company's 100,000).",
+    );
+    const older = { ...plan.deal! }; // judge_input before post_crisis_price_cents existed
+    delete older.post_crisis_price_cents;
+    expect(dealSummary(older)).toContain("at $7.50 a share for 8,000 shares (8%");
+    expect(dealSummary({ ...plan.deal!, price_cents: 956, shares: 5000, amount_cents: 4_780_000 })).toContain(
+      "at $9.56 a share (100% of the post-crisis price of $9.56) for 5,000 shares (5% of the company's 100,000).",
     );
   });
 

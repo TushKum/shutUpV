@@ -1,6 +1,7 @@
 // The worker's queue over Supabase, as the service role: the RPCs of docs/JUDGE.md for one event. Calibration sample
 // texts come from calibration_input when it returns them, otherwise from prompts/calibration/pitches.json by sample_no.
-// Every RPC error is thrown with the function's name, so the worker can log it.
+// Every RPC error is thrown with the function's name, so the worker can log it. queueCounts counts an event's judge
+// runs (or calibration runs) by status, for the route's answer and the CLI's waiting line.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SUBMISSION_TYPES } from "@msim/engine";
@@ -49,6 +50,8 @@ function object(fn: string, data: unknown): Record<string, unknown> {
   return data as Record<string, unknown>;
 }
 
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((n): n is string => typeof n === "string") : []);
+
 function checkInput(data: unknown): JudgeInput {
   const v = object(RPC.input, data);
   const type = v.type as JudgeInput["type"];
@@ -59,10 +62,12 @@ function checkInput(data: unknown): JudgeInput {
   return {
     ...(v as unknown as JudgeInput),
     company_name: typeof v.company_name === "string" ? v.company_name : "",
-    names: Array.isArray(v.names) ? v.names.filter((n): n is string => typeof n === "string") : [],
+    names: strings(v.names),
+    member_names: strings(v.member_names),
     injections_recorded: v.injections_recorded === true,
   };
 }
+
 
 export interface JudgeDbOptions {
   /** Fallback text of a calibration sample (default: prompts/calibration/pitches.json). */
@@ -101,7 +106,7 @@ export function supabaseJudgeDb(sb: RpcClient, eventId: string, options: JudgeDb
         type: "PITCH",
         ticker: typeof v.ticker === "string" && v.ticker !== "" ? v.ticker : "CAL",
         company_name: typeof v.company_name === "string" ? v.company_name : "",
-        names: Array.isArray(v.names) ? v.names.filter((n): n is string => typeof n === "string") : [],
+        names: strings(v.names),
         text,
       };
     },
@@ -118,17 +123,27 @@ export interface QueueCounts {
   failed: number;
 }
 
-/** The event's judge runs by status (four count queries: the table can exceed one page of rows). */
-export async function queueCounts(sb: SupabaseClient, eventId: string): Promise<QueueCounts> {
+/** The part of a SupabaseClient that counting uses (the tests pass a fake). */
+export type CountClient = Pick<SupabaseClient, "from">;
+
+/**
+ * The event's judge runs (or calibration runs) by status: four count queries, since the table can exceed one page of
+ * rows.
+ */
+export async function queueCounts(
+  sb: CountClient,
+  eventId: string,
+  table: "judge_runs" | "calibration_runs" = "judge_runs",
+): Promise<QueueCounts> {
   const statuses = ["QUEUED", "RUNNING", "DONE", "FAILED"] as const;
   const counts = await Promise.all(
     statuses.map(async (status) => {
       const { count, error } = await sb
-        .from("judge_runs")
+        .from(table)
         .select("id", { count: "exact", head: true })
         .eq("event_id", eventId)
         .eq("status", status);
-      if (error) throw new Error(`judge_runs: ${error.message}`);
+      if (error) throw new Error(`${table}: ${error.message}`);
       return count ?? 0;
     }),
   );

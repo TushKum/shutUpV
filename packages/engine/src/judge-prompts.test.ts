@@ -21,6 +21,12 @@ const TAGS: Record<SubmissionType, readonly string[]> = {
   FLASH: ["context", "bulletin", "submission"],
 };
 
+/**
+ * Word caps, to keep the prompts plain. PLAN may run to 950: it describes three context blocks, and the deal summary
+ * carries numbers the judge needs explained (the price against the post-crisis price, and the stake).
+ */
+const WORD_CAP: Record<SubmissionType, number> = { PITCH: 900, PLAN: 950, FLASH: 900 };
+
 /** Rubric table rows: | `key` | what earns points | max | */
 function rubricRows(markdown: string): { key: string; max: number }[] {
   return [...markdown.matchAll(/^\|\s*`([a-z_]+)`\s*\|[^|\n]+\|\s*(\d+)\s*\|\s*$/gm)].map((m) => ({
@@ -76,14 +82,17 @@ describe("judge prompts", () => {
       expect(md).toContain("Reply with JSON only");
     });
 
-    test("is plain: under 900 words, no shouting", () => {
-      expect(wordCount(md)).toBeLessThanOrEqual(900);
+    test(`is plain: at most ${WORD_CAP[type]} words, no shouting`, () => {
+      expect(wordCount(md)).toBeLessThanOrEqual(WORD_CAP[type]);
       expect(md).not.toMatch(/\b(?:CRITICAL|IMPORTANT|MUST|NEVER|ALWAYS|DO NOT)\b/);
     });
   });
 
   test("PLAN: funding_and_deal judges the plan against the deal summary; the cap is not penalised twice", () => {
     const md = readPrompt("PLAN");
+    // The <deal> description names the percentages the summary gives (lib/judge/request.ts dealSummary).
+    expect(md).toContain("the price per share (with its percentage of the post-crisis price)");
+    expect(md).toContain("the shares (with their percentage of the company's 100,000)");
     expect(md).toMatch(/- `funding_and_deal`: whether the plan's funding fits the deal summary\. No deal signed: little credit/);
     expect(md).toContain(
       `The system separately caps a plan with no deal signed by the deadline at ${RULES.PLAN_CAP_WITHOUT_DEAL}, so keep the missing deal to \`funding_and_deal\``,

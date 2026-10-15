@@ -1,8 +1,12 @@
 // The judge worker loop (docs/JUDGE.md "Work"): a pool that keeps up to `concurrency` runs in flight, claiming more
 // from the database queue as slots free up (judge runs first, then calibration runs), until the time budget is spent
 // or nothing is claimable, and then waits for the runs in flight. Each run: read its input, build the request,
-// record the submission's stripped lines once, call the judge (real or fake), report the result. Retries of failed
-// calls are the queue's job (finish_judge_run puts a retryable failure back with a backoff), not this loop's.
+// record the submission's stripped lines once, call the judge (real or fake) within the run's own time limit (below
+// the queue's 3-minute lease, so a slow call goes back to the queue rather than being claimed twice), report the
+// result with the claim's attempt number. Retries of failed calls are the queue's job (finish_judge_run puts a
+// retryable failure back with a backoff), not this loop's. The loop stops claiming on a configuration error and after
+// three bad requests (HTTP 400) in a row. A report the database ignores (the run was claimed again since, or is no
+// longer in flight) is counted as ignored.
 // The database and the judge are passed in, so the loop is tested with an in-memory queue and a fake judge.
 
 import type { SubmissionType } from "@msim/engine";
@@ -55,7 +59,15 @@ export interface WorkerOptions {
   abortSignal?: AbortSignal;
   /** Called after each run is reported, with the counts so far. */
   onProgress?: (summary: Readonly<WorkerSummary>) => void;
+  /** Each run's time limit, from its claim (default RUN_TIMEOUT_MS). */
+  runTimeoutMs?: number;
 }
+
+/** Each run's own time limit: below the queue's 3-minute lease, so a slow run is not claimed by a second worker. */
+export const RUN_TIMEOUT_MS = 150_000;
+
+/** Bad requests (HTTP 400) in a row, with no answer from the model in between, that stop the worker. */
+export const BAD_REQUESTS_TO_STOP = 3;
 
 export type StopReason = "empty" | "budget" | "stopped" | "aborted" | "fatal" | "error";
 
@@ -74,6 +86,8 @@ export interface WorkerSummary {
   claimed: number;
   /** Runs whose report did not reach the database (they are claimed again when their lease expires). */
   errors: number;
+  /** Reports the database ignored: the run was claimed again since (STALE) or is no longer in flight (NOT_RUNNING). */
+  ignored: number;
   ms: number;
   stopped: StopReason;
   /** Why the worker stopped early (fatal judge error, claim error). */
@@ -94,11 +108,12 @@ function addUsage(a: JudgeUsage, b: JudgeUsage): JudgeUsage {
   };
 }
 
-/** The `result` argument of finish_judge_run for a judge call's outcome. Pure. */
-export function toRunResult(r: JudgeCallResult, promptSha: string, requestText: string): RunResult {
+/** The `result` argument of finish_judge_run for a judge call's outcome; `attempt` is the claim's attempts. Pure. */
+export function toRunResult(r: JudgeCallResult, promptSha: string, requestText: string, attempt: number): RunResult {
   if (r.ok) {
     return {
       ok: true,
+      attempt,
       model: r.model,
       prompt_sha: promptSha,
       request_text: requestText,
@@ -111,6 +126,7 @@ export function toRunResult(r: JudgeCallResult, promptSha: string, requestText: 
   }
   return {
     ok: false,
+    attempt,
     model: r.model,
     prompt_sha: promptSha,
     request_text: requestText,
@@ -122,8 +138,15 @@ export function toRunResult(r: JudgeCallResult, promptSha: string, requestText: 
   };
 }
 
+/** Why a finish reply is one to ignore (the run is someone else's now, or already reported), or null. */
+export function ignoredReply(reply: FinishReply): string | null {
+  if (reply.ok !== false) return null;
+  return reply.code === "STALE" || reply.code === "NOT_RUNNING" ? reply.code : null;
+}
+
 export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
   if (!Number.isInteger(o.concurrency) || o.concurrency < 1) throw new Error("concurrency must be a whole number ≥ 1");
+  const runTimeoutMs = o.runTimeoutMs ?? RUN_TIMEOUT_MS;
   const now = o.now ?? Date.now;
   const log = o.log ?? (() => {});
   const started = now();
@@ -138,6 +161,7 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
     sealed: 0,
     claimed: 0,
     errors: 0,
+    ignored: 0,
     ms: 0,
     stopped: "empty",
     tokens: EMPTY_USAGE,
@@ -155,6 +179,9 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
       log(`${tag} stopped claiming: ${reason}${detail ? `: ${detail}` : ""}`);
     }
   };
+
+  // Bad requests in a row (no answer from the model in between): three stop the worker.
+  let badRequests = 0;
 
   // Stripped lines are recorded once per submission, even when several of its runs are in flight together.
   const recording = new Map<string, Promise<void>>();
@@ -198,30 +225,46 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
 
   async function work(job: Job): Promise<void> {
     const model = o.models[job.run.slot] ?? o.models.PRIMARY;
+    const attempt = job.run.attempts;
     const label =
       job.kind === "judge"
         ? `run ${job.run.run_no} (${job.run.type}, ${job.run.run_id.slice(0, 8)})`
         : `calibration sample ${job.run.sample_no} run ${job.run.run_no}`;
+    // The run's own limit, counted from its claim.
+    const runTimer = AbortSignal.timeout(runTimeoutMs);
     let result: RunResult;
     try {
       const { built, prompt, type } = await prepare(job);
-      const outcome = await o.judge({
+      let outcome = await o.judge({
         type,
         model,
         system: built.system,
         userText: built.userText,
         requestText: built.requestText,
         runNo: job.run.run_no,
-        signal: calls.signal,
+        signal: AbortSignal.any([calls.signal, runTimer]),
       });
+      if (!outcome.ok && runTimer.aborted && !calls.signal.aborted) {
+        // Cut off by the run's own limit: back to the queue, before the lease runs out and another worker claims it.
+        outcome = { ...outcome, error: `the run took longer than ${runTimeoutMs / 1000} s`, retryable: true };
+      }
       summary.tokens = addUsage(summary.tokens, outcome.usage);
-      result = toRunResult(outcome, prompt.sha, built.requestText);
+      result = toRunResult(outcome, prompt.sha, built.requestText, attempt);
+      if (outcome.ok) {
+        badRequests = 0;
+      } else if (outcome.status === 400) {
+        if (++badRequests >= BAD_REQUESTS_TO_STOP) {
+          stop("fatal", `${BAD_REQUESTS_TO_STOP} requests in a row were refused (HTTP 400); the last: ${outcome.error}`);
+        }
+      } else if (!outcome.retryable && outcome.status === undefined) {
+        badRequests = 0; // the model answered (not validly), so requests like these are accepted
+      }
       if (!outcome.ok && outcome.fatal) stop("fatal", outcome.error);
     } catch (e) {
       // Could not build the request (no prompt file, the input RPC failed…): nothing was judged, so the run goes back
       // to the queue, and the worker stops claiming because the next run would most likely fail the same way.
       const detail = `could not prepare the request: ${errorText(e)}`;
-      result = { ok: false, model, error: detail.slice(0, 1000), retryable: true };
+      result = { ok: false, attempt, model, error: detail.slice(0, 1000), retryable: true };
       stop("fatal", detail);
     }
 
@@ -231,6 +274,13 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
     } catch (e) {
       summary.errors++;
       log(`${tag} ${label}: could not report the result: ${errorText(e)}`);
+      return;
+    }
+    const ignored = ignoredReply(reply);
+    if (ignored) {
+      // Another worker holds the run now (this claim's lease ran out), or it was already reported: nothing to do.
+      summary.ignored++;
+      log(`${tag} ${label}: report ignored (${ignored}): ${typeof reply.message === "string" ? reply.message : ""}`);
       return;
     }
     if (reply.ok === false) {
