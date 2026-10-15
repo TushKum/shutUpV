@@ -479,6 +479,10 @@ begin
         union all select m.full_name from public.members m
          where m.team_id in (v_squad.product_team_id, v_squad.consulting_team_id, v_squad.finance_team_id)) x
        where x.name is not null and btrim(x.name) <> ''), '[]'::jsonb),
+    'member_names', coalesce((
+      select jsonb_agg(distinct m.full_name) from public.members m
+       where m.team_id in (v_squad.product_team_id, v_squad.consulting_team_id, v_squad.finance_team_id)
+         and btrim(m.full_name) <> ''), '[]'::jsonb),
     'submission_id', v_sub.id, 'submission_text', v_sub.body_text,
     'injections_recorded', exists (select 1 from public.judge_injection_checks k where k.submission_id = v_sub.id)
                            or exists (select 1 from public.injection_logs l where l.submission_id = v_sub.id));
@@ -490,9 +494,11 @@ begin
       'deal', coalesce((
         select jsonb_build_object('signed', coalesce(app.deal_signed_in_time(v_company.id), false), 'executed_at', d.executed_at,
                                   'amount_cents', d.amount_cents, 'price_cents', d.price_cents, 'shares', d.shares,
+                                  'post_crisis_price_cents', v_company.post_crisis_price,
                                   'deadline', app.deadline(v_company.event_id, 'DEAL'))
           from public.deals d where d.company_id = v_company.id),
         jsonb_build_object('signed', false, 'executed_at', null, 'amount_cents', null, 'price_cents', null, 'shares', null,
+                           'post_crisis_price_cents', v_company.post_crisis_price,
                            'deadline', app.deadline(v_company.event_id, 'DEAL'))));
   elsif v_run.type = 'FLASH' then
     v_out := v_out || jsonb_build_object('bulletin', (
@@ -545,7 +551,8 @@ $$;
 -- A worker's report of one run. Ok: the output is checked again here, the run is DONE, runs 4–5 are queued when the
 -- first 3 spread more than 10 points, and a complete generation is sealed (before release) or makes its appeal READY
 -- (after release). Not ok: a retryable error goes back to the queue with a backoff until the fifth attempt; anything
--- else fails the run. A report for a run that is no longer in flight (DONE or FAILED) changes nothing.
+-- else fails the run. A report for a run that is no longer in flight (DONE or FAILED), or for an earlier claim of it
+-- (result.attempt), changes nothing.
 create or replace function public.finish_judge_run(p_run uuid, p_result jsonb)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -572,6 +579,11 @@ begin
   select * into v_run from public.judge_runs where id = p_run for no key update;
   if v_run.status not in ('QUEUED', 'RUNNING') then
     return app.fail('NOT_RUNNING', 'This run has already been reported.', jsonb_build_object('status', v_run.status));
+  end if;
+  -- The claim it answers ("attempt", as claimed): a worker whose lease ran out, so that the run was claimed again (or
+  -- retried by an organiser), no longer holds it.
+  if jsonb_typeof(p_result -> 'attempt') = 'number' and (p_result ->> 'attempt')::numeric <> v_run.attempts then
+    return app.fail('STALE', 'This run was claimed again since; this report is ignored.', jsonb_build_object('attempts', v_run.attempts));
   end if;
 
   if p_result -> 'ok' = 'true'::jsonb then
@@ -1024,6 +1036,9 @@ begin
   select * into v_run from public.calibration_runs where id = p_run for no key update;
   if v_run.status not in ('QUEUED', 'RUNNING') then
     return app.fail('NOT_RUNNING', 'This run has already been reported.', jsonb_build_object('status', v_run.status));
+  end if;
+  if jsonb_typeof(p_result -> 'attempt') = 'number' and (p_result ->> 'attempt')::numeric <> v_run.attempts then
+    return app.fail('STALE', 'This run was claimed again since; this report is ignored.', jsonb_build_object('attempts', v_run.attempts));
   end if;
   if p_result -> 'ok' = 'true'::jsonb then
     v_status := case when app.judge_output_valid('PITCH', p_result) then 'DONE' else 'FAILED' end;

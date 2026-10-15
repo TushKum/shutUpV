@@ -196,14 +196,16 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
     return { built, prompt, type: "PITCH" };
   }
 
-  async function process(job: Job): Promise<void> {
+  async function work(job: Job): Promise<void> {
     const model = o.models[job.run.slot] ?? o.models.PRIMARY;
-    const label = job.kind === "judge" ? `run ${job.run.run_no} (${job.run.type}, ${job.run.run_id.slice(0, 8)})` : `calibration sample ${job.run.sample_no} run ${job.run.run_no}`;
+    const label =
+      job.kind === "judge"
+        ? `run ${job.run.run_no} (${job.run.type}, ${job.run.run_id.slice(0, 8)})`
+        : `calibration sample ${job.run.sample_no} run ${job.run.run_no}`;
     let result: RunResult;
-    let outcome: JudgeCallResult | null = null;
     try {
       const { built, prompt, type } = await prepare(job);
-      outcome = await o.judge({
+      const outcome = await o.judge({
         type,
         model,
         system: built.system,
@@ -284,7 +286,7 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
         summary.claimed += jobs.length;
         if (jobs.length < free) drained = true;
         for (const job of jobs) {
-          const p: Promise<void> = process(job)
+          const p: Promise<void> = work(job)
             .catch((e) => {
               summary.errors++;
               log(`${tag} unexpected error: ${errorText(e)}`);

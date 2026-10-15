@@ -29,6 +29,10 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       NEXT_PUBLIC_TEAM_EMAIL_DOMAIN: env.NEXT_PUBLIC_TEAM_EMAIL_DOMAIN,
+      // The judge route works the queue as the service role, with the fake judge (e2e events are rehearsals).
+      SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
+      JUDGE_FAKE: "1",
+      JUDGE_FAKE_LATENCY_MS: "150",
     },
   },
 });

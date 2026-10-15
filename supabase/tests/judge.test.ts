@@ -205,6 +205,11 @@ describe("the queue", () => {
     expect(await finish(n, runs[0]!.run_id, output("PITCH", 66))).toMatchObject({ status: "DONE" });
     // The first worker comes back late: ignored.
     expect(await finish(n, runs[0]!.run_id, output("PITCH", 99))).toMatchObject({ ok: false, code: "NOT_RUNNING" });
+    // A report naming an earlier claim of a run that is in flight again is ignored too (the later claim holds it).
+    await n.q("update judge_runs set locked_at = now() - interval '181 seconds' where id = $1", [runs[2]!.run_id]);
+    expect((await claim(n)).map((r) => r.attempts)).toEqual([2]);
+    expect(await finish(n, runs[2]!.run_id, { ok: false, error: "late timeout", retryable: true, attempt: 1 })).toMatchObject({ ok: false, code: "STALE" });
+    expect(await finish(n, runs[2]!.run_id, output("PITCH", 64, { attempt: 2 }))).toMatchObject({ ok: true, status: "DONE" });
     expect((await runsOf(n, s[0]!.company_id))[0]).toMatchObject({ status: "DONE", total: 66 });
     // Silent on its fifth attempt: failed, not claimed again.
     await n.q("update judge_runs set attempts = 5, locked_at = now() - interval '181 seconds' where id = $1", [runs[1]!.run_id]);
@@ -245,6 +250,8 @@ describe("what the worker reads", () => {
     const teams = await n.q("select name from teams where id in ($1, $2, $3)", [n.teamId(s[0]!.p_code), n.teamId(s[0]!.c_code), n.teamId(s[0]!.f_code)]);
     const members = await n.q("select full_name from members where team_id in ($1, $2, $3)", [n.teamId(s[0]!.p_code), n.teamId(s[0]!.c_code), n.teamId(s[0]!.f_code)]);
     expect(new Set(input.names)).toEqual(new Set(["Judged 0", ...teams.map((t) => t.name), ...members.map((m) => m.full_name)]));
+    // Members' names also on their own, so the worker can hide a first name written alone.
+    expect(new Set(input.member_names)).toEqual(new Set(members.map((m) => m.full_name)));
     expect(input).not.toHaveProperty("pitch_text");
   });
 
@@ -265,10 +272,21 @@ describe("what the worker reads", () => {
       [n.eventId, s[0]!.id, c, n.teamId(s[0]!.p_code)],
     )).id;
     const planRun = (await n.one("insert into judge_runs (event_id, submission_id, company_id, type, run_no) values ($1, $2, $3, 'PLAN', 1) returning id", [n.eventId, plan, c])).id;
+    const first = await n.call(service, "judge_input", planRun);
+    expect(first.pitch_text).toContain("A real problem.");
+    expect(first.crisis_card).toEqual(expect.objectContaining({ category: expect.any(String), title: expect.any(String), body: expect.any(String) }));
+    // The post-crisis price, written as the crisis writes it (the price guard refuses any other writer).
+    const cl = await db.pool.connect();
+    try {
+      await cl.query("begin");
+      await cl.query("select set_config('app.price_writer', 'CRISIS', true)");
+      await cl.query("update companies set post_crisis_price = 956 where id = $1", [c]);
+      await cl.query("commit");
+    } finally {
+      cl.release();
+    }
     const input = await n.call(service, "judge_input", planRun);
-    expect(input.pitch_text).toContain("A real problem.");
-    expect(input.crisis_card).toEqual(expect.objectContaining({ category: expect.any(String), title: expect.any(String), body: expect.any(String) }));
-    expect(input.deal).toMatchObject({ signed: true, amount_cents: 6000000, price_cents: 750, shares: 8000 });
+    expect(input.deal).toMatchObject({ signed: true, amount_cents: 6000000, price_cents: 750, shares: 8000, post_crisis_price_cents: 956 });
     expect(input).not.toHaveProperty("bulletin");
 
     await n.q("insert into bulletins (event_id, kind, title, body, published_at) values ($1, 'FLASH', 'Interest rates rise', 'Profit within 12 months.', now())", [n.eventId]);

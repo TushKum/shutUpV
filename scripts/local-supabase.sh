@@ -31,5 +31,8 @@ SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}
 DATABASE_URL=${DB_URL}
 CARD_SECRET=e2e-card-secret-0123456789
 TEAM_EMAIL_DOMAIN=teams.e2e.test
+# The browser tests judge with the deterministic fake judge (rehearsal events only; docs/JUDGE.md).
+JUDGE_FAKE=1
+JUDGE_FAKE_LATENCY_MS=150
 ENV
 echo "Local Supabase is up at ${API_URL}; wrote apps/web/.env.e2e"

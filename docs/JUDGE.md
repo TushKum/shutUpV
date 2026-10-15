@@ -44,7 +44,9 @@ worker (`apps/web/lib/judge/`, `apps/web/app/api/judge/work`, `scripts/judge-wor
 - **Errors:** rate limits (429), overload (529/5xx) and network errors are retryable: the run goes back to the queue
   with a backoff (`retry_after` when the API sends one, otherwise 5 s × 2^attempts, at most 2 minutes). After 5
   attempts the run is FAILED; an organiser can retry failed runs (for example after switching to the backup model).
-  Authentication and bad-request errors fail the run at once.
+  Configuration errors (401, 403, 404 model not found, 402) put the run back in the queue and stop the worker, and
+  `/api/judge/work` answers 502 so the control panel switches its loop off; a 400 fails that run. Each run has its own
+  time limit below the 3-minute lease, so a slow call goes back to the queue instead of being claimed twice.
 
 ## Database functions
 
@@ -52,8 +54,8 @@ worker (`apps/web/lib/judge/`, `apps/web/app/api/judge/work`, `scripts/judge-wor
 |---|---|---|
 | `start_judging(event, type)` | organiser | Queues runs 1–3 for every current submission with no runs. `{queued, companies}` |
 | `claim_judge_runs(event, limit)` | service role | Up to `limit` runs: QUEUED and due, or RUNNING with an expired lease. Marks them RUNNING, `attempts + 1`. Returns `[{run_id, submission_id, company_id, type, generation, run_no, attempts, slot}]` |
-| `finish_judge_run(run, result)` | service role | `result`: `{ok: true, model, prompt_sha, request_text, raw_response, breakdown, total, rationale, latency_ms}` or `{ok: false, model?, prompt_sha?, request_text?, raw_response?, error, retryable, retry_after_ms?, latency_ms?}`. Stores the run; queues runs 4–5; seals when complete. Returns `{ok, status, sealed?}` |
-| `record_injections(submission, hits)` | service role | `hits`: `[{line, pattern}]`; stored once per submission |
+| `finish_judge_run(run, result)` | service role | `result`: `{ok: true, attempt, model, prompt_sha, request_text, raw_response, breakdown, total, rationale, latency_ms}` or `{ok: false, attempt, model?, prompt_sha?, request_text?, raw_response?, error, retryable, retry_after_ms?, latency_ms?}`. `attempt` is the claim's `attempts`: a report for an earlier claim (the lease ran out and the run was claimed again) is ignored (`STALE`), as is one for a run no longer in flight (`NOT_RUNNING`). Stores the run; queues runs 4–5; seals when complete. Returns `{ok, status, sealed?, extra_runs?, appeal_ready?}` |
+| `record_injections(submission, hits)` | service role | `hits`: `[{line, pattern}]`; stored once per submission. The worker calls it before the first model call of a submission whenever `judge_input` says `injections_recorded: false`, also with no hits: an ok report for a submission never checked fails the run |
 | `judge_input(run)` | service role | Everything the worker needs to build one run's request (below) |
 | `set_judge_model(event, slot)` | organiser | `PRIMARY` or `BACKUP`; applies to runs claimed from then on |
 | `retry_failed_runs(event, type)` | organiser | FAILED runs of the type back to the queue |
@@ -68,11 +70,12 @@ worker (`apps/web/lib/judge/`, `apps/web/app/api/judge/work`, `scripts/judge-wor
 {
   "run_id": "…", "type": "PLAN", "ticker": "AQS", "company_name": "AquaSense",
   "names": ["AquaSense", "Team P07 name", "Member One", "…"],
+  "member_names": ["Member One", "…"],     // members only: the worker also hides each part of these names (first names)
   "submission_id": "…", "submission_text": "…",
   "pitch_text": "…",                      // PLAN only: the company's current pitch card
   "crisis_card": {"category": "…", "title": "…", "body": "…"},   // PLAN only
   "deal": {"signed": true, "executed_at": "…", "amount_cents": 6000000, "price_cents": 750, "shares": 8000,
-           "deadline": "…"},              // PLAN only; signed false when no deal was executed by the deadline
+           "post_crisis_price_cents": 956, "deadline": "…"},  // PLAN only; signed false when no deal was executed by the deadline
   "bulletin": {"title": "…", "body": "…"},  // FLASH only: the published flash bulletin
   "injections_recorded": false
 }
