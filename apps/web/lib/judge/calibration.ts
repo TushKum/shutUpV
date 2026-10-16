@@ -73,10 +73,11 @@ const cache = new Map<string, { mtimeMs: number; size: number; samples: Calibrat
 
 /** Reads and checks prompts/calibration/pitches.json (default folder: the one holding the judge prompts). */
 export function loadCalibrationSamples(promptsDir: string = findPromptsDir()): CalibrationSample[] {
-  const file = path.join(promptsDir, CALIBRATION_FILE);
+  // next.config.ts explicitly traces this sample file; avoid tracing an arbitrary runtime folder.
+  const file = path.join(/* turbopackIgnore: true */ promptsDir, CALIBRATION_FILE);
   let stat;
   try {
-    stat = statSync(file);
+    stat = statSync(/* turbopackIgnore: true */ file);
   } catch {
     throw new Error(`The calibration samples are missing: ${file}`);
   }
@@ -84,7 +85,7 @@ export function loadCalibrationSamples(promptsDir: string = findPromptsDir()): C
   if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) return hit.samples;
   let json: unknown;
   try {
-    json = JSON.parse(readFileSync(file, "utf8"));
+    json = JSON.parse(readFileSync(/* turbopackIgnore: true */ file, "utf8"));
   } catch (e) {
     throw new Error(`calibration samples: ${file} is not valid JSON (${e instanceof Error ? e.message : String(e)})`);
   }

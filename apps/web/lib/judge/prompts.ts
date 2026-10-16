@@ -2,6 +2,7 @@
 // to teams. The folder is found by walking up from the working directory (apps/web for the Next server, the repository
 // root for `pnpm judge-worker`), or set with JUDGE_PROMPTS_DIR. A prompt is read again when its file changes; its
 // SHA-256 (hex, of the exact text sent) is stored with every run as prompt_sha.
+// Dynamic filesystem paths opt out of Turbopack tracing: next.config.ts includes the required prompt files explicitly.
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -35,7 +36,7 @@ export function findPromptsDir(from: string = process.cwd(), env: Record<string,
   const override = env.JUDGE_PROMPTS_DIR?.trim();
   if (override) return path.resolve(override);
   let firstFolder: string | null = null;
-  let dir = path.resolve(from);
+  let dir = path.resolve(/* turbopackIgnore: true */ from);
   for (;;) {
     const candidate = path.join(dir, "prompts");
     if (existsSync(path.join(candidate, PROMPT_FILES.PITCH))) return candidate;
@@ -45,23 +46,23 @@ export function findPromptsDir(from: string = process.cwd(), env: Record<string,
     dir = parent;
   }
   if (firstFolder) return firstFolder;
-  throw new Error(`Could not find the prompts/ folder above ${path.resolve(from)} (set JUDGE_PROMPTS_DIR to point at it)`);
+  throw new Error(`Could not find the prompts/ folder above ${path.resolve(/* turbopackIgnore: true */ from)} (set JUDGE_PROMPTS_DIR to point at it)`);
 }
 
 const cache = new Map<string, { mtimeMs: number; size: number; prompt: JudgePrompt }>();
 
 /** The system prompt for a type, read from `dir` (default: findPromptsDir()). */
 export function loadPrompt(type: SubmissionType, dir: string = findPromptsDir()): JudgePrompt {
-  const file = path.join(dir, PROMPT_FILES[type]);
+  const file = path.join(/* turbopackIgnore: true */ dir, PROMPT_FILES[type]);
   let stat;
   try {
-    stat = statSync(file);
+    stat = statSync(/* turbopackIgnore: true */ file);
   } catch {
     throw new Error(`The ${type} judge prompt is missing: ${file}`);
   }
   const hit = cache.get(file);
   if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) return hit.prompt;
-  const text = readFileSync(file, "utf8");
+  const text = readFileSync(/* turbopackIgnore: true */ file, "utf8");
   if (text.trim() === "") throw new Error(`The ${type} judge prompt is empty: ${file}`);
   const prompt: JudgePrompt = { type, text, sha: sha256Hex(text), file };
   cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, prompt });
