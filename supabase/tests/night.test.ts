@@ -582,7 +582,7 @@ describe("a scripted night", () => {
     const runs: { run_id: string; submission_id: string; generation: number; run_no: number }[] = await n.call(service, "claim_judge_runs", n.eventId, 10);
     expect(runs.map((r) => [r.generation, r.run_no])).toEqual([[2, 1], [2, 2], [2, 3]]);
     await n.ok(service, "record_injections", runs[0]!.submission_id, "[]");
-    for (const [i, t] of [40, 40, 42].entries()) await n.ok(service, "finish_judge_run", runs[i]!.run_id, judgeOutput("PLAN", t));
+    for (const [i, t] of [40, 40, 42].entries()) await n.ok(service, "finish_judge_run", runs[i]!.run_id, { ...judgeOutput("PLAN", t), attempt: 1 });
     const appeal = await n.one("select id, status, new_score from appeals where company_id = $1 and type = 'PLAN'", [ccrt]);
     expect(appeal).toMatchObject({ status: "READY", new_score: { final: 40, median: 40, capped: true, tier_bp: -1000 } });
     expect(await n.one("select final_score from scores where company_id = $1 and type = 'PLAN'", [ccrt])).toEqual({ final_score: 50 });

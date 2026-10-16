@@ -40,6 +40,8 @@ function reply(status: number, body: unknown) {
 }
 
 export async function POST(request: Request) {
+  // Count authentication and the model preflight against the platform limit too.
+  const abortSignal = AbortSignal.timeout(ABORT_AFTER_MS);
   const viewer = await getViewer(await supabaseServer());
   if (!viewer) return reply(401, { error: "Sign in to run the judge." });
   if (viewer.role !== "ORGANISER") return reply(403, { error: "Only organisers can run the judge." });
@@ -109,7 +111,7 @@ export async function POST(request: Request) {
     models: config.models,
     prompts,
     eventId: event.id,
-    abortSignal: AbortSignal.timeout(ABORT_AFTER_MS),
+    abortSignal,
     log: (line) => console.warn(line),
   });
 

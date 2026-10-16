@@ -51,7 +51,7 @@ function output(type: SubmissionType, total: number, extra: Record<string, unkno
 
 type Claimed = { run_id: string; submission_id: string; company_id: string; type: SubmissionType; generation: number; run_no: number; attempts: number; slot: string };
 const claim = async (n: Night, limit = 50): Promise<Claimed[]> => n.call(service, "claim_judge_runs", n.eventId, limit);
-const finish = (n: Night, run: string, result: object) => n.call(service, "finish_judge_run", run, result);
+const finish = (n: Night, run: string, result: object) => n.call(service, "finish_judge_run", run, { attempt: 1, ...result });
 const checked = async (n: Night, runs: Claimed[]) => {
   for (const sub of new Set(runs.map((r) => r.submission_id))) await n.ok(service, "record_injections", sub, "[]");
 };
@@ -93,10 +93,24 @@ describe("the queue", () => {
   test("a claim marks runs RUNNING with an attempt and the event's model slot; parallel claims never share a run", async () => {
     const { n } = await pitched();
     await n.org("start_judging", n.eventId, "PITCH");
+    const queued = await n.one("select id from judge_runs where event_id = $1 limit 1", [n.eventId]);
+    expect(await n.call(service, "finish_judge_run", queued.id, output("PITCH", 66, { attempt: 0 })))
+      .toMatchObject({ ok: false, code: "NOT_RUNNING" });
+    const [run] = await claim(n, 1);
+    for (const attempt of [undefined, null, "1", 0, 1.5, 2]) {
+      expect(await n.call(service, "finish_judge_run", run!.run_id, output("PITCH", 66, { attempt })))
+        .toMatchObject({ ok: false, code: "STALE" });
+    }
+    expect(await n.one("select status, attempts from judge_runs where id = $1", [run!.run_id]))
+      .toMatchObject({ status: "RUNNING", attempts: 1 });
+    await checked(n, [run!]);
+    expect(await finish(n, run!.run_id, output("PITCH", 66, { attempt: run!.attempts })))
+      .toMatchObject({ ok: true, status: "DONE" });
+
     const [a, b] = await Promise.all([claim(n, 5), claim(n, 5)]);
     const ids = [...a!, ...b!].map((r) => r.run_id);
-    expect(ids).toHaveLength(9);
-    expect(new Set(ids).size).toBe(9);
+    expect(ids).toHaveLength(8);
+    expect(new Set(ids).size).toBe(8);
     expect([...a!, ...b!].every((r) => r.attempts === 1 && r.slot === "PRIMARY" && r.type === "PITCH")).toBe(true);
     expect(await claim(n)).toEqual([]);
     expect(await n.call(service, "claim_judge_runs", n.eventId, 1000)).toEqual([]);
@@ -175,7 +189,7 @@ describe("the queue", () => {
       await n.q("update judge_runs set not_before = now() - interval '1 second' where id = $1", [run.run_id]);
       run = (await claim(n)).find((r) => r.run_id === run.run_id)!;
       expect(run.attempts).toBe(attempt);
-      const r = await finish(n, run.run_id, { ok: false, error: "529 overloaded", retryable: true });
+      const r = await finish(n, run.run_id, { ok: false, error: "529 overloaded", retryable: true, attempt });
       expect(r.status).toBe(attempt < 5 ? "QUEUED" : "FAILED");
       if (attempt < 5) {
         const [w] = await n.q("select extract(epoch from not_before - now()) as s from judge_runs where id = $1", [run.run_id]);
@@ -202,7 +216,7 @@ describe("the queue", () => {
     await n.q("update judge_runs set locked_at = now() - interval '181 seconds' where id = $1", [runs[0]!.run_id]);
     const again = await claim(n);
     expect(again).toEqual([expect.objectContaining({ run_id: runs[0]!.run_id, attempts: 2 })]);
-    expect(await finish(n, runs[0]!.run_id, output("PITCH", 66))).toMatchObject({ status: "DONE" });
+    expect(await finish(n, runs[0]!.run_id, output("PITCH", 66, { attempt: 2 }))).toMatchObject({ status: "DONE" });
     // The first worker comes back late: ignored.
     expect(await finish(n, runs[0]!.run_id, output("PITCH", 99))).toMatchObject({ ok: false, code: "NOT_RUNNING" });
     // A report naming an earlier claim of a run that is in flight again is ignored too (the later claim holds it).
@@ -383,13 +397,24 @@ describe("calibration", () => {
     expect(input.text).toContain("Something.");
     const one = runs.filter((r) => r.sample_no === 1);
     for (const [i, t] of [30, 50, 45].entries()) {
-      expect(await n.call(service, "finish_calibration_run", one[i]!.run_id, output("PITCH", t))).toMatchObject({ ok: true, status: "DONE" });
+      expect(await n.call(service, "finish_calibration_run", one[i]!.run_id, output("PITCH", t, { attempt: 1 }))).toMatchObject({ ok: true, status: "DONE" });
     }
     const extra = await n.call(service, "claim_calibration_runs", n.eventId, 10);
     expect(extra.map((r: { run_no: number }) => r.run_no)).toEqual([4, 5]);
     expect(await n.q("select 1 from scores where event_id = $1", [n.eventId])).toEqual([]);
     // A second start is a new batch.
     expect(await n.org("start_calibration", n.eventId, JSON.stringify([sample(1)]))).toMatchObject({ batch: 2, queued: 3 });
+    const queued = await n.one("select id from calibration_runs where event_id = $1 and batch = 2 limit 1", [n.eventId]);
+    expect(await n.call(service, "finish_calibration_run", queued.id, output("PITCH", 50, { attempt: 0 })))
+      .toMatchObject({ ok: false, code: "NOT_RUNNING" });
+    const [run] = await n.call(service, "claim_calibration_runs", n.eventId, 1);
+    for (const attempt of [undefined, null, "1", 0, 1.5, 2]) {
+      expect(await n.call(service, "finish_calibration_run", run.run_id, output("PITCH", 50, { attempt })))
+        .toMatchObject({ ok: false, code: "STALE" });
+    }
+    expect(await n.call(service, "finish_calibration_run", run.run_id, output("PITCH", 50, { attempt: run.attempts })))
+      .toMatchObject({ ok: true, status: "DONE" });
+
   });
 
   test("a sample whose first line is not \"Name (TICKER)\" is refused", async () => {
