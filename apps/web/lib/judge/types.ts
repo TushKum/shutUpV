@@ -17,6 +17,8 @@ export interface ClaimedRun {
   generation: number;
   run_no: number;
   attempts: number;
+  /** Monotonic safe-integer token; unlike attempts, never reset by a retry. */
+  claim_token: number;
   slot: JudgeSlot;
 }
 
@@ -26,6 +28,8 @@ export interface ClaimedCalibrationRun {
   sample_no: number;
   run_no: number;
   attempts: number;
+  /** Monotonic safe-integer token; unlike attempts, never reset by a retry. */
+  claim_token: number;
   slot: JudgeSlot;
 }
 
@@ -155,7 +159,7 @@ export type JudgeFn = (request: JudgeRequest) => Promise<JudgeCallResult>;
 
 /**
  * The `result` argument of public.finish_judge_run / finish_calibration_run (docs/JUDGE.md). `attempt` is the claim's
- * `attempts`: the database ignores a report for an earlier claim of the run (STALE).
+ * `claim_token`: the database ignores a report for an earlier claim of the run (STALE).
  */
 export type RunResult =
   | {

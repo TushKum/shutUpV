@@ -17,7 +17,7 @@ const EVENT = "11111111-1111-1111-1111-111111111111";
 
 describe("supabaseJudgeDb", () => {
   test("calls the RPCs of docs/JUDGE.md with p_ parameters", async () => {
-    const run = { run_id: "r1", submission_id: "s1", company_id: "c1", type: "PITCH", generation: 1, run_no: 1, attempts: 1, slot: "PRIMARY" };
+    const run = { run_id: "r1", submission_id: "s1", company_id: "c1", type: "PITCH", generation: 1, run_no: 1, attempts: 1, claim_token: 2, slot: "PRIMARY" };
     const { client, calls } = fakeRpc({
       [RPC.claimRuns]: { data: [run] },
       [RPC.finish]: { data: { ok: true, status: "DONE", sealed: false } },

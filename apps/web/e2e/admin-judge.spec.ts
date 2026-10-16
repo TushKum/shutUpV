@@ -470,10 +470,10 @@ test.describe("appeals after release", () => {
 
   /** The judge worker's part for an appeal's runs: claim them, log the injection check, report each total. */
   async function workAppeal(totals: number[]) {
-    const runs: { run_id: string; submission_id: string; attempts: number }[] = await ev.n.call(service, "claim_judge_runs", ev.n.eventId, 10);
+    const runs: { run_id: string; submission_id: string; attempts: number; claim_token: number }[] = await ev.n.call(service, "claim_judge_runs", ev.n.eventId, 10);
     expect(runs).toHaveLength(totals.length);
     await ev.n.ok(service, "record_injections", runs[0]!.submission_id, "[]");
-    for (const [i, t] of totals.entries()) await ev.n.ok(service, "finish_judge_run", runs[i]!.run_id, { ...output("PLAN", t), attempt: runs[i]!.attempts });
+    for (const [i, t] of totals.entries()) await ev.n.ok(service, "finish_judge_run", runs[i]!.run_id, { ...output("PLAN", t), attempt: runs[i]!.claim_token });
   }
 
   test("an appeal of a released plan: the new score waits, Apply names the change and says what moved", async ({ page, browser }) => {

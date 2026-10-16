@@ -49,7 +49,7 @@ function output(type: SubmissionType, total: number, extra: Record<string, unkno
   };
 }
 
-type Claimed = { run_id: string; submission_id: string; company_id: string; type: SubmissionType; generation: number; run_no: number; attempts: number; slot: string };
+type Claimed = { run_id: string; submission_id: string; company_id: string; type: SubmissionType; generation: number; run_no: number; attempts: number; claim_token: number; slot: string };
 const claim = async (n: Night, limit = 50): Promise<Claimed[]> => n.call(service, "claim_judge_runs", n.eventId, limit);
 const finish = (n: Night, run: string, result: object) => n.call(service, "finish_judge_run", run, { attempt: 1, ...result });
 const checked = async (n: Night, runs: Claimed[]) => {
@@ -104,7 +104,18 @@ describe("the queue", () => {
     expect(await n.one("select status, attempts from judge_runs where id = $1", [run!.run_id]))
       .toMatchObject({ status: "RUNNING", attempts: 1 });
     await checked(n, [run!]);
-    expect(await finish(n, run!.run_id, output("PITCH", 66, { attempt: run!.attempts })))
+    // The first worker can survive a lease expiry and an organiser's retry. Its token must never repeat.
+    await n.q("update judge_runs set locked_at = now() - interval '181 seconds' where id = $1", [run!.run_id]);
+    const [second] = await claim(n, 1);
+    expect(second).toMatchObject({ run_id: run!.run_id, attempts: 2, claim_token: 2 });
+    expect(await finish(n, second!.run_id, { ok: false, error: "400", retryable: false, attempt: second!.claim_token }))
+      .toMatchObject({ status: "FAILED" });
+    await n.org("retry_failed_runs", n.eventId, "PITCH");
+    const [third] = await claim(n, 1);
+    expect(third).toMatchObject({ run_id: run!.run_id, attempts: 1, claim_token: 3 });
+    expect(await finish(n, run!.run_id, output("PITCH", 99, { attempt: run!.claim_token })))
+      .toMatchObject({ ok: false, code: "STALE" });
+    expect(await finish(n, third!.run_id, output("PITCH", 66, { attempt: third!.claim_token })))
       .toMatchObject({ ok: true, status: "DONE" });
 
     const [a, b] = await Promise.all([claim(n, 5), claim(n, 5)]);
@@ -205,6 +216,14 @@ describe("the queue", () => {
 
     expect(await n.org("retry_failed_runs", n.eventId, "PITCH")).toMatchObject({ retried: 2 });
     expect((await runsOf(n, company)).slice(0, 2).map((r) => [r.status, r.attempts])).toEqual([["QUEUED", 0], ["QUEUED", 0]]);
+    const reclaimed = (await claim(n)).find((r) => r.run_id === run.run_id)!;
+    expect(reclaimed.attempts).toBe(1);
+    expect(reclaimed.claim_token).toBe(6);
+    expect(await finish(n, run.run_id, { ok: false, error: "old first worker", retryable: true, attempt: 1 }))
+      .toMatchObject({ ok: false, code: "STALE" });
+    await checked(n, [reclaimed]);
+    expect(await finish(n, reclaimed.run_id, output("PITCH", 66, { attempt: reclaimed.claim_token })))
+      .toMatchObject({ ok: true, status: "DONE" });
   });
 
   test("a run whose worker went silent is claimed again after 3 minutes; a late report of a finished run changes nothing", async () => {

@@ -77,6 +77,7 @@ export interface JudgeDbOptions {
 export function supabaseJudgeDb(sb: RpcClient, eventId: string, options: JudgeDbOptions = {}): JudgeDb {
   const sampleText = options.calibrationText ?? ((n: number) => calibrationSample(n).text);
   return {
+    // Keep both the retry count (attempts) and lifetime claim_token; the worker reports only the latter.
     async claimRuns(limit) {
       return rows<ClaimedRun>(RPC.claimRuns, await call(sb, RPC.claimRuns, { p_event: eventId, p_limit: limit }));
     },

@@ -3,7 +3,7 @@
 // or nothing is claimable, and then waits for the runs in flight. Each run: read its input, build the request,
 // record the submission's stripped lines once, call the judge (real or fake) within the run's own time limit (below
 // the queue's 3-minute lease, so a slow call goes back to the queue rather than being claimed twice), report the
-// result with the claim's attempt number. Retries of failed calls are the queue's job (finish_judge_run puts a
+// result with its lifetime claim_token (the wire field is attempt). Retries of failed calls are the queue's job (finish_judge_run puts a
 // retryable failure back with a backoff), not this loop's. The loop stops claiming on a configuration error and after
 // three bad requests (HTTP 400) in a row. A report the database ignores (the run was claimed again since, or is no
 // longer in flight) is counted as ignored.
@@ -108,7 +108,7 @@ function addUsage(a: JudgeUsage, b: JudgeUsage): JudgeUsage {
   };
 }
 
-/** The `result` argument of finish_judge_run for a judge call's outcome; `attempt` is the claim's attempts. Pure. */
+/** The `result` argument of finish_judge_run for a judge call's outcome; `attempt` is the claim's lifetime claim_token. Pure. */
 export function toRunResult(r: JudgeCallResult, promptSha: string, requestText: string, attempt: number): RunResult {
   if (r.ok) {
     return {
@@ -225,7 +225,11 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
 
   async function work(job: Job): Promise<void> {
     const model = o.models[job.run.slot] ?? o.models.PRIMARY;
-    const attempt = job.run.attempts;
+    const attempt = job.run.claim_token;
+    if (!Number.isSafeInteger(attempt) || attempt < 1) {
+      stop("fatal", "The queue returned no valid claim token; apply the latest database migrations.");
+      return;
+    }
     const label =
       job.kind === "judge"
         ? `run ${job.run.run_no} (${job.run.type}, ${job.run.run_id.slice(0, 8)})`

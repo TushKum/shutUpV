@@ -88,14 +88,14 @@ class MemoryQueue implements JudgeDb {
       type: r.type,
       generation: r.generation,
       run_no: r.runNo,
-      attempts: r.attempts,
+      attempts: r.attempts, claim_token: r.attempts,
       slot: r.slot,
     }));
   }
 
   async claimCalibration(limit: number): Promise<ClaimedCalibrationRun[]> {
     if (this.failCalibrationClaims) throw new Error("function claim_calibration_runs does not exist");
-    return this.take("calibration", limit).map((r) => ({ run_id: r.id, sample_no: r.sampleNo, run_no: r.runNo, attempts: r.attempts, slot: r.slot }));
+    return this.take("calibration", limit).map((r) => ({ run_id: r.id, sample_no: r.sampleNo, run_no: r.runNo, attempts: r.attempts, claim_token: r.attempts, slot: r.slot }));
   }
 
   run(id: string): MemRun {
@@ -197,6 +197,28 @@ const failure = (over: Partial<Extract<JudgeCallResult, { ok: false }>>): JudgeC
 const base = { budgetMs: 10_000, concurrency: 8, models: MODELS, prompts: PROMPTS };
 
 describe("runWorker", () => {
+  test("reports the lifetime token instead of the retry count, and rejects absent or unsafe tokens", async () => {
+    for (const token of [77, undefined, Number.MAX_SAFE_INTEGER + 1]) {
+      const db = new MemoryQueue();
+      db.addSubmission("sub-token", "A useful pitch.", [1]);
+      const claim = db.claimRuns.bind(db);
+      db.claimRuns = async (limit) => (await claim(limit)).map((run) => ({ ...run, claim_token: token as number }));
+      const reports: RunResult[] = [];
+      db.finish = async (_id, result) => {
+        reports.push(result);
+        return { ok: true, status: "DONE" };
+      };
+      const summary = await runWorker({ ...base, db, judge: fakeJudge({ latencyMs: 0 }) });
+      if (token === 77) {
+        expect(reports).toEqual([expect.objectContaining({ attempt: 77 })]);
+        expect(summary.done).toBe(1);
+      } else {
+        expect(reports).toEqual([]);
+        expect(summary).toMatchObject({ stopped: "fatal", reason: expect.stringContaining("claim token") });
+      }
+    }
+  });
+
   test("150 runs of 50 ms with 8 in parallel finish in well under 1.5 s (150 × 50 / 8 ≈ 0.94 s)", async () => {
     const db = new MemoryQueue();
     for (let i = 0; i < 50; i++) db.addSubmission(`sub-${i}`, `Pitch ${i}`);
