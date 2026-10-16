@@ -134,7 +134,8 @@ describe("event_status while paused", () => {
     await n.org("pause_event", n.eventId);
     // Ten minutes of pause have gone by, and the round's planned close (5 minutes into the pause) has passed.
     await n.q("update events set paused_at = now() - interval '10 minutes' where id = $1", [n.eventId]);
-    await n.q("update rounds set closes_at = now() - interval '5 minutes' where event_id = $1 and number = 1", [n.eventId]);
+    // Derive both timestamps from the same stored instant, rather than two transactions' different now() values.
+    await n.q("update rounds set closes_at = (select paused_at + interval '5 minutes' from events where id = $1) where event_id = $1 and number = 1", [n.eventId]);
     const paused = await n.call(display(n), "event_status", n.eventId);
     expect(paused).toMatchObject({ paused: true, trading: "PAUSED", open_round: { number: 1 }, next_round: { number: 2 } });
     // What it had left when the pause began: 5 minutes.
