@@ -1,6 +1,6 @@
 # PLAN — Market Simulation Competition platform
 
-Status: **Phase 3 in progress** (Phases 1 and 2 approved). Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
+Status: **Phases 1–5 approved; Phase 6 implementation and local verification complete, real-model calibration pending. Phase 7 not started.** Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
 
 Source documents: the build brief (the authority) and `Market_Simulation_Event_Guide.docx` v1.0. Section 7 lists where they differ.
 
@@ -99,7 +99,7 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 | `deals` | squad, amount_cents, price_cents, shares, cash_moved_cents, signed_{product,consulting,finance}_at, version, executed_at |
 | `submission_drafts` | squad, type, content (jsonb template fields), version (optimistic lock), updated_by. Private to the squad. |
 | `submissions` | Immutable submitted versions: squad, company, type, content, text, word_count, submitted_at, submitted_by. The last version submitted on time is the one judged. |
-| `judge_runs` | submission_id, run_no, model, prompt_sha, status, attempts, request_text, raw_response, breakdown, total, rationale, error, latency_ms |
+| `judge_runs` | submission_id, run_no, model, prompt_sha, status, attempts, claim_token, request_text, raw_response, breakdown, total, rationale, error, latency_ms |
 | `scores` | company, type, runs, median, capped, late, penalty, final_score, tier_bp, breakdown, rationale, status, released_at/by |
 | `injection_logs` | submission_id, squad_id, line, pattern |
 | `calls` | consultant_team_id, company_id, window (1–3), direction, made_at, baseline_price, judged_price, correct, earnings_cents |
@@ -247,9 +247,22 @@ Every table has `event_id`, so the rehearsal event lives alongside the real one.
 - [x] Review (two reviewers: 15 findings, then a screenshot check of the fixes: 4 more; all fixed and covered by tests), all tests, summary
 
 ### Phase 6 — AI judge pipeline
+
+Implementation and local verification complete. Engine (246), web (631) and database (237) tests pass, as do typecheck, lint and the production build. All 155 browser tests passed in 10.9 minutes; all 13 judge/calibration tests were rechecked against migration 22 and passed. Cloud browser checks used the installed Chromium 154 through an external runner configuration. The final production traces include every required prompt/sample and exclude unrelated app source files.
+
+- [x] Queue, leases, lifetime claim tokens, backoff, median sealing and deliberate release
+- [x] Console, CLI, model switch, technical appeals, calibration and published prompts
+- [x] Browser coverage for calibration batches, injection stripping, fairness access and all tracks at 390 px
+- [x] Correctness, security, brief and failure-mode review; confirmed fixes covered by regressions
+- [x] Deployment guide and measured local speed results
+- [ ] Real-model calibration with a funded API key and confirmed model access
+- [ ] Owner approval before Phase 7
+
+The implementation is done; live calibration remains an external prerequisite for full Phase 6 sign-off. No real API key was available in this environment. Both optional additions (calibration retry control and extra-worker guidance) remain pending by the owner's choice.
+
 Prompts stored in `prompts/`. Sanitise and anonymise each submission, wrap it in XML, return structured JSON output, validate it with up to 2 retries. Run 3 times, plus 2 more if the spread is over 10, and take the median. Store every run. Work runs through a database queue with parallel workers and rate-limit backoff, with a progress view. A backup-model switch, release that applies tiers atomically, a re-run for appeals, and a calibration page with 10 sample pitches.
 
-### Phase 7 — Rehearsal and launch
+### Phase 7 — Rehearsal and launch (not started; requires approval)
 A rehearsal event (fake teams, bot traders, 10× clock). A load test: 500 realtime connections and 150 teams placing orders in the last minute of a round. Clearing must take under 5 s and the display must update in under 2 s. RUNBOOK.md and README.md.
 
 ---
@@ -364,9 +377,9 @@ Real time = `starts_at + offset ÷ clock_speed`.
 62. **Every team screen refreshes on each broadcast.** At a clearing, all 150 teams' screens re-fetch at once; Phase 7's load test measures it.
 63. **A screen pings at once when its realtime channel connects or drops**, as well as every 20 s, so the health view is never 20 s behind.
 64. **Two clicks for anything that changes the night for good, and the second click counts only for what the first one showed.** If a refresh changes the target between the clicks (another organiser advanced, the round cleared, Pause became Resume, the flash draft was replaced), the click asks again for the new target. A confirmation names what will be sent ("Click again to draw with dice 4", "Click again to disqualify XF01, XF02", "Click again to publish “Rates rise”"). The confirming button is disabled for half a second, so a double-click is one click. Resume and a typed extension also ask twice. Forms keep what was typed when the database refuses, and an action that never reaches the server (connection dropped) is shown as a refusal, not a crashed page.
-65. **Consoles stay current.** Auto-advance, the seed commitment, deck uploads, the flash draft, a correction requested or rejected, and a flag decided send a message with no data on the event's staff channel (`staff:<id>`, which only organisers and the fairness officer can hear), so team screens neither learn of them nor re-fetch for them. An approved correction is published to everyone. Pages whose data changes without a message poll while it matters: Rounds every 5 s while a round is open or during the IPO, Judge every 5 s while runs are in flight and every 15 s until every score is released, Health every 10 s. Phase and Rounds also re-read when a planned end or a round's time passes.
+65. **Consoles stay current.** Auto-advance, the seed commitment, deck uploads, the flash draft, a correction requested or rejected, and a flag decided send a message with no data on the event's staff channel (`staff:<id>`, which only organisers and the fairness officer can hear), so team screens neither learn of them nor re-fetch for them. An approved correction is published to everyone. Pages whose data changes without a message poll while it matters: Rounds every 5 s while a round is open or during the IPO, Judge every 3 s while runs are in flight and every 15 s until every score is released, Health every 10 s. Phase and Rounds also re-read when a planned end or a round's time passes.
 66. **An account keeps its 10 most recent screen pings**, so made-up client ids cannot grow the heartbeat table.
-67. **Judge page (Phase 3 part).** It follows every stored run, seals the 0 of companies with no on-time submission and releases scores. Running the judge, the backup-model switch and appeal re-runs come in Phase 6. The default tab is what the night is working on (Pitch, then Plan, then Flash).
+67. **Judge page.** It follows every stored run, seals the 0 of companies with no on-time submission and releases scores. Phase 6 adds start/run controls, progress against ten minutes, backup-model switch, retries and technical appeals. It polls every 3 s while runs are in flight, then every 15 s until scores are released. The default tab follows the night (Pitch, then Plan, then Flash).
 68. **Exports** are staff-only CSV files: the ledger, prices per round, scores and final results. Money is in integer cents, exactly as stored; times are IST; a text cell starting with = + - @, a tab or a carriage return gets a leading quote; tables are read 1,000 rows at a time. A signed-out download is sent to the login page and returns to the file afterwards.
 69. **Ledger and corrections.** The ledger is newest first, 50 rows a page, filterable by team, kind and ticker. A books check confirms that every transaction balances and that each team's cash equals the sum of its rows. Dollars typed into a correction are converted to cents from the text (never through floating point; more than 2 decimals is refused). The requester sees why they cannot decide; a second organiser or the fairness officer approves or rejects, with two clicks.
 70. **Fairness.** Flags, decisions, the decision log (from the audit log, so a changed decision keeps its history) and the team drill-down are for the fairness officer only; organisers see a notice. Decisions can be changed until AWARDS (decision 48).
@@ -393,6 +406,15 @@ Real time = `starts_at + offset ÷ clock_speed`.
 90. **The display has no controls.** It picks its event (straight to it when there is only one), re-reads itself on every broadcast and every 10 s while realtime is down, and every projector shows the same board page (the page follows the server clock).
 91. **A pause freezes every countdown.** While the event is paused, `event_status` keeps reporting the round that was open when the pause began (even after its planned close passes; migration 18), and every screen counts deadlines against the moment the pause began, as the database already does: each countdown stands still at the time that was left, and moves on after the resume, when the schedule has moved later by the pause. The big screen says "Round N is paused with 3:12" and shows the pause strip over a takeover too.
 92. **Screens recover by themselves.** A failed read on the big screen shows "Reconnecting…" and tries again every 5 s (an error boundary, not a dead error page). Each time a realtime channel is joined (first, and again after a drop) the page re-reads itself once, because broadcasts sent before the join or while it was down are not replayed (team and admin screens too); the screen shows "Live" only once that read is done, so Live means joined and up to date.
+
+93. **Queue claims use leases and lifetime tokens.** Service-role workers claim with `FOR UPDATE SKIP LOCKED`, a three-minute lease, retry `attempts` and a separately incrementing lifetime `claim_token`. Reports send `attempt: claim_token`; the token never resets when retry attempts reset. Reports for old tokens or no-longer-running rows are ignored, not allowed to overwrite scores. Retryable failures back off; five retry attempts fail a run.
+94. **Sealing is automatic, release is deliberate.** Three runs seal if their spread is at most ten; otherwise runs four and five are queued and the five-run median seals. The plan cap and injection penalty apply through the shared scoring rule. No worker releases a score.
+95. **Technical appeals use a new generation.** Before release a re-run returns the score to SCORING. After release, PLAN/FLASH appeals wait for the replacement score; an organiser applies or dismisses them. Applying corrects tiers, AI/closing prices, short covering, bonuses and settlement results without rewriting market history (decision 19). Open appeals block AWARDS.
+96. **Calibration is a separate queue.** Batches contain the ten repository sample pitches, show expected bands, medians and verdicts, and retain previous batches. The same workers drain both queues; fairness can read only. A calibration retry-failed function remains an optional proposal, not an implemented feature.
+97. **The console and CLI share work.** Each console claims for 50 seconds per turn with eight parallel calls by default; `pnpm judge-worker --event <slug>` drains the same queues. The selected model is checked before claiming (successful checks cached 60 s). Three consecutive 400s stop a worker. A run is bounded to 150 s, with a 60 s SDK timeout per attempt. Fake judging is refused for live events.
+98. **Prompts are public and versioned by content.** `/team/judging` renders all three rubrics for every track and shows source SHA-256 hashes. Every stored run records its prompt hash and sanitised request. Name-part matching and its common-word stoplist are documented in `docs/JUDGE.md`.
+99. **Speed evidence has a defined scope.** The measured SQL-queue test uses 50 submissions and two workers × eight concurrent one-second fake calls: 156 runs (including six extra runs) sealed all 50 companies in 10.3 s. A 429 storm affected 45 of 201 calls and still sealed all 50 in 11.4 s, respecting backoff. For 170 runs, projected expected/conservative times are 4.1/6.1 minutes at 20 s per call and 6.2/10.4 minutes at 30 s; 250 runs at 30 s project 8.8/14.5 minutes. These projections assume 100 ms per remote RPC and one-second console setup; they are not production measurements. Real-key calibration and Phase 7's 500+ connection, last-minute order and display-latency checks remain pending.
+100. **Review hardening preserves the claim contract.** Migration 21 requires RUNNING status and a numeric claim token for both judge and calibration reports. Migration `20261017000022_judge_lifetime_claims.sql` separates lifetime `claim_token` from resettable retry `attempts`, backfilling existing tokens from attempts and comparing reports against the lifetime token. Queued, missing-token, malformed-token and superseded reports cannot finish work, including after organiser retry resets. Apply migration 22 before starting the new worker; workers refuse missing or unsafe tokens instead of using the retry count. The route creates its 280-second abort signal at POST entry, so authentication and model preflight consume the same deadline as worker execution.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

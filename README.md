@@ -5,7 +5,7 @@ Live trading simulation for a one-night college competition: 150 teams (50 Produ
 - **Stack:** Next.js (App Router, TypeScript, Tailwind) on Vercel, and Supabase (Postgres, Auth, Realtime, RLS).
 - **Plan:** see [`PLAN.md`](PLAN.md) for the architecture, the schema, the phases, the assumptions and the open questions.
 
-> Status: **Phase 5 (big screen)** done, waiting for approval. Every game rule runs in the database, organisers run the night from `/admin`, teams play it from `/team` on a laptop or phone, and the projector shows it on `/display`; the AI judge comes next.
+> Status: **Phases 1–5 approved; Phase 6 implemented and locally verified.** The AI judge, calibration console and published prompts are implemented. Real-model calibration and Phase 7 venue-scale load testing remain pending. See [`docs/DEPLOY.md`](docs/DEPLOY.md) for deployment and event preparation.
 
 ## Repository
 
@@ -50,7 +50,7 @@ Each spec seeds its own small rehearsal event with real logins and drives the ga
    supabase db push
    ```
 3. **Turn off sign-ups.** In Auth → Providers → Email, turn off "Allow new users to sign up". Organisers create every account; there is no self sign-up. `supabase/config.toml` sets the same for local development.
-4. **Raise the sign-in rate limit.** In Auth → Rate Limits, set "sign-ups and sign-ins" to at least 300 per 5 minutes. The default (30 per 5 minutes per IP) would block check-in, because all teams sign in through a few IP addresses.
+4. **Raise the sign-in rate limit.** In Auth → Rate Limits, check the current sign-in limits and raise them for roughly 600 phones behind a few venue IP addresses; rehearse a simultaneous check-in. See [Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits).
 5. **Make Realtime private.** In Realtime → Settings, turn off "Allow public access". Event channels are private: a policy lets only the event's accounts (and staff and the display) receive, and nobody can send.
 6. **Check the heartbeat.** Rounds close, clear and open on a `pg_cron` job that calls `tick()` every 2 seconds. Enable `pg_cron` in Database → Extensions *before* `supabase db push`, then check that `select jobname, schedule from cron.job;` lists `msim-tick`. If it is missing, enable the extension and run the last migration's `do $$ … $$` block again in the SQL editor. Failures of a tick are written to `error_log`.
 
@@ -63,7 +63,7 @@ Each event has its own control panel at `/admin/<slug>`. Organisers act; the fai
 | Phase | Where the night is, what holds the next step, advance, pause and resume, extend, auto-advance, close the open round now, the schedule and the deadlines |
 | Lottery | The seed commitment (Setup only), the 21:00 draw with the seed check, the squads, an independent re-run of the draw and the lottery record download |
 | Rounds | The open round's pending orders, a preview of its clearing, the IPO book during the IPO, and every cleared round's prices |
-| Judge | Every stored judge run per company, the spread, median and final score, "Seal missing as 0" and the release of each score type |
+| Judge | Start scoring, run the worker, progress, every stored run, backup model, retry, technical re-runs and appeals, seal missing and release |
 | Bulletins | Compose and publish bulletins, and publish the prepared flash bulletin at 04:00 |
 | Content | Upload the problem deck, the crisis deck and the flash bulletin as CSV; both decks lock at the draw |
 | Ledger | The full ledger with filters, a books check, and corrections that need a second person to approve |
@@ -130,3 +130,31 @@ Each team signs in with its team code (for example `P07`) and the password from 
 | Team | `/team` |
 | Organiser or fairness officer | `/admin` |
 | Projector account | `/display` |
+
+## Run the AI judge
+
+Set the server-only judge variables from `.env.example` on Vercel (or `apps/web/.env.local` locally), including
+`ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. Leave temperature empty for the default models and keep
+effort `low`. Keep the service key out of browser code and `CARD_SECRET` off Vercel.
+
+After a submission deadline, open `/admin/<slug>/judge`, choose the type, confirm Start judging, and turn on
+**Run the judge here**. Two organiser consoles share the SQL queue with eight calls each by default. Keep them
+awake and monitor progress against ten minutes. Review scores before releasing them; running a worker never
+releases results. The model switch affects subsequently claimed runs, and failed runs have a separate retry control.
+
+For a laptop worker, put `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` and applicable `JUDGE_*`
+settings in the repository-root `.env`, then run:
+
+```bash
+pnpm judge-worker --event <slug>
+pnpm judge-worker --event <slug> --once  # one bounded claiming turn
+```
+
+It drains both judging and calibration queues, waiting for leases/backoff as needed. Ctrl-C once stops claiming
+and finishes in-flight work; twice aborts it. It does not start batches or release scores.
+
+Before the night, open `/admin/<slug>/judge/calibration`, start a ten-sample batch, and run a worker. Check every
+median against its expected band, inspect discrepancies and compare another batch. The fairness officer has
+read-only access. `JUDGE_FAKE=1` is only for rehearsal events and cannot establish real-model calibration.
+All tracks can read the rendered rubrics and source SHA-256 hashes at `/team/judging`.
+See [`docs/JUDGE.md`](docs/JUDGE.md) for leases, retries, timeouts and security boundaries.
