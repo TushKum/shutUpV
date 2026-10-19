@@ -1,6 +1,6 @@
 # PLAN — Market Simulation Competition platform
 
-Status: **Phases 1–5 approved; Phase 6 implementation and local verification complete, real-model calibration pending. Phase 7 not started.** Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
+Status: **Phases 1–5 approved; Phase 6 implementation and local verification complete, real-model calibration pending. Phase 7 built and locally verified (bot rehearsal, 500-connection load test, RUNBOOK); a hosted-plan load test remains.** Each phase ends with tests, a summary, and a list of assumptions, then waits for approval.
 
 Source documents: the build brief (the authority) and `Market_Simulation_Event_Guide.docx` v1.0. Section 7 lists where they differ.
 
@@ -256,14 +256,21 @@ Implementation and local verification complete. Engine (246), web (631) and data
 - [x] Correctness, security, brief and failure-mode review; confirmed fixes covered by regressions
 - [x] Deployment guide and measured local speed results
 - [ ] Real-model calibration with a funded API key and confirmed model access
-- [ ] Owner approval before Phase 7
+- [x] Owner approval before Phase 7
 
 The implementation is done; live calibration remains an external prerequisite for full Phase 6 sign-off. No real API key was available in this environment. Both optional additions (calibration retry control and extra-worker guidance) remain pending by the owner's choice.
 
 Prompts stored in `prompts/`. Sanitise and anonymise each submission, wrap it in XML, return structured JSON output, validate it with up to 2 retries. Run 3 times, plus 2 more if the spread is over 10, and take the median. Store every run. Work runs through a database queue with parallel workers and rate-limit backoff, with a progress view. A backup-model switch, release that applies tiers atomically, a re-run for appeals, and a calibration page with 10 sample pitches.
 
-### Phase 7 — Rehearsal and launch (not started; requires approval)
+### Phase 7 — Rehearsal and launch
 A rehearsal event (fake teams, bot traders, 10× clock). A load test: 500 realtime connections and 150 teams placing orders in the last minute of a round. Clearing must take under 5 s and the display must update in under 2 s. RUNBOOK.md and README.md.
+- [x] Bot traders (`scripts/lib/bots.ts`, unit-tested) that play every team through the public game functions, and `pnpm rehearse` with an organiser autopilot (start, draw, auto-advance, judging, releases, flash bulletin, flags)
+- [x] A full 150-team night played by the bots on the local stack at 10×: 50 pitches and plans, 50 fees agreed, 50 deals executed, 300 consultant calls, 2,184 orders filled over 21 rounds, every score released, 150 results, 12 awards, no tick errors. It exposed one bot bug (flash answers tried before the bulletin and abandoned), fixed and unit-tested; a second full run is still to do
+- [x] `pnpm load-test`: 500 of 500 realtime connections joined, 300 orders in the last minute (all accepted, p95 118 ms), clearing transaction 0.64 s, every screen heard the clearing and re-read its page within 0.4 s
+- [x] `scripts/local-load-limits.sh`: the local stack's own caps (Realtime 200 users / 100 events per second, Kong 512 connections) raised so the test measures the app
+- [x] RUNBOOK.md (the night minute by minute, roles, incidents), README and DEPLOY updates
+- [ ] The same load test against the hosted staging project on the event's plans (the local stack is one machine)
+- [ ] Real-model calibration (Phase 6)
 
 ---
 
@@ -415,6 +422,11 @@ Real time = `starts_at + offset ÷ clock_speed`.
 98. **Prompts are public and versioned by content.** `/team/judging` renders all three rubrics for every track and shows source SHA-256 hashes. Every stored run records its prompt hash and sanitised request. Name-part matching and its common-word stoplist are documented in `docs/JUDGE.md`.
 99. **Speed evidence has a defined scope.** The measured SQL-queue test uses 50 submissions and two workers × eight concurrent one-second fake calls: 156 runs (including six extra runs) sealed all 50 companies in 10.3 s. A 429 storm affected 45 of 201 calls and still sealed all 50 in 11.4 s, respecting backoff. For 170 runs, projected expected/conservative times are 4.1/6.1 minutes at 20 s per call and 6.2/10.4 minutes at 30 s; 250 runs at 30 s project 8.8/14.5 minutes. These projections assume 100 ms per remote RPC and one-second console setup; they are not production measurements. Real-key calibration and Phase 7's 500+ connection, last-minute order and display-latency checks remain pending.
 100. **Review hardening preserves the claim contract.** Migration 21 requires RUNNING status and a numeric claim token for both judge and calibration reports. Migration `20261017000022_judge_lifetime_claims.sql` separates lifetime `claim_token` from resettable retry `attempts`, backfilling existing tokens from attempts and comparing reports against the lifetime token. Queued, missing-token, malformed-token and superseded reports cannot finish work, including after organiser retry resets. Apply migration 22 before starting the new worker; workers refuse missing or unsafe tokens instead of using the retry count. The route creates its 280-second abort signal at POST entry, so authentication and model preflight consume the same deadline as worker execution.
+
+101. **Bots play through the front door.** Each bot signs in with its card's password and calls the same public functions as a team, reading only what RLS shows it; a refusal is the game's answer and the bot tries later or moves on. The organiser autopilot uses the service role (organiser functions accept the system caller). Rehearsal events only.
+102. **Load-test measurements.** The clearing's own time is from its transaction start (the broadcast's `at`) to the commit (the round seen CLEARED); a screen's update is the delivery after the commit plus a typical re-read of its page. The test refuses live events and writes a JSON report to `out/`.
+103. **Local limits are not the app's limits.** Out of the box the local Realtime tenant allows 200 users and 100 events a second and Kong 512 connections; at those caps the load test fails for reasons the hosted plans decide. The hosted plan must cover about 800 connections and bursts of a few thousand messages a second (docs/DEPLOY.md).
+104. **Page reads under the full load.** With 150 bots playing and 650 extra clients, plain page reads reached a p95 of about 5 s on the local stack (PostgREST's pool there is 10 connections), while orders stayed fast. On the hosted plan, size the compute and pool for the night and re-run the test.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

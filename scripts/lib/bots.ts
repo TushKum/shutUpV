@@ -87,6 +87,8 @@ export interface Snapshot {
   /** This team's PENDING orders in the open round. */
   pendingOrders: { company_id: string; type: string; qty: number }[];
   ipoBids: number;
+  /** The flash bulletin is out (flash answers open with it). */
+  flashPublished: boolean;
 }
 
 /** What a bot remembers between turns. */
@@ -173,7 +175,7 @@ export function decide(s: Snapshot, m: Memory, r: () => number, now: number, pha
       submission(add, s, "PITCH", () => pitchContent(s.squad!.number, r));
     }
     if (RESCUE.includes(p)) submission(add, s, "PLAN", planContent);
-    if (p === "ROUNDS_13_21") submission(add, s, "FLASH", flashContent);
+    if (p === "ROUNDS_13_21" && s.flashPublished) submission(add, s, "FLASH", flashContent);
   }
 
   // The advisor's fee (Consulting proposes $20,000 cash; both confirm).
@@ -296,5 +298,5 @@ export function remember(m: Memory, a: Action, result: { ok: boolean; code?: str
     m.done.add(a.key);
     return;
   }
-  m.wait.set(a.key, now + (result.code === "RATE_LIMITED" ? 5_000 : 15_000));
+  m.wait.set(a.key, now + (result.code === "RATE_LIMITED" ? 5_000 : result.code === "CALL_CLOSED" ? 60_000 : 15_000));
 }

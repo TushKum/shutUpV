@@ -80,6 +80,7 @@ export async function snapshot(sb: SupabaseClient, eventId: string, team: TeamLo
     holdings: [],
     pendingOrders: [],
     ipoBids: 0,
+    flashPublished: false,
   };
   s.companyId = s.companies.find((c) => c.squad_id === s.squad?.id)?.id ?? null;
   const reads: PromiseLike<unknown>[] = [];
@@ -103,6 +104,12 @@ export async function snapshot(sb: SupabaseClient, eventId: string, team: TeamLo
       s.deal = data ?? null;
     }),
   );
+  if (team.track === "PRODUCT" && status.phase === "ROUNDS_13_21") {
+    reads.push(
+      sb.from("bulletins").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("kind", "FLASH").not("published_at", "is", null)
+        .then(({ count }) => void (s.flashPublished = (count ?? 0) > 0)),
+    );
+  }
   if (team.track === "CONSULTING") {
     reads.push(sb.from("calls").select("company_id, call_no, direction").then(({ data }) => void (s.calls = (data ?? []) as Snapshot["calls"])));
   }

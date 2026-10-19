@@ -12,7 +12,7 @@ function snap(track: Track, phase: PhaseCode, extra: Partial<Snapshot> = {}): Sn
     team: { id: "t1", code: "XP01", track, cash_cents: 50_000_000 },
     squad: { id: "s1", number: 1, dealt_card_ids: ["a", "b", "c"], chosen_card_id: null },
     companyId: "c1", drafts: { PITCH: 0, PLAN: 0, FLASH: 0 }, submitted: {}, fee: null, deal: null, calls: [],
-    companies: Array.from({ length: 10 }, (_, i) => company(i + 1)), holdings: [], pendingOrders: [], ipoBids: 0,
+    companies: Array.from({ length: 10 }, (_, i) => company(i + 1)), holdings: [], pendingOrders: [], ipoBids: 0, flashPublished: false,
     ...extra,
   };
 }
@@ -23,6 +23,11 @@ describe("decide", () => {
   test("Product in BUILD picks a dealt card, then saves and submits its pitch", () => {
     expect(fns(snap("PRODUCT", "BUILD"))).toEqual(["pick_problem_card", "save_draft", "submit_submission"]);
     expect(fns(snap("PRODUCT", "BUILD", { squad: { id: "s1", number: 1, dealt_card_ids: ["a"], chosen_card_id: "a" }, submitted: { PITCH: true } }))).toEqual([]);
+  });
+
+  test("the flash answer waits for the flash bulletin", () => {
+    expect(fns(snap("PRODUCT", "ROUNDS_13_21"))).toEqual([]);
+    expect(fns(snap("PRODUCT", "ROUNDS_13_21", { flashPublished: true }))).toEqual(["save_draft", "submit_submission"]);
   });
 
   test("the fee: Consulting proposes $20,000; then both confirm the proposed version", () => {

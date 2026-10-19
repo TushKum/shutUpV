@@ -3,9 +3,9 @@
 
 This guide prepares 150 teams (50 per track), roughly 600 participants with four people sharing one login per team, for a
 20:00–06:00 IST event. Read [the brief](BRIEF.md), [judge contract](JUDGE.md) and [README](../README.md).
-Phases 1–5 are approved; Phase 6 implementation and local automated checks are complete, with real-model calibration pending. Phase 7 has not started:
-there is no completed venue-scale load test, bot-trader rehearsal or final minute-by-minute RUNBOOK. Deployment
-alone does not establish readiness. The required load acceptance is 500+ Realtime connections, 150 teams placing
+Phases 1–6 are built; real-model calibration is pending. Phase 7 is built and verified on the local stack: bot
+rehearsals (`pnpm rehearse`), the load test (`pnpm load-test`) and the night's [RUNBOOK](../RUNBOOK.md). Run the load
+test again on the hosted staging project before the event: deployment alone does not establish readiness. The required load acceptance is 500+ Realtime connections, 150 teams placing
 orders in a round's final minute, clearing under five seconds and display updates under two seconds.
 
 ## 1. Accounts and a trusted organiser laptop
@@ -177,9 +177,10 @@ pnpm seed --slug rehearsal --rehearsal --starts-at 2026-11-13T15:00:00+05:30 --s
 
 Use a future rehearsal start time. `--replace` is destructive and only for an intentionally discarded rehearsal
 or SETUP event. On the rehearsal deployment set `JUDGE_FAKE=1`, redeploy and confirm the FAKE JUDGE badge. Run
-through login, lottery, submissions, order entry, score release, pause/resume and exports. The accelerated seed
-exists; automated bot traders and the Phase 7 load harness are not yet delivered. A few manual browsers do not
-validate 600-phone capacity.
+through login, lottery, submissions, order entry, score release, pause/resume and exports. Then let the bots play the night:
+`JUDGE_FAKE=1 pnpm rehearse --slug rehearsal --autopilot`, and during a trading phase run
+`pnpm load-test --slug rehearsal --connections 500` against the hosted staging project (README, "Rehearse with
+bots and load-test"). A few manual browsers do not validate 600-phone capacity; the load test does.
 
 Then unset `JUDGE_FAKE`, redeploy and run a real calibration batch under `/admin/<slug>/judge/calibration`.
 Use two organiser consoles and check every median against the expected band; record model, prompt hashes, timing,
@@ -200,7 +201,7 @@ and a spare signed-in display laptop. Test reconnecting a phone and projector wi
 
 ## 8. The night
 
-This is an operational checklist, not the pending Phase 7 minute-by-minute RUNBOOK. Assign an event lead,
+This is an operational checklist; the night minute by minute is in [RUNBOOK.md](../RUNBOOK.md). Assign an event lead,
 exchange operator, AI operator, fairness officer and network contact. Staff never share service keys with teams.
 
 - **Before check-in:** verify production URL, current deployment, unset fake mode, Mumbai regions, billing headroom,
@@ -249,11 +250,11 @@ only after exports, appeals and retention needs are settled; check backup/restor
 |---|---|
 | T−14 days | Create accounts/projects, assign operators, request API tier, review budget and venue Wi-Fi capacity. |
 | T−10 days | Deploy staging, apply migrations with cron enabled, verify private Realtime/Auth, seed practice accounts. |
-| T−7 days | Complete authorised Phase 7 load testing and resolve capacity failures; test venue reconnects and failures. This is pending work, not a completed check. |
+| T−7 days | Run `pnpm rehearse --autopilot` and `pnpm load-test --connections 500` on the hosted staging project with the event's plans; resolve capacity failures; test venue reconnects. |
 | T−3 days | Run full rehearsal with staff, real-model calibration and measured token/cost/latency checks; confirm plan headroom. |
 | T−1 day | Publish seed commitment, protect seed, validate roster, seed live event, print 150 cards and verify decks/draft. |
 | Event day, before 20:00 | Check Health, cron, deployments, billing, backup model, network, powered judge laptops and cards. |
 | 20:00–06:00 | Follow brief schedule and operator controls; monitor health and judging; handle technical appeals before awards. |
 | Day after | Export/archive, review incidents, purge confirmed rehearsals, rotate keys and scale down safely. |
 
-Do not represent the event as load-ready until the pending Phase 7 acceptance checks pass and the owner approves launch.
+Do not represent the event as load-ready until the load test passes on the hosted plans and the owner approves launch.

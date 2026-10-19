@@ -5,7 +5,7 @@ Live trading simulation for a one-night college competition: 150 teams (50 Produ
 - **Stack:** Next.js (App Router, TypeScript, Tailwind) on Vercel, and Supabase (Postgres, Auth, Realtime, RLS).
 - **Plan:** see [`PLAN.md`](PLAN.md) for the architecture, the schema, the phases, the assumptions and the open questions.
 
-> Status: **Phases 1–5 approved; Phase 6 implemented and locally verified.** The AI judge, calibration console and published prompts are implemented. Real-model calibration and Phase 7 venue-scale load testing remain pending. See [`docs/DEPLOY.md`](docs/DEPLOY.md) for deployment and event preparation.
+> Status: **Phases 1–6 built; Phase 7 built and locally verified.** Bot rehearsals, a 500-connection load test and the night's [RUNBOOK](RUNBOOK.md) are in place. Still to do: a real-model calibration and the same load test on the hosted plans. See [`docs/DEPLOY.md`](docs/DEPLOY.md) for deployment and event preparation.
 
 ## Repository
 
@@ -115,6 +115,21 @@ The seed writes these files to `out/` (gitignored):
 - `<slug>-staff-logins.txt`
 
 Add `--dry-run` to build the plan and the PDF without touching Supabase.
+
+## Rehearse with bots and load-test
+
+Both work on rehearsal events only, with the same `.env` as the seed plus `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+```bash
+# A rehearsal event, then the bots play every team; --autopilot also plays the organisers
+pnpm seed --slug rehearsal --rehearsal --starts-at <in two minutes> --speed 10 --replace
+JUDGE_FAKE=1 pnpm rehearse --slug rehearsal --autopilot
+
+# While it is in a trading phase: 500 live screens, every fund trading in the last minute of a round
+pnpm load-test --slug rehearsal --connections 500 --orders-per-fund 6 --window 60
+```
+
+The load test prints and saves (`out/load-test-*.json`) the sign-in time, connections joined, order latency, the clearing time and how fast every screen heard it, and exits 1 when a target is missed (clearing under 5 s, screens updated within 2 s). On the local stack run `scripts/local-load-limits.sh` first: its default Realtime and gateway caps are far below a hosted plan's.
 
 ## Run the web app
 
