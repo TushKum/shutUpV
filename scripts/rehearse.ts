@@ -93,6 +93,8 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
   const seedFile = `out/${slug}-rehearsal-seed.txt`;
   let seed = existsSync(seedFile) ? readFileSync(seedFile, "utf8").trim() : "";
   const started = new Set<string>();
+  let over = false; // the awards are up: the judge loop stops too
+  const finished = () => over || done();
   const say = (m: string) => console.log(`${time()}  [autopilot] ${m}`);
 
   // The judge, in-process: works whatever is queued.
@@ -101,7 +103,7 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
     const db = supabaseJudgeDb(sb, eventId);
     const judge = createJudge(config);
     const prompts = promptLoader();
-    while (!done()) {
+    while (!finished()) {
       const s = await runWorker({ db, judge, budgetMs: 20_000, concurrency: config.concurrency, models: config.models, prompts, eventId });
       if (s.claimed === 0) await sleep(3000);
       else say(`judge: ${s.done} done, ${s.sealed} sealed, ${s.failed} failed`);
@@ -175,6 +177,7 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
     }
     if (phase === "AWARDS") {
       say("the awards are up: the night is over");
+      over = true;
       break;
     }
     await sleep(2000);
