@@ -298,5 +298,5 @@ export function remember(m: Memory, a: Action, result: { ok: boolean; code?: str
     m.done.add(a.key);
     return;
   }
-  m.wait.set(a.key, now + (result.code === "RATE_LIMITED" ? 5_000 : result.code === "CALL_CLOSED" ? 60_000 : 15_000));
+  m.wait.set(a.key, now + (result.code === "RATE_LIMITED" ? 5_000 : result.code === "CALL_CLOSED" ? 20_000 : 15_000));
 }
