@@ -13,6 +13,10 @@ the rules the platform enforces (docs/BRIEF.md); the case studies reproduce its 
 | [samples/](samples/) | A strong and a weak pitch, plan and flash answer, with the scores to expect and why. |
 | [FAQ.md](FAQ.md) | Questions teams ask, answered. Also for the help desk. |
 
+**Printable PDFs (A4)** are in [print/](print/): `handbook.pdf` (7 pages) and one-page `card-product.pdf`,
+`card-consulting.pdf` and `card-finance.pdf`. After editing the handbook or a card, run `pnpm print-docs` to
+regenerate them.
+
 The judge's instructions are published on the portal (Judging) from `prompts/`.
 
 ## For staff only

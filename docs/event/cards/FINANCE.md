@@ -22,7 +22,7 @@ fills at the new price.** E.g. $10.50, buys 2,000 + 1,500, sell 500 → +3% → 
 
 **Limits**
 
-| | |
+| Limit | Rule |
 |---|---|
 | Long | ≤4,000 shares per company from the exchange (IPO included) |
 | Short | ≤2,000 shares per company; ≤$250,000 total short exposure |
