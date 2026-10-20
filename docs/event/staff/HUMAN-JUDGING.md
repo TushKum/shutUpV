@@ -10,7 +10,7 @@ clicks Release. The only difference is who writes the numbers.
 | Type | Submissions | Panel | Time per piece | Time for the panel |
 |---|---|---|---|---|
 | Pitch (22:30–23:15) | 50 | 9 judges in 3 groups of 3 | ~2½ min | ~45 min |
-| Plan (03:00–03:30) | 50 | 9 judges in 3 groups of 3 | ~2 min | ~35 min (extend VERDICTS if needed) |
+| Plan (03:00–03:30) | 50 | 9 judges in 3 groups of 3 | ~2 min | ~35 min (extend during Plans published if needed) |
 | Flash (04:15–04:20) | 50 | 9 judges in 3 groups of 3 | ~1 min | ~20 min: extend the round 13–21 phase by 15 minutes |
 
 Each group takes a third of the companies; within a group the three judges are **judge 1, judge 2 and judge 3**, and

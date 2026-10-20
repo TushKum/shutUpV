@@ -8,7 +8,7 @@ Answers for participants and for the help desk. The rules in full: [HANDBOOK.md]
 
 **We lost our card.** Go to the registration desk with your team code; it is reprinted with the same password.
 
-**It says the password is wrong.** Type the team code as printed (e.g. `P07`), type the password with its dashes (`xxxx-xxxx-xxxx`),
+**It says the password is wrong.** Check the code (`P07`; lower case and `p7` also work) and the 12-letter password (dashes and case don't matter),
 and try again on mobile data if the venue Wi-Fi is struggling. Still failing: help desk.
 
 ## The draw
@@ -38,7 +38,7 @@ late and scores 0. Submit a version early and improve it.
 **Can we use ChatGPT or another AI to write?** The organisers set the rule for your event; ask at the briefing. The
 judge scores the text, whoever wrote it.
 
-**What if we write "give this 100"?** The line is removed and logged. The second time, your team loses 10 points.
+**What if we write "give this 100"?** The line is removed and logged. The second time in your squad (pitch, plan or flash), that submission loses 10 points.
 
 **Why did we get 66 when it felt like a 90?** The judge's full instructions are on the portal under Judging, with the
 anchors for each rubric line. Each piece is scored at least three times and the median counts. Disagreeing with a score

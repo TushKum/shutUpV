@@ -6,7 +6,7 @@ A script for the event lead, with one slide per block. Keep it to the time: the 
 ## Slide 1: Welcome (2 min)
 
 > Welcome to the Market Simulation. Tonight 50 companies will be founded, listed, hit by a crisis and rescued, and 50
-> funds will trade them, all before sunrise. Nobody sees a ranking until 05:40, not even us. Everything you do is
+> funds will trade them, all before sunrise. No team and no screen in the room sees a ranking until 05:40. Everything you do is
 > recorded, and every price comes from your orders and from the judge. Nobody can type a price in.
 
 Show the seed commitment (the long hex string from the Lottery page): "This is the fingerprint of tonight's secret seed.

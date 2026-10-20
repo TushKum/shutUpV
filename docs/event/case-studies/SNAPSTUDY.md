@@ -16,7 +16,7 @@ get a worked solution from a college student tutor within 30 minutes, for ₹199
 ## The pitch: 63, IPO $10.50
 
 A popular idea with real demand, a price, and a tested WhatsApp pilot. Median 63 → +5% → **IPO $10.50**. The pitch book
-creates a buzz; funds bid the maximum at the IPO.
+creates a buzz and the IPO is oversubscribed (Gamma Capital, below, waits and buys later in the market).
 
 ## Crisis: Data breach, "Customer data is leaked"
 
@@ -69,6 +69,6 @@ fund been steering them, the officer could have disqualified the teams.
 1. **Half of the closing price is the judge's.** A company with an $8.04 AI price cannot close above $10 unless the
    market is near $12. Funds that buy far above the AI price are betting against the anchor.
 2. **Shorting is a real strategy**, with collateral: Beta needed $30,900 locked to make $2,160.
-3. **A rescue plan must face the crisis.** Denying the breach and spending on marketing scored 11–13 of 25 on "solves
-   the crisis".
+3. **A rescue plan must face the crisis.** Denying the breach and spending on marketing would score about 11–13 of 25 on
+   "solves the crisis" (illustrative).
 4. **Flags are questions, not verdicts.** Independent decisions, visible in the record, clear them.

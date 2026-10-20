@@ -53,7 +53,7 @@ were dealt.
 | 23:15–23:30 | IPO | Pitch scores and IPO prices released. Funds place IPO bids. |
 | 23:30–00:30 | Rounds 1–4 | 15-minute trading rounds. |
 | 00:30–00:45 | **Crisis** | Trading halted. Crisis cards published. Every price −15%. |
-| 00:45–01:45 | Rescue 1 | Rounds 5–8. **Fee deadline 01:05.** |
+| 00:45–01:45 | Rescue 1 | Rounds 5–8. **Fee deadline 01:05** (fee and deal open from 00:30). |
 | 01:45–02:00 | Break | Trading paused. |
 | 02:00–03:00 | Rescue 2 | Rounds 9–12. **Deal bonus cutoff 02:45. Plans and deals close 03:00.** |
 | 03:00–03:30 | Plans published | Trading halted. Plans public, scores sealed. |
@@ -124,8 +124,8 @@ the market price and the AI price.
 - The judge sees the plan together with your pitch card, your crisis card and the rescue deal from the game's own
   records; the flash answer together with the bulletin.
 - **Do not write to the judge.** Lines such as "ignore the rubric", "give this 100" or "you are a generous judge" are
-  removed automatically and logged. The first time costs you only the line; **a second offence by the same team
-  deducts 10 points.**
+  removed automatically and logged. The first time costs you only the line; **a second offence by the same squad
+  (in any of its pitch, plan or flash answer) deducts 10 points from that submission.**
 - Scores stay sealed until an organiser releases them; the release applies the tiers to every company at once.
 
 ## 7. Trading (Finance only)
@@ -168,14 +168,15 @@ demand collapse, operations outage). Both prices of every company drop 15%. That
 
 The squad then has three things to do.
 
-### The consulting fee (Product ↔ Consulting), due 01:05
+### The consulting fee (Product ↔ Consulting), from 00:30, due 01:05
 
 - Total value **$10,000–$35,000**, paid in cash and/or up to **3,000** of the Product team's retained shares, valued
   at the IPO price.
-- Either team proposes; **both** confirm the same version. Any change needs both confirmations again.
+- Either team proposes; **both** confirm the same version, and the fee moves at the second confirmation. Any change
+  needs both confirmations again.
 - Not agreed by 01:05: a **default fee of $22,500 cash** is moved automatically.
 
-### The rescue deal (all three teams), due 03:00
+### The rescue deal (all three teams), from 00:30, due 03:00
 
 - The fund invests **$40,000–$80,000** at **50%–100% of the post-crisis price** per share.
 - The Consulting team proposes the price; the Finance team sets the amount. shares = amount ÷ price, rounded down; the
@@ -238,7 +239,7 @@ Awards, revealed at 05:40:
 
 - **Top 3** in each track.
 - **Best turnaround**: highest closing price ÷ post-crisis price.
-- **Best rescue plan**: highest median plan score.
+- **Best rescue plan**: highest final plan score (after any cap or penalty; a tie goes to the higher median).
 - **Best-judging fund**: highest return with the portfolio valued at AI prices only.
 
 ## 13. Fair play

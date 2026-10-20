@@ -96,7 +96,7 @@ Northline's plan bonus will be $500 × (88 − 50) = **$19,000**.
 ## 04:00–04:20 Flash news
 
 The bulletin (see [flash bulletins](../../../seed/flash-bulletins/)) hits every company. AquaSense answers in 89 words
-([samples/FLASH-strong.md](../samples/FLASH-strong.md)). Score **80** → **+5%**, applied after round 17 clears:
+([samples/FLASH-samples.md](../samples/FLASH-samples.md)). Score **80** → **+5%**, applied after round 17 clears:
 
 | | Before | × 1.05 | After |
 |---|---|---|---|

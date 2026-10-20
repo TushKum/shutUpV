@@ -18,8 +18,8 @@ covers the content, the people and the room.
 
 ## Two weeks before
 
-- [ ] **Problem deck**: review `seed/problem-cards.csv` (60 cards, 10 sectors). Edit for your college; keep 60 cards so
-      no card is dealt more than 3 times. Columns `number,sector,title,body`.
+- [ ] **Problem deck**: review `seed/problem-cards.csv` (60 cards, 10 sectors). Edit for your college; keep at least 52
+      cards for 50 squads (60 recommended); no card is dealt more than 3 times. Columns `number,sector,title,body`.
 - [ ] **Crisis deck**: review `seed/crisis-cards.csv` (one card per category, 10 categories, 5 companies each).
 - [ ] **Flash bulletin**: choose one from `seed/flash-bulletins/` (recommended: 01-rates-rise) or write your own. Only
       the AI desk and the event lead should know it.

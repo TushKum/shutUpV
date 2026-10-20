@@ -8,8 +8,8 @@ Tie-break: higher plan score of your squad's company. You can never trade.
 | 21:00 | See your squad and your **2 assigned companies** (outside your squad) | |
 | 21:10–22:30 | Help your Product team on the pitch (you can read it in the squad workspace) | Only Product submits the pitch. |
 | draw → **23:15** | **Call 1**: BUY or SELL on each assigned company | Baseline IPO price, judged at round 4. |
-| 00:45–**01:05** | **Propose and confirm the fee** | $10,000–$35,000; cash and/or ≤3,000 shares at the IPO price. Both confirm. Else $22,500 cash at 01:05. |
-| 00:45–02:45 | **Broker the deal: you set the price** | 50–100% of the post-crisis price. Fund sets the amount ($40k–$80k). All three sign. **Signed by 02:45 = +$5,000.** |
+| 00:30–**01:05** | **Propose and confirm the fee** | $10,000–$35,000; cash and/or ≤3,000 shares at the IPO price. Both confirm. Else $22,500 cash at 01:05. |
+| 00:30–02:45 | **Broker the deal: you set the price** | 50–100% of the post-crisis price. Fund sets the amount ($40k–$80k). All three sign. **Signed by 02:45 = +$5,000.** |
 | by **03:00** | **Co-write the rescue plan** | ≤500 words, shared editor. Late = 0; unsigned deal = capped at 50. |
 | 03:30–**03:40** | **Call 2** | Baseline after plan tier, judged after flash tier (04:20). |
 | 04:00–04:15 | Help on the flash answer (either team may submit) | ≤100 words. |
@@ -19,7 +19,7 @@ Tie-break: higher plan score of your squad's company. You can never trade.
 
 | Item | Amount |
 |---|---|
-| Fee | $10,000–$35,000 (cash, shares or both; at 01:05) |
+| Fee | $10,000–$35,000 (cash, shares or both; paid when both confirm, or the $22,500 default at 01:05) |
 | Plan bonus | $500 × (plan score − 50): −$10,000 to +$25,000 |
 | Deal bonus | $5,000 if fully signed by 02:45 |
 | Calls | $2,500 per correct call, 6 calls, up to $15,000 |

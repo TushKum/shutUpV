@@ -23,11 +23,11 @@ the printed cards sorted P01–P50, C01–C50, F01–F50.
 
 | Situation | Do |
 |---|---|
-| Lost card | Reprint: `pnpm cards --slug <slug> --date <date> --teams seed/teams.csv --only P07` (the same options as at seeding; needs `CARD_SECRET` in `.env` on this laptop). The password does not change. |
+| Lost card | Reprint: `pnpm cards --slug <slug> --date <date> --teams seed/teams.csv --only P07` (the same options as at seeding; needs `CARD_SECRET`, `TEAM_EMAIL_DOMAIN` and `APP_URL` in `.env` on this laptop). It writes `out/<slug>-login-cards-reprint.pdf`. The password does not change. |
 | Team not on the list | Send them to the event lead. Teams are fixed at seeding; no new teams on the night. |
 | A team has 5 people | Max 4 per team (BRIEF). The event lead decides. |
 | A member wants to switch teams | No changes after 21:00. Before then, the event lead decides; nothing changes in the system (one login per team). |
-| A card works for nobody | Check the code is typed as printed (P07, not p7), with the password's dashes. Then the tech on call. |
+| A card works for nobody | Check the code and password against the card (case, dashes and a missing leading zero don't matter). Then the tech on call. |
 
 ## Never
 

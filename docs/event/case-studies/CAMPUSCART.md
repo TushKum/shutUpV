@@ -20,7 +20,8 @@ advantage is "we are students too". Median **55 → 0% → IPO price $10.00**; t
 ## Crisis: Partner exit, "Your biggest partner walks away"
 
 The wholesaler supplying 80% of the stock ends the arrangement and will deliver to hostels itself. Both prices fall
-15%; the AI price becomes $10.00 × 0.85 = **$8.50**.
+15%; the AI price becomes $10.00 × 0.85 = **$8.50**. The market price, $9.40 after round 4, becomes $7.99: the post-crisis
+price, so the deal band is $4.00–$7.99.
 
 ## 00:45–01:05 The fee: never agreed
 
@@ -62,7 +63,8 @@ Flash answer: 55 → 0%.
 - **Plan tier:** with 78 uncapped, the AI price alone would have been $8.50 × 1.10 = $9.35, lifting the closing price
   by $0.43 to at least $8.58, before the +10% the market price would also have received at 03:30.
 - **Ridgeway's plan bonus:** $500 × (78 − 50) = $14,000, lost. Plus the $5,000 deal bonus.
-- **The fee:** an agreed $10,000 cash + 2,000 shares would have cost CampusCart the same value in a mix it preferred.
+- **The fee:** CampusCart's own offer, $10,000 cash + 2,000 shares (worth $30,000 at the $10.00 IPO price), would have
+  cost more in value but kept $12,500 more cash; agreeing on any version would have let the squad choose its own mix.
 
 ## Lessons
 

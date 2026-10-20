@@ -10,7 +10,7 @@ Tie-break: higher plan score. You can never trade.
 | 22:30–23:30 | **Answer fund questions** (Q&A) | ≤100 words each, all public. Funds read them before the IPO. |
 | 23:15 | Your IPO price | $10.00 × (1 + pitch tier): $9.00–$11.00. |
 | 00:30 | **Crisis card** | Both prices −15% = your post-crisis price. |
-| 00:45–01:05 | **Agree the fee** with your consultant | $10,000–$35,000, cash and/or ≤3,000 shares at the IPO price. Both confirm. Else $22,500 cash at 01:05. |
+| 00:30–01:05 | **Agree the fee** with your consultant | $10,000–$35,000, cash and/or ≤3,000 shares at the IPO price. Both confirm. Else $22,500 cash at 01:05. |
 | by 02:45 | **Sign the deal** | Fund invests $40k–$80k at 50–100% of post-crisis price. Your shares go to the fund. Any edit clears all signatures. |
 | by 03:00 | **Rescue plan** with your consultant | ≤500 words. **Late = 0. No signed deal at 03:00 = capped at 50.** |
 | 04:00–04:15 | **Flash answer** | ≤100 words on the bulletin. |
