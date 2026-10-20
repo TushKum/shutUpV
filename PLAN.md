@@ -269,6 +269,8 @@ A rehearsal event (fake teams, bot traders, 10× clock). A load test: 500 realti
 - [x] `pnpm load-test`: 500 of 500 realtime connections joined, 300 orders in the last minute (all accepted, p95 118 ms), clearing transaction 0.64 s, every screen heard the clearing and re-read its page within 0.4 s
 - [x] `scripts/local-load-limits.sh`: the local stack's own caps (Realtime 200 users / 100 events per second, Kong 512 connections) raised so the test measures the app
 - [x] RUNBOOK.md (the night minute by minute, roles, incidents), README and DEPLOY updates
+- [x] The AI-outage fallback promised in §42: `pnpm human-scores` feeds a human panel's CSV through the same worker and queue (rubric checks, median, runs 4–5, penalty, deal cap, sealing, release), tested on the database; RUNBOOK row and docs/event/staff/HUMAN-JUDGING.md
+- [x] Event materials in docs/event/: participant handbook, track cards, three worked case studies on the acceptance numbers, sample submissions (checked against the templates and limits by a test), FAQ, briefing, announcements, registration desk, preparation checklist; six flash bulletins in seed/flash-bulletins/ (checked by the Content page's parser)
 - [ ] The same load test against the hosted staging project on the event's plans (the local stack is one machine)
 - [ ] Real-model calibration (Phase 6)
 
@@ -427,6 +429,8 @@ Real time = `starts_at + offset ÷ clock_speed`.
 102. **Load-test measurements.** The clearing's own time is from its transaction start (the broadcast's `at`) to the commit (the round seen CLEARED); a screen's update is the delivery after the commit plus a typical re-read of its page. The test refuses live events and writes a JSON report to `out/`.
 103. **Local limits are not the app's limits.** Out of the box the local Realtime tenant allows 200 users and 100 events a second and Kong 512 connections; at those caps the load test fails for reasons the hosted plans decide. The hosted plan must cover about 800 connections and bursts of a few thousand messages a second (docs/DEPLOY.md).
 104. **Page reads under the full load.** With 150 bots playing and 650 extra clients, plain page reads reached a p95 of about 5 s on the local stack (PostgREST's pool there is 10 connections), while orders stayed fast. On the hosted plan, size the compute and pool for the night and re-run the test.
+105. **The human panel is a judge, not an editor.** In an AI outage the panel's scores enter as judge runs through the worker (run N of a company = judge N's row, model `human-judges`), so §42 holds: nobody types a final score, every rule after the judge applies unchanged, and a company without a row is never recorded. Calibration runs are not claimed by the panel.
+106. **Event materials state the rules, not new ones.** Everything in docs/event/ restates the brief and the platform's behaviour (checked against the SQL and the engine); the case studies reuse acceptance tests 4–6 and mark their other numbers as illustrative. Rules the brief leaves to the organisers (AI writing tools, team size changes on the night) are left to them.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

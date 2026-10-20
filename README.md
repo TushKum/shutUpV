@@ -131,6 +131,23 @@ pnpm load-test --slug rehearsal --connections 500 --orders-per-fund 6 --window 6
 
 The load test prints and saves (`out/load-test-*.json`) the sign-in time, connections joined, order latency, the clearing time and how fast every screen heard it, and exits 1 when a target is missed (clearing under 5 s, screens updated within 2 s). On the local stack run `scripts/local-load-limits.sh` first: its default Realtime and gateway caps are far below a hosted plan's.
 
+## Event materials
+
+[`docs/event/`](docs/event/README.md) holds everything for the people in the room: the participant handbook, one-page
+cards per track, three worked case studies (AquaSense, CampusCart, SnapStudy, built on the acceptance numbers), strong
+and weak sample submissions, the FAQ, and for staff the 20:30 briefing, the minute-by-minute announcements, the
+registration desk and the preparation checklist. Six ready flash bulletins are in
+[`seed/flash-bulletins/`](seed/flash-bulletins/README.md).
+
+If both models fail on the night, a human panel scores on paper and the scores go through the same queue:
+
+```
+pnpm human-scores --event <slug> --type PITCH --file pitch.csv --check   # list missing rows
+pnpm human-scores --event <slug> --type PITCH --file pitch.csv           # record them; then release as usual
+```
+
+See [`docs/event/staff/HUMAN-JUDGING.md`](docs/event/staff/HUMAN-JUDGING.md).
+
 ## Run the web app
 
 ```bash

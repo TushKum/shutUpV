@@ -1,7 +1,8 @@
 # Runbook: the night, minute by minute
 
 For the organisers on duty. Deployment and preparation are in [docs/DEPLOY.md](docs/DEPLOY.md); the judge in
-[docs/JUDGE.md](docs/JUDGE.md). Times are IST. Everything the system does by itself is marked *(auto)*; everything
+[docs/JUDGE.md](docs/JUDGE.md); the briefing, announcements, registration desk and participant handbook in
+[docs/event/](docs/event/README.md). Times are IST. Everything the system does by itself is marked *(auto)*; everything
 else is a click on the control panel, `/admin/<slug>`. A two-click button asks "Click again to …": the second click
 counts only for what the first one showed.
 
@@ -14,7 +15,7 @@ counts only for what the first one showed.
 | AI desk (organiser) | laptop 3, Judge page | starts judging, keeps "Run the judge here" on, releases scores, appeals |
 | Fairness officer | own laptop, Fairness page | decides collusion flags (05:00–05:40) |
 | Tech on call | any laptop, Health page + Supabase/Vercel dashboards | connections, errors, the venue network |
-| Registration desk | printed cards | one card per team; reprints with `pnpm cards --only <codes>` |
+| Registration desk | printed cards | one card per team; reprints with `pnpm cards … --only <codes>` (docs/event/staff/REGISTRATION.md) |
 
 Keep laptops 1–3 on a wired or staff network. Keep the Phase page open on laptop 1 all night: an open control panel
 also ticks the event (a backup to the database's 2-second heartbeat).
@@ -64,13 +65,14 @@ gives back exactly the time that was left. Tell the room before you resume.
 | Symptom | Likely cause | Do |
 |---|---|---|
 | Rounds do not open or clear on time | the database heartbeat stopped | Keep the Phase page open (it ticks too). Health shows tick errors; if the open round is past its close, use "Close round N now". Check `select * from cron.job` in Supabase. |
-| Many teams cannot log in | venue Wi-Fi, or the Auth rate limit | Mobile data; check Supabase → Auth → Rate limits; ask venue IT. Reprint a lost card with `pnpm cards --only <code>`. |
+| Many teams cannot log in | venue Wi-Fi, or the Auth rate limit | Mobile data; check Supabase → Auth → Rate limits; ask venue IT. Reprint a lost card with `pnpm cards … --only <code>` (the seeding options; docs/event/staff/REGISTRATION.md). |
 | Screens show "Reconnecting…" or a grey realtime dot | Realtime limits or the network | Screens re-read by themselves every 10 s; nothing is lost. Check Supabase → Realtime usage; reload a projector if it stays grey. |
 | The site is down (Vercel) | deploy or platform problem | Pause the event in the Supabase SQL editor: `select public.pause_event('<event id>');`. Roll back to the last good deployment in Vercel. Resume when back. |
 | The database is down | Supabase incident | Nothing can change while it is down, so no state is lost; the heartbeat resumes by itself. Announce, wait, then extend the phase (Phase page → Extend) by the lost minutes. |
 | The judge is slow | rate limits or a slow model | Open a third console with "Run the judge here", or run `pnpm judge-worker --event <slug>` on a laptop. |
 | The judge reports a configuration error | bad API key or model name | Fix the Vercel variable, redeploy, switch the runner on again: the runs went back to the queue. |
 | Many failed runs | the primary model is failing | "Switch to the backup model", then "Retry N failed runs". |
+| The AI service is down (primary and backup both fail) | provider outage | Pause or extend the phase. Switch "Run the judge here" off. Call the human panel and follow [docs/event/staff/HUMAN-JUDGING.md](docs/event/staff/HUMAN-JUDGING.md): paper score sheets, one CSV per type, `pnpm human-scores --event <slug> --type <TYPE> --file <csv>`, then release as usual. |
 | A score must be re-judged | technical appeal | Judge → the company → Re-run, with the reason. Before the release the new score replaces the old one; after the release it waits until you apply or dismiss it. A released pitch cannot be re-judged (the IPO is done). |
 | A team's money or shares are wrong | a mistake to correct | Ledger → Corrections: one organiser requests, a second approves. Nobody can edit a price. |
 | A phase needs more time | the room is behind | Phase → Extend by N minutes (moves every later time). |

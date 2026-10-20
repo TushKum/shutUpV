@@ -14,6 +14,7 @@
     "cards": "tsx --env-file-if-exists=.env scripts/login-cards.ts",
     "verify-lottery": "tsx scripts/verify-lottery.ts",
     "judge-worker": "tsx --env-file-if-exists=.env scripts/judge-worker.ts",
+    "human-scores": "tsx --env-file-if-exists=.env scripts/human-scores.ts",
     "new-seed": "tsx scripts/new-seed.ts",
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "load-test": "tsx --env-file-if-exists=.env scripts/load-test.ts"
