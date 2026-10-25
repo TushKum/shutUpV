@@ -1,4 +1,4 @@
-// Prints the participant handbook and the three track cards as A4 PDFs in docs/event/print/, for the registration
+// Prints the participant handbook, the three track cards and the four simple guides as A4 PDFs in docs/event/print/, for the registration
 // desk and the tables. The Markdown is read with the portal's own reader (apps/web/lib/team/markdown.ts) and printed
 // by Chromium; links print as their text, each quoted line as its own paragraph and "---" rules are dropped.
 //
@@ -25,6 +25,10 @@ const DOCS: Doc[] = [
   { source: "docs/event/cards/PRODUCT.md", file: "card-product.pdf", title: "Product team card", card: true },
   { source: "docs/event/cards/CONSULTING.md", file: "card-consulting.pdf", title: "Consulting team card", card: true },
   { source: "docs/event/cards/FINANCE.md", file: "card-finance.pdf", title: "Finance team card", card: true },
+  { source: "docs/event/simple/FINANCE.md", file: "simple-finance.pdf", title: "Finance, explained simply" },
+  { source: "docs/event/simple/PRODUCT.md", file: "simple-product.pdf", title: "Product, explained simply" },
+  { source: "docs/event/simple/CONSULTING.md", file: "simple-consulting.pdf", title: "Consulting, explained simply" },
+  { source: "docs/event/simple/ORGANISER.md", file: "simple-organiser.pdf", title: "Organisers, explained simply" },
 ];
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

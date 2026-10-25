@@ -11,6 +11,7 @@ the rules the platform enforces (docs/BRIEF.md); the case studies reproduce its 
 | [cards/PRODUCT.md](cards/PRODUCT.md), [CONSULTING](cards/CONSULTING.md), [FINANCE](cards/FINANCE.md) | One page per track: what to do when, the numbers that matter. Print one per team. |
 | [case-studies/](case-studies/README.md) | AquaSense (done right), CampusCart (deadlines missed), SnapStudy (the AI anchor and flags). |
 | [samples/](samples/) | A strong and a weak pitch, plan and flash answer, with the scores to expect and why. |
+| [simple/](simple/README.md) | The game explained in very simple words: one guide each for Finance, Product, Consulting and organisers. |
 | [FAQ.md](FAQ.md) | Questions teams ask, answered. Also for the help desk. |
 
 **Printable PDFs (A4)** are in [print/](print/): `handbook.pdf` (7 pages) and one-page `card-product.pdf`,
