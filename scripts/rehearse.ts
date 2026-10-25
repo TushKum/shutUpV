@@ -6,7 +6,7 @@
 // fairness decisions. Humans can watch (and act) on /admin, /display and /team at the same time.
 //
 //   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… CARD_SECRET=… TEAM_EMAIL_DOMAIN=… \
-//     pnpm rehearse --slug rehearsal [--autopilot] [--teams 150] [--interval 5000] [--minutes 90]
+//     pnpm rehearse --slug rehearsal [--autopilot] [--teams 150] [--except XP50,XC50] [--interval 5000] [--minutes 90]
 //
 // Seed the event first (pnpm seed --rehearsal --slug rehearsal --starts-at … --speed 10). Refuses a live event.
 
@@ -18,9 +18,10 @@ import { createJudge, judgeConfig, promptLoader, runWorker, supabaseJudgeDb } fr
 import { parseArgs, required } from "./lib/args";
 import { Bot, emptyStats, pool, signInTeam, sleep, type Env, type TeamLogin } from "./lib/bot-runner";
 
-const HELP = `pnpm rehearse --slug <rehearsal slug> [--autopilot] [--teams N] [--interval ms] [--minutes N]
+const HELP = `pnpm rehearse --slug <rehearsal slug> [--autopilot] [--teams N] [--except CODES] [--interval ms] [--minutes N]
   --autopilot   also play the organisers: draw, advance, judge, release, flash bulletin, flags
   --teams N     how many teams play (default: all)
+  --except CODES  teams the bots leave alone, for people to play (comma-separated, e.g. XP50,XC50)
   --interval ms how often each team takes a turn (default 5000)
   --minutes N   stop after N minutes (default: when the event reaches AWARDS)
 Environment: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, CARD_SECRET, TEAM_EMAIL_DOMAIN
@@ -47,7 +48,8 @@ async function main() {
   if (!event.is_rehearsal) throw new Error(`${slug} is a live event: bots play rehearsal events only`);
 
   const { data: teams } = await admin.from("teams").select("id, code, track").eq("event_id", event.id).order("code");
-  const playing = (teams ?? []).slice(0, typeof args.teams === "string" ? Number(args.teams) : undefined) as TeamLogin[];
+  const except = new Set(typeof args.except === "string" ? args.except.toUpperCase().split(",").map((c) => c.trim()) : []);
+  const playing = (teams ?? []).filter((t) => !except.has(t.code)).slice(0, typeof args.teams === "string" ? Number(args.teams) : undefined) as TeamLogin[];
   const interval = typeof args.interval === "string" ? Number(args.interval) : 5000;
   const until = typeof args.minutes === "string" ? Date.now() + Number(args.minutes) * 60_000 : Number.POSITIVE_INFINITY;
 

@@ -34,10 +34,11 @@ Run a **rehearsal event** at 10× speed (one real hour ≈ the whole night) for 
 pnpm seed --slug practice --rehearsal --starts-at <time> --staff seed/staff.csv
 ```
 
-Hand out the rehearsal cards (codes XC01…, XF01…, XP01… on the rehearsal PDF). To fill empty seats with bots, run
-`JUDGE_FAKE=1 pnpm rehearse --slug practice --autopilot --teams <n>`: the bots play the first n teams in code order
-(XC01… first, then XF…, then XP…), so give the humans codes from the end of that list. `--autopilot` also plays the
-organisers (draw, releases, flash bulletin). Say in the room whether the judge is the fake one or the real model.
+Hand out the rehearsal cards (codes XC01…, XF01…, XP01… on the rehearsal PDF). Fill the empty seats with bots and
+leave the teams people play to them:
+`JUDGE_FAKE=1 pnpm rehearse --slug practice --autopilot --except XP01,XC07,XF12` (the codes the people play).
+`--autopilot` also plays the organisers (draw, releases, flash bulletin). Say in the room whether the judge is the
+fake one or the real model.
 
 - [ ] Run one practice night for staff with the RUNBOOK in hand: every button, in order.
 - [ ] Run the calibration page with the real model (DEPLOY.md §6) and keep the result.
