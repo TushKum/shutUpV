@@ -3,6 +3,7 @@
 // card, the flash answer). Pure. Prices are integer cents; changes are computed exactly (basis points, rounded
 // half-up) and never through floating point.
 
+import type { ChartPoint } from "@/lib/chart";
 import {
   RUBRICS,
   TEMPLATES,
@@ -97,6 +98,7 @@ export interface PriceRow {
 
 export interface HistoryLine {
   key: string;
+  kind: PriceKind;
   label: string;
   at: string;
   /** The market price after this step (for CLOSE: the closing price). */
@@ -121,7 +123,7 @@ export function historyLines(rows: readonly PriceRow[]): HistoryLine[] {
   return [...rows]
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || Number(a.id) - Number(b.id))
     .map((r): HistoryLine => {
-      const base = { key: String(r.id), at: r.created_at, price: r.market_after, ai: r.ai_after };
+      const base = { key: String(r.id), kind: r.kind, at: r.created_at, price: r.market_after, ai: r.ai_after };
       const moved = (before: number | null) => ({
         change: changeText(before, r.market_after),
         changeSign: before === null ? (0 as const) : sign(r.market_after - before),
@@ -157,6 +159,20 @@ export function historyLines(rows: readonly PriceRow[]): HistoryLine[] {
         }
       }
     });
+}
+
+const MARKERS: Partial<Record<PriceKind, string>> = { IPO: "IPO", CRISIS: "Crisis", PLAN_TIER: "Plan", FLASH_TIER: "Flash", CLOSE: "Close" };
+
+/**
+ * The chart of a company's history: the market price step by step, the AI price dashed (it moves only with the IPO,
+ * the crisis and the tiers, so it is carried forward between them), and a tag on the steps that are not rounds.
+ */
+export function chartPoints(lines: readonly HistoryLine[]): ChartPoint[] {
+  let ai: number | null = null;
+  return lines.map((l) => {
+    if (l.ai !== null) ai = l.ai;
+    return { label: l.label, value: l.price, second: ai, marker: MARKERS[l.kind] ?? null };
+  });
 }
 
 // ───────────────────────────── What is public ─────────────────────────────

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { phaseReached, type SubmissionType } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadCompanyView } from "@/lib/team/market-data";
-import { BOOK_PUBLIC_FROM, historyLines, SUBMISSION_TITLES, verdict } from "@/lib/team/market";
+import { BOOK_PUBLIC_FROM, chartPoints, historyLines, SUBMISSION_TITLES, verdict } from "@/lib/team/market";
+import { LineChart } from "@/components/ui/line-chart";
 import { VerdictDetail } from "../verdict-detail";
 import { clock, money } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
@@ -70,6 +71,9 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
           ) : (
             <Stat label="Post-crisis price" value={money(c.post_crisis_price)} />
           )}
+        </div>
+        <div className="mt-4">
+          <LineChart points={chartPoints(lines)} label={`${c.ticker} price by step`} mainName="Market price" secondName="AI price" testId="price-chart" />
         </div>
       </Panel>
 

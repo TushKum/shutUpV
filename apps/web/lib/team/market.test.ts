@@ -4,6 +4,7 @@ import {
   PUBLIC_FROM,
   changeBp,
   changeText,
+  chartPoints,
   historyLines,
   marketLines,
   marketOpensText,
@@ -84,6 +85,24 @@ describe("price history", () => {
     expect(lines[2]).toMatchObject({ price: 956, changeSign: -1, ai: 893 });
     expect(lines[3]).toMatchObject({ change: "+$1.84 (+20%)", detail: "+20% on the market and AI prices" });
     expect(lines[4]).toMatchObject({ price: 1263, detail: "(market $14.00 + AI $11.26) ÷ 2" });
+  });
+  test("the chart: market price per step, the AI price carried forward, tags on the IPO, crisis, tiers and close", () => {
+    const points = chartPoints(
+      historyLines([
+        row({ id: 1, kind: "IPO", market_after: 1050, ai_after: 1050, tier_bp: 500, created_at: "2026-10-08T17:45:00Z" }),
+        row({ id: 2, kind: "CLEARING", round_number: 1, market_before: 1050, market_after: 1082, ai_after: null, created_at: "2026-10-08T18:15:00Z" }),
+        row({ id: 3, kind: "CRISIS", market_before: 1082, market_after: 920, ai_after: 893, created_at: "2026-10-08T19:00:00Z" }),
+        row({ id: 4, kind: "PLAN_TIER", market_before: 920, market_after: 1104, ai_after: 1072, tier_bp: 2000, created_at: "2026-10-08T22:00:00Z" }),
+        row({ id: 5, kind: "CLOSE", market_before: 1400, market_after: 1263, ai_after: 1126, created_at: "2026-10-08T23:30:00Z" }),
+      ]),
+    );
+    expect(points).toEqual([
+      { label: "IPO price", value: 1050, second: 1050, marker: "IPO" },
+      { label: "Round 1", value: 1082, second: 1050, marker: null },
+      { label: "Crisis shock", value: 920, second: 893, marker: "Crisis" },
+      { label: "Plan tier", value: 1104, second: 1072, marker: "Plan" },
+      { label: "Closing price", value: 1263, second: 1126, marker: "Close" },
+    ]);
   });
   test("a technical appeal: after the close it moves the closing price; before it only the AI price", () => {
     const close = row({ id: 9, kind: "CLOSE", market_before: 780, market_after: 815, ai_after: 850, created_at: "2026-10-08T23:30:00Z" });

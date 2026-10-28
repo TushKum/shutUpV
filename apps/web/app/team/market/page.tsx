@@ -7,6 +7,7 @@ import { marketLines, marketOpensText, openBooks, sign } from "@/lib/team/market
 import { supabaseServer } from "@/lib/supabase/server";
 import { bp, money } from "@/lib/format";
 import { Badge, Notice, Panel, Table, Td } from "@/components/ui/ui";
+import { Sparkline } from "@/components/ui/line-chart";
 import { BookTabs } from "./tabs";
 
 export const metadata: Metadata = { title: "Market" };
@@ -40,7 +41,7 @@ export default async function MarketPage() {
           <p className="mb-3 text-sm text-slate-600">IPO prices are released at the IPO, with the pitch scores. Until then, read the pitch book.</p>
         ) : null}
         <Table
-          head={["Ticker", "Company", "IPO price", "Market price", list.lastRound ? `Round ${list.lastRound.number}` : "Last round"]}
+          head={["Ticker", "Company", "IPO price", "Market price", list.lastRound ? `Round ${list.lastRound.number}` : "Last round", "Trend"]}
           label="Listed companies"
           empty="No company is listed yet."
         >
@@ -75,6 +76,9 @@ export default async function MarketPage() {
                   ) : (
                     "—"
                   )}
+                </Td>
+                <Td>
+                  <Sparkline values={list.trends[l.id] ?? []} label={`${l.ticker} price trend`} />
                 </Td>
               </tr>
             );

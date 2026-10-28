@@ -85,8 +85,8 @@ test("Reading: the listing (no prices yet), the pitch book with every company's 
   await expect(page.getByRole("heading", { name: "Listed companies (3)" })).toBeVisible();
   await expect(views(page)).toHaveText(["Prices", "Pitch book"]);
   await expect(page.getByText("IPO prices are released at the IPO, with the pitch scores.")).toBeVisible();
-  await expect(listRow(page, 0)).toHaveText([ticker(0), "Company 1", "—", "—", "—"]);
-  await expect(listRow(page, 2)).toHaveText([ticker(2), "Company 3Yours", "—", "—", "—"]);
+  await expect(listRow(page, 0)).toHaveText([ticker(0), "Company 1", "—", "—", "—", "—"]);
+  await expect(listRow(page, 2)).toHaveText([ticker(2), "Company 3Yours", "—", "—", "—", "—"]);
 
   await views(page).getByText("Pitch book").click();
   await expect(page).toHaveURL(/\/team\/market\/book\?type=PITCH$/);
@@ -135,10 +135,10 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
   expect([await price(0), await price(1), await price(2)]).toEqual([1082, 1100, 950]); // acceptance test 1: $10.50 → $10.82
 
   await as(page, s[2]!.c_code, "/team/market");
-  await expect(page.getByRole("region", { name: "Listed companies" }).locator("th")).toHaveText(["Ticker", "Company", "IPO price", "Market price", "Round 1"]);
-  await expect(listRow(page, 0)).toHaveText([ticker(0), "Company 1", "$10.50", "$10.82", "▲ +3.05%"]);
-  await expect(listRow(page, 1)).toHaveText([ticker(1), "Company 2", "$11.00", "$11.00", "■ 0%"]);
-  await expect(listRow(page, 2)).toHaveText([ticker(2), "Company 3Yours", "$9.50", "$9.50", "■ 0%"]);
+  await expect(page.getByRole("region", { name: "Listed companies" }).locator("th")).toHaveText(["Ticker", "Company", "IPO price", "Market price", "Round 1", "Trend"]);
+  await expect(listRow(page, 0)).toHaveText([ticker(0), "Company 1", "$10.50", "$10.82", "▲ +3.05%", ""]);
+  await expect(listRow(page, 1)).toHaveText([ticker(1), "Company 2", "$11.00", "$11.00", "■ 0%", ""]);
+  await expect(listRow(page, 2)).toHaveText([ticker(2), "Company 3Yours", "$9.50", "$9.50", "■ 0%", ""]);
   await expect(page.getByText("IPO prices are released at the IPO")).toHaveCount(0);
 
   await listRow(page, 0).getByRole("link", { name: ticker(0) }).click();
@@ -149,6 +149,9 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
   await expect(page.getByTestId("verdict-PITCH")).toContainText("Problem and how many people have it25/25");
   await expect(page.getByTestId("verdict-PITCH")).toContainText("One. Two. Three.");
   await expect(history(page)).toHaveCount(2);
+  // The chart draws the same two steps, the IPO tagged.
+  await expect(page.getByTestId("price-chart").locator("circle")).toHaveCount(2);
+  await expect(page.getByTestId("price-chart").getByRole("img")).toHaveAttribute("aria-label", /price by step: IPO price \$10\.50, Round 1 \$10\.82/);
   await expect(history(page).nth(0).getByRole("cell")).toHaveText(["IPO price", /^\d\d:\d\d$/, "$10.50", "—", "$10.50", "Pitch tier +5% on $10.00"]);
   await expect(history(page).nth(1).getByRole("cell")).toHaveText([
     "Round 1",
@@ -170,7 +173,7 @@ test("the crisis: −15% on every price, each company's crisis card, and the cri
 
   await as(page, s[2]!.c_code, "/team/market");
   await expect(views(page)).toHaveText(["Prices", "Pitch book", "Crisis cards"]);
-  await expect(listRow(page, 0)).toHaveText([ticker(0), "Company 1", "$10.50", "$9.20", "■ 0%"]); // round 4 (cleared unchanged) was the last
+  await expect(listRow(page, 0)).toHaveText([ticker(0), "Company 1", "$10.50", "$9.20", "■ 0%", ""]); // round 4 (cleared unchanged) was the last
   await views(page).getByText("Crisis cards").click();
   await expect(page.getByRole("heading", { name: "Crisis cards (3 of 3)" })).toBeVisible();
   for (const c of cards) {

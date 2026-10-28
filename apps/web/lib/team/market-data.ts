@@ -39,12 +39,14 @@ export async function loadCompanies(sb: SupabaseClient, eventId: string): Promis
 export interface MarketList {
   companies: MarketCompany[];
   lastRound: { number: number; rows: ClearingRow[] } | null;
+  /** Each company's market price after every step so far (IPO, rounds, crisis, tiers, close), for the trend lines. */
+  trends: Record<string, number[]>;
 }
 
 /** Every listed company and the last cleared round's prices (every company gets a row each round, traded or not). */
 export async function loadMarketList(eventId: string): Promise<MarketList> {
   const sb = await supabaseServer();
-  const [companies, round] = await Promise.all([
+  const [companies, round, steps] = await Promise.all([
     loadCompanies(sb, eventId),
     sb
       .from("rounds")
@@ -55,13 +57,18 @@ export async function loadMarketList(eventId: string): Promise<MarketList> {
       .limit(1)
       .maybeSingle<{ id: string; number: number }>()
       .then((r) => must(r, "the rounds")),
+    fetchAll<{ company_id: string; market_after: number }>((from, to) =>
+      sb.from("round_prices").select("company_id, market_after").eq("event_id", eventId).order("id").range(from, to),
+    ),
   ]);
-  if (!round) return { companies, lastRound: null };
+  const trends: Record<string, number[]> = {};
+  for (const s of steps) (trends[s.company_id] ??= []).push(Number(s.market_after));
+  if (!round) return { companies, lastRound: null, trends };
   const rows = must(
     await sb.from("round_prices").select("company_id, market_before, market_after").eq("round_id", round.id).eq("kind", "CLEARING"),
     "the round's prices",
   ) as ClearingRow[];
-  return { companies, lastRound: { number: round.number, rows } };
+  return { companies, lastRound: { number: round.number, rows }, trends };
 }
 
 export interface PublicSubmission {
