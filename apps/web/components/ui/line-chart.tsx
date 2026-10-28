@@ -3,7 +3,7 @@
 // container's width. A <title> per point gives the exact value on hover; the chart carries a one-line summary for
 // screen readers, and the page keeps a table with every value.
 
-import { chartGeometry, chartSummary, sparkPath, type ChartPoint } from "@/lib/chart";
+import { axisMoney, chartGeometry, chartSummary, sparkPath, type ChartPoint } from "@/lib/chart";
 import { money } from "@/lib/format";
 
 const BOX = { width: 720, height: 240, padLeft: 64, padRight: 16, padTop: 26, padBottom: 22 };
@@ -27,6 +27,7 @@ export function LineChart({
   const bottom = BOX.height - BOX.padBottom;
   const up = points.at(-1)!.value >= points[0]!.value;
   const stroke = up ? "#15803d" : "#b91c1c";
+  const tickStep = g.yTicks.length > 1 ? g.yTicks[1]!.value - g.yTicks[0]!.value : 1;
   return (
     <figure className="w-full" data-testid={testId}>
       <svg viewBox={`0 0 ${BOX.width} ${BOX.height}`} className="h-auto w-full" role="img" aria-label={`${label}: ${chartSummary(points, money)}`}>
@@ -34,7 +35,7 @@ export function LineChart({
           <g key={t.value}>
             <line x1={BOX.padLeft} x2={BOX.width - BOX.padRight} y1={t.y} y2={t.y} stroke="#e2e8f0" strokeWidth="1" />
             <text x={BOX.padLeft - 8} y={t.y + 4} textAnchor="end" fontSize="11" fill="#64748b">
-              {money(t.value)}
+              {axisMoney(t.value, tickStep, g.max, money)}
             </text>
           </g>
         ))}

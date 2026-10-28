@@ -91,6 +91,14 @@ export function chartGeometry(input: readonly ChartPoint[], box: ChartBox, ticks
   return { box, points, path, path2, area, yTicks, min, max };
 }
 
+/** A y-axis label: exact money for prices, "$540k" once values reach $10,000 (whole thousands, or one decimal when the
+ * ticks are closer than $1,000 apart). */
+export function axisMoney(cents: number, stepCents: number, max: number, fmt: (cents: number) => string): string {
+  if (max < 1_000_000) return fmt(cents);
+  const k = cents / 100_000;
+  return `$${stepCents < 100_000 ? k.toFixed(1) : Math.round(k).toLocaleString("en-US")}k`;
+}
+
 /** A sparkline path through the values, scaled to fill width × height (flat values draw a middle line). */
 export function sparkPath(values: readonly number[], width: number, height: number): string {
   if (values.length === 0) return "";

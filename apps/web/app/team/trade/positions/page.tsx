@@ -7,6 +7,8 @@ import { companyPosition, fundSummary } from "@/lib/team/trade";
 import { FUND_LOT_HINTS, FUND_LOT_LABELS, collateralView, meterPct, portfolioTotals, positionLines } from "@/lib/team/portfolio";
 import { bp, clock, count, money, signedMoney } from "@/lib/format";
 import { Notice, Panel, Stat, Table, Td } from "@/components/ui/ui";
+import { LineChart } from "@/components/ui/line-chart";
+import { loadPortfolioSeries } from "@/lib/team/portfolio-history-data";
 import { tradeGate } from "../gate";
 
 export const metadata: Metadata = { title: "Positions" };
@@ -19,7 +21,7 @@ export default async function PositionsPage() {
   const ctx = await loadTeamContext();
   const gate = tradeGate(ctx);
   if (gate) return gate;
-  const data = await loadTradeData(ctx, { orders: "pending" });
+  const [data, series] = await Promise.all([loadTradeData(ctx, { orders: "pending" }), loadPortfolioSeries(ctx.event.id, ctx.team.id)]);
   const closed = data.marketClosedAt !== null;
   const lines = positionLines(data.holdings, data.companies, closed);
   const totals = portfolioTotals(ctx.team.cash, lines);
@@ -57,6 +59,12 @@ export default async function PositionsPage() {
           <p className="mt-2 text-xs text-slate-500">
             {count(totals.unpriced)} {totals.unpriced === 1 ? "line has" : "lines have"} no price until the IPO prices are released and {totals.unpriced === 1 ? "is" : "are"} not counted.
           </p>
+        ) : null}
+        {series.length >= 2 ? (
+          <div className="mt-4">
+            <h3 className="mb-1 text-sm font-semibold text-slate-700">Your fund&apos;s value after each step</h3>
+            <LineChart points={series} label="Your fund's value by step" mainName="Portfolio value (cash + long − short)" testId="portfolio-chart" />
+          </div>
         ) : null}
       </Panel>
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { chartGeometry, chartSummary, niceStep, sparkPath, type ChartBox } from "./chart";
+import { axisMoney, chartGeometry, chartSummary, niceStep, sparkPath, type ChartBox } from "./chart";
 
 const box: ChartBox = { width: 400, height: 200, padLeft: 50, padRight: 10, padTop: 10, padBottom: 30 };
 
@@ -75,5 +75,14 @@ describe("sparkPath and summary", () => {
     expect(chartSummary([{ label: "IPO price", value: 1050 }, { label: "Round 1", value: 900 }, { label: "Round 2", value: 1263 }], fmt)).toBe(
       "IPO price $10.50, Round 2 $12.63; lowest $9.00, highest $12.63, 3 steps.",
     );
+  });
+});
+
+describe("axisMoney", () => {
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+  test("prices stay exact; fund values read in thousands", () => {
+    expect(axisMoney(1050, 50, 1200, fmt)).toBe("$10.50");
+    expect(axisMoney(54_000_000, 2_000_000, 56_000_000, fmt)).toBe("$540k");
+    expect(axisMoney(51_750_000, 50_000, 52_000_000, fmt)).toBe("$517.5k");
   });
 });

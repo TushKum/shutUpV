@@ -197,6 +197,11 @@ test("positions: lots, average cost, value, profit and loss, return, collateral 
   const value = cash + 3_766_000 + 5_250_000 - 1_040_000;
   await expect(page.getByTestId("portfolio-value")).toHaveText(usd(value));
   await expect(page.getByTestId("portfolio-gain")).toHaveText(signed(value - 50_000_000));
+  // The value chart starts at the fund's opening value and its last step is the value above.
+  await expect(page.getByTestId("portfolio-chart").getByRole("img")).toHaveAttribute(
+    "aria-label",
+    new RegExp(`^Your fund's value by step: Start \\$500,000\\.00, Round \\d+ ${usd(value).replace(/[$.]/g, "\\$&")};`),
+  );
   await expect(page.getByTestId("portfolio-return")).toHaveText("+0.55%");
   await expect(page.getByTestId("portfolio-pnl")).toHaveText("+$2,760.00");
   const collateral = mulRate(1000 * 1040, 150, 100);
