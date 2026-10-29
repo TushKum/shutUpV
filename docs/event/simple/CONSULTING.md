@@ -54,3 +54,5 @@ At 05:00: **your money + any slices you were paid × the final price.** Most mon
 - The plan marks are your biggest prize: 90 marks = +$20,000!
 - Get the deal signed early. Late deals hurt everyone.
 - Being too greedy (a huge fee, or a super-cheap deal with a weak plan) makes the fairness officer look closely.
+- The **purple bar** at the top always says what to do next. Tap it.
+- Talk to your squad in **Chat** on the site. Agree the fee there, then do it on the Rescue page.

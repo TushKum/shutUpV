@@ -274,6 +274,16 @@ A rehearsal event (fake teams, bot traders, 10× clock). A load test: 500 realti
 - [ ] The same load test against the hosted staging project on the event's plans (the local stack is one machine)
 - [ ] Real-model calibration (Phase 6)
 
+### Extras asked for after Phase 7 (easier to use, more to watch)
+
+- [x] Price charts: each company's page charts its market price per round (IPO, crisis, plan, flash and close marked) with its AI price dashed; the market list has a trend sparkline per company
+- [x] A fund's portfolio chart: its own value after each round, from its own ledger (positions page)
+- [x] "Do this now": a sticky bar on every team page with the open task that closes first, its countdown and a button to it
+- [x] Alerts: a toast 5 minutes and 1 minute before each open deadline and when a round clears, news lands, the crisis hits or scores are out; an optional beep and buzz
+- [x] A simpler order ticket: quick amounts (100 / 500 / 1,000), a colour per order type and one plain sentence ("You buy 500 AQS for about $5,250.00.")
+- [x] The projector's news ticker: the last round's biggest movers by ticker, the bulletins, the rescue deals signed and the next deadline
+- [x] Squad chat (migration 23): a private live chat for each squad's three teams, read by the squad and the staff only
+
 ---
 
 ## 5. Default night schedule (event-minute offsets from 20:00 IST)
@@ -431,6 +441,10 @@ Real time = `starts_at + offset ÷ clock_speed`.
 104. **Page reads under the full load.** With 150 bots playing and 650 extra clients, plain page reads reached a p95 of about 5 s on the local stack (PostgREST's pool there is 10 connections), while orders stayed fast. On the hosted plan, size the compute and pool for the night and re-run the test.
 105. **The human panel is a judge, not an editor.** In an AI outage the panel's scores enter as judge runs through the worker (run N of a company = judge N's row, model `human-judges`), so §42 holds: nobody types a final score, every rule after the judge applies unchanged, and a company without a row is never recorded. Calibration runs are not claimed by the panel.
 106. **Event materials state the rules, not new ones.** Everything in docs/event/ restates the brief and the platform's behaviour (checked against the SQL and the engine); the case studies reuse acceptance tests 4–6 and mark their other numbers as illustrative. Rules the brief leaves to the organisers (AI writing tools, team size changes on the night) are left to them.
+107. **Charts show only what a team may already see.** Market charts use the public round prices and the published AI prices; a fund's portfolio chart is built from its own ledger entries (RLS), never another fund's. Values are integer cents until drawn.
+108. **The "Do this now" bar and the alerts are guidance only.** They are drawn from the same plan as the Home page (the team's own open tasks, in closing order); the database still decides every deadline. Deadline warnings use the event's clock, so they wait while the event is paused, and each is given once per screen session.
+109. **The news ticker ranks companies, never teams.** It shows the last round's top three rises and falls by ticker (as the verdicts screen already shows top movers), bulletins, the count of signed rescue deals from the crisis until the close, and the next deadline (not the internal flash tier). No team names or rankings before AWARDS.
+110. **Squad chat is private to the squad, and visible to the staff.** Only the squad's three teams and the staff (organisers and the fairness officer) read it; the page says so. A team posts through `post_squad_message` only (1–500 characters, 20 a minute, from the draw until AWARDS); every message is audited. The squad's realtime topic `squad:<id>` carries only who posted, never the text. There is no organiser chat screen yet: staff read it from the audit log or the database.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 
@@ -466,6 +480,4 @@ Real time = `starts_at + offset ÷ clock_speed`.
 - A QR code on login cards
 - Consultants posting Q&A questions
 - Publishing consultant calls
-- Squad chat
-- Per-team notification sounds
 - Downloadable portfolio history for teams after the event

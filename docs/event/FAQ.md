@@ -11,6 +11,16 @@ Answers for participants and for the help desk. The rules in full: [HANDBOOK.md]
 **It says the password is wrong.** Check the code (`P07`; lower case and `p7` also work) and the 12-letter password (dashes and case don't matter),
 and try again on mobile data if the venue Wi-Fi is struggling. Still failing: help desk.
 
+## Your screen
+
+**What is the purple bar?** "Do this now": your team's next task and how long is left. Tap its button to go there.
+
+**Can the site beep when something is due?** Yes. Tap **🔕 Sound off** in the header once; it turns into
+**🔔 Sound on**. Phones also buzz. Each device has its own switch.
+
+**Who can read our squad chat?** Only your squad's three teams, plus the organisers and the fairness officer. Other
+squads cannot. Messages are up to 500 characters, and the chat closes at the awards.
+
 ## The draw
 
 **Is the draw fair?** It is computed from SHA-256(seed + dice). The hash of the seed was published before the event, the
@@ -70,6 +80,9 @@ automatically.
 signatures; all three teams must sign the current version again.
 
 **What if the deal isn't signed by 03:00?** There is no deal, and your plan's score is capped at 50.
+
+**Where do we negotiate?** Face to face, or in your squad's **Chat** on the site. The fee and the deal still only
+count once they are proposed, confirmed and signed on the Rescue page.
 
 **Can Product and Finance trade shares outside the deal?** No. Product and Consulting teams cannot trade at all.
 

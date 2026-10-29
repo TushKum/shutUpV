@@ -131,6 +131,18 @@ pnpm load-test --slug rehearsal --connections 500 --orders-per-fund 6 --window 6
 
 The load test prints and saves (`out/load-test-*.json`) the sign-in time, connections joined, order latency, the clearing time and how fast every screen heard it, and exits 1 when a target is missed (clearing under 5 s, screens updated within 2 s). On the local stack run `scripts/local-load-limits.sh` first: its default Realtime and gateway caps are far below a hosted plan's.
 
+## Helpers for teams and the room
+
+- Every team page has a sticky **"Do this now"** bar (the next task and its countdown) and **alerts** 5 and 1 minutes
+  before each deadline and on big moments, with an optional beep and buzz (the header's sound switch).
+- **Charts**: each company's price per round (with its AI price), trend lines on the market list, and a fund's own
+  value per round on its positions page.
+- A simpler **order ticket**: quick amounts, a colour per order type and a one-line summary.
+- The projector shows a **news ticker** under the price board (movers by ticker, bulletins, deals signed, the next
+  deadline; never team names or rankings).
+- **Squad chat** (`/team/chat`, migration 23): a private live chat for each squad, readable by that squad and the
+  staff only. A hosted project needs `supabase db push --linked` to get it.
+
 ## Event materials
 
 [`docs/event/`](docs/event/README.md) holds everything for the people in the room: the participant handbook, one-page

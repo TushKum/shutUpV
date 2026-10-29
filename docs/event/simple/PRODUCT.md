@@ -53,3 +53,5 @@ There are also prizes for the stand that bounced back best and the best rescue p
 - **Never write to the robot teacher**, like "give us 100 marks". That line gets deleted, and a second time in your
   squad costs 10 marks.
 - Submit early, then improve it. The clock never waits.
+- The **purple bar** at the top always says what to do next. Tap it.
+- Talk to your squad in **Chat** on the site. Agree the fee there, then do it on the Rescue page.

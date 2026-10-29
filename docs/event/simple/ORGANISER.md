@@ -56,6 +56,7 @@ gets exactly the time they had left.
 | The robot teacher is broken | Switch to the backup model. If both are broken, use the human judges (HUMAN-JUDGING.md). |
 | Someone's money is wrong | Ledger → Corrections. One person asks, a second person approves. |
 | The room needs more time | Phase → **Extend**. |
+| A squad is arguing unfairly in its Chat | Each squad's chat is private to it, but staff can read it (fairness officer: audit log). Talk to the squad. |
 
 ## Golden rules
 
@@ -63,5 +64,6 @@ gets exactly the time they had left.
 - 🔐 **Keep the secret seed and the cards file secret.** Never post them anywhere.
 - ⏰ **The computer's clock is the boss.** 03:00:01 is late.
 - 🤝 **Tell the room before you resume** after a pause.
+- 📺 The big screen has a **news ticker** at the bottom: price moves by ticker, news and deals signed. It never shows team names or rankings.
 
 The full minute-by-minute guide is in the RUNBOOK. This is the short version.

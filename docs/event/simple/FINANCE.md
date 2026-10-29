@@ -52,6 +52,12 @@ would be cheating, because you know their secrets.
 - At most **2,000** borrowed (shorted) slices of any one stand.
 - You need enough money in your piggy bank for every order.
 
+## Helpers on the screen
+
+- The **purple bar** at the top always says what to do next. Tap it.
+- Price pages have **pictures (charts)** of each lemonade stand's price going up and down. Your **Positions** page draws your piggy bank growing.
+- Talk to your squad in **Chat** on the site.
+
 ## How you win
 
 At 05:00: **your money + your slices × the final price**. The team whose piggy bank grew the most wins. 🏆

@@ -27,6 +27,17 @@ the first time. Nobody, not even the organisers' projector, shows a ranking befo
 - The card is your team's only key. Do not photograph it into a group chat with other teams. A lost card can be
   reprinted at the registration desk (the old password still works; it is the same password).
 
+### Your screen
+
+- **Do this now**: the purple bar at the top of every page shows your team's next task, how long is left and a
+  button that takes you there. When it disappears, nothing is due.
+- **Alerts**: a pop-up 5 minutes and 1 minute before each of your deadlines, and when a round clears, news lands, the
+  crisis hits or scores come out. Tap **🔕 Sound off** in the header to turn on a beep (and a buzz on phones).
+- **Charts**: every company's page charts its price round by round, with its AI price as a dashed line; the Market
+  list shows a small trend line for each company. A fund's Positions page charts its own value after each round.
+- **Chat**: from the draw, your squad's three teams have a private chat under **Chat**. Use it to agree the fee and
+  the deal. Only your squad and the organisers and fairness officer can read it.
+
 ## 3. The squads and the draw (21:00)
 
 At 21:00 the organisers run a lottery that anyone can check:
@@ -150,7 +161,8 @@ the market price and the AI price.
   - Every short is covered automatically at the closing price.
 - **Insider rules**: a fund can never trade its own squad's company. Product and Consulting teams cannot trade at all.
 - Order entry is rate-limited (about 60 actions per 10 seconds per team). The ticket has a **max quantity** helper
-  that applies all of the above for you.
+  that applies all of the above for you, quick amounts (100 / 500 / 1,000), and a one-line summary of the order
+  ("You buy 500 AQS for about $5,250.00.") before you send it.
 
 ### The IPO (23:15–23:30)
 
