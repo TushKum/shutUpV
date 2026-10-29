@@ -212,9 +212,9 @@ test("bulletins: every published one newest first with its kind, the latest 3 on
   await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   await ev.n.org("publish_bulletin", ev.n.eventId, "GENERAL", "Doors open", "Welcome to the night.");
   await expect(page.getByRole("article", { name: "General bulletin: Doors open" })).toBeVisible(); // without a reload
-  // …and a toast says so, with a link to the bulletins.
+  // …and a toast says so (with no link to the page it is already on).
   await expect(page.getByTestId("alerts")).toContainText("News: Doors open");
-  await expect(page.getByTestId("alerts").getByRole("link", { name: "Open" })).toHaveAttribute("href", "/team/bulletins");
+  await expect(page.getByTestId("alerts").getByRole("link", { name: "Open" })).toHaveCount(0);
   await ev.n.org("publish_bulletin", ev.n.eventId, "CRISIS", "Supply shock", "Every company is hit at 00:30.");
   await ev.n.org("publish_bulletin", ev.n.eventId, "GENERAL", "Round 2 soon", "Get ready.");
   await ev.n.org("publish_bulletin", ev.n.eventId, "FAIRNESS", "Play fair", "Collusion is flagged.");

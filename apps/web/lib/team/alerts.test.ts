@@ -39,7 +39,9 @@ describe("dueAlert", () => {
   });
 
   test("the time left in words", () => {
-    expect(leftText(4 * 60_000 + 10_000)).toBe("5 minutes left");
+    expect(leftText(5 * 60_000)).toBe("Under 5 minutes left");
+    expect(leftText(4 * 60_000 + 10_000)).toBe("Under 5 minutes left");
+    expect(leftText(89_000)).toBe("Under 2 minutes left");
     expect(leftText(59_000)).toBe("Under a minute left");
   });
 });

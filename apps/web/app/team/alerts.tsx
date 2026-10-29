@@ -140,7 +140,7 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
           className={`pointer-events-auto ${i < toasts.length - 1 ? "hidden sm:flex" : "flex"} w-full items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${TONE[t.tone]}`}
         >
           <span className="flex-1 font-medium [overflow-wrap:anywhere]">{t.text}</span>
-          {t.href ? (
+          {t.href && t.href !== path ? (
             <Link href={t.href} className="whitespace-nowrap font-semibold underline underline-offset-2">
               Open
             </Link>

@@ -31,7 +31,8 @@ export function dueAlert(remainingMs: number, given: ReadonlySet<number>, thresh
 
 export function leftText(remainingMs: number): string {
   const min = Math.ceil(remainingMs / 60_000);
-  return remainingMs <= 60_000 ? "Under a minute left" : `${min} minutes left`;
+  // "Under": a screen opened with 1:29 to go gets "Under 2 minutes left", never a "2 minutes" its countdown contradicts.
+  return remainingMs <= 60_000 ? "Under a minute left" : `Under ${min} minutes left`;
 }
 
 export interface EventToast {
