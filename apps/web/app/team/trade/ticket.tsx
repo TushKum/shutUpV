@@ -14,7 +14,7 @@ import { startTransition, useActionState, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ORDER_TYPES, type OrderContext, type OrderType } from "@msim/engine";
 import type { ActionResult } from "@/lib/rpc";
-import { ORDER_TYPE_INFO, clientRef, companyPosition, maxOrder, newNonce, orderLabel, parseShares, previewOrder, type OrderPreview } from "@/lib/team/trade";
+import { ORDER_TYPE_INFO, QUICK_QUANTITIES, clientRef, companyPosition, maxOrder, newNonce, orderLabel, orderSummary, parseShares, previewOrder, type OrderPreview } from "@/lib/team/trade";
 import { clock, count, money } from "@/lib/format";
 import { useServerNow } from "@/lib/live/clock";
 import { ResultMessage } from "@/components/ui/action";
@@ -121,7 +121,7 @@ export function OrderTicket({
             <label
               key={t}
               className={`flex cursor-pointer items-center justify-center rounded-md px-2 py-2 text-sm font-semibold ring-1 ring-inset has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-slate-900 ${
-                type === t ? "bg-slate-900 text-white ring-slate-900" : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
+                type === t ? TYPE_ON[t] : "bg-white text-slate-700 ring-slate-300 hover:bg-slate-50"
               }`}
             >
               <input
@@ -160,6 +160,21 @@ export function OrderTicket({
             }}
             className={`${inputClass} font-mono`}
           />
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Quick amounts">
+          {QUICK_QUANTITIES.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className="rounded-md bg-slate-100 px-3 py-1.5 font-mono text-sm font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 hover:bg-slate-200"
+              onClick={() => {
+                setQty(String(n));
+                setMaxNote(null);
+              }}
+            >
+              {n.toLocaleString("en-US")}
+            </button>
+          ))}
           <button
             type="button"
             className={`${buttonClass.secondary} shrink-0`}
@@ -190,7 +205,7 @@ export function OrderTicket({
         </dl>
       ) : null}
 
-      <Preview preview={preview} type={type} roundNumber={round.number} />
+      <Preview preview={preview} type={type} roundNumber={round.number} ticker={company?.ticker ?? null} />
 
       {closed ? (
         <p className="text-sm font-medium text-amber-800" role="status">
@@ -207,6 +222,14 @@ export function OrderTicket({
     </form>
   );
 }
+
+/** Each order type's colour when chosen: buying green, selling red, shorting orange, covering blue. */
+const TYPE_ON: Record<OrderType, string> = {
+  BUY: "bg-emerald-600 text-white ring-emerald-600",
+  SELL: "bg-red-600 text-white ring-red-600",
+  SHORT: "bg-orange-500 text-white ring-orange-500",
+  COVER: "bg-sky-600 text-white ring-sky-600",
+};
 
 function roomLabel(type: OrderType): string {
   return { BUY: "Can still buy (4,000 limit)", SELL: "Can still sell", SHORT: "Can still short (2,000 limit)", COVER: "Can still cover" }[type];
@@ -226,7 +249,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 /** What the exchange will say, as the person types. */
-export function Preview({ preview, type, roundNumber }: { preview: OrderPreview; type: OrderType; roundNumber: number }) {
+export function Preview({ preview, type, roundNumber, ticker = null }: { preview: OrderPreview; type: OrderType; roundNumber: number; ticker?: string | null }) {
   return (
     <div aria-live="polite" data-testid="order-preview" className="text-sm">
       {preview.state === "EMPTY" ? (
@@ -239,6 +262,11 @@ export function Preview({ preview, type, roundNumber }: { preview: OrderPreview;
         <p className="rounded-md bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-inset ring-amber-200">{preview.message}</p>
       ) : (
         <ul className="space-y-1 rounded-md bg-emerald-50 px-3 py-2 text-emerald-950 ring-1 ring-inset ring-emerald-200">
+          {ticker ? (
+            <li className="text-base font-semibold" data-testid="order-summary">
+              {orderSummary(type, preview.qty, ticker, preview.value)}
+            </li>
+          ) : null}
           <li>
             Value at the current price: <Num>{money(preview.value)}</Num> ({count(preview.qty)} × {money(preview.price)}). It fills at round {roundNumber}&apos;s
             clearing price, which moves 1% for every 1,000 shares of net demand (at most 10%).

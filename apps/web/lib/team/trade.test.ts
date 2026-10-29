@@ -19,6 +19,7 @@ import {
   openOrdersState,
   orderHistory,
   orderLabel,
+  orderSummary,
   parseShares,
   previewIpoBid,
   previewOrder,
@@ -255,6 +256,12 @@ describe("client references", () => {
     expect(CLIENT_REF_RE.test("x|y|BUY|1")).toBe(false);
   });
   it("labels an order", () => expect(orderLabel("BUY", 1500, "BRT")).toBe("BUY 1,500 BRT"));
+  it("says an order in one plain sentence", () => {
+    expect(orderSummary("BUY", 500, "AQS", 525_000)).toBe("You buy 500 AQS for about $5,250.00.");
+    expect(orderSummary("SELL", 1000, "AQS", 1_082_000)).toBe("You sell 1,000 AQS for about $10,820.00.");
+    expect(orderSummary("SHORT", 200, "SNAP", 206_000)).toBe("You borrow and sell 200 SNAP for about $2,060.00: you gain if the price falls, and lose if it rises.");
+    expect(orderSummary("COVER", 200, "SNAP", 184_400)).toBe("You buy back 200 SNAP that you are short, for about $1,844.00.");
+  });
 });
 
 describe("IPO", () => {

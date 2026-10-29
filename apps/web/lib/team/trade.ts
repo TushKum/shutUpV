@@ -110,6 +110,25 @@ export function orderLabel(type: OrderType, qty: number, ticker: string): string
   return `${type} ${qty.toLocaleString("en-US")} ${ticker}`;
 }
 
+/** The order in one plain sentence, at the current price (value in cents). */
+export function orderSummary(type: OrderType, qty: number, ticker: string, valueCents: number): string {
+  const n = qty.toLocaleString("en-US");
+  const v = `$${(valueCents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  switch (type) {
+    case "BUY":
+      return `You buy ${n} ${ticker} for about ${v}.`;
+    case "SELL":
+      return `You sell ${n} ${ticker} for about ${v}.`;
+    case "SHORT":
+      return `You borrow and sell ${n} ${ticker} for about ${v}: you gain if the price falls, and lose if it rises.`;
+    case "COVER":
+      return `You buy back ${n} ${ticker} that you are short, for about ${v}.`;
+  }
+}
+
+/** Quick amounts on the ticket. */
+export const QUICK_QUANTITIES = [100, 500, 1000] as const;
+
 // ───────────────────────────── The fund as the engine sees it ─────────────────────────────
 
 export interface FundInput {

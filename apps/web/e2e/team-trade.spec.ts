@@ -97,7 +97,7 @@ test("round 1 on a phone: live checks, Max, the reserve, place, edit and cancel;
   await ev.n.openRound(1);
   await as(page, fund, "/team/trade");
   await expect(page.getByRole("heading", { name: "Order ticket · round 1" })).toBeVisible();
-  await expect(page.getByText(/^closes in \d+:\d\d/)).toBeVisible();
+  await expect(page.getByRole("main").getByText(/^closes in \d+:\d\d/)).toBeVisible();
   const t = ticket(page);
   // Its own squad's company is never offered.
   await expect(t.getByLabel("Company").locator("option")).toHaveText(["Choose a company…", "ERB · Company 2 · $10.50", "ERC · Company 3 · $10.50"]);
@@ -113,6 +113,11 @@ test("round 1 on a phone: live checks, Max, the reserve, place, edit and cancel;
   await expect(page.getByTestId("order-reserve")).toHaveText(`Cash reserved until the clearing: ${usd(buyReserve(3000, 1050))} (quantity × price × 1.10).`);
   await t.getByLabel("Quantity (shares)").fill("1.5");
   await expect(preview(page)).toHaveText(`The exchange would refuse this order: ${ORDER_MESSAGES.BAD_QUANTITY}`);
+  // A quick amount, and the order in one plain sentence; BUY is green.
+  await t.getByRole("group", { name: "Quick amounts" }).getByRole("button", { name: "500", exact: true }).click();
+  await expect(t.getByLabel("Quantity (shares)")).toHaveValue("500");
+  await expect(page.getByTestId("order-summary")).toHaveText("You buy 500 ERB for about $5,250.00.");
+  await expect(t.getByText("BUY", { exact: true })).toHaveClass(/bg-emerald-600/);
   await t.getByLabel("Quantity (shares)").fill("2,000");
   await expect(page.getByTestId("order-reserve")).toHaveText(`Cash reserved until the clearing: $23,100.00 (quantity × price × 1.10).`);
   await t.getByRole("button", { name: "Place BUY 2,000 ERB" }).click();
