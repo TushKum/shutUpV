@@ -5,7 +5,8 @@ import { author, chatState } from "@/lib/team/chat";
 import { clock } from "@/lib/format";
 import { Notice, Panel } from "@/components/ui/ui";
 import { postSquadMessage } from "./actions";
-import { ChatForm, ChatLive } from "./chat";
+import { ChatLive } from "@/components/chat-live";
+import { ChatForm } from "./chat";
 
 export const metadata: Metadata = { title: "Chat" };
 

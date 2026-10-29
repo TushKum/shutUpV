@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { seedE2eEvent, type E2eEvent } from "./support/event";
 import { drawn } from "./support/game";
-import { loginAsTeam } from "./support/login";
+import { loginAsStaff, loginAsTeam } from "./support/login";
 
 test.describe.configure({ mode: "serial" });
 
@@ -82,11 +82,47 @@ test("the squad's three teams chat live; another squad sees nothing; other pages
   for (const p of [product, fund, other, consulting]) await p.context().close();
 });
 
+test("staff read every chat: the busiest squad first, one squad live, and a search across all of them", async ({ page, browser }) => {
+  const [x] = s;
+  await loginAsStaff(page, ev, "fairness@example.org");
+  await page.goto(`/admin/${ev.slug}/chats`);
+  const squads = page.getByRole("list", { name: "Squads" }).getByRole("link");
+  await expect(squads).toHaveCount(3);
+  await expect(squads.first()).toContainText("Squad 01");
+  await expect(squads.first()).toContainText("2 ·");
+  await expect(squads.nth(1)).toContainText("quiet");
+  await squads.first().click();
+  const log = page.getByRole("list", { name: "Messages" }).getByRole("listitem");
+  await expect(log).toHaveCount(2);
+  await expect(log.first()).toContainText(x!.p_code);
+  await expect(log.first()).toContainText("Fee 4%? We can sign by 01:30.");
+  await expect(log.nth(1)).toContainText(x!.f_code);
+
+  // A new message arrives without a reload.
+  const consulting = await screen(browser, x!.c_code);
+  await consulting.goto("/team/chat");
+  await consulting.getByRole("textbox", { name: "Message" }).fill("Agreed: 3%. Proposing now.");
+  await consulting.getByRole("button", { name: "Send" }).click();
+  await expect(log).toHaveCount(3);
+  await expect(log.nth(2)).toContainText(x!.c_code);
+  await consulting.context().close();
+
+  // Search every chat; % is matched literally.
+  await page.getByRole("textbox", { name: "Search every chat" }).fill("3%");
+  await page.getByRole("button", { name: "Search" }).click();
+  const hits = page.getByRole("list", { name: "Search results" }).getByRole("listitem");
+  await expect(hits).toHaveCount(2);
+  await expect(hits.first()).toContainText("Squad 01");
+  await page.getByRole("textbox", { name: "Search every chat" }).fill("nobody wrote this");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(page.getByText("No message matches.")).toBeVisible();
+});
+
 test("at the awards the chat closes and stays readable", async ({ page }) => {
   await ev.n.q("update events set current_phase = 'AWARDS' where id = $1", [ev.n.eventId]);
   await loginAsTeam(page, ev, s[0]!.c_code);
   await page.goto("/team/chat");
   await expect(page.getByRole("main")).toContainText("The squad chat closed at the awards.");
-  await expect(page.getByRole("list", { name: "Messages" }).getByRole("article")).toHaveCount(2);
+  await expect(page.getByRole("list", { name: "Messages" }).getByRole("article")).toHaveCount(3);
   await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
 });

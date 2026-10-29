@@ -84,4 +84,19 @@ describe("squad chat", () => {
     expect(await hears(n.team(a.f_code), `event:${n.eventId}`)).toBe(true);
     expect(await hears(n.team(a.f_code), `staff:${n.eventId}`)).toBe(false);
   });
+
+  test("the staff's summary: messages and the latest per squad; teams may not call it", async () => {
+    const n = await drawn();
+    await n.org("run_lottery", n.eventId, SEED, "3");
+    const [a, b] = [await n.squad(1), await n.squad(2)];
+    await n.ok(n.team(a.p_code), "post_squad_message", "one");
+    await n.ok(n.team(a.c_code), "post_squad_message", "two");
+    await n.ok(n.team(b.f_code), "post_squad_message", "three");
+    const rows = await rowsAs<{ squad_id: string; messages: number }>(db.pool, n.fairness, "select squad_id, messages from chat_summary($1) order by messages desc", [n.eventId]);
+    expect(rows).toEqual([
+      { squad_id: a.id, messages: 2 },
+      { squad_id: b.id, messages: 1 },
+    ]);
+    await expect(rowsAs(db.pool, n.team(a.p_code), "select * from chat_summary($1)", [n.eventId])).rejects.toThrow(/only staff/);
+  });
 });

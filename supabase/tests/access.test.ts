@@ -59,7 +59,7 @@ describe("grants", () => {
        where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
        order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
-      "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "close_round_now", "confirm_fee",
+      "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "chat_summary", "close_round_now", "confirm_fee",
       "decide_correction", "decide_flag", "dismiss_appeal", "draw_summary", "edit_deal", "edit_order", "event_status",
       "extend_event", "lottery_record_rows", "make_call", "pause_event", "pick_problem_card", "ping", "place_ipo_bid",
       "place_order", "post_question", "post_squad_message", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin",
