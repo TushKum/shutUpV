@@ -13,6 +13,11 @@ import { Badge } from "@/components/ui/ui";
 import { Countdown, ServerClock } from "@/components/ui/countdown";
 import { RealtimeDot } from "@/components/ui/realtime-dot";
 import { TeamNav } from "./nav";
+import { ActionBar } from "./action-bar";
+import { Alerts, SoundToggle } from "./alerts";
+import { loadHomeData } from "@/lib/team/home-data";
+import { homePlan } from "@/lib/team/home";
+import { alertTasks, nextAction } from "@/lib/team/alerts";
 import { PhaseEnd } from "./phase-end";
 
 export const metadata: Metadata = { title: { template: "%s · Team", default: "Team" } };
@@ -21,7 +26,10 @@ export const metadata: Metadata = { title: { template: "%s · Team", default: "T
 // its cash, the latest bulletin and the sections of its track. The event's realtime channel refreshes the page on
 // every broadcast, and the heartbeat tells the control panel the screen is connected.
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
-  const { team, event, status } = await loadTeamContext();
+  const ctx = await loadTeamContext();
+  const { team, event, status } = ctx;
+  const plan = homePlan((await loadHomeData(ctx)).facts);
+  const next = nextAction(plan);
   const sb = await supabaseServer();
   const { data: latest } = await sb
     .from("bulletins")
@@ -48,6 +56,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <RealtimeDot />
+                <SoundToggle />
                 <ServerClock className="font-semibold" />
                 <SignOutButton />
               </div>
@@ -90,6 +99,8 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             </dl>
             <TeamNav track={team.track} />
           </header>
+          <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
+          <Alerts tasks={alertTasks(plan)} track={team.track} />
           {status.paused ? (
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.

@@ -2,6 +2,7 @@
 // bids; its squad's fee, deal and submissions; the event's schedule and published bulletins; companies from Reading,
 // or its own squad's company before). Every query runs at once.
 
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { phaseReached, type DeadlineCode, type LotType, type PhaseCode, type SubmissionType } from "@msim/engine";
 import type { TeamContext } from "@/lib/team/context";
@@ -33,7 +34,7 @@ function must<T>(r: { data: T | null; error: { message: string } | null }, what:
 
 const NONE: Record<SubmissionType, boolean> = { PITCH: false, PLAN: false, FLASH: false };
 
-export async function loadHomeData(ctx: TeamContext): Promise<HomeData> {
+async function readHomeData(ctx: TeamContext): Promise<HomeData> {
   const { team, event, status, squad, company } = ctx;
   const sb: SupabaseClient = await supabaseServer();
   const reading = phaseReached(status.phase, "READING");
@@ -178,3 +179,6 @@ export async function loadHomeData(ctx: TeamContext): Promise<HomeData> {
   };
   return { facts, holdings: holdings.map((h) => ({ ...h, lot: h.lot as LotType })), companies: priced, bulletins };
 }
+
+/** Once per request: the team layout (its "Do this now" bar and alerts) and the home page read the same facts. */
+export const loadHomeData = cache(readHomeData);

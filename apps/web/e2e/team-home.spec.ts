@@ -57,6 +57,8 @@ test("before the draw: when it happens, nothing to do yet, no squad and no share
   await expect(page.getByText("Shares are issued at the squad draw.")).toBeVisible();
   await expect(page.getByTestId("home-cash")).toHaveText("$0.00");
   await expect(page.getByText("No bulletins yet.")).toBeVisible();
+  // Nothing to do yet: no "Do this now" bar.
+  await expect(page.getByTestId("action-bar")).toHaveCount(0);
 });
 
 test("after the draw: each track's tasks with countdowns and links, its squad and its shares", async ({ page }) => {
@@ -72,6 +74,17 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(pickTask).toContainText(`Problem card pick · ${pick}`);
   await expect(pickTask.locator(".font-mono").last()).toHaveText(/^\d+:\d\d(:\d\d)?$/); // the live countdown
   await expect(pickTask.getByRole("link", { name: "Open the problem cards" })).toHaveAttribute("href", "/team/squad/problem");
+  // The bar on every page: the task that closes first, its countdown, a button to it.
+  const bar = page.getByTestId("action-bar");
+  await expect(bar).toContainText("Do this now");
+  await expect(bar).toContainText("Pick your problem card");
+  await expect(bar.getByRole("link", { name: "Open the problem cards →" })).toHaveAttribute("href", "/team/squad/problem");
+  await page.goto("/team/market");
+  await expect(bar).toContainText("Pick your problem card");
+  await bar.getByRole("link").click();
+  await expect(page).toHaveURL(/\/team\/squad\/problem$/);
+  await expect(bar).toContainText("You're on it");
+  await page.goto("/team");
   await expect(task(page, "PITCH").getByRole("heading")).toHaveText("Write and submit your pitch card");
   await expect(page.getByTestId("home-squad")).toHaveText("Squad 01");
   await expect(page.getByTestId("home-company")).toHaveText("Named, with its ticker, on the pitch card (by the pitch deadline).");
@@ -86,6 +99,8 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await page.reload();
   await expect(pickTask).toHaveAttribute("data-state", "done");
   await expect(pickTask).toContainText(`Picked. You can change it until ${pick}.`);
+  // Done: the bar moves on to the pitch.
+  await expect(page.getByTestId("action-bar")).toContainText("Write and submit your pitch card");
 
   await home(page, a.c_code);
   const call = task(page, "CALL_1");
@@ -98,6 +113,7 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
 
   await home(page, a.f_code);
   await expect(page.getByTestId("home-idle")).toHaveText("Nothing needs doing right now. Watch the bulletins and the market.");
+  await expect(page.getByTestId("action-bar")).toHaveCount(0);
   await expect(comingUp(page).getByRole("link", { name: "IPO bids close" })).toHaveAttribute("href", "/team/trade/ipo");
   await expect(page.getByTestId("home-cash")).toHaveText("$450,000.00");
   await expect(page.getByText("Collateral locked").last()).toBeVisible();
@@ -196,6 +212,9 @@ test("bulletins: every published one newest first with its kind, the latest 3 on
   await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   await ev.n.org("publish_bulletin", ev.n.eventId, "GENERAL", "Doors open", "Welcome to the night.");
   await expect(page.getByRole("article", { name: "General bulletin: Doors open" })).toBeVisible(); // without a reload
+  // …and a toast says so, with a link to the bulletins.
+  await expect(page.getByTestId("alerts")).toContainText("News: Doors open");
+  await expect(page.getByTestId("alerts").getByRole("link", { name: "Open" })).toHaveAttribute("href", "/team/bulletins");
   await ev.n.org("publish_bulletin", ev.n.eventId, "CRISIS", "Supply shock", "Every company is hit at 00:30.");
   await ev.n.org("publish_bulletin", ev.n.eventId, "GENERAL", "Round 2 soon", "Get ready.");
   await ev.n.org("publish_bulletin", ev.n.eventId, "FAIRNESS", "Play fair", "Collusion is flagged.");
