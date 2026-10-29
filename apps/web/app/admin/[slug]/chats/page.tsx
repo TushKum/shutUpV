@@ -9,6 +9,7 @@ import { clock, count } from "@/lib/format";
 import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { SquadChannel } from "@/lib/live/squad-channel";
 import { ChatLive } from "@/components/chat-live";
+import { ScrollToCurrent } from "@/components/scroll-to-current";
 import { Badge, Notice, Panel, buttonClass, inputClass } from "@/components/ui/ui";
 
 export const metadata: Metadata = { title: "Chats" };
@@ -117,7 +118,7 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
       <AutoRefresh everyMs={10_000} />
       <div className="min-w-0 lg:col-span-1">
         <Panel title={`Squads · ${count(total)} messages`}>
-          <ol className="max-h-60 divide-y divide-slate-100 overflow-y-auto lg:max-h-[70vh]" aria-label="Squads">
+          <ol id="chat-squads" className="max-h-60 divide-y divide-slate-100 overflow-y-auto lg:max-h-[70vh]" aria-label="Squads">
             {list.map((s) => {
               const current = selected?.id === s.id && !q.q;
               return (
@@ -139,6 +140,7 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
               );
             })}
           </ol>
+          <ScrollToCurrent listId="chat-squads" current={q.q ? null : (selected?.id ?? null)} />
         </Panel>
       </div>
       <div className="min-w-0 space-y-4 lg:col-span-2">
