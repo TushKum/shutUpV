@@ -9,6 +9,7 @@ import { Stage } from "../stage";
 import { DisplayHeader } from "./header";
 import { BulletinBanner } from "./banner";
 import { Board } from "./board/board";
+import { NewsTicker } from "./ticker";
 import { TakeoverView } from "./takeovers";
 import { ScreenSwitch } from "./screen-switch";
 import { FallbackRefresh } from "./fallback-refresh";
@@ -47,6 +48,7 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
             <BulletinBanner bulletin={bulletin} />
             {status.paused ? <PauseStrip className="shrink-0 py-2 text-[36px] leading-tight" /> : null}
             <Board event={event} status={status} compact={bulletin !== null || status.paused} />
+            <NewsTicker event={event} status={status} />
           </ScreenSwitch>
         </Stage>
       </EventChannel>

@@ -102,6 +102,10 @@ test("a round clears: the board updates live with the new price, the change sinc
   await expect(tile(page, "ETC").getByTestId("tile-move")).toHaveAttribute("data-move", "FLAT");
   await expect(tile(page, "ETC").getByTestId("tile-move")).toHaveText("▬");
   await expect(page.getByTestId("board-legend")).toHaveText("% change since the IPO price · ▲ ▼ ▬ round 1’s move");
+  // The news ticker: round 1's movers by ticker, never a team.
+  const ticker = page.getByTestId("news-ticker");
+  await expect(ticker).toContainText("Round 1 ▲ETA +3.05%");
+  await expect(ticker).toContainText("Round 1 ▼ETB −0.95%");
 
   // The tiles that moved light up for a few seconds after the clearing, then settle.
   await expect(tile(page, "ETA")).toHaveAttribute("data-lit", "true");

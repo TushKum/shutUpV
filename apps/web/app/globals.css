@@ -17,3 +17,16 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* The projector's news ticker: the strip is drawn twice side by side and moves by half its width, so it loops without
+   a gap. Screens that ask for less motion get the strip still. */
+@keyframes msim-ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.msim-ticker-track {
+  animation: msim-ticker var(--ticker-seconds, 60s) linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .msim-ticker-track { animation: none; }
+}
