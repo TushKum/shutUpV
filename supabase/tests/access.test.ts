@@ -62,7 +62,7 @@ describe("grants", () => {
       "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "close_round_now", "confirm_fee",
       "decide_correction", "decide_flag", "dismiss_appeal", "draw_summary", "edit_deal", "edit_order", "event_status",
       "extend_event", "lottery_record_rows", "make_call", "pause_event", "pick_problem_card", "ping", "place_ipo_bid",
-      "place_order", "post_question", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin",
+      "place_order", "post_question", "post_squad_message", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin",
       "rankings", "release_scores", "request_correction", "rerun_judging", "resume_event", "retry_failed_runs",
       "run_lottery", "save_draft", "seal_missing_scores", "server_time", "set_auto_advance", "set_judge_model",
       "set_seed_commitment", "sign_deal", "start_calibration", "start_judging", "submit_submission", "tick",

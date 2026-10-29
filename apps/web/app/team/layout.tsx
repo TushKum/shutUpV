@@ -6,6 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { clock, money } from "@/lib/format";
 import { ClockProvider } from "@/lib/live/clock";
 import { EventChannel } from "@/lib/live/channel";
+import { SquadChannel } from "@/lib/live/squad-channel";
 import { Heartbeat } from "@/lib/live/heartbeat";
 import { FeedbackBar, FeedbackProvider } from "@/lib/live/feedback";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -24,7 +25,8 @@ export const metadata: Metadata = { title: { template: "%s · Team", default: "T
 
 // Every team screen (laptop or phone): the team, where the night is (phase and countdown, trading, the open round),
 // its cash, the latest bulletin and the sections of its track. The event's realtime channel refreshes the page on
-// every broadcast, and the heartbeat tells the control panel the screen is connected.
+// every broadcast, the squad's channel announces chat messages, and the heartbeat tells the control panel the screen
+// is connected.
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
   const { team, event, status } = ctx;
@@ -43,6 +45,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   return (
     <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
       <EventChannel eventId={event.id}>
+        <SquadChannel squadId={ctx.squad?.id ?? null}>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <div className="min-h-screen bg-slate-50">
@@ -100,7 +103,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <TeamNav track={team.track} />
           </header>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
-          <Alerts tasks={alertTasks(plan)} track={team.track} />
+          <Alerts tasks={alertTasks(plan)} track={team.track} teamId={team.id} />
           {status.paused ? (
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.
@@ -126,6 +129,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
           <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
         </div>
       </FeedbackProvider>
+        </SquadChannel>
       </EventChannel>
     </ClockProvider>
   );

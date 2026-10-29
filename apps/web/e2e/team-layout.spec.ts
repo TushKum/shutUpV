@@ -13,9 +13,9 @@ const codeOf = (track: "PRODUCT" | "CONSULTING" | "FINANCE") => ev.plan.teams.fi
 
 test("every track sees its team, where the night is, its cash and the sections of its track", async ({ page }) => {
   const expected = {
-    PRODUCT: ["Home", "Squad", "Rescue", "Market", "Q&A", "Ledger", "Bulletins", "Judging"],
-    CONSULTING: ["Home", "Squad", "Rescue", "Calls", "Earnings", "Market", "Q&A", "Ledger", "Bulletins", "Judging"],
-    FINANCE: ["Home", "Trade", "Rescue", "Market", "Q&A", "Ledger", "Bulletins", "Judging"],
+    PRODUCT: ["Home", "Squad", "Rescue", "Chat", "Market", "Q&A", "Ledger", "Bulletins", "Judging"],
+    CONSULTING: ["Home", "Squad", "Rescue", "Chat", "Calls", "Earnings", "Market", "Q&A", "Ledger", "Bulletins", "Judging"],
+    FINANCE: ["Home", "Trade", "Rescue", "Chat", "Market", "Q&A", "Ledger", "Bulletins", "Judging"],
   } as const;
   for (const track of ["PRODUCT", "CONSULTING", "FINANCE"] as const) {
     const code = codeOf(track);
