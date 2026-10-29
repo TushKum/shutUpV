@@ -62,7 +62,8 @@ export function eventToast(kind: string, payload: Record<string, unknown>, track
     case "ipo_allocated":
       return track === "FINANCE" ? { text: "IPO shares allocated: check your positions.", tone: "good", href: "/team/trade/positions", loud: false } : null;
     case "squad_draw":
-      return { text: "The squads are drawn: meet your squad.", tone: "good", href: "/team/squad", loud: true };
+      // Finance has no squad workspace: it meets its squad in the chat.
+      return { text: "The squads are drawn: meet your squad.", tone: "good", href: track === "FINANCE" ? "/team/chat" : "/team/squad", loud: true };
     case "closing_bell":
       return { text: "The market is closed. Results at the awards.", tone: "info", href: null, loud: true };
     case "paused":

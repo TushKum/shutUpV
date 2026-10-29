@@ -49,6 +49,8 @@ describe("eventToast", () => {
     expect(eventToast("round_cleared", { round: 4 }, "PRODUCT")).toMatchObject({ text: "Round 4 cleared: new prices are in.", href: "/team/market" });
     expect(eventToast("round_cleared", { round: 4 }, "FINANCE")).toMatchObject({ href: "/team/trade/positions" });
     expect(eventToast("round_open", { round: 5 }, "FINANCE")).toMatchObject({ text: "Round 5 is open: place your orders." });
+    expect(eventToast("squad_draw", {}, "PRODUCT")).toMatchObject({ href: "/team/squad", loud: true });
+    expect(eventToast("squad_draw", {}, "FINANCE")).toMatchObject({ href: "/team/chat" });
     expect(eventToast("round_open", { round: 5 }, "CONSULTING")).toBeNull();
   });
 

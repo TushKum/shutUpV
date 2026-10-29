@@ -30,8 +30,13 @@ export const metadata: Metadata = { title: { template: "%s · Team", default: "T
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
   const { team, event, status } = ctx;
-  const plan = homePlan(await loadPlanFacts(ctx));
-  const next = nextAction(plan);
+  // The bar and the alerts are guidance: if the plan cannot be read (say, the database is older than the app), every
+  // page still works, without them.
+  const plan = await loadPlanFacts(ctx).then(homePlan, (err: unknown) => {
+    console.error("team layout: no plan for the bar and alerts:", err);
+    return null;
+  });
+  const next = plan ? nextAction(plan) : null;
   const sb = await supabaseServer();
   const { data: latest } = await sb
     .from("bulletins")
@@ -103,7 +108,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <TeamNav track={team.track} />
           </header>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
-          <Alerts tasks={alertTasks(plan)} track={team.track} teamId={team.id} />
+          <Alerts tasks={plan ? alertTasks(plan) : []} track={team.track} teamId={team.id} />
           {status.paused ? (
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.

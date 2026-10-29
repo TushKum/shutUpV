@@ -48,6 +48,9 @@ bypasses RLS, and `CARD_SECRET` can derive all team passwords. Restrict laptop a
    `claim_token`. Existing rows are backfilled from attempts, but new workers require the added field and refuse
    missing/unsafe tokens. Never start the new worker against an older schema or roll back to a worker that reports
    retry counts after tokens diverge. Inspect queue progress and ignored reports after resuming.
+   **Team helpers order:** apply migrations 23–25 (`squad_chat`, `chat_summary`, `team_plan_facts`) before deploying
+   the app that uses them. The team layout calls `team_plan_facts` on every page, so an app deployed before
+   migration 25 shows an error page to every team.
 3. In the SQL editor run:
    ```sql
    select jobname, schedule, active from cron.job where jobname = 'msim-tick';
