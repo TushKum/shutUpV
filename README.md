@@ -141,7 +141,8 @@ The load test prints and saves (`out/load-test-*.json`) the sign-in time, connec
 - The projector shows a **news ticker** under the price board (movers by ticker, bulletins, deals signed, the next
   deadline; never team names or rankings).
 - **Squad chat** (`/team/chat`, migration 23): a private live chat for each squad, readable by that squad and the
-  staff only. A hosted project needs `supabase db push --linked` to get it.
+  staff only; staff read and search every chat under Control panel → **Chats**. A hosted project needs
+  `supabase db push --linked` (migrations 23–25) before the app is deployed.
 
 ## Event materials
 

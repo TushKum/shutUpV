@@ -283,6 +283,8 @@ A rehearsal event (fake teams, bot traders, 10× clock). A load test: 500 realti
 - [x] A simpler order ticket: quick amounts (100 / 500 / 1,000), a colour per order type and one plain sentence ("You buy 500 AQS for about $5,250.00.")
 - [x] The projector's news ticker: the last round's biggest movers by ticker, the bulletins, the rescue deals signed and the next deadline
 - [x] Squad chat (migration 23): a private live chat for each squad's three teams, read by the squad and the staff only
+- [x] The staff chat viewer (Control panel → Chats; migration 24) and the bar's facts in one call (migration 25)
+- [x] The rehearsal bots use the squad chat
 
 ---
 
@@ -444,7 +446,10 @@ Real time = `starts_at + offset ÷ clock_speed`.
 107. **Charts show only what a team may already see.** Market charts use the public round prices and the published AI prices; a fund's portfolio chart is built from its own ledger entries (RLS), never another fund's. Values are integer cents until drawn.
 108. **The "Do this now" bar and the alerts are guidance only.** They are drawn from the same plan as the Home page (the team's own open tasks, in closing order); the database still decides every deadline. Deadline warnings use the event's clock, so they wait while the event is paused, and each is given once per screen session.
 109. **The news ticker ranks companies, never teams.** It shows the last round's top three rises and falls by ticker (as the verdicts screen already shows top movers), bulletins, the count of signed rescue deals from the crisis until the close, and the next deadline (not the internal flash tier). No team names or rankings before AWARDS.
-110. **Squad chat is private to the squad, and visible to the staff.** Only the squad's three teams and the staff (organisers and the fairness officer) read it; the page says so. A team posts through `post_squad_message` only (1–500 characters, 20 a minute, from the draw until AWARDS); every message is audited. The squad's realtime topic `squad:<id>` carries only who posted, never the text. There is no organiser chat screen yet: staff read it from the audit log or the database.
+110. **Squad chat is private to the squad, and visible to the staff.** Only the squad's three teams and the staff (organisers and the fairness officer) read it; the page says so. A team posts through `post_squad_message` only (1–500 characters, 20 a minute, from the draw until AWARDS); every message is audited. The squad's realtime topic `squad:<id>` carries only who posted, never the text. Staff read every chat under Control panel → Chats (decision 111).
+111. **The staff chat viewer is read-only.** Control panel → Chats lists every squad (busiest-recent first; counts from `chat_summary`, staff only), shows one squad's chat live over its channel with team codes, and searches every chat (the search text is matched literally). The list re-reads every 10 s rather than being broadcast to every console on each message. Staff cannot post or delete; a problem is handled in person or under Fairness.
+112. **The bar's facts come from one call.** Every team page reads the plan for the "Do this now" bar and the alerts, and every broadcast re-reads every open page, so `team_plan_facts` (migration 25) returns them in one call instead of about ten reads. It returns only what the team could read itself through RLS (hidden Q&A questions excluded). With 30 teams loading at once, page renders went from a median of 1.4–1.6 s to 0.75–1.1 s on the local stack. If the call fails, every page still works without the bar and alerts.
+113. **Next.js 16.4.3.** 16.4.0 refuses to build because of a published security advisory, so the app moved to 16.4.3 (a patch release), with every suite re-run.
 
 ## 7. Where the brief and the guide differ (the brief is followed)
 

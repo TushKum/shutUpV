@@ -56,7 +56,7 @@ gets exactly the time they had left.
 | The robot teacher is broken | Switch to the backup model. If both are broken, use the human judges (HUMAN-JUDGING.md). |
 | Someone's money is wrong | Ledger → Corrections. One person asks, a second person approves. |
 | The room needs more time | Phase → **Extend**. |
-| A squad is arguing unfairly in its Chat | Each squad's chat is private to it, but staff can read it (fairness officer: audit log). Talk to the squad. |
+| A squad is arguing unfairly in its Chat | Control panel → **Chats**: read any squad's chat, or search them all. Then talk to the squad. |
 
 ## Golden rules
 

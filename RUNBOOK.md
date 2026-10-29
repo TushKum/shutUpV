@@ -13,7 +13,7 @@ counts only for what the first one showed.
 | Event lead (organiser) | laptop 1, Phase page | advances the night, pauses, extends, talks to the room |
 | Exchange desk (organiser) | laptop 2, Rounds + Ledger | watches rounds clear, approves corrections (needs a second person) |
 | AI desk (organiser) | laptop 3, Judge page | starts judging, keeps "Run the judge here" on, releases scores, appeals |
-| Fairness officer | own laptop, Fairness page | decides collusion flags (05:00–05:40) |
+| Fairness officer | own laptop, Fairness page; Chats | reads the squad chats when something looks wrong (from 21:00); decides collusion flags (05:00–05:40) |
 | Tech on call | any laptop, Health page + Supabase/Vercel dashboards | connections, errors, the venue network |
 | Registration desk | printed cards | one card per team; reprints with `pnpm cards … --only <codes>` (docs/event/staff/REGISTRATION.md) |
 
@@ -76,6 +76,8 @@ gives back exactly the time that was left. Tell the room before you resume.
 | A score must be re-judged | technical appeal | Judge → the company → Re-run, with the reason. Before the release the new score replaces the old one; after the release it waits until you apply or dismiss it. A released pitch cannot be re-judged (the IPO is done). |
 | A team's money or shares are wrong | a mistake to correct | Ledger → Corrections: one organiser requests, a second approves. Nobody can edit a price. |
 | A phase needs more time | the room is behind | Phase → Extend by N minutes (moves every later time). |
+| A team reports abuse or pressure in its squad chat | a squad dispute | Chats → that squad (or search every chat). Read it with the fairness officer, then talk to the squad in person. Chats cannot be edited; every message is in the audit log. |
+| Team pages work but the "Do this now" bar is missing | the app is newer than the database | Apply the missing migrations (`supabase db push`); the bar comes back on the next page load. |
 
 ## After 06:00
 
