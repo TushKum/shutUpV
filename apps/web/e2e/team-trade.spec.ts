@@ -102,6 +102,13 @@ test("round 1 on a phone: live checks, Max, the reserve, place, edit and cancel;
   // Its own squad's company is never offered.
   await expect(t.getByLabel("Company").locator("option")).toHaveText(["Choose a company…", "ERB · Company 2 · $10.50", "ERC · Company 3 · $10.50"]);
   await expect(page.getByText("Your squad's company, ERA, is not listed")).toBeVisible();
+  // On a phone the bar's title keeps its width; its countdown and button wrap below it (on another page, with the
+  // button showing).
+  await page.goto("/team/market");
+  await expect(page.getByTestId("action-bar-title")).toHaveText("Trade: round 1 is open");
+  expect((await page.getByTestId("action-bar-title").boundingBox())!.width).toBeGreaterThanOrEqual(150);
+  await expect(page.getByTestId("action-bar").getByRole("link", { name: "Open Trade →" })).toBeVisible();
+  await page.goto("/team/trade");
 
   // BUY: the IPO's 1,000 shares count towards the 4,000 limit.
   await order(page, 1, "BUY", "4000");

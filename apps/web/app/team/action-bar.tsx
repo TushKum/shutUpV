@@ -22,19 +22,25 @@ export function ActionBar({ task }: { task: BarTask | null }) {
     <div className="sticky top-0 z-30 border-b border-indigo-700 bg-indigo-600 text-white shadow" role="region" aria-label="Do this now" data-testid="action-bar">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 text-sm">
         <span className="rounded bg-white/20 px-2 py-0.5 text-xs font-bold uppercase tracking-wide">Do this now</span>
-        <span className="min-w-0 flex-1 font-semibold [overflow-wrap:anywhere]">{task.title}</span>
-        {task.due ? (
-          <span className="whitespace-nowrap text-indigo-100">
-            closes in <Countdown to={task.due} passed="now" className="font-semibold text-white" />
-          </span>
-        ) : null}
-        {here ? (
-          <span className="rounded bg-white/15 px-3 py-1 text-xs font-semibold">You&apos;re on it</span>
-        ) : (
-          <Link href={task.href} className="rounded bg-white px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-50">
-            {task.linkLabel ?? "Open"} →
-          </Link>
-        )}
+        {/* The title keeps at least 10rem: on a phone the countdown and the button wrap to a second line instead
+            of squeezing it. */}
+        <span className="min-w-[10rem] flex-1 font-semibold [overflow-wrap:anywhere]" data-testid="action-bar-title">
+          {task.title}
+        </span>
+        <span className="ml-auto flex items-center gap-3">
+          {task.due ? (
+            <span className="whitespace-nowrap text-indigo-100">
+              closes in <Countdown to={task.due} passed="now" className="font-semibold text-white" />
+            </span>
+          ) : null}
+          {here ? (
+            <span className="whitespace-nowrap rounded bg-white/15 px-3 py-1 text-xs font-semibold">You&apos;re on it</span>
+          ) : (
+            <Link href={task.href} className="whitespace-nowrap rounded bg-white px-3 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-50">
+              {task.linkLabel ?? "Open"} →
+            </Link>
+          )}
+        </span>
       </div>
     </div>
   );
