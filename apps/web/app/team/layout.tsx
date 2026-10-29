@@ -16,7 +16,7 @@ import { RealtimeDot } from "@/components/ui/realtime-dot";
 import { TeamNav } from "./nav";
 import { ActionBar } from "./action-bar";
 import { Alerts, SoundToggle } from "./alerts";
-import { loadHomeData } from "@/lib/team/home-data";
+import { loadPlanFacts } from "@/lib/team/home-data";
 import { homePlan } from "@/lib/team/home";
 import { alertTasks, nextAction } from "@/lib/team/alerts";
 import { PhaseEnd } from "./phase-end";
@@ -30,7 +30,7 @@ export const metadata: Metadata = { title: { template: "%s · Team", default: "T
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
   const { team, event, status } = ctx;
-  const plan = homePlan((await loadHomeData(ctx)).facts);
+  const plan = homePlan(await loadPlanFacts(ctx));
   const next = nextAction(plan);
   const sb = await supabaseServer();
   const { data: latest } = await sb

@@ -17,12 +17,26 @@ function snap(track: Track, phase: PhaseCode, extra: Partial<Snapshot> = {}): Sn
   };
 }
 
-const fns = (s: Snapshot, m = newMemory()) => decide(s, m, rng("x"), 0, PHASE_CODES).map((a) => a.fn);
+/** The game actions (the squad chat is tested on its own). */
+const fns = (s: Snapshot, m = newMemory()) => decide(s, m, rng("x"), 0, PHASE_CODES).filter((a) => a.fn !== "post_squad_message").map((a) => a.fn);
+const chat = (s: Snapshot, m = newMemory()) => decide(s, m, rng("x"), 0, PHASE_CODES).filter((a) => a.fn === "post_squad_message").map((a) => a.key);
 
 describe("decide", () => {
   test("Product in BUILD picks a dealt card, then saves and submits its pitch", () => {
     expect(fns(snap("PRODUCT", "BUILD"))).toEqual(["pick_problem_card", "save_draft", "submit_submission"]);
     expect(fns(snap("PRODUCT", "BUILD", { squad: { id: "s1", number: 1, dealt_card_ids: ["a"], chosen_card_id: "a" }, submitted: { PITCH: true } }))).toEqual([]);
+  });
+
+  test("the squad chat: hello once after the draw; the fee and the amount in the rescue; nothing at the awards", () => {
+    expect(chat(snap("PRODUCT", "SQUAD_DRAW", { squad: null }))).toEqual([]);
+    expect(chat(snap("FINANCE", "SQUAD_DRAW"))).toEqual(["chat-hello"]);
+    const m = newMemory();
+    m.done.add("chat-hello");
+    expect(chat(snap("FINANCE", "BUILD"), m)).toEqual([]);
+    expect(chat(snap("CONSULTING", "RESCUE_1"), m)).toEqual(["chat-fee"]);
+    expect(chat(snap("FINANCE", "CRISIS"), m)).toEqual(["chat-deal"]);
+    expect(chat(snap("PRODUCT", "RESCUE_2"), m)).toEqual([]);
+    expect(chat(snap("PRODUCT", "AWARDS"))).toEqual([]);
   });
 
   test("the flash answer waits for the flash bulletin", () => {
@@ -50,6 +64,7 @@ describe("decide", () => {
   test("a fund trades once per open round; never its own squad's company", () => {
     const s = snap("FINANCE", "ROUNDS_1_4", { trading: "OPEN", openRound: 3 });
     const m = newMemory();
+    m.done.add("chat-hello");
     const actions = decide(s, m, rng("fund"), 0, PHASE_CODES);
     expect(actions.length).toBeGreaterThan(0);
     expect(actions.every((a) => a.fn === "place_order" && a.args.p_company !== "c1")).toBe(true);

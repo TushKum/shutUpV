@@ -112,7 +112,8 @@ export type Action =
   | { key: string; fn: "sign_deal"; args: { p_version: number } }
   | { key: string; fn: "make_call"; args: { p_company: string; p_call_no: number; p_direction: "BUY" | "SELL" } }
   | { key: string; fn: "place_ipo_bid"; args: { p_company: string; p_qty: number } }
-  | { key: string; fn: "place_order"; args: { p_company: string; p_type: "BUY" | "SELL" | "SHORT" | "COVER"; p_qty: number; p_client_ref: string } };
+  | { key: string; fn: "place_order"; args: { p_company: string; p_type: "BUY" | "SELL" | "SHORT" | "COVER"; p_qty: number; p_client_ref: string } }
+  | { key: string; fn: "post_squad_message"; args: { p_body: string } };
 
 // ───────────────────────────── Content ─────────────────────────────
 
@@ -176,6 +177,14 @@ export function decide(s: Snapshot, m: Memory, r: () => number, now: number, pha
     }
     if (RESCUE.includes(p)) submission(add, s, "PLAN", planContent);
     if (p === "ROUNDS_13_21" && s.flashPublished) submission(add, s, "FLASH", flashContent);
+  }
+
+  // The squad chat: each team says hello after the draw; in the rescue, Consulting names its fee and Finance its
+  // amount before setting them (as a squad would, talking first).
+  if (s.squad && p !== "AWARDS") {
+    add({ key: "chat-hello", fn: "post_squad_message", args: { p_body: `Hello from the ${track.toLowerCase()} team of squad ${s.squad.number}.` } });
+    if (RESCUE.includes(p) && track === "CONSULTING") add({ key: "chat-fee", fn: "post_squad_message", args: { p_body: "Our fee: $20,000 cash. Proposing it now." } });
+    if (RESCUE.includes(p) && track === "FINANCE") add({ key: "chat-deal", fn: "post_squad_message", args: { p_body: "We can put $60,000 into the rescue deal." } });
   }
 
   // The advisor's fee (Consulting proposes $20,000 cash; both confirm).
