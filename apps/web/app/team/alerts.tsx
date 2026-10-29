@@ -133,8 +133,12 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
   if (toasts.length === 0) return null;
   return (
     <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-end gap-2 sm:left-auto sm:w-96" aria-live="polite" role="status" data-testid="alerts">
-      {toasts.map((t) => (
-        <div key={t.id} className={`pointer-events-auto flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${TONE[t.tone]}`}>
+      {/* On a phone only the newest toast shows, so a stack never covers a form (the order ticket's button). */}
+      {toasts.map((t, i) => (
+        <div
+          key={t.id}
+          className={`pointer-events-auto ${i < toasts.length - 1 ? "hidden sm:flex" : "flex"} w-full items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${TONE[t.tone]}`}
+        >
           <span className="flex-1 font-medium [overflow-wrap:anywhere]">{t.text}</span>
           {t.href ? (
             <Link href={t.href} className="whitespace-nowrap font-semibold underline underline-offset-2">
