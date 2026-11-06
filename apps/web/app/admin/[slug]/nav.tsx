@@ -12,8 +12,8 @@ export const SECTIONS = [
   { path: "/bulletins", label: "Bulletins" },
   { path: "/content", label: "Content" },
   { path: "/ledger", label: "Ledger" },
+  { path: "/results", label: "Results" },
   { path: "/fairness", label: "Fairness" },
-  { path: "/chats", label: "Chats" },
   { path: "/exports", label: "Exports" },
   { path: "/health", label: "Health" },
 ] as const;

@@ -19,6 +19,7 @@ describe("admin_health", () => {
       serverTime: "2026-11-14T18:00:00+00:00",
       cron: { lastStart: at(1), lastEnd: at(1), runsLast10Min: 300, failedLast10Min: 2, lastError: "boom" },
       tickErrorsLastHour: 3,
+      judgeQueue: { queued: 0, running: 0, done: 0, failed: 0 },
       screens: [
         { area: "admin", role: "ORGANISER", connected: 2, realtimeOk: 2 },
         { area: "team", role: "TEAM", connected: 140, realtimeOk: 137 },
@@ -50,10 +51,10 @@ describe("admin_health", () => {
 
 describe("team screens", () => {
   const teams: HealthTeam[] = [
-    { id: "p1", code: "P01", track: "PRODUCT" },
-    { id: "c1", code: "C01", track: "CONSULTING" },
-    { id: "f1", code: "F01", track: "FINANCE" },
-    { id: "f2", code: "F02", track: "FINANCE" },
+    { id: "p1", code: "P01" },
+    { id: "c1", code: "C01" },
+    { id: "f1", code: "F01" },
+    { id: "f2", code: "F02" },
   ];
   const ping = (client: string, team: string | null, secondsAgo: number, realtime = "SUBSCRIBED"): PingRow => ({
     client_id: client,
@@ -83,9 +84,9 @@ describe("team screens", () => {
       ["b", "F01", "CHANNEL_ERROR"],
     ]);
     expect(silent).toEqual([
-      { code: "C01", track: "CONSULTING", lastSeen: null },
-      { code: "F02", track: "FINANCE", lastSeen: null },
-      { code: "P01", track: "PRODUCT", lastSeen: at(61) },
+      { code: "C01", lastSeen: null },
+      { code: "F02", lastSeen: null },
+      { code: "P01", lastSeen: at(61) },
     ]);
   });
 

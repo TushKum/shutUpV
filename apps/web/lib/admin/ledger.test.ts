@@ -20,14 +20,14 @@ import {
 } from "./ledger";
 
 const TEAMS: TeamRef[] = [
-  { id: "p1", code: "MP01", track: "PRODUCT", name: "Product 1" },
-  { id: "c1", code: "MC01", track: "CONSULTING", name: "Consulting 1" },
-  { id: "f1", code: "MF01", track: "FINANCE", name: "Finance 1" },
-  { id: "f2", code: "MF02", track: "FINANCE", name: "Finance 2" },
+  { id: "p1", code: "MP01", name: "Team 1" },
+  { id: "c1", code: "MC01", name: "Team 2" },
+  { id: "f1", code: "MF01", name: "Team 3" },
+  { id: "f2", code: "MF02", name: "Team 4" },
 ];
 const COMPANIES: CompanyRef[] = [
-  { id: "co1", ticker: "EMA", product_team_id: "p1" },
-  { id: "co2", ticker: null, product_team_id: "p2" },
+  { id: "co1", ticker: "EMA", founder_team_id: "p1" },
+  { id: "co2", ticker: null, founder_team_id: "p2" },
 ];
 
 describe("the filter in the address", () => {
@@ -102,8 +102,7 @@ describe("table lines", () => {
         kind: "TRADE",
         team_id: "f1",
         company_id: "co1",
-        lot: "EXCHANGE",
-        cash_delta_cents: "-1630500",
+          cash_delta_cents: "-1630500",
         share_delta: 1500,
         price_cents: 1087,
         round_id: "r1",
@@ -116,7 +115,6 @@ describe("table lines", () => {
         kind: "TRADE",
         team_id: null,
         company_id: "co2",
-        lot: null,
         cash_delta_cents: 1630500,
         share_delta: -1500,
         price_cents: null,
@@ -135,7 +133,6 @@ describe("table lines", () => {
       party: "MF01",
       exchange: false,
       ticker: "EMA",
-      lot: "EXCHANGE",
       cash: "−$16,305.00",
       cashSign: -1,
       shares: "+1,500",
@@ -146,13 +143,13 @@ describe("table lines", () => {
     expect(b).toMatchObject({ party: "Exchange", exchange: true, ticker: "?’s company", cash: "+$16,305.00", cashSign: 1, shares: "−1,500", price: "", round: "", memo: "" });
   });
 
-  test("a company without a ticker yet is named after its Product team", () => {
-    const refs = ledgerRefs(TEAMS, [{ id: "co3", ticker: null, product_team_id: "p1" }], []);
+  test("a company without a ticker yet is named after its founding team", () => {
+    const refs = ledgerRefs(TEAMS, [{ id: "co3", ticker: null, founder_team_id: "p1" }], []);
     const [line] = ledgerLines(
-      [{ id: 1, created_at: "x", txn_id: "t", kind: "ISSUE", team_id: "p1", company_id: "co3", lot: "RETAINED", cash_delta_cents: 0, share_delta: 60000, price_cents: null, round_id: null, memo: null }],
+      [{ id: 1, created_at: "x", txn_id: "t", kind: "CORRECTION", team_id: "f1", company_id: "co3", cash_delta_cents: 0, share_delta: 100, price_cents: null, round_id: null, memo: null }],
       refs,
     );
-    expect(line).toMatchObject({ ticker: "MP01’s company", cash: "", cashSign: 0, shares: "+60,000", kindLabel: "Share issue" });
+    expect(line).toMatchObject({ ticker: "MP01’s company", cash: "", cashSign: 0, shares: "+100", kindLabel: "Correction" });
   });
 });
 
@@ -160,29 +157,27 @@ describe("books check", () => {
   const T = "11111111-0000-0000-0000-000000000000";
   const U = "22222222-0000-0000-0000-000000000000";
   const V = "33333333-0000-0000-0000-000000000000";
-  // The draw (issue + seed), starting cash and a trade, as the game functions write them.
+  // Starting cash ($100,000 each) and a trade, as the game functions write them.
   const ROWS: BooksRow[] = [
-    { txn_id: T, kind: "STARTING_CASH", team_id: "f1", company_id: null, cash_delta_cents: 50000000, share_delta: 0 },
-    { txn_id: T, kind: "STARTING_CASH", team_id: null, company_id: null, cash_delta_cents: -50000000, share_delta: 0 },
-    { txn_id: U, kind: "ISSUE", team_id: "p1", company_id: "co1", cash_delta_cents: 0, share_delta: 60000 },
-    { txn_id: U, kind: "ISSUE", team_id: null, company_id: "co1", cash_delta_cents: 0, share_delta: 35000 },
-    { txn_id: U, kind: "SEED", team_id: "f1", company_id: "co1", cash_delta_cents: "-5000000", share_delta: 5000 },
-    { txn_id: U, kind: "SEED", team_id: "p1", company_id: "co1", cash_delta_cents: "5000000", share_delta: 0 },
+    { txn_id: T, kind: "START_CASH", team_id: "f1", company_id: null, cash_delta_cents: 10000000, share_delta: 0 },
+    { txn_id: T, kind: "START_CASH", team_id: null, company_id: null, cash_delta_cents: -10000000, share_delta: 0 },
+    { txn_id: U, kind: "START_CASH", team_id: "p1", company_id: null, cash_delta_cents: "10000000", share_delta: 0 },
+    { txn_id: U, kind: "START_CASH", team_id: null, company_id: null, cash_delta_cents: "-10000000", share_delta: 0 },
     { txn_id: V, kind: "TRADE", team_id: "f1", company_id: "co1", cash_delta_cents: -1050000, share_delta: 1000 },
     { txn_id: V, kind: "TRADE", team_id: null, company_id: "co1", cash_delta_cents: 1050000, share_delta: -1000 },
   ];
   const BOOKS_TEAMS = [
-    { id: "p1", code: "MP01", cash_cents: "5000000" },
+    { id: "p1", code: "MP01", cash_cents: "10000000" },
     { id: "c1", code: "MC01", cash_cents: 0 },
-    { id: "f1", code: "MF01", cash_cents: 50000000 - 5000000 - 1050000 },
+    { id: "f1", code: "MF01", cash_cents: 10000000 - 1050000 },
   ];
-  const EXCH = -50000000 + 1050000;
+  const EXCH = -20000000 + 1050000;
 
   test("balanced books", () => {
     const r = checkBooks(ROWS, BOOKS_TEAMS, String(EXCH), COMPANIES);
-    expect(r).toEqual({ ok: true, transactions: 3, rows: 8, problems: [] });
+    expect(r).toEqual({ ok: true, transactions: 3, rows: 6, problems: [] });
     expect(booksLine(r)).toBe(
-      "The books balance: 3 transactions (8 rows) balance, and every team’s cash and the exchange’s equal the sum of their ledger rows.",
+      "The books balance: 3 transactions (6 rows) balance, and every team’s cash and the exchange’s equal the sum of their ledger rows.",
     );
   });
 
@@ -196,8 +191,8 @@ describe("books check", () => {
     const r = checkBooks(ROWS, teams, EXCH - 100, COMPANIES);
     expect(r.ok).toBe(false);
     expect(r.problems).toEqual([
-      "MF01: cash is $439,500.01 but its ledger rows sum to $439,500.00.",
-      "Exchange: cash is −$489,501.00 but its ledger rows sum to −$489,500.00.",
+      "MF01: cash is $89,500.01 but its ledger rows sum to $89,500.00.",
+      "Exchange: cash is −$189,501.00 but its ledger rows sum to −$189,500.00.",
     ]);
     expect(booksLine(r)).toBe("The books do not balance: 2 problems.");
   });
@@ -207,11 +202,6 @@ describe("books check", () => {
     const teams = BOOKS_TEAMS;
     const r = checkBooks(rows, teams, EXCH - 1, COMPANIES);
     expect(r.problems).toEqual(["Transaction 33333333 (Trade): cash is off by −$0.01.", "Transaction 33333333 (Trade): EMA’s shares are off by +10."]);
-  });
-
-  test("the issue must create exactly 100,000 shares per company", () => {
-    const rows = ROWS.map((r) => (r.kind === "ISSUE" && r.team_id === null ? { ...r, share_delta: 34990 } : r));
-    expect(checkBooks(rows, BOOKS_TEAMS, EXCH, COMPANIES).problems).toEqual(["EMA: 99,990 shares issued, not 100,000."]);
   });
 
   test("a row of a team that is not in the event; a team with no rows must have no cash", () => {

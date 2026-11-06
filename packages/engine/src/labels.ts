@@ -1,6 +1,6 @@
 // Names shown on screens for phases and deadlines (shared by the control panel, the team portal and the big screen).
 
-import type { DeadlineCode, PhaseCode, SubmissionType } from "./types";
+import type { AwardCode, DeadlineCode, PhaseCode, SubmissionType } from "./types";
 
 export const PHASE_LABELS: Record<PhaseCode, string> = {
   SETUP: "Setup",
@@ -31,4 +31,14 @@ export const DEADLINE_LABELS: Record<DeadlineCode, string> = {
 export const SUBMISSION_LABELS: Record<SubmissionType, string> = {
   PRD: "PRD",
   SOLUTION: "Crisis solution",
+};
+
+export const AWARD_LABELS: Record<AwardCode, string> = {
+  WINNER: "Winner",
+  RUNNER_UP: "Runner-up",
+  THIRD: "Third place",
+  BEST_PRD: "Best PRD",
+  BEST_SOLUTION: "Best crisis solution",
+  BEST_INVESTOR: "Best investor",
+  BEST_COMPANY: "Best company",
 };

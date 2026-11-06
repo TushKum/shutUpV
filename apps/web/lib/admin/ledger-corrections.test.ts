@@ -12,24 +12,23 @@ import {
 import type { CompanyRef, TeamRef } from "./ledger";
 
 const TEAMS: TeamRef[] = [
-  { id: "f2", code: "MF02", track: "FINANCE", name: "Finance 2" },
-  { id: "p1", code: "MP01", track: "PRODUCT", name: "Product 1" },
-  { id: "c1", code: "MC01", track: "CONSULTING", name: "Consulting 1" },
-  { id: "f1", code: "MF01", track: "FINANCE", name: "Finance 1" },
+  { id: "f2", code: "MF02", name: "Team 4" },
+  { id: "p1", code: "MP01", name: "Team 1" },
+  { id: "c1", code: "MC01", name: "Team 2" },
+  { id: "f1", code: "MF01", name: "Team 3" },
 ];
-const COMPANIES: (CompanyRef & { squad_id: string | null })[] = [
-  { id: "co2", ticker: "EMB", product_team_id: "p2", squad_id: "s2" },
-  { id: "co1", ticker: "EMA", product_team_id: "p1", squad_id: "s1" },
-  { id: "co9", ticker: null, product_team_id: "p1", squad_id: null },
+const COMPANIES: CompanyRef[] = [
+  { id: "co2", ticker: "EMB", founder_team_id: "p2" },
+  { id: "co1", ticker: "EMA", founder_team_id: "p1" },
+  { id: "co9", ticker: null, founder_team_id: "p1" },
 ];
 const teams = new Map(TEAMS.map((t) => [t.id, t]));
 const companies = new Map(COMPANIES.map((c) => [c.id, c]));
 
-const form = (rows: Partial<Record<"team" | "company" | "lot" | "cash" | "shares", string>>[], reason = "Refund a fee charged twice"): CorrectionForm => ({
+const form = (rows: Partial<Record<"team" | "company" | "cash" | "shares", string>>[], reason = "Refund a fee charged twice"): CorrectionForm => ({
   reason,
   team: rows.map((r) => r.team ?? ""),
   company: rows.map((r) => r.company ?? ""),
-  lot: rows.map((r) => r.lot ?? ""),
   cash: rows.map((r) => r.cash ?? ""),
   shares: rows.map((r) => r.shares ?? ""),
 });
@@ -40,7 +39,7 @@ describe("the request form → request_correction's entries", () => {
       form([
         { team: "f1", cash: "12.34" },
         {},
-        { team: "f2", company: "co1", lot: "EXCHANGE", cash: "-0.5", shares: "-100" },
+        { team: "f2", company: "co1", cash: "-0.5", shares: "-100" },
         { team: "c1", company: "co2", cash: "$1,000" },
       ]),
     );
@@ -50,7 +49,7 @@ describe("the request form → request_correction's entries", () => {
         reason: "Refund a fee charged twice",
         entries: [
           { team_id: "f1", cash_delta_cents: 1234 },
-          { team_id: "f2", company_id: "co1", lot: "EXCHANGE", cash_delta_cents: -50, share_delta: -100 },
+          { team_id: "f2", company_id: "co1", cash_delta_cents: -50, share_delta: -100 },
           { team_id: "c1", company_id: "co2", cash_delta_cents: 100000 },
         ],
       },
@@ -69,17 +68,16 @@ describe("the request form → request_correction's entries", () => {
     });
     expect(correctionFromForm(form([{ team: "f1", cash: "1" }, { cash: "5" }]))).toEqual({ ok: false, message: "Entry 2: choose a team." });
     expect(correctionFromForm(form([{ team: "f1", cash: "abc" }])).ok).toBe(false);
-    expect(correctionFromForm(form([{ team: "f1", company: "co1", lot: "SQUAD", shares: "2.5" }]))).toEqual({
+    expect(correctionFromForm(form([{ team: "f1", company: "co1", shares: "2.5" }]))).toEqual({
       ok: false,
       message: "Entry 1: share change “2.5” is not a whole number of shares.",
     });
     expect(correctionFromForm(form([{ team: "f1", cash: "0", shares: "" }]))).toEqual({ ok: false, message: "Entry 1: enter a cash change or a share change." });
-    expect(correctionFromForm(form([{ team: "f1", lot: "EXCHANGE", shares: "10" }]))).toEqual({
-      ok: false,
-      message: "Entry 1: a share change needs a company and a lot.",
+    expect(correctionFromForm(form([{ team: "f1", shares: "10" }]))).toEqual({ ok: false, message: "Entry 1: a share change needs a company." });
+    expect(correctionFromForm(form([{ team: "f1", company: "co1", shares: "10" }]))).toEqual({
+      ok: true,
+      value: { reason: "Refund a fee charged twice", entries: [{ team_id: "f1", company_id: "co1", share_delta: 10 }] },
     });
-    expect(correctionFromForm(form([{ team: "f1", company: "co1", shares: "10" }]))).toMatchObject({ ok: false });
-    expect(correctionFromForm(form([{ team: "f1", company: "co1", lot: "BOGUS", shares: "10" }]))).toEqual({ ok: false, message: "Entry 1: unknown lot BOGUS." });
   });
 
   test("at least one entry, at most 50", () => {
@@ -93,13 +91,12 @@ describe("the request form → request_correction's entries", () => {
   test("reads the rows from FormData in their order", () => {
     const fd = new FormData();
     fd.set("reason", "A reason long enough");
-    for (const [team, company, lot, cash, shares] of [
-      ["f1", "", "", "3", ""],
-      ["f2", "co1", "EXCHANGE", "", "10"],
+    for (const [team, company, cash, shares] of [
+      ["f1", "", "3", ""],
+      ["f2", "co1", "", "10"],
     ]) {
       fd.append("entry_team", team!);
       fd.append("entry_company", company!);
-      fd.append("entry_lot", lot!);
       fd.append("entry_cash", cash!);
       fd.append("entry_shares", shares!);
     }
@@ -107,11 +104,10 @@ describe("the request form → request_correction's entries", () => {
       reason: "A reason long enough",
       team: ["f1", "f2"],
       company: ["", "co1"],
-      lot: ["", "EXCHANGE"],
       cash: ["3", ""],
       shares: ["", "10"],
     });
-    expect(readCorrectionForm(new FormData())).toEqual({ reason: "", team: [], company: [], lot: [], cash: [], shares: [] });
+    expect(readCorrectionForm(new FormData())).toEqual({ reason: "", team: [], company: [], cash: [], shares: [] });
   });
 });
 
@@ -145,12 +141,12 @@ describe("stored corrections", () => {
     { ...base, id: "d", status: "REJECTED", requested_at: "2026-10-08T17:10:00Z", decided_by: "u-fair", decided_at: "2026-10-08T17:20:00Z", decision_note: "Wrong team" },
   ];
 
-  test("entry lines: team code, ticker, lot, signed cash and shares", () => {
+  test("entry lines: team code, ticker, signed cash and shares", () => {
     expect(
       correctionEntryLines(
         [
           { team_id: "f1", cash_delta_cents: 1234 },
-          { team_id: "f2", company_id: "co1", lot: "EXCHANGE", cash_delta_cents: "-50", share_delta: -100 },
+          { team_id: "f2", company_id: "co1", cash_delta_cents: "-50", share_delta: -100 },
           { team_id: "zz", company_id: "co9" },
           "garbage",
         ],
@@ -158,10 +154,10 @@ describe("stored corrections", () => {
         companies,
       ),
     ).toEqual([
-      { party: "MF01", ticker: "", lot: "", cash: "+$12.34", cashSign: 1, shares: "" },
-      { party: "MF02", ticker: "EMA", lot: "EXCHANGE", cash: "−$0.50", cashSign: -1, shares: "−100" },
-      { party: "?", ticker: "MP01’s company", lot: "", cash: "", cashSign: 0, shares: "" },
-      { party: "?", ticker: "", lot: "", cash: "", cashSign: 0, shares: "" },
+      { party: "MF01", ticker: "", cash: "+$12.34", cashSign: 1, shares: "" },
+      { party: "MF02", ticker: "EMA", cash: "−$0.50", cashSign: -1, shares: "−100" },
+      { party: "?", ticker: "MP01’s company", cash: "", cashSign: 0, shares: "" },
+      { party: "?", ticker: "", cash: "", cashSign: 0, shares: "" },
     ]);
     expect(correctionEntryLines(null, teams, companies)).toEqual([]);
   });
@@ -184,7 +180,7 @@ describe("stored corrections", () => {
       ["d", "REJECTED", "Fairness officer", "Wrong team", null, false, null],
       ["c", "APPROVED", "Exchange desk", null, "a97837aa", false, null],
     ]);
-    expect(decided[1]!.entries).toEqual([{ party: "MF01", ticker: "", lot: "", cash: "+$12.34", cashSign: 1, shares: "" }]);
+    expect(decided[1]!.entries).toEqual([{ party: "MF01", ticker: "", cash: "+$12.34", cashSign: 1, shares: "" }]);
   });
 
   test("an account that is gone is still shown", () => {
@@ -194,17 +190,13 @@ describe("stored corrections", () => {
 });
 
 describe("form options", () => {
-  test("teams by track and code; only companies of a squad, by ticker", () => {
+  test("teams by code; companies by ticker (a company without one by its founding team)", () => {
     const o = correctionOptions(TEAMS, COMPANIES);
-    expect(o.tracks).toEqual([
-      { track: "PRODUCT", teams: [{ id: "p1", code: "MP01" }] },
-      { track: "CONSULTING", teams: [{ id: "c1", code: "MC01" }] },
-      { track: "FINANCE", teams: [{ id: "f1", code: "MF01" }, { id: "f2", code: "MF02" }] },
-    ]);
+    expect(o.teams.map((t) => t.code)).toEqual(["MC01", "MF01", "MF02", "MP01"]);
     expect(o.companies).toEqual([
       { id: "co1", label: "EMA" },
       { id: "co2", label: "EMB" },
+      { id: "co9", label: "MP01’s company" },
     ]);
-    expect(o.lots).toEqual(["RETAINED", "SQUAD", "EXCHANGE", "SHORT", "FEE"]);
   });
 });

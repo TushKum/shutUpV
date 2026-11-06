@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Form from "next/form";
-import { PHASE_CODES, PHASE_LABELS, TRACK_LABELS, type PhaseCode } from "@msim/engine";
+import { PHASE_CODES, PHASE_LABELS, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent } from "@/lib/admin/event";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -9,7 +9,6 @@ import { ledgerLines, ledgerRefs } from "@/lib/admin/ledger";
 import { loadLedgerBase, type LedgerTeam } from "@/lib/admin/ledger-data";
 import {
   FLAG_STATUS_LABELS,
-  callLines,
   decisionLog,
   flagLabel,
   flagSummary,
@@ -33,7 +32,8 @@ const reached = (phase: PhaseCode, target: PhaseCode) => PHASE_CODES.indexOf(pha
 const tone = (sign: number) => (sign > 0 ? "text-emerald-700" : sign < 0 ? "text-red-700" : "");
 
 // Fairness (the fairness officer only): the collusion flags raised at settlement, a decision on each (clear it or
-// disqualify the teams involved, with a logged reason), the log of decisions, and a drill-down into any team.
+// disqualify the teams involved, with a logged reason), the log of decisions, and a drill-down into any team (the
+// company it built and the one it rescued, scores, holdings, orders, ledger and result).
 export default async function FairnessPage({
   params,
   searchParams,
@@ -110,16 +110,10 @@ export default async function FairnessPage({
               <span className="text-xs font-medium text-slate-600">Team code</span>
               <select name="team" defaultValue={team?.code ?? ""} className={`${inputClass} w-36`}>
                 <option value="">Choose…</option>
-                {(["PRODUCT", "CONSULTING", "FINANCE"] as const).map((track) => (
-                  <optgroup key={track} label={TRACK_LABELS[track]}>
-                    {base.teams
-                      .filter((t) => t.track === track)
-                      .map((t) => (
-                        <option key={t.id} value={t.code}>
-                          {t.code}
-                        </option>
-                      ))}
-                  </optgroup>
+                {base.teams.map((t) => (
+                  <option key={t.id} value={t.code}>
+                    {t.code}
+                  </option>
                 ))}
               </select>
             </label>
@@ -170,7 +164,6 @@ function FlagCard({ v, n, slug, locked }: { v: FlagView; n: number; slug: string
           {v.teams.map((t) => (
             <Link key={t.id} href={`/admin/${slug}/fairness?team=${encodeURIComponent(t.code)}#drill-down`} className="font-mono hover:underline">
               {t.code}
-              {t.track ? <span className="font-sans text-xs text-slate-500"> ({t.track})</span> : null}
             </Link>
           ))}
         </dd>
@@ -252,7 +245,6 @@ function TeamDrillDown({
 }) {
   const holdings = holdingLines(drill.holdings, refs);
   const orders = orderLines(drill.orders, refs);
-  const calls = callLines(drill.calls, refs);
   const ledger = ledgerLines(drill.ledger, refs);
   const result = resultView(drill.result);
   return (
@@ -260,7 +252,7 @@ function TeamDrillDown({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-mono text-lg font-semibold text-slate-900">{team.code}</h3>
         <span className="text-sm text-slate-600">
-          {team.name} · {TRACK_LABELS[team.track]}
+          {team.name}
         </span>
         {team.disqualified ? <Badge tone="red">Disqualified</Badge> : <Badge tone="green">Not disqualified</Badge>}
       </div>
@@ -268,12 +260,11 @@ function TeamDrillDown({
 
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Cash" value={money(team.cash_cents)} />
-        {team.track === "FINANCE" ? <Stat label="Collateral" value={money(team.collateral_cents)} /> : null}
         {result ? (
           <>
-            <Stat label="Final value" value={result.final} hint={`Start ${result.start}`} />
-            <Stat label="Return" value={result.returnPct} />
-            <Stat label="Rank" value={result.rank} hint={result.eligible ? undefined : "Excluded from the awards"} />
+            <Stat label="Total" value={result.total} hint={`R1 ${result.r1} · R2 ${result.r2} · R3 ${result.r3}`} />
+            <Stat label="Portfolio at the close" value={result.portfolio} hint={`Return ${result.returnPct}`} />
+            <Stat label="Rank" value={result.rank} hint={result.eligible ? undefined : "Excluded from every ranking and award"} />
           </>
         ) : (
           <Stat label="Result" value="—" hint={settled ? "No result for this team" : "Computed at settlement"} />
@@ -294,23 +285,48 @@ function TeamDrillDown({
         </div>
       ) : null}
 
-      <section aria-label="Holdings by lot">
-        <h4 className="text-sm font-semibold text-slate-900">Holdings by lot</h4>
-        <Table head={["Ticker", "Lot", "Shares", "Cost"]} empty="No shares held.">
+      <section aria-label="Companies">
+        <h4 className="text-sm font-semibold text-slate-900">Built and rescued</h4>
+        <Table head={["Role", "Company", "Founder", "Rescuer", "PRD score", "Solution score"]} empty="No company yet.">
+          {drill.companies.map((c) => {
+            const score = (type: "PRD" | "SOLUTION") => {
+              const sc = drill.scores.find((x) => x.company_id === c.id && x.type === type);
+              return sc && sc.final_score !== null ? `${sc.final_score}${sc.penalty ? ` (−${sc.penalty})` : ""}` : sc ? sc.status.toLowerCase() : "—";
+            };
+            const code = (id: string | null) => (id ? (refs.teams.get(id)?.code ?? "?") : "—");
+            return (
+              <tr key={c.id}>
+                <Td>{c.founder_team_id === team.id ? "Built" : "Rescued"}</Td>
+                <Td mono className="font-semibold">
+                  {c.ticker ?? "—"} <span className="font-sans font-normal text-slate-600">{c.name}</span>
+                </Td>
+                <Td mono>{code(c.founder_team_id)}</Td>
+                <Td mono>{code(c.rescuer_team_id)}</Td>
+                <Td mono>{score("PRD")}</Td>
+                <Td mono>{score("SOLUTION")}</Td>
+              </tr>
+            );
+          })}
+        </Table>
+      </section>
+
+      <section aria-label="Holdings">
+        <h4 className="text-sm font-semibold text-slate-900">Holdings</h4>
+        <Table head={["Ticker", "Shares", "Cost", "Average cost"]} empty="No shares held.">
           {holdings.map((h) => (
             <tr key={h.key}>
               <Td mono className="font-semibold">
                 {h.ticker}
               </Td>
-              <Td mono>{h.lot}</Td>
               <Td mono>{h.qty}</Td>
               <Td mono>{h.cost}</Td>
+              <Td mono>{h.average}</Td>
             </tr>
           ))}
         </Table>
       </section>
 
-      {team.track === "FINANCE" ? (
+      {orders.length ? (
         <section aria-label="Orders">
           <h4 className="text-sm font-semibold text-slate-900">Orders across rounds</h4>
           <div className="max-h-96 overflow-y-auto">
@@ -330,27 +346,9 @@ function TeamDrillDown({
             </Table>
           </div>
         </section>
-      ) : null}
-
-      {team.track === "CONSULTING" ? (
-        <section aria-label="Consultant calls">
-          <h4 className="text-sm font-semibold text-slate-900">Consultant calls</h4>
-          <Table head={["Call", "Ticker", "Direction", "Made", "Baseline", "Judged at", "Outcome", "Earnings"]} empty="No calls.">
-            {calls.map((c) => (
-              <tr key={c.key}>
-                <Td mono>{c.callNo}</Td>
-                <Td mono>{c.ticker}</Td>
-                <Td>{c.direction}</Td>
-                <Td mono>{clock(c.madeAt, true)}</Td>
-                <Td mono>{c.baseline}</Td>
-                <Td mono>{c.judged}</Td>
-                <Td>{c.outcome}</Td>
-                <Td mono>{c.earnings}</Td>
-              </tr>
-            ))}
-          </Table>
-        </section>
-      ) : null}
+      ) : (
+        <p className="text-sm text-slate-500">No orders.</p>
+      )}
 
       <section aria-label="Ledger rows">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -360,7 +358,7 @@ function TeamDrillDown({
           </Link>
         </div>
         <div className="max-h-96 overflow-y-auto">
-          <Table head={["Time", "Transaction", "Kind", "Ticker", "Lot", "Cash change", "Share change", "Price", "Round", "Memo"]} empty="No ledger rows.">
+          <Table head={["Time", "Transaction", "Kind", "Ticker", "Cash change", "Share change", "Price", "Round", "Memo"]} empty="No ledger rows.">
             {ledger.map((l) => (
               <tr key={l.id}>
                 <Td mono>{clock(l.at, true)}</Td>
@@ -369,7 +367,6 @@ function TeamDrillDown({
                 </Td>
                 <Td>{l.kindLabel}</Td>
                 <Td mono>{l.ticker}</Td>
-                <Td mono>{l.lot}</Td>
                 <Td mono className={tone(l.cashSign)}>
                   {l.cash}
                 </Td>

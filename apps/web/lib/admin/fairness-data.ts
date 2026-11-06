@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LedgerRow } from "./ledger";
 import { LEDGER_COLUMNS, fetchAll, loadStaff } from "./ledger-data";
 import type { StaffRef } from "./ledger-corrections";
-import type { CallRow, FlagAuditRow, FlagRow, HoldingRow, OrderRow, ResultRow } from "./fairness";
+import type { FlagAuditRow, FlagRow, HoldingRow, OrderRow, ResultRow } from "./fairness";
 
 function must<T>(r: { data: T | null; error: { message: string } | null }, what: string): T {
   if (r.error) throw new Error(`${what}: ${r.error.message}`);
@@ -43,16 +43,18 @@ export interface DrillDown {
   holdings: HoldingRow[];
   orders: OrderRow[];
   ledger: LedgerRow[];
-  calls: CallRow[];
+  /** The company the team built and the one it rescues, with their scores (once revealed or sealed, as RLS shows them). */
+  companies: { id: string; ticker: string | null; name: string | null; founder_team_id: string; rescuer_team_id: string | null }[];
+  scores: { company_id: string; type: "PRD" | "SOLUTION"; status: string; final_score: number | null; penalty: number }[];
   result: ResultRow | null;
 }
 
-/** One team's holdings, orders across rounds, ledger rows, consultant calls and settled result. */
+/** One team's companies and scores, holdings, orders across rounds, ledger rows and settled result. */
 export async function loadDrillDown(sb: SupabaseClient, teamId: string): Promise<DrillDown> {
-  const [holdings, orders, ledger, calls, result] = await Promise.all([
+  const [holdings, orders, ledger, companies, result] = await Promise.all([
     sb
       .from("holdings")
-      .select("company_id, lot, qty, cost_cents")
+      .select("company_id, qty, cost_cents")
       .eq("team_id", teamId)
       .then((r) => must(r, "holdings") as HoldingRow[]),
     fetchAll<OrderRow>((from, to) =>
@@ -68,16 +70,22 @@ export async function loadDrillDown(sb: SupabaseClient, teamId: string): Promise
       sb.from("ledger_entries").select(LEDGER_COLUMNS).eq("team_id", teamId).order("id", { ascending: false }).range(from, to),
     ),
     sb
-      .from("calls")
-      .select("company_id, call_no, direction, made_at, baseline_price, judged_price, correct, earnings_cents")
-      .eq("consultant_team_id", teamId)
-      .then((r) => must(r, "calls") as CallRow[]),
+      .from("companies")
+      .select("id, ticker, name, founder_team_id, rescuer_team_id")
+      .or(`founder_team_id.eq.${teamId},rescuer_team_id.eq.${teamId}`)
+      .then((r) => must(r, "companies") as DrillDown["companies"]),
     sb
       .from("results")
-      .select("track, final_value_cents, start_value_cents, return_bp, rank, eligible")
+      .select("r1_points, r2_points, r3_points, portfolio_cents, return_bp, total, rank, eligible")
       .eq("team_id", teamId)
       .maybeSingle<ResultRow>()
       .then((r) => must(r, "results")),
   ]);
-  return { holdings, orders, ledger, calls, result };
+  const scores = companies.length
+    ? (must(
+        await sb.from("scores").select("company_id, type, status, final_score, penalty").in("company_id", companies.map((c) => c.id)),
+        "scores",
+      ) as DrillDown["scores"])
+    : [];
+  return { holdings, orders, ledger, companies, scores, result };
 }

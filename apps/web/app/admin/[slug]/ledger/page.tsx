@@ -110,7 +110,7 @@ export default async function LedgerPage({
           <>
             <Pager path={path} q={q} page={page.paging.page} pages={page.paging.pages} label={page.paging.label} />
             <Table
-              head={["Time", "Transaction", "Kind", "Team", "Ticker", "Lot", "Cash change", "Share change", "Price", "Round", "Memo"]}
+              head={["Time", "Transaction", "Kind", "Team", "Ticker", "Cash change", "Share change", "Price", "Round", "Memo"]}
               empty={q.team || q.kind || q.ticker ? "No ledger rows match this filter." : "No ledger rows yet."}
               className="mt-2"
             >
@@ -125,7 +125,6 @@ export default async function LedgerPage({
                     {l.party}
                   </Td>
                   <Td mono>{l.ticker}</Td>
-                  <Td mono>{l.lot}</Td>
                   <Td mono className={tone(l.cashSign)}>
                     {l.cash}
                   </Td>

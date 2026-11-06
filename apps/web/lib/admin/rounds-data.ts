@@ -1,7 +1,6 @@
 // Reads what the rounds view needs, as the signed-in staff member (staff read every table of the event through
 // RLS). Large tables are read in pages of 1,000 rows.
 
-import type { PhaseCode } from "@msim/engine";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
   fetchAll,
@@ -9,7 +8,6 @@ import {
   type ClearingPriceRow,
   type CompanyRow,
   type HoldingRow,
-  type IpoBidRow,
   type PendingOrderRow,
   type RoundFocus,
   type RoundRow,
@@ -23,11 +21,9 @@ export interface RoundsData {
   focus: RoundFocus;
   /** The open round's pending orders (empty when no round is open). */
   orders: PendingOrderRow[];
-  /** Every fund's EXCHANGE and SHORT lots (only read when a round is open). */
+  /** Every team's holdings (only read when a round is open). */
   holdings: HoldingRow[];
   clearings: ClearingPriceRow[];
-  /** The IPO book (only read during the IPO phase). */
-  bids: IpoBidRow[] | null;
 }
 
 function must<T>(r: { data: T | null; error: { message: string } | null }, what: string): T {
@@ -35,7 +31,7 @@ function must<T>(r: { data: T | null; error: { message: string } | null }, what:
   return r.data as T;
 }
 
-export async function loadRoundsData(eventId: string, phase: PhaseCode, nowMs: number): Promise<RoundsData> {
+export async function loadRoundsData(eventId: string, nowMs: number): Promise<RoundsData> {
   const sb = await supabaseServer();
   const [rounds, companies, teams, clearings] = await Promise.all([
     sb
@@ -46,20 +42,20 @@ export async function loadRoundsData(eventId: string, phase: PhaseCode, nowMs: n
       .then((r) => must(r, "rounds") as RoundRow[]),
     sb
       .from("companies")
-      .select("id, ticker, name, market_price, ipo_price")
+      .select("id, ticker, name, market_price")
       .eq("event_id", eventId)
       .order("ticker")
       .then((r) => must(r, "companies") as CompanyRow[]),
     sb
       .from("teams")
-      .select("id, code, track, cash_cents, collateral_cents")
+      .select("id, code, cash_cents")
       .eq("event_id", eventId)
       .order("code")
       .then((r) => must(r, "teams") as TeamRow[]),
     fetchAll<ClearingPriceRow>((from, to) =>
       sb
         .from("round_prices")
-        .select("round_id, company_id, market_before, market_after, buy_qty, sell_qty, short_qty, cover_qty, net_qty, capped_net")
+        .select("round_id, company_id, market_before, market_after, buy_qty, sell_qty, net_qty, capped_net")
         .eq("event_id", eventId)
         .eq("kind", "CLEARING")
         .order("id")
@@ -69,29 +65,11 @@ export async function loadRoundsData(eventId: string, phase: PhaseCode, nowMs: n
 
   const focus = focusRound(rounds, nowMs);
   const open = focus?.kind === "OPEN" ? focus.round : null;
-  const [holdings, bids] = await Promise.all([
-    open
-      ? fetchAll<HoldingRow>((from, to) =>
-          sb
-            .from("holdings")
-            .select("team_id, company_id, lot, qty, cost_cents")
-            .eq("event_id", eventId)
-            .in("lot", ["EXCHANGE", "SHORT"])
-            .order("id")
-            .range(from, to),
-        )
-      : Promise.resolve([]),
-    phase === "IPO"
-      ? fetchAll<IpoBidRow>((from, to) =>
-          sb
-            .from("ipo_bids")
-            .select("team_id, company_id, qty_requested, qty_allocated, price")
-            .eq("event_id", eventId)
-            .order("id")
-            .range(from, to),
-        )
-      : Promise.resolve(null),
-  ]);
+  const holdings = open
+    ? await fetchAll<HoldingRow>((from, to) =>
+        sb.from("holdings").select("team_id, company_id, qty, cost_cents").eq("event_id", eventId).gt("qty", 0).order("id").range(from, to),
+      )
+    : [];
   // The pending orders last: if the round clears while this page is read, they come back filled (none pending)
   // rather than being applied a second time to books that already include them.
   const orders = open
@@ -107,5 +85,5 @@ export async function loadRoundsData(eventId: string, phase: PhaseCode, nowMs: n
       )
     : [];
 
-  return { rounds, companies, teams, focus, orders, holdings, clearings, bids };
+  return { rounds, companies, teams, focus, orders, holdings, clearings };
 }

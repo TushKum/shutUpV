@@ -1,7 +1,6 @@
 // The health view's pure logic: the backend summary from admin_health, the heartbeat's state, which teams have a
 // screen connected (a ping in the last 60 seconds) and which have none, and this console's clock offset.
 
-import type { Track } from "@msim/engine";
 
 /** A screen counts as connected when its heartbeat (every 20 s) was seen in the last minute. */
 export const CONNECTED_MS = 60_000;
@@ -26,6 +25,8 @@ export interface AdminHealth {
   /** null where pg_cron is not installed. */
   cron: CronHealth | null;
   tickErrorsLastHour: number;
+  /** The judge's readings of this event by status. */
+  judgeQueue: { queued: number; running: number; done: number; failed: number };
   screens: ScreenCount[];
 }
 
@@ -40,6 +41,7 @@ export function parseHealth(data: Record<string, unknown> | undefined): AdminHea
   const d = data ?? {};
   const c = d.cron && typeof d.cron === "object" ? (d.cron as Record<string, unknown>) : null;
   const screens = Array.isArray(d.screens) ? (d.screens as Record<string, unknown>[]) : [];
+  const q = d.judge_queue && typeof d.judge_queue === "object" ? (d.judge_queue as Record<string, unknown>) : {};
   return {
     serverTime: str(d.server_time) ?? new Date(0).toISOString(),
     cron: c
@@ -52,6 +54,7 @@ export function parseHealth(data: Record<string, unknown> | undefined): AdminHea
         }
       : null,
     tickErrorsLastHour: num(d.tick_errors_last_hour),
+    judgeQueue: { queued: num(q.queued), running: num(q.running), done: num(q.done), failed: num(q.failed) },
     screens: screens.map((s) => ({ area: String(s.area ?? ""), role: String(s.role ?? ""), connected: num(s.connected), realtimeOk: num(s.realtime_ok) })),
   };
 }
@@ -97,13 +100,11 @@ export interface PingRow {
 export interface HealthTeam {
   id: string;
   code: string;
-  track: Track;
 }
 
 export interface TeamScreen {
   clientId: string;
   code: string;
-  track: Track;
   area: string;
   realtime: string;
   firstSeen: string;
@@ -112,7 +113,6 @@ export interface TeamScreen {
 
 export interface SilentTeam {
   code: string;
-  track: Track;
   /** The last time any of its screens was seen, if ever. */
   lastSeen: string | null;
 }
@@ -136,13 +136,13 @@ export function teamScreens(
     const prev = latest.get(team.id);
     if (!prev || new Date(p.last_seen).getTime() > new Date(prev).getTime()) latest.set(team.id, p.last_seen);
     if (serverMs - new Date(p.last_seen).getTime() <= windowMs) {
-      connected.push({ clientId: p.client_id, code: team.code, track: team.track, area: p.area, realtime: p.realtime, firstSeen: p.first_seen, lastSeen: p.last_seen });
+      connected.push({ clientId: p.client_id, code: team.code, area: p.area, realtime: p.realtime, firstSeen: p.first_seen, lastSeen: p.last_seen });
     }
   }
   const live = new Set(connected.map((c) => c.code));
   const silent = teams
     .filter((t) => !live.has(t.code))
-    .map((t) => ({ code: t.code, track: t.track, lastSeen: latest.get(t.id) ?? null }))
+    .map((t) => ({ code: t.code, lastSeen: latest.get(t.id) ?? null }))
     .sort((a, b) => a.code.localeCompare(b.code));
   connected.sort((a, b) => a.code.localeCompare(b.code) || b.lastSeen.localeCompare(a.lastSeen));
   return { connected, silent };

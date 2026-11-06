@@ -1,143 +1,141 @@
-// The lottery as the control panel shows it: the stored draw (squads, dealt cards, picks, coverage, crisis cards)
-// turned into the published lottery record, and the independent check of that record with the engine. Pure: the
-// rows come from lottery-data.ts (or a test).
+// The lottery as the control panel shows it: the stored draw (each team's problem card; after the crisis, its
+// company's crisis card and the team it rescues) turned into the published lottery record, and the independent check
+// of that record with the engine. Pure: the rows come from lottery-data.ts (or a test).
 
-import { checkLotteryRecord, verifyCommitment, type LotteryRecord, type Track } from "@msim/engine";
+import { checkLotteryRecord, dealProblemCards, rootSeed, verifyCommitment, type LotteryRecord } from "@msim/engine";
 
 export interface LotteryRows {
   commitment: string;
-  /** The secret seed (event_secrets), staff only. */
+  /** The seed: secret (staff only) until the crisis, then published. */
   seed: string;
   dice: string;
-  teams: { id: string; code: string; track: Track }[];
-  /** The public record (lottery_record_rows) carries only the card numbers; staff also read the text. */
+  teams: { id: string; code: string; name?: string }[];
   problemCards: { id: string; number: number; sector?: string; title?: string }[];
-  squads: {
-    number: number;
-    product_team_id: string;
-    consulting_team_id: string;
-    finance_team_id: string;
-    dealt_card_ids: string[];
-    chosen_card_id?: string | null;
-    chosen_by_default?: boolean;
+  /** The crisis deck. */
+  crisisCards: { id: string; number: number; category?: string; title?: string }[];
+  companies: {
+    founder_team_id: string;
+    rescuer_team_id: string | null;
+    problem_card_id: string | null;
+    crisis_card_id: string | null;
+    ticker: string | null;
+    name: string | null;
   }[];
-  coverage: { consultant_team_id: string; company_id: string }[];
-  companies: { id: string; product_team_id: string; ticker: string | null; crisis_card_id: string | null }[];
-  /** The crisis deck, once the crisis has been applied (null before: the crisis draw has not happened). */
-  crisisCards: { id: string; category: string; number: number }[] | null;
+  /** Has the 23:45 crisis (crisis cards and the rescue circle) been drawn? */
+  crisisApplied: boolean;
 }
 
-export interface SquadView {
-  number: number;
-  product: string;
-  consulting: string;
-  finance: string;
-  /** The three dealt cards in dealt order (the first is the default pick). */
-  dealt: { number: number | null; title: string }[];
-  chosen: { number: number | null; title: string } | null;
-  chosenByDefault: boolean;
-  /** The consultant's two covered companies: Product team code and ticker (once claimed). */
-  covers: { product: string; ticker: string | null }[];
+export interface TeamDrawView {
+  code: string;
+  name: string | null;
+  ticker: string | null;
+  problem: { number: number; title: string } | null;
+  crisis: { number: number; category: string } | null;
+  /** The code of the team whose company this team rescues (after the crisis). */
+  rescues: string | null;
+  /** The code of the team that rescues this team's company (after the crisis). */
+  rescuedBy: string | null;
 }
 
 const byCode = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-function index(rows: LotteryRows) {
-  const teamCode = new Map(rows.teams.map((t) => [t.id, t.code]));
-  const card = new Map(rows.problemCards.map((c) => [c.id, c]));
-  const company = new Map(rows.companies.map((c) => [c.id, c]));
-  const code = (id: string) => teamCode.get(id) ?? "?";
-  /** Covered companies of a consultant, sorted by Product team code (coverage has no order). */
-  const covers = (consultantId: string) =>
-    rows.coverage
-      .filter((c) => c.consultant_team_id === consultantId)
-      .map((c) => company.get(c.company_id))
-      .map((c) => ({ product: c ? code(c.product_team_id) : "?", ticker: c?.ticker ?? null }))
-      .sort((a, b) => byCode(a.product, b.product));
-  return { code, card, covers };
-}
-
-/** The squads table, in squad-number order. */
-export function squadViews(rows: LotteryRows): SquadView[] {
-  const { code, card, covers } = index(rows);
-  const show = (id: string) => {
-    const c = card.get(id);
-    return c ? { number: c.number, title: c.title ?? `Card ${c.number}` } : { number: null, title: "Unknown card" };
-  };
-  return [...rows.squads]
-    .sort((a, b) => a.number - b.number)
-    .map((s) => ({
-      number: s.number,
-      product: code(s.product_team_id),
-      consulting: code(s.consulting_team_id),
-      finance: code(s.finance_team_id),
-      dealt: s.dealt_card_ids.map(show),
-      chosen: s.chosen_card_id ? show(s.chosen_card_id) : null,
-      chosenByDefault: s.chosen_by_default ?? false,
-      covers: covers(s.consulting_team_id),
-    }));
+/** One row per team, by team code. */
+export function teamDrawViews(rows: LotteryRows): TeamDrawView[] {
+  const code = new Map(rows.teams.map((t) => [t.id, t.code]));
+  const problem = new Map(rows.problemCards.map((c) => [c.id, c]));
+  const crisis = new Map(rows.crisisCards.map((c) => [c.id, c]));
+  const companyOf = new Map(rows.companies.map((c) => [c.founder_team_id, c]));
+  const rescuing = new Map(rows.companies.filter((c) => c.rescuer_team_id).map((c) => [c.rescuer_team_id!, c]));
+  return [...rows.teams]
+    .sort((a, b) => byCode(a.code, b.code))
+    .map((t) => {
+      const own = companyOf.get(t.id);
+      const p = own?.problem_card_id ? problem.get(own.problem_card_id) : undefined;
+      const c = own?.crisis_card_id ? crisis.get(own.crisis_card_id) : undefined;
+      const r = rescuing.get(t.id);
+      return {
+        code: t.code,
+        name: own?.name ?? null,
+        ticker: own?.ticker ?? null,
+        problem: p ? { number: p.number, title: p.title ?? "" } : null,
+        crisis: c ? { number: c.number, category: c.category ?? "" } : null,
+        rescues: r ? (code.get(r.founder_team_id) ?? "?") : null,
+        rescuedBy: own?.rescuer_team_id ? (code.get(own.rescuer_team_id) ?? "?") : null,
+      };
+    });
 }
 
 /**
- * The lottery record (the format `pnpm verify-lottery` checks) built from what the database stored. It contains the
- * secret seed. The crisis deck and the crisis cards are included once the crisis has been applied.
+ * The published record (the engine's LotteryRecord, the format `pnpm verify-lottery` checks). Before the crisis the
+ * crisis card and the rescued team are empty strings: the record is complete only from 23:45.
  */
 export function buildLotteryRecord(rows: LotteryRows): LotteryRecord {
-  const { code, card, covers } = index(rows);
-  const track = (t: Track) =>
-    rows.teams
-      .filter((x) => x.track === t)
-      .map((x) => x.code)
-      .sort(byCode);
-  const cardNumber = (id: string) => String(card.get(id)?.number ?? "?");
-  const squads = [...rows.squads].sort((a, b) => a.number - b.number);
-  const record: LotteryRecord = {
+  const views = teamDrawViews(rows);
+  return {
     seed: rows.seed,
     dice: rows.dice,
     commitment: rows.commitment,
-    teams: { product: track("PRODUCT"), consulting: track("CONSULTING"), finance: track("FINANCE") },
+    teams: views.map((v) => v.code),
     problemCards: [...rows.problemCards].sort((a, b) => a.number - b.number).map((c) => String(c.number)),
-    squads: squads.map((s) => ({
-      number: s.number,
-      product: code(s.product_team_id),
-      consulting: code(s.consulting_team_id),
-      finance: code(s.finance_team_id),
-      cards: s.dealt_card_ids.map(cardNumber),
-      covers: covers(s.consulting_team_id).map((c) => c.product),
+    crisisCards: [...rows.crisisCards].sort((a, b) => a.number - b.number).map((c) => String(c.number)),
+    draws: views.map((v) => ({
+      team: v.code,
+      problem: v.problem ? String(v.problem.number) : "",
+      crisis: v.crisis ? String(v.crisis.number) : "",
+      rescues: v.rescues ?? "",
     })),
   };
-  if (rows.crisisCards) {
-    const crisis = new Map(rows.crisisCards.map((c) => [c.id, c]));
-    const companyOfProduct = new Map(rows.companies.map((c) => [c.product_team_id, c]));
-    record.crisisDeck = [...rows.crisisCards]
-      .sort((a, b) => byCode(a.category, b.category) || a.number - b.number)
-      .map((c) => ({ category: c.category, number: c.number }));
-    record.crises = squads.map((s) => {
-      const drawn = crisis.get(companyOfProduct.get(s.product_team_id)?.crisis_card_id ?? "");
-      return { squad: s.number, card: drawn ? `${drawn.category} #${drawn.number}` : "none" };
-    });
-  }
-  return record;
 }
 
 export interface DrawCheck {
-  /** SHA-256 of the stored seed equals the published commitment. */
   seedMatches: boolean;
-  /** Every difference between the stored draw and a fresh draw by the engine (empty: the draw is verified). */
+  /** Every difference between the stored draw and the engine's (empty when it checks out). */
   problems: string[];
+  /** What the check covered. */
+  scope: "problems" | "all";
 }
 
-/** Recomputes the draw with the engine from the stored seed, dice, team codes and problem cards. */
-export function checkDraw(record: LotteryRecord): DrawCheck {
+/**
+ * Re-does the draw with the engine and compares. Before the crisis only the problem cards exist, so only they are
+ * checked; from the crisis on, the whole record (problem cards, crisis cards and the rescue circle).
+ */
+export function checkDraw(rows: LotteryRows): DrawCheck {
+  const record = buildLotteryRecord(rows);
   const seedMatches = verifyCommitment(record.seed, record.commitment);
+  if (rows.crisisApplied) return { seedMatches, problems: checkLotteryRecord(record), scope: "all" };
+  const problems: string[] = [];
+  if (!seedMatches) problems.push("the seed does not match the commitment published before the draw");
   try {
-    return { seedMatches, problems: checkLotteryRecord(record) };
+    const want = dealProblemCards(rootSeed(record.seed, record.dice), record.teams, record.problemCards);
+    for (const d of record.draws) {
+      if (d.problem !== want.get(d.team)) problems.push(`${d.team}: problem card should be #${want.get(d.team)}, the database says #${d.problem || "none"}`);
+    }
   } catch (err) {
-    return { seedMatches, problems: [`the engine could not redo the draw: ${err instanceof Error ? err.message : String(err)}`] };
+    problems.push(`the draw cannot be repeated: ${(err as Error).message}`);
   }
+  return { seedMatches, problems, scope: "problems" };
 }
 
-/** The 64-hex commitment the organisers publish the day before; null if the text is not one. */
+/** Teams per problem card (the guide: at most 3), for the summary. */
+export function cardSpread(views: readonly TeamDrawView[]): { min: number; max: number; cards: number } {
+  const per = new Map<number, number>();
+  for (const v of views) if (v.problem) per.set(v.problem.number, (per.get(v.problem.number) ?? 0) + 1);
+  const counts = [...per.values()];
+  return { min: counts.length ? Math.min(...counts) : 0, max: counts.length ? Math.max(...counts) : 0, cards: per.size };
+}
+
+/** Companies per crisis type (the guide: exactly 15 each with 150 teams). */
+export function crisisSpread(views: readonly TeamDrawView[]): { number: number; category: string; companies: number }[] {
+  const per = new Map<number, { number: number; category: string; companies: number }>();
+  for (const v of views) {
+    if (!v.crisis) continue;
+    const e = per.get(v.crisis.number) ?? { ...v.crisis, companies: 0 };
+    e.companies++;
+    per.set(v.crisis.number, e);
+  }
+  return [...per.values()].sort((a, b) => a.number - b.number);
+}
+
 export function normaliseCommitment(text: string): string | null {
   const c = text.trim().toLowerCase();
   return /^[0-9a-f]{64}$/.test(c) ? c : null;

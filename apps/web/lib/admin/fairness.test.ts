@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import {
-  callLines,
   decisionLog,
   flagDecisionFromForm,
   flagDetails,
@@ -18,15 +17,15 @@ import { ledgerRefs, type CompanyRef, type TeamRef } from "./ledger";
 import type { StaffRef } from "./ledger-corrections";
 
 const TEAMS: TeamRef[] = [
-  { id: "p1", code: "NP01", track: "PRODUCT", name: "Product 1" },
-  { id: "c1", code: "NC01", track: "CONSULTING", name: "Consulting 1" },
-  { id: "f1", code: "NF01", track: "FINANCE", name: "Finance 1" },
-  { id: "f2", code: "NF02", track: "FINANCE", name: "Finance 2" },
-  { id: "f3", code: "NF03", track: "FINANCE", name: "Finance 3" },
+  { id: "p1", code: "NP01", name: "Team 1" },
+  { id: "c1", code: "NC01", name: "Team 2" },
+  { id: "f1", code: "NF01", name: "Team 3" },
+  { id: "f2", code: "NF02", name: "Team 4" },
+  { id: "f3", code: "NF03", name: "Team 5" },
 ];
 const COMPANIES: CompanyRef[] = [
-  { id: "co1", ticker: "ENA", product_team_id: "p1" },
-  { id: "co2", ticker: "ENB", product_team_id: "p2" },
+  { id: "co1", ticker: "ENAA", founder_team_id: "p1" },
+  { id: "co2", ticker: "ENBB", founder_team_id: "c1" },
 ];
 const STAFF = new Map<string, StaffRef>([["u-fair", { user_id: "u-fair", display_name: "Fairness officer", role: "FAIRNESS" }]]);
 const refs = { teams: new Map(TEAMS.map((t) => [t.id, t])), companies: new Map(COMPANIES.map((c) => [c.id, c])), staff: STAFF };
@@ -41,83 +40,54 @@ const flag = (over: Partial<FlagRow>): FlagRow => ({
   decided_by: null,
   decided_at: null,
   reason: null,
-  created_at: "2026-10-08T23:31:00Z",
+  created_at: "2026-11-21T04:31:00Z",
   ...over,
 });
 
 // The rows generate_flags writes at settlement.
-const F1 = flag({
-  id: "a",
-  kind: 1,
-  company_id: "co1",
-  team_ids: ["p1", "f1", "f2", "f3"],
-  details: { plan_score: 45, funds_at_cap: 3, ticker: "ENA" },
-});
-const F2 = flag({ id: "b", kind: 2, team_ids: ["f1", "f2"], details: { cosine: 0.97, orders: [6, 7] } });
+const F1 = flag({ id: "a", kind: 1, team_ids: ["p1", "c1"], details: { NP01: { company: "ENBB", bought: 1500 }, NC01: { company: "ENAA", bought: 200 } } });
+const F2 = flag({ id: "b", kind: 2, company_id: "co1", team_ids: ["f1"], details: { qty: 4000, cost: 5_200_000, closing_price: 1200, ticker: "ENAA" } });
 const F3 = flag({
   id: "c",
   kind: 3,
   company_id: "co2",
-  team_ids: ["p1", "c1", "f1"],
-  details: { plan_score: 40, fee_value: 3400000, deal_price: 450, post_crisis_price: 850, ticker: "ENB" },
+  team_ids: ["f1", "f2", "f3", "p1", "NX"],
+  details: { round: 3, teams: 5, ticker: "ENBB" },
   status: "DISQUALIFIED",
   decided_by: "u-fair",
-  decided_at: "2026-10-08T23:40:00Z",
-  reason: "Fee agreed to move money",
+  decided_at: "2026-11-21T04:40:00Z",
+  reason: "Coordinated",
 });
 
 describe("flags explained", () => {
-  test("kind 1: the company, its Product team and the funds at the cap; plan score and how many funds", () => {
+  test("kind 1: the pair of teams and what each bought of the other's company", () => {
     const [v] = flagViews([F1], refs);
-    expect(v).toEqual({
-      id: "a",
-      kind: 1,
-      title: "Funds at the cap of a weak company",
-      rule: "A company whose plan scored below 50 where 3 or more funds hold the 4,000-share long cap.",
-      ticker: "ENA",
-      teams: [
-        { id: "p1", code: "NP01", track: "Product" },
-        { id: "f1", code: "NF01", track: "Finance" },
-        { id: "f2", code: "NF02", track: "Finance" },
-        { id: "f3", code: "NF03", track: "Finance" },
-      ],
-      details: [
-        { label: "Plan score", value: "45" },
-        { label: "Funds at the 4,000-share cap", value: "3" },
-      ],
-      status: "OPEN",
-      decidedBy: null,
-      decidedAt: null,
-      reason: null,
-    });
+    expect(v).toMatchObject({ title: "Reciprocal buying", ticker: "", teams: [{ id: "p1", code: "NP01" }, { id: "c1", code: "NC01" }] });
+    expect(v!.details).toEqual([
+      { label: "NP01 bought", value: "1,500 shares of ENBB" },
+      { label: "NC01 bought", value: "200 shares of ENAA" },
+    ]);
   });
 
-  test("kind 2: the pair of funds, the cosine and each fund's filled orders; no company", () => {
+  test("kind 2: shares held, average cost, closing price and the loss", () => {
     const [v] = flagViews([F2], refs);
-    expect(v).toMatchObject({ title: "Funds trading alike", ticker: "", teams: [{ code: "NF01" }, { code: "NF02" }] });
+    expect(v).toMatchObject({ title: "Large position closing at a loss", ticker: "ENAA" });
     expect(v!.details).toEqual([
-      { label: "Cosine similarity", value: "0.970" },
-      { label: "Filled orders", value: "NF01: 6 · NF02: 7" },
+      { label: "Shares held", value: "4,000" },
+      { label: "Average cost", value: "$13.00 ($52,000.00 in all)" },
+      { label: "Closing price", value: "$12.00" },
+      { label: "Loss at the close", value: "−$4,000.00" },
     ]);
   });
 
-  test("kind 3: the squad's three teams; fee value and deal price against the post-crisis price", () => {
+  test("kind 3: the round and how many teams reached the limit", () => {
+    expect(flagDetails(3, F3.details, [])).toEqual([
+      { label: "Round", value: "3" },
+      { label: "Teams reaching 5,000 shares", value: "5" },
+    ]);
     const [v] = flagViews([F3], refs);
-    expect(v).toMatchObject({ title: "Generous rescue terms", ticker: "ENB", status: "DISQUALIFIED", decidedBy: "Fairness officer", reason: "Fee agreed to move money" });
-    expect(v!.details).toEqual([
-      { label: "Plan score", value: "40" },
-      { label: "Fee value", value: "$34,000.00 (≥ $33,000)" },
-      { label: "Deal price", value: "$4.50, 52.9% of the post-crisis price $8.50 (≤ 55%)" },
-    ]);
-    expect(flagDetails(3, { plan_score: 30, fee_value: 3300000, deal_price: null, post_crisis_price: 850 }, [])).toEqual([
-      { label: "Plan score", value: "30" },
-      { label: "Fee value", value: "$33,000.00 (≥ $33,000)" },
-      { label: "Deal price", value: "No deal" },
-    ]);
-    expect(flagDetails(3, { plan_score: 49, fee_value: null, deal_price: 468, post_crisis_price: 850 }, [])[1]).toEqual({ label: "Fee value", value: "No fee" });
-    // Exactly 55% is cheap; just above is not marked.
-    expect(flagDetails(3, { deal_price: 440, post_crisis_price: 800 }, [])[1]!.value).toBe("$4.40, 55.0% of the post-crisis price $8.00 (≤ 55%)");
-    expect(flagDetails(3, { deal_price: 441, post_crisis_price: 800 }, [])[1]!.value).toBe("$4.41, 55.1% of the post-crisis price $8.00");
+    expect(v).toMatchObject({ ticker: "ENBB", status: "DISQUALIFIED", decidedBy: "Fairness officer", reason: "Coordinated" });
+    expect(v!.teams.at(-1)).toEqual({ id: "NX", code: "?" });
   });
 
   test("open flags first, then by kind; the summary counts each status", () => {
@@ -125,12 +95,12 @@ describe("flags explained", () => {
     expect(views.map((v) => v.id)).toEqual(["a", "b", "c"]);
     expect(flagSummary([F1, F2, F3])).toBe("3 flags: 2 open, 0 cleared, 1 disqualified.");
     expect(flagSummary([])).toBe("No flags.");
-    expect(flagSummary([F3])).toBe("1 flag: 0 open, 0 cleared, 1 disqualified.");
   });
 
   test("odd stored details do not break the view", () => {
     const [v] = flagViews([flag({ kind: 9, team_ids: ["zz"], details: null })], refs);
-    expect(v).toMatchObject({ title: "Flag 9", teams: [{ id: "zz", code: "?", track: "" }], details: [] });
+    expect(v).toMatchObject({ title: "Flag 9", teams: [{ id: "zz", code: "?" }], details: [] });
+    expect(flagDetails(1, { NP01: "nonsense" }, [{ id: "p1", code: "NP01" }])).toEqual([]);
     expect(percentOf(1, 0)).toBe("—");
   });
 });
@@ -174,9 +144,9 @@ describe("the decisions log", () => {
       STAFF,
     );
     expect(log).toEqual([
-      { id: "3", at: "2026-10-08T23:40:00Z", who: "Fairness officer", flag: "Flag 3 · ENB", decision: "DISQUALIFIED", reason: "Fee agreed to move money" },
-      { id: "4", at: "2026-10-08T23:35:00Z", who: "Fairness officer", flag: "Flag 2 · NF01, NF02", decision: "CLEARED", reason: "Same news, same trades" },
-      { id: "2", at: "2026-10-08T23:32:00Z", who: "Fairness officer", flag: "Flag 3 · ENB", decision: "CLEARED", reason: "Looks fine" },
+      { id: "3", at: "2026-10-08T23:40:00Z", who: "Fairness officer", flag: "Flag 3 · ENBB", decision: "DISQUALIFIED", reason: "Fee agreed to move money" },
+      { id: "4", at: "2026-10-08T23:35:00Z", who: "Fairness officer", flag: "Flag 2 · ENAA", decision: "CLEARED", reason: "Same news, same trades" },
+      { id: "2", at: "2026-10-08T23:32:00Z", who: "Fairness officer", flag: "Flag 3 · ENBB", decision: "CLEARED", reason: "Looks fine" },
     ]);
   });
 
@@ -192,21 +162,19 @@ describe("team drill-down", () => {
     { id: "r2", number: 2 },
   ]);
 
-  test("holdings by ticker then lot; empty lots are left out", () => {
+  test("holdings by ticker with the average cost; empty positions are left out", () => {
     expect(
       holdingLines(
         [
-          { company_id: "co2", lot: "EXCHANGE", qty: 4000, cost_cents: "4200000" },
-          { company_id: "co1", lot: "SHORT", qty: 500, cost_cents: 525000 },
-          { company_id: "co1", lot: "SQUAD", qty: 5000, cost_cents: 5000000 },
-          { company_id: "co1", lot: "EXCHANGE", qty: 0, cost_cents: 0 },
+          { company_id: "co2", qty: 1000, cost_cents: "1085000" },
+          { company_id: "co1", qty: 0, cost_cents: 0 },
+          { company_id: "co1", qty: 3, cost_cents: 3001 },
         ],
         r,
       ),
     ).toEqual([
-      { key: "co1|SQUAD", ticker: "ENA", lot: "SQUAD", qty: "5,000", cost: "$50,000.00" },
-      { key: "co1|SHORT", ticker: "ENA", lot: "SHORT", qty: "500", cost: "$5,250.00" },
-      { key: "co2|EXCHANGE", ticker: "ENB", lot: "EXCHANGE", qty: "4,000", cost: "$42,000.00" },
+      { key: "co1", ticker: "ENAA", qty: "3", cost: "$30.01", average: "$10.00" },
+      { key: "co2", ticker: "ENBB", qty: "1,000", cost: "$10,850.00", average: "$10.85" },
     ]);
   });
 
@@ -228,37 +196,26 @@ describe("team drill-down", () => {
       r,
     );
     expect(lines.map((l) => [l.id, l.round, l.ticker, l.status, l.entryPrice, l.fillPrice])).toEqual([
-      ["x", "1", "ENB", "FILLED", "$10.50", "$10.60"],
-      ["y", "1", "ENB", "CANCELLED", "$10.50", ""],
-      ["z", "2", "ENB", "FILLED", "$10.50", "$10.60"],
+      ["x", "1", "ENBB", "FILLED", "$10.50", "$10.60"],
+      ["y", "1", "ENBB", "CANCELLED", "$10.50", ""],
+      ["z", "2", "ENBB", "FILLED", "$10.50", "$10.60"],
     ]);
   });
 
-  test("consultant calls by window: made or missing, judged or not", () => {
-    expect(
-      callLines(
-        [
-          { company_id: "co2", call_no: 2, direction: null, made_at: null, baseline_price: null, judged_price: null, correct: null, earnings_cents: 0 },
-          { company_id: "co1", call_no: 1, direction: "BUY", made_at: "t", baseline_price: 1050, judged_price: 1100, correct: true, earnings_cents: "250000" },
-          { company_id: "co2", call_no: 1, direction: "SELL", made_at: "t", baseline_price: 1050, judged_price: 1100, correct: false, earnings_cents: 0 },
-        ],
-        r,
-      ).map((c) => [c.callNo, c.ticker, c.direction, c.baseline, c.judged, c.outcome, c.earnings]),
-    ).toEqual([
-      [1, "ENA", "BUY", "$10.50", "$11.00", "Correct", "$2,500.00"],
-      [1, "ENB", "SELL", "$10.50", "$11.00", "Wrong", "$0.00"],
-      [2, "ENB", "No call", "", "", "Not judged yet", "$0.00"],
-    ]);
-  });
-
-  test("the result: value, return and rank; a disqualified team has no rank", () => {
-    expect(resultView(null)).toBeNull();
-    expect(
-      resultView({ track: "FINANCE", final_value_cents: "51234500", start_value_cents: 50000000, return_bp: "247", rank: 2, eligible: true }),
-    ).toEqual({ final: "$512,345.00", start: "$500,000.00", returnPct: "+2.47%", rank: "2", eligible: true });
-    expect(resultView({ track: "PRODUCT", final_value_cents: 0, start_value_cents: 0, return_bp: null, rank: null, eligible: false })).toMatchObject({
-      returnPct: "—",
-      rank: "Not ranked (disqualified)",
+  test("the result: points per round, total, portfolio, return and rank; a disqualified team has no rank", () => {
+    expect(resultView({ r1_points: 78, r2_points: 71, r3_points: 77, portfolio_cents: "11078000", return_bp: "1078", total: 226, rank: 1, eligible: true })).toEqual({
+      r1: "78",
+      r2: "71",
+      r3: "77",
+      total: "226",
+      portfolio: "$110,780.00",
+      returnPct: "+10.78%",
+      rank: "1",
+      eligible: true,
     });
+    expect(resultView({ r1_points: 0, r2_points: 0, r3_points: 0, portfolio_cents: 0, return_bp: -10000, total: 0, rank: null, eligible: false })!.rank).toBe(
+      "Not ranked (disqualified)",
+    );
+    expect(resultView(null)).toBeNull();
   });
 });

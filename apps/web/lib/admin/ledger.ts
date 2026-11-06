@@ -3,42 +3,17 @@
 // its ledger rows). Money stays integer cents throughout: bigint columns arrive as numbers or strings, and sums are
 // taken as BigInt.
 
-import { RULES } from "@msim/engine";
 import { count, money } from "@/lib/format";
 
 export type Cents = number | string;
 
 /** The ledger_kind enum, in the order of the night. */
-export const LEDGER_KINDS = [
-  "STARTING_CASH",
-  "ISSUE",
-  "SEED",
-  "IPO_ALLOCATION",
-  "TRADE",
-  "FEE",
-  "FEE_DEFAULT",
-  "DEAL",
-  "SHORT_CLOSE",
-  "BONUS_PLAN",
-  "BONUS_DEAL",
-  "CALL_EARNINGS",
-  "CORRECTION",
-] as const;
+export const LEDGER_KINDS = ["START_CASH", "TRADE", "CORRECTION"] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
 export const LEDGER_KIND_LABELS: Record<LedgerKind, string> = {
-  STARTING_CASH: "Starting cash",
-  ISSUE: "Share issue",
-  SEED: "Seed",
-  IPO_ALLOCATION: "IPO allocation",
+  START_CASH: "Starting cash",
   TRADE: "Trade",
-  FEE: "Fee",
-  FEE_DEFAULT: "Default fee",
-  DEAL: "Deal",
-  SHORT_CLOSE: "Short close",
-  BONUS_PLAN: "Plan bonus",
-  BONUS_DEAL: "Deal bonus",
-  CALL_EARNINGS: "Call earnings",
   CORRECTION: "Correction",
 };
 
@@ -54,14 +29,13 @@ export const EXCHANGE = "EXCHANGE";
 export interface TeamRef {
   id: string;
   code: string;
-  track: "PRODUCT" | "CONSULTING" | "FINANCE";
   name: string;
 }
 
 export interface CompanyRef {
   id: string;
   ticker: string | null;
-  product_team_id: string;
+  founder_team_id: string;
 }
 
 export interface RoundRef {
@@ -76,7 +50,6 @@ export interface LedgerRow {
   kind: string;
   team_id: string | null;
   company_id: string | null;
-  lot: string | null;
   cash_delta_cents: Cents;
   share_delta: number;
   price_cents: number | null;
@@ -120,10 +93,10 @@ export function signedCount(n: number): string {
 /** The first 8 characters of a transaction id: enough to tell transactions apart on a screen. */
 export const shortTxn = (id: string) => id.slice(0, 8);
 
-/** A company's ticker, or (before the pitch sets one) its Product team's code. */
+/** A company's ticker, or (before its PRD sets one) its founding team's code. */
 export function companyLabel(c: CompanyRef | undefined, teams: ReadonlyMap<string, TeamRef>): string {
   if (!c) return "—";
-  return c.ticker ?? `${teams.get(c.product_team_id)?.code ?? "?"}’s company`;
+  return c.ticker ?? `${teams.get(c.founder_team_id)?.code ?? "?"}’s company`;
 }
 
 // ───────────────────────────── The filter in the address ─────────────────────────────
@@ -226,7 +199,6 @@ export interface LedgerLine {
   party: string;
   exchange: boolean;
   ticker: string;
-  lot: string;
   cash: string;
   cashSign: -1 | 0 | 1;
   shares: string;
@@ -263,7 +235,6 @@ export function ledgerLines(rows: readonly LedgerRow[], refs: LedgerRefs): Ledge
       party: r.team_id ? (refs.teams.get(r.team_id)?.code ?? "?") : "Exchange",
       exchange: !r.team_id,
       ticker: r.company_id ? companyLabel(refs.companies.get(r.company_id), refs.teams) : "",
-      lot: r.lot ?? "",
       cash: cash === 0n ? "" : signedMoney(cash),
       cashSign: cash > 0n ? 1 : cash < 0n ? -1 : 0,
       shares: r.share_delta ? signedCount(r.share_delta) : "",
@@ -299,13 +270,10 @@ export interface BooksResult {
   problems: string[];
 }
 
-/** Rows that create shares rather than move them: the issue at the draw (Product's 60,000, the IPO's 35,000, seed 5,000). */
-const ISSUING = new Set(["ISSUE", "SEED"]);
-
 /**
- * Every transaction's cash sums to zero; its shares sum to zero per company (except the issue at the draw, which
- * must create exactly 100,000 shares per company); each team's cash equals the sum of its rows' cash, and the
- * exchange's cash equals the sum of the exchange's rows.
+ * Every transaction's cash sums to zero; its shares sum to zero per company (the exchange takes the other side of
+ * every trade); each team's cash equals the sum of its rows' cash, and the exchange's cash equals the sum of the
+ * exchange's rows.
  */
 export function checkBooks(
   rows: readonly BooksRow[],
@@ -315,7 +283,6 @@ export function checkBooks(
 ): BooksResult {
   const txnCash = new Map<string, { kind: string; cash: bigint }>();
   const txnShares = new Map<string, { txn: string; kind: string; company: string; shares: bigint }>();
-  const issued = new Map<string, bigint>();
   const teamCash = new Map<string, bigint>();
   let exchange = 0n;
 
@@ -325,13 +292,10 @@ export function checkBooks(
     t.cash += cash;
     txnCash.set(r.txn_id, t);
     if (r.share_delta && r.company_id) {
-      if (ISSUING.has(r.kind)) issued.set(r.company_id, (issued.get(r.company_id) ?? 0n) + BigInt(r.share_delta));
-      else {
-        const k = `${r.txn_id}|${r.company_id}`;
-        const s = txnShares.get(k) ?? { txn: r.txn_id, kind: r.kind, company: r.company_id, shares: 0n };
-        s.shares += BigInt(r.share_delta);
-        txnShares.set(k, s);
-      }
+      const k = `${r.txn_id}|${r.company_id}`;
+      const s = txnShares.get(k) ?? { txn: r.txn_id, kind: r.kind, company: r.company_id, shares: 0n };
+      s.shares += BigInt(r.share_delta);
+      txnShares.set(k, s);
     }
     if (r.team_id) teamCash.set(r.team_id, (teamCash.get(r.team_id) ?? 0n) + cash);
     else exchange += cash;
@@ -339,7 +303,7 @@ export function checkBooks(
 
   const teamById = new Map(teams.map((t) => [t.id, t]));
   const codes = new Map(teams.map((t) => [t.id, t.code]));
-  const tickers = new Map(companies.map((c) => [c.id, c.ticker ?? `${codes.get(c.product_team_id) ?? "?"}’s company`]));
+  const tickers = new Map(companies.map((c) => [c.id, c.ticker ?? `${codes.get(c.founder_team_id) ?? "?"}’s company`]));
   const kindLabel = (k: string) => (isLedgerKind(k) ? LEDGER_KIND_LABELS[k] : k);
   const problems: string[] = [];
 
@@ -349,11 +313,6 @@ export function checkBooks(
   for (const s of txnShares.values()) {
     if (s.shares !== 0n) {
       problems.push(`Transaction ${shortTxn(s.txn)} (${kindLabel(s.kind)}): ${tickers.get(s.company) ?? "a company"}’s shares are off by ${signedCount(Number(s.shares))}.`);
-    }
-  }
-  for (const [company, n] of issued) {
-    if (n !== BigInt(RULES.SHARES_PER_COMPANY)) {
-      problems.push(`${tickers.get(company) ?? "A company"}: ${count(Number(n))} shares issued, not ${count(RULES.SHARES_PER_COMPANY)}.`);
     }
   }
   for (const t of teams) {

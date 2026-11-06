@@ -66,14 +66,11 @@ function must<T>(r: { data: T | null; error: { message: string } | null }, what:
 
 export interface LedgerTeam extends TeamRef {
   cash_cents: number | string;
-  collateral_cents: number | string;
   disqualified: boolean;
   disqualified_reason: string | null;
 }
 
-export interface LedgerCompany extends CompanyRef {
-  squad_id: string | null;
-}
+export type LedgerCompany = CompanyRef;
 
 export interface LedgerBase {
   teams: LedgerTeam[];
@@ -86,13 +83,13 @@ export async function loadLedgerBase(sb: SupabaseClient, eventId: string): Promi
   const [teams, companies, rounds] = await Promise.all([
     sb
       .from("teams")
-      .select("id, code, track, name, cash_cents, collateral_cents, disqualified, disqualified_reason")
+      .select("id, code, name, cash_cents, disqualified, disqualified_reason")
       .eq("event_id", eventId)
       .order("code")
       .then((r) => must(r, "teams") as LedgerTeam[]),
     sb
       .from("companies")
-      .select("id, ticker, product_team_id, squad_id")
+      .select("id, ticker, founder_team_id")
       .eq("event_id", eventId)
       .order("ticker")
       .then((r) => must(r, "companies") as LedgerCompany[]),
@@ -106,7 +103,7 @@ export async function loadLedgerBase(sb: SupabaseClient, eventId: string): Promi
   return { teams, companies, rounds };
 }
 
-export const LEDGER_COLUMNS = "id, created_at, txn_id, kind, team_id, company_id, lot, cash_delta_cents, share_delta, price_cents, round_id, memo";
+export const LEDGER_COLUMNS = "id, created_at, txn_id, kind, team_id, company_id, cash_delta_cents, share_delta, price_cents, round_id, memo";
 
 /** One page of the ledger, newest first, with the filter applied. */
 export async function loadLedgerPage(sb: SupabaseClient, eventId: string, f: ResolvedFilter, page: number): Promise<{ rows: LedgerRow[]; paging: Paging }> {

@@ -151,6 +151,22 @@ by `drafts`).
 10. **Ties for awards:** exact ties share an award (two rows). Flag 3 counts a team when it goes from under 5,000 to
     exactly 5,000 shares in one round's clearing.
 
+## 7b. Decisions made while building (Phase 3)
+
+1. **Sections:** Phase · Lottery · Rounds · Judge · Bulletins · Content · Ledger · Results · Fairness · Exports · Health. The
+   squad-chat viewer is gone (no squad chat in PRIMUS).
+2. **Content:** the twist is written in a form (or uploaded as a one-row CSV) under Content; the event cannot leave Setup
+   without the commitment, both decks (problem deck ≥ ⌈teams ÷ 3⌉ cards) and the twist. A crisis deck that is not 10
+   cards shows a warning.
+3. **Bulletins:** general notices, rumours (from Round 2) and fairness notices; the twist's own panel (published at
+   22:15 by the clock, or by hand); the Q&A board with Hide/Show for moderation.
+4. **Judge (Phase 3 version):** each round's progress, every company's three readings, median, penalty and final
+   score, and the backup-model switch. Organisers only (scores are secret until their reveal). Re-runs, appeals,
+   calibration and the in-console worker come back in Phase 6.
+5. **Results:** the leaderboard as staff see it (live, and still visible to staff after the 03:30 freeze), then the
+   settled results and the awards.
+6. **Lottery record download** is offered from 23:45, when the record is complete (and public).
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

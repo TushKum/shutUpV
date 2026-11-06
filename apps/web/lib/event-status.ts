@@ -1,7 +1,7 @@
 // Where an event is (event_status): what every screen's header shows. Anyone who can see the event may read it.
 
 import { cache } from "react";
-import type { PhaseCode } from "@msim/engine";
+import type { DeadlineCode, PhaseCode } from "@msim/engine";
 import { supabaseServer } from "@/lib/supabase/server";
 
 export interface EventStatus {
@@ -16,7 +16,9 @@ export interface EventStatus {
   phase_ends_at: string | null;
   open_round: { number: number; closes_at: string } | null;
   next_round: { number: number; opens_at: string } | null;
+  next_deadline: { code: DeadlineCode; at: string } | null;
   drawn: boolean;
+  leaderboard_frozen: boolean;
   server_time: string;
 }
 

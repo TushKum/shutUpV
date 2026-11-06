@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { MAX_CSV_BYTES, checkHeader, contentLocks, minProblemCards, parseCrisisDeck, parseFlashBulletin, parseProblemDeck, readCsvUpload } from "./content";
+import { MAX_CSV_BYTES, checkHeader, checkTwist, contentLocks, minProblemCards, parseCrisisDeck, parseProblemDeck, parseTwist, readCsvUpload } from "./content";
 
 const csv = (lines: string[]) => `${lines.join("\r\n")}\r\n`;
 
@@ -27,17 +27,17 @@ describe("reading the uploaded file", () => {
 describe("the header row", () => {
   test("names missing columns and lists the expected ones", () => {
     expect(checkHeader("number,sector,title\n1,a,b\n", "problem")).toBe("Missing column: body. Expected columns: number, sector, title, body.");
-    expect(checkHeader("category;title;body\nx;y;z\n", "crisis")).toBe("Missing columns: category, title, body. Expected columns: category, number, title, body.");
-    expect(checkHeader("", "flash")).toBe("The file is empty. Expected columns: title, body.");
-    expect(checkHeader("title,body\n", "flash")).toBe("The file has a header row but no bulletin.");
+    expect(checkHeader("category;title;body\nx;y;z\n", "crisis")).toBe("Missing columns: number, category, title, body. Expected columns: number, category, title, body.");
+    expect(checkHeader("", "twist")).toBe("The file is empty. Expected columns: title, body.");
+    expect(checkHeader("title,body\n", "twist")).toBe("The file has a header row but no twist.");
     expect(checkHeader("number,title,body\n", "problem")).toBe("The file has a header row but no cards.");
-    expect(checkHeader("title,Title,body\na,b,c\n", "flash")).toBe("The column “title” appears twice. Expected columns: title, body.");
-    expect(checkHeader('title,body\n"open,quote\n', "flash")).toBe("CSV ends inside a quoted field. Expected columns: title, body.");
+    expect(checkHeader("title,Title,body\na,b,c\n", "twist")).toBe("The column “title” appears twice. Expected columns: title, body.");
+    expect(checkHeader('title,body\n"open,quote\n', "twist")).toBe("CSV ends inside a quoted field. Expected columns: title, body.");
   });
 
   test("accepts any column order, upper case, spaces and a byte-order mark; optional columns may be left out", () => {
     expect(checkHeader("﻿ Body ,TITLE, Number \nb,t,1\n", "problem")).toBeNull();
-    expect(checkHeader("category,title,body\nx,y,z\n", "crisis")).toBeNull();
+    expect(checkHeader("category,title,body,number\nx,y,z,1\n", "crisis")).toBeNull();
   });
 });
 
@@ -71,58 +71,53 @@ describe("the problem deck", () => {
 });
 
 describe("the crisis deck", () => {
-  test("parses; an empty number means 1", () => {
-    expect(parseCrisisDeck(csv(["category,number,title,body", "Regulation,,A ban,You must stop.", "Regulation,2,Another ban,Stop again."]))).toEqual({
+  test("parses: one card per crisis type, numbered", () => {
+    expect(parseCrisisDeck(csv(["number,category,title,body", "1,Ingredient cost,Palm oil doubles,Costs rise.", "2,Packaging ban,No plastic pouches,Stop by June."]))).toEqual({
       ok: true,
       value: [
-        { category: "Regulation", number: 1, title: "A ban", body: "You must stop." },
-        { category: "Regulation", number: 2, title: "Another ban", body: "Stop again." },
+        { category: "Ingredient cost", number: 1, title: "Palm oil doubles", body: "Costs rise." },
+        { category: "Packaging ban", number: 2, title: "No plastic pouches", body: "Stop by June." },
       ],
     });
-    expect(parseCrisisDeck("category,title,body\nRegulation,A ban,Stop.\n").ok).toBe(true);
   });
 
-  test("refuses a bad number, a repeated category and number, and missing text, naming the row", () => {
-    expect(parseCrisisDeck("category,number,title,body\nRegulation,one,t,b\n")).toEqual({
-      ok: false,
-      message: "Row 2: the number must be a whole number from 1 to 999 (or left empty for 1).",
-    });
-    expect(parseCrisisDeck("category,number,title,body\nRegulation,1.5,t,b\n").ok).toBe(false);
-    expect(parseCrisisDeck("category,number,title,body\nA,1,t,b\nB,1,t,b\nA,,t,b\n")).toEqual({
-      ok: false,
-      message: "Row 4: “A #1” is already on row 2; each category and number pair must be unique.",
-    });
-    expect(parseCrisisDeck("category,number,title,body\n,1,t,b\n")).toEqual({ ok: false, message: "Crisis CSV row 2: category, title and body are required" });
-    expect(parseCrisisDeck(`category,number,title,body\n${"c".repeat(101)},1,t,b\n`)).toEqual({ ok: false, message: "Row 2: the category is longer than 100 characters." });
+  test("refuses a bad or repeated number, a number over 99 and missing text, naming the row", () => {
+    expect(parseCrisisDeck("number,category,title,body\none,A,t,b\n")).toEqual({ ok: false, message: "Crisis CSV row 2: bad number" });
+    expect(parseCrisisDeck("number,category,title,body\n1,A,t,b\n1,B,t,b\n")).toEqual({ ok: false, message: "Crisis CSV: card numbers must be unique" });
+    expect(parseCrisisDeck("number,category,title,body\n100,A,t,b\n")).toEqual({ ok: false, message: "Row 2 (card 100): the number must be from 1 to 99." });
+    expect(parseCrisisDeck("number,category,title,body\n1,,t,b\n")).toEqual({ ok: false, message: "Crisis CSV row 2: category, title and body are required" });
+    expect(parseCrisisDeck(`number,category,title,body\n1,${"c".repeat(101)},t,b\n`)).toEqual({ ok: false, message: "Row 2 (card 1): the type is longer than 100 characters." });
   });
 });
 
-describe("the flash bulletin", () => {
-  test("is exactly one row with a title and a body", () => {
-    expect(parseFlashBulletin('title,body\nInterest rates rise,"Investors want profit within 12 months."\n')).toEqual({
+describe("the twist", () => {
+  test("from a one-row CSV, or typed into the form", () => {
+    expect(parseTwist('title,body\nYour distributor wants 3% more margin,"From today, or they drop you."\n')).toEqual({
       ok: true,
-      value: { title: "Interest rates rise", body: "Investors want profit within 12 months." },
+      value: { title: "Your distributor wants 3% more margin", body: "From today, or they drop you." },
     });
-    expect(parseFlashBulletin("title,body\na,b\nc,d\n")).toEqual({ ok: false, message: "Flash bulletin CSV: exactly one row after the header (found 2)" });
-    expect(parseFlashBulletin(`title,body\n${"x".repeat(141)},b\n`)).toEqual({ ok: false, message: "Flash bulletin CSV: the title is at most 140 characters" });
-    expect(parseFlashBulletin(`title,body\nt,${"b".repeat(4001)}\n`)).toEqual({ ok: false, message: "The body is longer than 4000 characters." });
-    expect(parseFlashBulletin("headline,body\nt,b\n")).toEqual({ ok: false, message: "Missing column: title. Expected columns: title, body." });
+    expect(parseTwist("title,body\na,b\nc,d\n")).toEqual({ ok: false, message: "Twist CSV: exactly one row after the header (found 2)" });
+    expect(checkTwist("  Margin  ", " More margin. ")).toEqual({ ok: true, value: { title: "Margin", body: "More margin." } });
+    expect(checkTwist("", "b")).toEqual({ ok: false, message: "Give the twist a title." });
+    expect(checkTwist("x".repeat(141), "b")).toEqual({ ok: false, message: "The title is at most 140 characters." });
+    expect(checkTwist("t", " ")).toEqual({ ok: false, message: "Write what the twist says." });
   });
 });
 
 describe("locks", () => {
-  test("both decks after the draw, the flash bulletin once published", () => {
-    expect(contentLocks({ drawnAt: null, flashPublishedAt: null })).toEqual({ problem: null, crisis: null, flash: null });
-    const at = "2026-10-08T15:30:00Z";
-    expect(contentLocks({ drawnAt: at, flashPublishedAt: null })).toEqual({
+  test("both decks after the draw, the twist once published", () => {
+    expect(contentLocks({ drawnAt: null, twistPublishedAt: null })).toEqual({ problem: null, crisis: null, twist: null });
+    const at = "2026-11-20T15:45:00Z";
+    expect(contentLocks({ drawnAt: at, twistPublishedAt: null })).toEqual({
       problem: "Locked: the problem deck is fixed once the lottery has been drawn.",
       crisis: "Locked: the crisis deck is fixed once the lottery has been drawn.",
-      flash: null,
+      twist: null,
     });
-    expect(contentLocks({ drawnAt: null, flashPublishedAt: at }).flash).toBe("Locked: the flash bulletin has been published.");
+    expect(contentLocks({ drawnAt: null, twistPublishedAt: at }).twist).toBe("Locked: the twist has been published.");
   });
 
-  test("the deck needs two more cards than there are squads", () => {
-    expect(minProblemCards(50)).toBe(52);
+  test("the deck needs one card for every 3 teams", () => {
+    expect(minProblemCards(150)).toBe(50);
+    expect(minProblemCards(8)).toBe(3);
   });
 });

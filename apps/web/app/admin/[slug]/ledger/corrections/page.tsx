@@ -109,14 +109,13 @@ function CorrectionHead({ c }: { c: CorrectionView }) {
 
 function Entries({ entries }: { entries: CorrectionEntryLine[] }) {
   return (
-    <Table head={["Team", "Company", "Lot", "Cash change", "Share change"]} className="mt-2">
+    <Table head={["Team", "Company", "Cash change", "Share change"]} className="mt-2">
       {entries.map((e, i) => (
         <tr key={i}>
           <Td mono className="font-semibold">
             {e.party}
           </Td>
           <Td mono>{e.ticker}</Td>
-          <Td mono>{e.lot}</Td>
           <Td mono className={tone(e.cashSign)}>
             {e.cash}
           </Td>
@@ -128,4 +127,4 @@ function Entries({ entries }: { entries: CorrectionEntryLine[] }) {
 }
 
 const entryText = (e: CorrectionEntryLine) =>
-  [e.party, e.ticker, e.lot, e.cash, e.shares ? `${e.shares} shares` : ""].filter(Boolean).join(" · ");
+  [e.party, e.ticker, e.cash, e.shares ? `${e.shares} shares` : ""].filter(Boolean).join(" · ");
