@@ -1,12 +1,10 @@
 // Printable login cards: 8 per A4 page (2 × 4), with dashed cut lines. Black on white for any printer.
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import type { Track } from "@msim/engine";
 
 export interface LoginCard {
   code: string;
   password: string;
-  track: Track;
   teamName: string;
 }
 
@@ -21,12 +19,6 @@ const MARGIN = 24;
 const COLS = 2;
 const ROWS = 4;
 export const CARDS_PER_PAGE = COLS * ROWS;
-
-const TRACK_LABEL: Record<Track, string> = {
-  PRODUCT: "PRODUCT TEAM",
-  CONSULTING: "CONSULTING TEAM",
-  FINANCE: "FINANCE TEAM",
-};
 
 /** The standard PDF fonts only cover WinAnsi; replace anything else so a name never breaks the print run. */
 export function toWinAnsi(text: string): string {
@@ -58,7 +50,7 @@ function dashedLine(page: PDFPage, x1: number, y1: number, x2: number, y2: numbe
 export async function renderLoginCards(cards: readonly LoginCard[], opts: CardSheetOptions): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(toWinAnsi(`${opts.eventName} - login cards`));
-  doc.setCreator("Market Simulation platform");
+  doc.setCreator("PRIMUS platform");
   const sans = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const mono = await doc.embedFont(StandardFonts.CourierBold);
@@ -82,9 +74,9 @@ export async function renderLoginCards(cards: readonly LoginCard[], opts: CardSh
       const top = A4[1] - MARGIN - row * cardH - pad;
       const w = cardW - 2 * pad;
 
-      // Header band: track (inverted) and event name.
+      // Header band (inverted) and event name.
       page.drawRectangle({ x: x - 2, y: top - 18, width: w + 4, height: 20, color: rgb(0, 0, 0) });
-      page.drawText(TRACK_LABEL[card.track], { x: x + 4, y: top - 13, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText("TEAM CARD", { x: x + 4, y: top - 13, size: 10, font: bold, color: rgb(1, 1, 1) });
       const evt = fit(opts.rehearsal ? `REHEARSAL · ${opts.eventName}` : opts.eventName, sans, 8, w * 0.55);
       page.drawText(evt, {
         x: x + w - sans.widthOfTextAtSize(evt, 8) - 4,

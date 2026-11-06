@@ -77,25 +77,31 @@ export function problemCardsFromCsv(text: string): ProblemCard[] {
   return cards;
 }
 
-/** Columns: category, number, title, body. */
+/** Columns: number, category, title, body. Ten crisis types, one card each, numbered 1–10. */
 export function crisisCardsFromCsv(text: string): CrisisCard[] {
-  return parseCsvObjects(text).map((r, i) => {
+  const cards = parseCsvObjects(text).map((r, i) => {
+    const number = Number(r.number);
+    if (!Number.isInteger(number) || number < 1) throw new Error(`crisis CSV row ${i + 2}: bad number`);
     if (!r.category || !r.title || !r.body) throw new Error(`crisis CSV row ${i + 2}: category, title and body are required`);
-    return { category: r.category, number: Number(r.number || 1), title: r.title, body: r.body };
+    return { category: r.category, number, title: r.title, body: r.body };
   });
+  const numbers = new Set(cards.map((c) => c.number));
+  if (numbers.size !== cards.length) throw new Error("crisis CSV: card numbers must be unique");
+  return cards;
 }
 
-export interface FlashBulletin {
+/** A bulletin prepared before the night (the twist): title and body. */
+export interface PreparedBulletin {
   title: string;
   body: string;
 }
 
 /** Columns: title, body; exactly one row. */
-export function flashBulletinFromCsv(text: string): FlashBulletin {
+export function bulletinFromCsv(text: string, what = "bulletin"): PreparedBulletin {
   const rows = parseCsvObjects(text);
-  if (rows.length !== 1) throw new Error(`flash bulletin CSV: exactly one row after the header (found ${rows.length})`);
+  if (rows.length !== 1) throw new Error(`${what} CSV: exactly one row after the header (found ${rows.length})`);
   const { title, body } = rows[0]!;
-  if (!title || !body) throw new Error("flash bulletin CSV: title and body are required");
-  if (title.length > 140) throw new Error("flash bulletin CSV: the title is at most 140 characters");
+  if (!title || !body) throw new Error(`${what} CSV: title and body are required`);
+  if (title.length > 140) throw new Error(`${what} CSV: the title is at most 140 characters`);
   return { title, body };
 }

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { eventStartIST } from "@msim/engine";
 import { required } from "./args";
 import {
+  bulletinFromCsv,
   crisisCardsFromCsv,
   problemCardsFromCsv,
   staffFromCsv,
@@ -13,16 +14,18 @@ import {
 
 export const USAGE = `Options:
   --slug <slug>            event id, e.g. live-2026 (required)
-  --name <name>            event name (default "Market Simulation")
+  --name <name>            event name (default "PRIMUS")
   --date <YYYY-MM-DD>      event day; 20:00 IST that day is the start (live events)
   --starts-at <ISO time>   exact start instead of --date (rehearsals)
-  --rehearsal              rehearsal event: X-prefixed codes, may have fewer teams
+  --rehearsal              rehearsal event: X001… codes, may have fewer teams
   --speed <n>              clock speed (default 1; rehearsal default 10)
-  --teams-per-track <n>    default 50
+  --team-count <n>         number of teams (default 150; rehearsals may use fewer)
+  --code-letter <A-Z>      rehearsal team-code letter (default X)
   --teams <csv>            team names and members (optional)
   --staff <csv>            organiser, fairness officer and display logins (optional)
   --problems <csv>         problem deck (default seed/problem-cards.csv)
   --crises <csv>           crisis deck (default seed/crisis-cards.csv)
+  --twist <csv>            the twist published at 22:15 (default seed/twist.csv; it can be edited in /admin)
   --commitment <sha256>    published SHA-256 of the secret lottery seed (pnpm new-seed; can be set in /admin until the event starts)
 Environment: CARD_SECRET, TEAM_EMAIL_DOMAIN`;
 
@@ -40,17 +43,19 @@ export function optionsFromArgs(args: Record<string, string | true>): SeedOption
   const read = (path: string) => readFileSync(path, "utf8");
   return {
     slug,
-    name: str("name") ?? (rehearsal ? "Market Simulation (rehearsal)" : "Market Simulation"),
+    name: str("name") ?? (rehearsal ? "PRIMUS (rehearsal)" : "PRIMUS"),
     rehearsal,
     clockSpeed: Number(str("speed") ?? (rehearsal ? 10 : 1)),
     startsAt,
-    teamsPerTrack: Number(str("teams-per-track") ?? 50),
+    teamCount: Number(str("team-count") ?? 150),
+    codeLetter: str("code-letter"),
     cardSecret: required("CARD_SECRET"),
     emailDomain: required("TEAM_EMAIL_DOMAIN"),
     teamRows: str("teams") ? teamRowsFromCsv(read(str("teams")!)) : undefined,
     staff: str("staff") ? staffFromCsv(read(str("staff")!)) : undefined,
     problemCards: problemCardsFromCsv(read(str("problems") ?? "seed/problem-cards.csv")),
     crisisCards: crisisCardsFromCsv(read(str("crises") ?? "seed/crisis-cards.csv")),
+    twist: bulletinFromCsv(read(str("twist") ?? "seed/twist.csv"), "twist"),
     seedCommitment: str("commitment"),
   };
 }

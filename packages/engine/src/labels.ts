@@ -1,48 +1,34 @@
-// Names shown on screens for phases, deadlines and tracks (shared by the control panel, the team portal and the
-// big screen).
+// Names shown on screens for phases and deadlines (shared by the control panel, the team portal and the big screen).
 
-import type { DeadlineCode, PhaseCode, Track } from "./types";
+import type { DeadlineCode, PhaseCode, SubmissionType } from "./types";
 
 export const PHASE_LABELS: Record<PhaseCode, string> = {
   SETUP: "Setup",
   CHECKIN: "Check-in",
   BRIEFING: "Briefing",
-  SQUAD_DRAW: "Squad draw",
-  BUILD: "Build",
-  READING: "Reading",
-  IPO: "IPO",
-  ROUNDS_1_4: "Rounds 1–4",
-  CRISIS: "Crisis",
-  RESCUE_1: "Rescue 1",
-  BREAK: "Break",
-  RESCUE_2: "Rescue 2",
-  PLANS_PUBLISHED: "Plans published",
-  VERDICTS: "Verdicts",
-  ROUNDS_13_21: "Rounds 13–21",
-  CLOSE: "Close",
-  SETTLEMENT: "Settlement",
-  APPEALS: "Appeals",
+  BUILD: "Round 1: Build",
+  JUDGING_1: "Judging the PRDs",
+  REVEAL_1: "PRD reveal",
+  CRISIS_QA: "The crisis",
+  RESCUE: "Round 2: Rescue",
+  JUDGING_2: "Judging the solutions",
+  MARKET_BLIND: "Round 3: Invest",
+  MARKET: "Round 3: Invest",
+  SETTLEMENT: "Closing bell",
   AWARDS: "Awards",
 };
 
 export const DEADLINE_LABELS: Record<DeadlineCode, string> = {
-  PROBLEM_PICK: "Problem card pick",
-  PITCH: "Pitch",
-  CALL_1: "Consultant call 1",
-  IPO_BIDS: "IPO bids",
-  FEE: "Advisor fee",
-  DEAL_BONUS: "Deal bonus cut-off",
-  DEAL: "Rescue deal",
-  PLAN: "Rescue plan",
-  CALL_2: "Consultant call 2",
-  FLASH_BULLETIN: "Flash bulletin",
-  FLASH: "Flash answer",
-  FLASH_TIER: "Flash tier",
-  CALL_3: "Consultant call 3",
+  PROBLEM_DRAW: "Problem cards",
+  TWIST: "The twist",
+  PRD_LOCK: "PRD form locks",
+  QA_CLOSE: "Q&A board closes",
+  SOLUTION_LOCK: "Crisis solution form locks",
+  LEADERBOARD_FREEZE: "Leaderboard freezes",
+  MARKET_CLOSE: "Closing bell",
 };
 
-export const TRACK_LABELS: Record<Track, string> = {
-  PRODUCT: "Product",
-  CONSULTING: "Consulting",
-  FINANCE: "Finance",
+export const SUBMISSION_LABELS: Record<SubmissionType, string> = {
+  PRD: "PRD",
+  SOLUTION: "Crisis solution",
 };

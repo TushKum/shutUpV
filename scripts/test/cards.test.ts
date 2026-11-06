@@ -8,17 +8,17 @@ import { CARDS_PER_PAGE, renderLoginCards, toWinAnsi } from "../lib/cards";
 import { buildSeedPlan } from "../lib/seed-plan";
 
 const plan = buildSeedPlan({
-  slug: "live-2026",
-  name: "Market Simulation 2026",
+  slug: "primus-2026",
+  name: "PRIMUS",
   rehearsal: false,
   clockSpeed: 1,
-  startsAt: new Date("2026-11-14T14:30:00Z"),
-  teamsPerTrack: 50,
+  startsAt: new Date("2026-11-20T14:30:00Z"),
+  teamCount: 150,
   cardSecret: "test-secret-0123456789",
   emailDomain: "teams.example.org",
 });
 
-const cards = plan.teams.map((t) => ({ code: t.code, password: t.password, track: t.track, teamName: t.name }));
+const cards = plan.teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name }));
 
 test("150 cards print on 19 A4 pages, 8 per page", async () => {
   const bytes = await renderLoginCards(cards, { eventName: plan.event.name, loginUrl: "https://msim.example.org/login" });
@@ -35,9 +35,9 @@ test("150 cards print on 19 A4 pages, 8 per page", async () => {
   // When poppler is installed, check that the code and password are really on the page.
   if (existsSync("/usr/bin/pdftotext")) {
     const text = execFileSync("pdftotext", ["-f", "1", "-l", "1", file, "-"], { encoding: "utf8" });
-    expect(text).toContain("P01");
+    expect(text).toContain("T001");
     expect(text).toContain(cards[0]!.password);
-    expect(text).toContain("PRODUCT TEAM");
+    expect(text).toContain("TEAM CARD");
   }
 });
 

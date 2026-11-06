@@ -2,7 +2,7 @@
 // again at any time (for example to reprint a lost card) with the same options used for seeding.
 //
 //   CARD_SECRET=… TEAM_EMAIL_DOMAIN=… APP_URL=https://… \
-//     pnpm cards --slug live-2026 --date 2026-11-14 [--teams seed/teams.csv] [--only P07,F12]
+//     pnpm cards --slug primus-2026 --date 2026-11-20 [--teams seed/teams.csv] [--only T007,T112]
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { parseArgs } from "./lib/args";
@@ -18,7 +18,7 @@ async function main() {
   const appUrl = (process.env.APP_URL ?? "https://your-app.vercel.app").replace(/\/$/, "");
 
   const pdf = await renderLoginCards(
-    teams.map((t) => ({ code: t.code, password: t.password, track: t.track, teamName: t.name })),
+    teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name })),
     { eventName: plan.event.name, loginUrl: `${appUrl}/login`, rehearsal: plan.event.is_rehearsal },
   );
   mkdirSync("out", { recursive: true });

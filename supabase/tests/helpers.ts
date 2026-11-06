@@ -64,9 +64,10 @@ export const TEST_STAFF: StaffRow[] = [
   { email: "display@example.org", role: "DISPLAY", name: "Projector" },
 ];
 
-// Team codes are logins, so they are unique across events; each test event gets its own prefix letter.
-let prefixCounter = 0;
-const PREFIXES = "ABDEGHJKLMNQRSTUVWYZ";
+// Team codes are logins, so they are unique across events; each test event gets its own code letter (T is the live
+// event's).
+let letterCounter = 0;
+const LETTERS = "ABCDEFGHJKLMNPQRSUVWYZ";
 
 /** Creates auth users (as Supabase Auth would) and calls seed_event() as the service role. */
 export async function seedEvent(pool: pg.Pool, overrides: Partial<SeedOptions> = {}): Promise<SeededEvent> {
@@ -76,18 +77,24 @@ export async function seedEvent(pool: pg.Pool, overrides: Partial<SeedOptions> =
     rehearsal: true,
     clockSpeed: 1,
     startsAt: new Date(Date.now() + 3_600_000),
-    teamsPerTrack: 3,
+    teamCount: 6,
     cardSecret: "test-secret-0123456789",
     emailDomain: "teams.example.org",
     staff: TEST_STAFF,
-    problemCards: Array.from({ length: 9 }, (_, i) => ({
+    problemCards: Array.from({ length: 6 }, (_, i) => ({
       number: i + 1,
       sector: "Test",
       title: `Problem ${i + 1}`,
       body: "A problem.",
     })),
-    crisisCards: [{ category: "Test", number: 1, title: "Crisis", body: "Something bad." }],
-    codePrefix: overrides.rehearsal === false ? "" : PREFIXES[prefixCounter++ % PREFIXES.length],
+    crisisCards: Array.from({ length: 10 }, (_, i) => ({
+      number: i + 1,
+      category: `Type ${i + 1}`,
+      title: `Crisis ${i + 1}`,
+      body: "Something bad.",
+    })),
+    twist: { title: "The twist", body: "Distributors want 3% more margin." },
+    codeLetter: overrides.rehearsal === false ? "T" : LETTERS[letterCounter++ % LETTERS.length],
     ...overrides,
   });
 
