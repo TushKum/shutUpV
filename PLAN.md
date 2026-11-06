@@ -131,6 +131,26 @@ by `drafts`).
    close.
 8. The leaderboard shows team codes and names (it is public until 03:30, per the guide).
 
+## 7a. Decisions made while building (Phase 2)
+
+1. **Penalty:** an "attempt" is one line removed from a team's submission. The team's second removed line (PRD lines
+   counted before the solution's) costs 10 points, once, from the round whose submission contains it.
+2. **Lottery:** the seed and dice entered at 21:15 deal the problem cards; the same seed and dice give the crisis
+   cards and the rescue circle at 23:45, when the seed is published. Until then it is kept staff-only.
+3. **Locks are exclusive:** a save at exactly 23:00:00 (or 01:45:00) is refused. The tick locks at the deadline, and
+   an early phase advance pulls the deadline in.
+4. **Empty PRD = no PRD:** a draft with no words counts as missing (0 points, $5.00). A company with no ticker at the
+   lock gets a default one (Q + three letters) and the name "Company T001".
+5. **Writing windows:** PRD from the draw until 23:00 (BRIEFING or BUILD); crisis solution from the crisis (23:45)
+   until 01:45, so the 30 minutes of Q&A can be used to start writing.
+6. **Q&A:** questions close at 00:15; the founding team may still answer until 01:45.
+7. **Rumours** can be published from Round 2 (RESCUE) onwards.
+8. **Live leaderboard:** Round 3 points count from 02:15 (at current market prices); before that only R1 (from
+   23:30). The rankings endpoint returns 403 to teams and the projector from the 03:30 freeze until AWARDS.
+9. **Sealed scores are organisers-only:** the fairness officer sees a score (and its judge readings) from its reveal.
+10. **Ties for awards:** exact ties share an award (two rows). Flag 3 counts a team when it goes from under 5,000 to
+    exactly 5,000 shares in one round's clearing.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

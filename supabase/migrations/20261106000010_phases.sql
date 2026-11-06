@@ -1,5 +1,6 @@
 -- The phase state machine: advance (with gates), pause, resume, extend, auto-advance and the tick that opens and
--- clears rounds and applies time-based defaults. Times shift so that every team loses the same amount of time.
+-- clears rounds and runs the night's timed steps (the twist, the locks, the leaderboard freeze). Times shift so that
+-- every team loses the same amount of time.
 
 create or replace function app.phase_after(p_phase public.phase_code)
 returns public.phase_code
@@ -8,26 +9,20 @@ as $$
   select x from unnest(enum_range(null::public.phase_code)) x where x > p_phase order by x limit 1
 $$;
 
--- Has the window that this deadline closes opened yet? (A deadline whose window is still to open — the IPO bids
--- before the IPO, call 2 before the plan scores — moves with a late start even if its time has passed; one whose
--- window was open never reopens.)
+-- Has the window that this deadline closes opened yet? A deadline whose window has not opened moves with a late
+-- start even if its time has passed; one whose window was open never reopens.
 create or replace function app.window_opened(p_event uuid, p_code public.deadline_code)
 returns boolean
 language sql stable
 as $$
   select case p_code
-    when 'PROBLEM_PICK' then e.drawn_at is not null
-    when 'PITCH' then e.drawn_at is not null
-    when 'CALL_1' then e.drawn_at is not null
-    when 'IPO_BIDS' then e.current_phase >= 'IPO'
-    when 'FEE' then e.crisis_applied_at is not null
-    when 'DEAL_BONUS' then e.crisis_applied_at is not null
-    when 'DEAL' then e.crisis_applied_at is not null
-    when 'PLAN' then e.crisis_applied_at is not null
-    when 'CALL_2' then app.score_released(e.id, 'PLAN')
-    when 'FLASH' then exists (select 1 from public.bulletins b where b.event_id = e.id and b.kind = 'FLASH'
-                                and b.published_at is not null and b.published_at <= now())
-    when 'CALL_3' then app.score_released(e.id, 'FLASH')
+    when 'PROBLEM_DRAW' then e.current_phase >= 'BRIEFING'
+    when 'TWIST' then e.drawn_at is not null
+    when 'PRD_LOCK' then e.drawn_at is not null
+    when 'QA_CLOSE' then e.crisis_applied_at is not null
+    when 'SOLUTION_LOCK' then e.crisis_applied_at is not null
+    when 'LEADERBOARD_FREEZE' then e.prices_started_at is not null
+    when 'MARKET_CLOSE' then e.current_phase >= 'MARKET_BLIND'
     else false
   end
   from public.events e where e.id = p_event
@@ -43,8 +38,6 @@ begin
   if p_delta <= interval '0' then
     return;
   end if;
-  -- Only what has not happened yet moves: a phase that has started keeps its start, a round that has
-  -- opened keeps its opening time, and a cleared round never moves.
   update public.phases set ends_at = ends_at + p_delta where event_id = p_event and ends_at >= p_from and ended_at is null;
   update public.phases set starts_at = starts_at + p_delta where event_id = p_event and starts_at >= p_from and started_at is null;
   update public.rounds set closes_at = closes_at + p_delta where event_id = p_event and closes_at >= p_from and status in ('SCHEDULED', 'OPEN');
@@ -62,19 +55,19 @@ language sql stable
 as $$
   select case e.current_phase
     when 'SETUP' then case when e.seed_commitment is null then 'Publish the seed commitment before the event starts.' end
-    when 'SQUAD_DRAW' then case when e.drawn_at is null then 'The lottery has not been drawn.' end
-    when 'READING' then case when not app.score_released(e.id, 'PITCH') then 'Pitch scores have not been released.' end
-    when 'VERDICTS' then case when not app.score_released(e.id, 'PLAN') then 'Plan scores have not been released.' end
-    when 'ROUNDS_13_21' then case when not app.score_released(e.id, 'FLASH') then 'Flash scores have not been released.' end
-    when 'APPEALS' then case when exists (select 1 from public.flags f where f.event_id = e.id and f.status = 'OPEN')
-                             then 'Collusion flags are still open for the fairness officer.' end
+    when 'BRIEFING' then case when e.drawn_at is null then 'Run the lottery (seed and dice) to deal the problem cards.' end
+    when 'JUDGING_1' then case when not app.all_sealed(e.id, 'PRD') then 'Some PRD scores are not sealed yet.' end
+    when 'MARKET_BLIND' then case when not app.all_sealed(e.id, 'SOLUTION')
+                                  then 'Some crisis-solution scores are not sealed yet (needed for the 02:45 reveal).' end
+    when 'SETTLEMENT' then case when exists (select 1 from public.flags f where f.event_id = e.id and f.status = 'OPEN')
+                                then 'Collusion flags are still open for the fairness officer.' end
     when 'AWARDS' then 'The event has ended.'
   end
   from public.events e where e.id = p_event
 $$;
 
--- Leaves the phase p_from (which must still be the current one, so that a tick and an organiser advancing at the
--- same moment cannot skip a phase) and enters the next one, running each transition's actions.
+-- Leaves the phase p_from (which must still be the current one, so a tick and an organiser advancing at the same
+-- moment cannot skip a phase) and enters the next one, running each transition's steps.
 create or replace function app.do_advance(p_event uuid, p_from public.phase_code)
 returns jsonb
 language plpgsql
@@ -96,50 +89,35 @@ begin
   end if;
   v_next := app.phase_after(v_event.current_phase);
 
-  -- A phase that publishes work closes its windows (below). Submissions lock their company and signatures their
-  -- deal before checking the window, so lock those first (before any clearing: lock order, PLAN §46): an
-  -- in-flight submission or signature either commits before this advance or sees the window closed.
-  if v_next in ('READING', 'PLANS_PUBLISHED') then
-    perform 1 from public.companies where event_id = p_event and squad_id is not null order by id for no key update;
-  end if;
-  if v_next = 'PLANS_PUBLISHED' then
-    perform 1 from public.deals where event_id = p_event order by id for no key update;
-  end if;
-
   -- Leaving: a trading phase closes and clears all of its rounds (a round that never opened records unchanged prices).
   for r in select id from public.rounds where event_id = p_event and phase = v_event.current_phase and status <> 'CLEARED' order by number loop
     perform app.clear_round(r.id, true);
   end loop;
-  if v_event.current_phase = 'IPO' then
-    perform app.allocate_ipo(p_event);
-  end if;
 
   -- Late start: if the next phase should already have begun, everything from its planned start moves by the delay.
   select * into v_phase from public.phases where event_id = p_event and code = v_next;
   if v_phase.starts_at < now() - interval '5 seconds' then
     perform app.shift_schedule(p_event, v_phase.starts_at, now() - v_phase.starts_at, true);
   end if;
-  -- Early: a phase that publishes work closes the windows for that work, whatever the clock says.
-  update public.deadlines set at = least(at, clock_timestamp())
-   where event_id = p_event
-     and code = any (case v_next when 'READING' then array['PITCH']::public.deadline_code[]
-                                 when 'PLANS_PUBLISHED' then array['PLAN', 'DEAL']::public.deadline_code[]
-                                 else '{}'::public.deadline_code[] end);
   update public.phases set ended_at = now() where event_id = p_event and code = v_event.current_phase;
   update public.phases set started_at = now() where event_id = p_event and code = v_next;
   update public.events set current_phase = v_next, phase_started_at = now() where id = p_event;
 
   -- Entering.
   case v_next
-    when 'BUILD' then
-      -- The pick may still be open after an early advance; the tick applies the defaults at its deadline.
-      if app.deadline_passed(p_event, 'PROBLEM_PICK') then
-        perform app.default_problem_cards(p_event);
-      end if;
-    when 'READING' then perform app.default_tickers(p_event);
-    when 'CRISIS' then perform app.apply_crisis(p_event);
-    when 'CLOSE' then perform app.close_market(p_event);
-    when 'SETTLEMENT' then perform app.settle(p_event);
+    when 'JUDGING_1' then perform app.lock_submissions(p_event, 'PRD');
+    when 'REVEAL_1' then perform app.reveal_prd(p_event);
+    when 'CRISIS_QA' then perform app.apply_crisis(p_event);
+    when 'RESCUE' then
+      update public.deadlines set at = least(at, now()) where event_id = p_event and code = 'QA_CLOSE';
+    when 'JUDGING_2' then perform app.lock_submissions(p_event, 'SOLUTION');
+    when 'MARKET_BLIND' then perform app.publish_solutions(p_event);
+    when 'MARKET' then perform app.reveal_solutions(p_event);
+    when 'SETTLEMENT' then
+      perform app.freeze_leaderboard(p_event);
+      update public.deadlines set at = least(at, now()) where event_id = p_event and code = 'MARKET_CLOSE';
+      perform app.close_market(p_event);
+      perform app.settle(p_event);
     else null;
   end case;
 
@@ -155,13 +133,14 @@ language plpgsql security definer set search_path = ''
 as $$
 declare
   v_current public.phase_code;
+  v_paused boolean;
 begin
   perform app.require_organiser();
-  select current_phase into v_current from public.events where id = p_event for no key update;
+  select current_phase, paused into v_current, v_paused from public.events where id = p_event for no key update;
   if v_current is distinct from p_from then
     return app.fail('STALE', format('The event is already in %s.', v_current));
   end if;
-  if (select paused from public.events where id = p_event) then
+  if v_paused then
     return app.fail('PAUSED', 'Resume the event before advancing.');
   end if;
   return app.do_advance(p_event, p_from);
@@ -199,8 +178,8 @@ begin
   end if;
   perform app.shift_schedule(p_event, v_event.paused_at, now() - v_event.paused_at);
   -- Items that were already due when the pause began but had not started (a phase waiting at a gate, a round
-  -- waiting for the tick) also move, with the deadlines whose windows they open, or the pause would be counted
-  -- again as lateness when they start.
+  -- waiting for the tick) also move, with the deadlines whose windows they open, or the pause would be counted again
+  -- as lateness when they start.
   v_held := least(
     (select min(starts_at) from public.phases
       where event_id = p_event and started_at is null and code > v_event.current_phase and starts_at < v_event.paused_at),
@@ -263,10 +242,8 @@ declare
   v_round public.rounds;
 begin
   perform app.require_organiser();
-  -- Like the tick, hold the event first: a clearing never interleaves with another clearing or a correction.
   perform 1 from public.events where id = p_event for no key update;
-  select * into v_round from public.rounds
-   where event_id = p_event and status = 'OPEN' order by number limit 1;
+  select * into v_round from public.rounds where event_id = p_event and status = 'OPEN' order by number limit 1;
   if v_round.id is null then
     return app.fail('NO_OPEN_ROUND', 'No round is open.');
   end if;
@@ -274,9 +251,9 @@ begin
 end
 $$;
 
--- The heartbeat (pg_cron every 2 s; the admin console calls it too). Idempotent and safe to call any time:
--- clears rounds whose time is up, opens the next round, applies the problem-card and fee defaults at their
--- deadlines, and advances the phase on schedule when auto-advance is on.
+-- The heartbeat (pg_cron every 2 s; the admin console calls it too). Idempotent and safe to call any time: clears
+-- rounds whose time is up, opens the next round, publishes the twist at 22:15, locks the PRDs at 23:00 and the
+-- solutions at 01:45, freezes the leaderboard at 03:30, and advances the phase on schedule when auto-advance is on.
 create or replace function public.tick(p_event uuid)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -293,8 +270,6 @@ begin
   if not pg_try_advisory_xact_lock(hashtext('tick:' || p_event::text)) then
     return app.ok(jsonb_build_object('skipped', true));
   end if;
-  -- Serialise with organiser actions (advance, pause, extend), which lock the event row. NO KEY UPDATE still lets
-  -- team actions take their KEY SHARE locks on it.
   select * into v_event from public.events where id = p_event for no key update;
   if v_event.id is null or v_event.paused then
     return app.ok(jsonb_build_object('paused', coalesce(v_event.paused, false)));
@@ -307,8 +282,6 @@ begin
       v_actions := v_actions || ('cleared ' || r.number);
     elsif r.status = 'SCHEDULED' and now() >= r.opens_at then
       exit when exists (select 1 from public.rounds p where p.event_id = p_event and p.number < r.number and p.status <> 'CLEARED');
-      -- Round 18 waits for the flash tier (applied after round 17 clears).
-      exit when r.number = 18 and not app.score_released(p_event, 'FLASH');
       v_late := now() - r.opens_at;
       if v_late > interval '5 seconds' then
         perform app.shift_schedule(p_event, r.opens_at, v_late, true);
@@ -322,12 +295,23 @@ begin
     end if;
   end loop;
 
-  if v_event.drawn_at is not null and app.deadline_passed(p_event, 'PROBLEM_PICK') then
-    perform app.default_problem_cards(p_event);
+  -- Timed steps.
+  if v_event.drawn_at is not null and v_event.twist_published_at is null and app.deadline_passed(p_event, 'TWIST') then
+    perform app.publish_twist(p_event);
+    v_actions := v_actions || 'twist'::text;
   end if;
-  if v_event.crisis_applied_at is not null and app.deadline_passed(p_event, 'FEE')
-     and exists (select 1 from public.fees where event_id = p_event and executed_at is null) then
-    v_actions := v_actions || ('default fees ' || app.apply_default_fees(p_event));
+  if v_event.drawn_at is not null and v_event.prds_locked_at is null and app.deadline_passed(p_event, 'PRD_LOCK') then
+    perform app.lock_submissions(p_event, 'PRD');
+    v_actions := v_actions || 'PRDs locked'::text;
+  end if;
+  if v_event.crisis_applied_at is not null and v_event.solutions_locked_at is null and app.deadline_passed(p_event, 'SOLUTION_LOCK') then
+    perform app.lock_submissions(p_event, 'SOLUTION');
+    v_actions := v_actions || 'solutions locked'::text;
+  end if;
+  if v_event.leaderboard_frozen_at is null and v_event.current_phase >= 'MARKET_BLIND'
+     and app.deadline_passed(p_event, 'LEADERBOARD_FREEZE') then
+    perform app.freeze_leaderboard(p_event);
+    v_actions := v_actions || 'leaderboard frozen'::text;
   end if;
 
   if v_event.auto_advance then
@@ -344,16 +328,3 @@ begin
   return app.ok(jsonb_build_object('actions', to_jsonb(v_actions)));
 end
 $$;
-
-do $$
-declare f text;
-begin
-  foreach f in array array[
-    'public.advance_phase(uuid, public.phase_code)', 'public.pause_event(uuid)', 'public.resume_event(uuid)',
-    'public.extend_event(uuid, integer)', 'public.set_auto_advance(uuid, boolean)', 'public.close_round_now(uuid)',
-    'public.tick(uuid)'
-  ] loop
-    execute format('revoke all on function %s from public, anon', f);
-    execute format('grant execute on function %s to authenticated, service_role', f);
-  end loop;
-end $$;

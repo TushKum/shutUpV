@@ -288,8 +288,10 @@ create policy submissions_read on public.submissions for select to authenticated
          and ((type = 'PRD' and app.phase_reached(event_id, 'REVEAL_1'))
            or (type = 'SOLUTION' and app.phase_reached(event_id, 'MARKET_BLIND')))));
 
+-- A score is secret until its reveal (PRD 23:30, SOLUTION 02:45) from everyone but the organisers, the fairness
+-- officer included.
 create policy scores_read on public.scores for select to authenticated
-  using ((select app.is_staff())
+  using ((select app.is_organiser())
      or (status = 'REVEALED' and (select app.in_my_event(event_id))));
 
 create policy results_read on public.results for select to authenticated
@@ -302,10 +304,17 @@ create policy awards_read on public.awards for select to authenticated
 
 -- Staff only
 create policy event_secrets_read on public.event_secrets for select to authenticated using ((select app.is_staff()));
-create policy judge_runs_read on public.judge_runs for select to authenticated using ((select app.is_staff()));
+-- Judge readings and appeals carry scores: organisers always, the fairness officer once the score is revealed.
+create policy judge_runs_read on public.judge_runs for select to authenticated
+  using ((select app.is_organiser())
+     or ((select app.is_fairness()) and exists (select 1 from public.scores s where s.company_id = judge_runs.company_id
+                                                   and s.type = judge_runs.type and s.status = 'REVEALED')));
 create policy injection_logs_read on public.injection_logs for select to authenticated using ((select app.is_staff()));
 create policy judge_injection_checks_read on public.judge_injection_checks for select to authenticated using ((select app.is_staff()));
-create policy appeals_read on public.appeals for select to authenticated using ((select app.is_staff()));
+create policy appeals_read on public.appeals for select to authenticated
+  using ((select app.is_organiser())
+     or ((select app.is_fairness()) and exists (select 1 from public.scores s where s.company_id = appeals.company_id
+                                                   and s.type = appeals.type and s.status = 'REVEALED')));
 create policy calibration_samples_read on public.calibration_samples for select to authenticated using ((select app.is_staff()));
 create policy calibration_runs_read on public.calibration_runs for select to authenticated using ((select app.is_staff()));
 create policy corrections_read on public.corrections for select to authenticated using ((select app.is_staff()));
@@ -316,7 +325,10 @@ create policy client_pings_read on public.client_pings for select to authenticat
 -- Collusion flags are for the fairness officer only, including their history in the audit log.
 create policy flags_read on public.flags for select to authenticated using ((select app.is_fairness()));
 create policy audit_log_read on public.audit_log for select to authenticated
-  using ((select app.is_staff()) and (entity <> 'flags' or (select app.is_fairness())));
+  using ((select app.is_staff())
+     and (entity <> 'flags' or (select app.is_fairness()))
+     -- Score history is the organisers' (the fairness officer reads revealed scores in the scores table itself).
+     and (entity not in ('scores', 'judge_runs', 'appeals') or (select app.is_organiser())));
 
 -- rate_limits: RLS on, no policy → no rows for any client role.
 
