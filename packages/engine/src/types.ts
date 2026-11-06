@@ -52,8 +52,11 @@ export type OrderType = (typeof ORDER_TYPES)[number];
 export const SUBMISSION_TYPES = ["PRD", "SOLUTION"] as const;
 export type SubmissionType = (typeof SUBMISSION_TYPES)[number];
 
-export const PRICE_KINDS = ["START", "CRISIS", "REVEAL", "CLEARING", "CLOSE"] as const;
+export const PRICE_KINDS = ["START", "CRISIS", "REVEAL", "CLEARING", "CLOSE", "APPEAL"] as const;
 export type PriceKind = (typeof PRICE_KINDS)[number];
 
 export const BULLETIN_KINDS = ["GENERAL", "TWIST", "CRISIS", "RUMOUR", "FAIRNESS", "SYSTEM"] as const;
 export type BulletinKind = (typeof BULLETIN_KINDS)[number];
+
+export const AWARD_CODES = ["WINNER", "RUNNER_UP", "THIRD", "BEST_PRD", "BEST_SOLUTION", "BEST_INVESTOR", "BEST_COMPANY"] as const;
+export type AwardCode = (typeof AWARD_CODES)[number];
