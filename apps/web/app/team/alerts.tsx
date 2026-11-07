@@ -1,17 +1,15 @@
 "use client";
 
 // Alerts for a team: a toast 5 minutes and 1 minute before each of its open deadlines, and when something happens
-// (a round clears or opens, news, the crisis, scores, a squad chat message). Each deadline warning is given once per
+// (the problem cards, the twist, the scores, the crisis, a round opening or clearing, news, the closing bell). Each deadline warning is given once per
 // screen session, even across refreshes. A team can switch on a beep and a buzz (SoundToggle, in the header); browsers allow sound only
 // after a click, which the switch is. The clock is the event's, so nothing counts down while the event is paused.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { Track } from "@msim/engine";
 import { useDeadlineNow } from "@/lib/live/clock";
 import { useEventChannel } from "@/lib/live/channel";
-import { useSquadChannel } from "@/lib/live/squad-channel";
 import { dueAlert, eventToast, leftText } from "@/lib/team/alerts";
 
 interface AlertTask {
@@ -26,11 +24,9 @@ interface Toast {
   text: string;
   tone: "info" | "good" | "warn";
   href: string | null;
-  /** A newer toast of the same group replaces it (chat messages). */
-  group?: string;
 }
 
-const SOUND_KEY = "msim:alert-sound";
+const SOUND_KEY = "primus:alert-sound";
 let audio: AudioContext | null = null;
 
 function soundOn(): boolean {
@@ -64,7 +60,7 @@ function beep(urgent: boolean) {
 
 function given(key: string): Set<number> {
   try {
-    return new Set(JSON.parse(sessionStorage.getItem(`msim:alert:${key}`) ?? "[]") as number[]);
+    return new Set(JSON.parse(sessionStorage.getItem(`primus:alert:${key}`) ?? "[]") as number[]);
   } catch {
     return new Set();
   }
@@ -72,7 +68,7 @@ function given(key: string): Set<number> {
 
 function remember(key: string, thresholds: number[]) {
   try {
-    sessionStorage.setItem(`msim:alert:${key}`, JSON.stringify([...new Set([...given(key), ...thresholds])]));
+    sessionStorage.setItem(`primus:alert:${key}`, JSON.stringify([...new Set([...given(key), ...thresholds])]));
   } catch {
     // Private mode: the warning may repeat after a refresh.
   }
@@ -84,7 +80,7 @@ const TONE = {
   warn: "border-amber-400 bg-amber-50 text-amber-950",
 } as const;
 
-export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Track; teamId: string }) {
+export function Alerts({ tasks }: { tasks: AlertTask[] }) {
   const now = useDeadlineNow(1000);
   const { last } = useEventChannel();
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -92,7 +88,7 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
 
   const push = (t: Omit<Toast, "id">, ms: number, loud: boolean, urgent = false) => {
     const id = nextId.current++;
-    setToasts((all) => [...all.filter((x) => !t.group || x.group !== t.group).slice(-3), { ...t, id }]);
+    setToasts((all) => [...all.slice(-3), { ...t, id }]);
     setTimeout(() => setToasts((all) => all.filter((x) => x.id !== id)), ms);
     if (loud) beep(urgent);
   };
@@ -114,21 +110,11 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
   useEffect(() => {
     if (!last || seen.current === last.receivedAt) return;
     seen.current = last.receivedAt;
-    const t = eventToast(last.event, last.payload, track);
+    const t = eventToast(last.event, last.payload);
     if (t) push({ text: t.text, tone: t.tone, href: t.href }, 10_000, t.loud);
-  }, [last, track]);
+  }, [last]);
 
-  // A squad chat message from another team, unless the chat is already open.
   const path = usePathname();
-  const squad = useSquadChannel();
-  const seenChat = useRef<number | null>(null);
-  useEffect(() => {
-    const m = squad.last;
-    if (!m || seenChat.current === m.receivedAt) return;
-    seenChat.current = m.receivedAt;
-    if (m.teamId === teamId || path === "/team/chat") return;
-    push({ text: "New message in your squad chat.", tone: "info", href: "/team/chat", group: "chat" }, 8_000, false);
-  }, [squad.last, teamId, path]);
 
   if (toasts.length === 0) return null;
   return (

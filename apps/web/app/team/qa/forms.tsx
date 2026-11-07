@@ -57,35 +57,21 @@ function PostForm({ action, children, label }: { action: Action; children: (pend
   );
 }
 
-export function AskForm({ action, companies, initial }: { action: Action; companies: { id: string; ticker: string; name: string | null }[]; initial: string | null }) {
+export function AskForm({ action, ticker }: { action: Action; ticker: string }) {
   return (
-    <PostForm action={action} label="Ask a question">
-      {(pending) => <AskFields companies={companies} initial={initial} pending={pending} />}
+    <PostForm action={action} label={`Ask ${ticker}'s founders`}>
+      {(pending) => <AskFields pending={pending} />}
     </PostForm>
   );
 }
 
-function AskFields({ companies, initial, pending }: { companies: { id: string; ticker: string; name: string | null }[]; initial: string | null; pending: boolean }) {
+function AskFields({ pending }: { pending: boolean }) {
   const [body, setBody] = useState("");
   const check = questionCheck(body);
   return (
     <div className="grid gap-3">
       <label className="block">
-        <span className="text-xs font-medium text-slate-600">Company</span>
-        <select name="company" required defaultValue={initial ?? ""} className={inputClass}>
-          <option value="" disabled>
-            Choose a company…
-          </option>
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.ticker}
-              {c.name ? ` · ${c.name}` : ""}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="block">
-        <span className="text-xs font-medium text-slate-600">Question</span>
+        <span className="text-xs font-medium text-slate-600">Question (public)</span>
         <textarea name="body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} maxLength={QUESTION_MAX_CHARS * 2} className={inputClass} />
       </label>
       <div className="flex flex-wrap items-center justify-between gap-2">

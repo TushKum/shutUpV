@@ -1,15 +1,15 @@
-// The Q&A board: questions per company, each with its answers. Every question and answer is public; who asked is
-// never shown (the asker column is not even readable by teams), and an answer is attributed to the company's ticker
-// (PLAN decision 20). Finance teams post questions (post_question: 1–1,000 characters, from Reading until the
-// close); the Product team answers questions about its own company (answer_question: 1–100 words, until the
-// close). These checks are guidance for the forms; the database checks again. Pure.
+// The Q&A board (23:45–00:15): the team rescuing a company asks that company's founding team, and the founders answer.
+// Every question and answer is public. Questions are up to 300 characters and close at 00:15; answers are up to 150
+// words and may be written until the solution lock (01:45), so a question asked at 00:14 can still be answered. These
+// checks are guidance for the forms; the database checks again. Pure.
 
-import { RULES, phaseReached, wordCount, type PhaseCode, type Track } from "@msim/engine";
+import { RULES, wordCount, type PhaseCode } from "@msim/engine";
 import { count } from "@/lib/format";
+import { deadlinePassed } from "./time";
 
-export const QUESTION_MAX_CHARS = 1000;
-export const ANSWER_MAX_WORDS = RULES.WORD_LIMIT.QA_ANSWER;
-export const ANSWER_MAX_CHARS = 1500;
+export const QUESTION_MAX_CHARS = RULES.QA_QUESTION_CHARS;
+export const ANSWER_MAX_WORDS = RULES.QA_ANSWER_WORDS;
+export const ANSWER_MAX_CHARS = RULES.QA_ANSWER_CHARS;
 export const QUESTIONS_PER_PAGE = 25;
 
 /** Characters as the database counts them (code points), after trimming. */
@@ -32,22 +32,36 @@ export function answerCheck(body: string): Check & { words: number } {
   return { ok: true, words };
 }
 
-export type BoardState = "NOT_YET" | "OPEN" | "CLOSED";
+export type WindowState = "NOT_YET" | "OPEN" | "CLOSED";
 
-/** The board opens with the pitch book (Reading) and closes at the close; answers close then too. */
-export function boardState(phase: PhaseCode): BoardState {
-  if (!phaseReached(phase, "READING")) return "NOT_YET";
-  return phaseReached(phase, "CLOSE") ? "CLOSED" : "OPEN";
+export interface BoardFacts {
+  phase: PhaseCode;
+  paused: boolean;
+  pausedAt: string | null;
+  nowMs: number;
+  crisisApplied: boolean;
+  qaClose: string | null;
+  solutionLock: string | null;
 }
 
-/** Who may do what on the board, by track (the database decides again). */
-export function boardRole(track: Track): "ASK" | "ANSWER" | "READ" {
-  return track === "FINANCE" ? "ASK" : track === "PRODUCT" ? "ANSWER" : "READ";
+/** Asking: in Crisis & Q&A, until 00:15 (as post_question decides). */
+export function askState(f: BoardFacts): WindowState {
+  if (!f.crisisApplied) return "NOT_YET";
+  if (f.phase !== "CRISIS_QA" || f.paused || deadlinePassed(f.qaClose, f.nowMs)) return "CLOSED";
+  return "OPEN";
+}
+
+/** Answering: in Crisis & Q&A or Rescue, until 01:45 (as answer_question decides). */
+export function answerState(f: BoardFacts): WindowState {
+  if (!f.crisisApplied) return "NOT_YET";
+  if ((f.phase !== "CRISIS_QA" && f.phase !== "RESCUE") || f.paused || deadlinePassed(f.solutionLock, f.nowMs)) return "CLOSED";
+  return "OPEN";
 }
 
 export interface QuestionRow {
   id: string;
   company_id: string;
+  asker_team_id: string;
   body: string;
   created_at: string;
 }
@@ -104,7 +118,7 @@ export function parseQaQuery(sp: SearchParams): QaQuery {
   const page = first(sp.page);
   const n = /^\d{1,6}$/.test(page) ? Number(page) : 1;
   const company = first(sp.company).toUpperCase();
-  return { company: /^[A-Z]{3,4}$/.test(company) ? company : null, page: n >= 1 ? n : 1 };
+  return { company: /^[A-Z]{4}$/.test(company) ? company : null, page: n >= 1 ? n : 1 };
 }
 
 export function qaHref(base: string, q: QaQuery, patch: Partial<QaQuery> = {}): string {

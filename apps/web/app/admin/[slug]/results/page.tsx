@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { AWARD_CODES, AWARD_LABELS, type AwardCode } from "@msim/engine";
+import { AWARD_LABELS } from "@msim/engine";
+import { awardLines, type AwardRow } from "@/lib/awards";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { rpc } from "@/lib/rpc";
 import { supabaseServer } from "@/lib/supabase/server";
-import { bp, clock, money } from "@/lib/format";
+import { bp, clock } from "@/lib/format";
 import { Badge, Notice, Panel, Table, Td } from "@/components/ui/ui";
 
 export const metadata: Metadata = { title: "Results" };
@@ -39,12 +40,7 @@ export default async function ResultsPage({ params }: PageProps<"/admin/[slug]/r
   const final = board.data?.final === true;
   const code = new Map((teams.data ?? []).map((t) => [t.id, t.code]));
   const ticker = new Map((companies.data ?? []).map((c) => [c.id, c.ticker]));
-  const byAward = new Map<AwardCode, { team: string; ticker: string | null; metric: Record<string, unknown> }[]>();
-  for (const a of awards.data ?? []) {
-    const list = byAward.get(a.code as AwardCode) ?? [];
-    list.push({ team: code.get(a.team_id) ?? "?", ticker: a.company_id ? (ticker.get(a.company_id) ?? null) : null, metric: (a.metric ?? {}) as Record<string, unknown> });
-    byAward.set(a.code as AwardCode, list);
-  }
+  const awardList = awardLines((awards.data ?? []) as AwardRow[], code, ticker);
 
   return (
     <div className="space-y-6">
@@ -86,21 +82,17 @@ export default async function ResultsPage({ params }: PageProps<"/admin/[slug]/r
       </Panel>
 
       <Panel title="Awards">
-        {byAward.size === 0 ? (
+        {awardList.length === 0 ? (
           <Notice>The awards are decided at settlement (04:30) and revealed on the big screen at 05:15.</Notice>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {AWARD_CODES.map((c) => {
-              const list = byAward.get(c);
-              if (!list?.length) return null;
-              return (
-                <li key={c} className="flex flex-wrap items-baseline gap-3 py-2 text-sm">
-                  <span className="w-48 font-semibold text-slate-900">{AWARD_LABELS[c]}</span>
-                  <span className="font-mono">{list.map((a) => (a.ticker ? `${a.team} (${a.ticker})` : a.team)).join(", ")}</span>
-                  <span className="text-slate-500">{metricText(c, list[0]!.metric)}</span>
-                </li>
-              );
-            })}
+            {awardList.map((a) => (
+              <li key={a.code} className="flex flex-wrap items-baseline gap-3 py-2 text-sm">
+                <span className="w-48 font-semibold text-slate-900">{AWARD_LABELS[a.code]}</span>
+                <span className="font-mono">{a.winners.join(", ")}</span>
+                <span className="text-slate-500">{a.metric}</span>
+              </li>
+            ))}
           </ul>
         )}
         <p className="mt-3 text-xs text-slate-500">Exact ties share an award. The best company is shared by the team that built it and the team that rescued it.</p>
@@ -110,11 +102,3 @@ export default async function ResultsPage({ params }: PageProps<"/admin/[slug]/r
   );
 }
 
-function metricText(code: AwardCode, m: Record<string, unknown>): string {
-  const n = (k: string) => (typeof m[k] === "number" ? (m[k] as number) : null);
-  if (code === "BEST_COMPANY" && n("rise_bp") !== null) return `${bp(n("rise_bp")!)} from ${money(n("post_crisis"))} to ${money(n("closing"))}`;
-  if (code === "BEST_INVESTOR" && n("return_bp") !== null) return `${bp(n("return_bp")!)} return`;
-  if (n("score") !== null) return `score ${n("score")}`;
-  if (n("total") !== null) return `${n("total")} points`;
-  return "";
-}

@@ -167,6 +167,33 @@ by `drafts`).
    settled results and the awards.
 6. **Lottery record download** is offered from 23:45, when the record is complete (and public).
 
+## 7c. Decisions made while building (Phase 4)
+
+- **One portal for every team.** Tracks and squads are gone: every team has the same sections (Home, Round 1: PRD,
+  Round 2: Rescue, Q&A, Market, Round 3: Trade, Ledger, Leaderboard, News, How judging works). A section that is not in
+  use yet is greyed in the menu and says when it opens.
+- **No submit button.** The PRD and crisis-solution editors save as you type (2.5 s after the last keystroke, on
+  leaving a field, and at once in the last 15 s). The last version saved before the lock is judged. Two laptops of
+  one team editing at once are merged part by part; a real clash keeps both texts on screen.
+- **"Do this now" and alerts** come from one plan (lib/team/home.ts): write the PRD, ask the founders, answer
+  questions about your company, write the crisis solution, trade in the open round. Alerts fire 5 and 1 minutes before
+  each open deadline and on the night's big moments (cards dealt, twist, PRD scores, crisis, solutions published,
+  crisis scores, rounds, rumours, freeze, closing bell, pause/resume, extra time).
+- **Public ledger** shows every filled trade (team code, company, side, quantity, price, value) once its round
+  clears, each round's totals and published corrections; filters: kind, company, team, side.
+- **Leaderboard:** live until 03:30 with the team's own row highlighted and which parts count so far; from 03:30
+  until AWARDS a "frozen" notice and nothing else (the database refuses too); at AWARDS the final results and awards.
+  `/api/rankings` follows the same rule (acceptance test 13).
+- **Portfolio** shows the Round 3 points the current value would give ("if the market closed now"), and the room
+  left under the 5,000-share limit per company.
+- **How judging works** shows both rubrics, the score-to-price table and the judge's prompts with their SHA-256.
+  The prompt files (prompts/PRD.md, prompts/SOLUTION.md) are written in Phase 6; until then the page says they are
+  published before the round starts, and the tests that read them wait for the files.
+- **Fixed on the way:** the sign-in lookup still asked for the old `teams.track` column, which would have broken
+  every sign-in; the admin results page now shares the awards wording with the team leaderboard (lib/awards.ts).
+- **Not yet:** the browser (e2e) tests still describe the old game and cannot run here (the full local Supabase
+  stack cannot be downloaded). They are rewritten with the rehearsal in Phase 7.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

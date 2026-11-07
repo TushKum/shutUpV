@@ -10,12 +10,12 @@ export interface PublishedBulletin {
   published_at: string;
 }
 
-const TONES: Record<BulletinKind, Tone> = { GENERAL: "slate", CRISIS: "red", FLASH: "violet", FAIRNESS: "amber", SYSTEM: "blue" };
+const TONES: Record<BulletinKind, Tone> = { GENERAL: "slate", TWIST: "violet", CRISIS: "red", RUMOUR: "amber", FAIRNESS: "amber", SYSTEM: "blue" };
 
-// FLASH and CRISIS bulletins move prices: they stand out with a coloured band.
+// The twist and the crisis change what teams write: they stand out with a coloured band.
 const FRAMES: Partial<Record<BulletinKind, string>> = {
+  TWIST: "border-l-4 border-violet-600 bg-violet-50/70 pl-3",
   CRISIS: "border-l-4 border-red-600 bg-red-50/70 pl-3",
-  FLASH: "border-l-4 border-violet-600 bg-violet-50/70 pl-3",
 };
 
 const kindOf = (k: string): BulletinKind => (k in BULLETIN_KIND_LABELS ? (k as BulletinKind) : "GENERAL");
@@ -33,6 +33,7 @@ export function BulletinItem({ b, clamp = false }: { b: PublishedBulletin; clamp
       </div>
       <h3 className="mt-1 font-semibold text-slate-900">{b.title}</h3>
       {b.body ? <p className={`mt-1 whitespace-pre-wrap text-sm text-slate-700 ${clamp ? "line-clamp-3" : ""}`}>{b.body}</p> : null}
+      {kind === "RUMOUR" ? <p className="mt-1 text-xs text-slate-500">A rumour may or may not be true. Rumours never change a price.</p> : null}
     </article>
   );
 }

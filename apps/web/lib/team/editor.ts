@@ -1,25 +1,25 @@
-// The draft editor's logic, kept apart from React so it can be tested: the fields of each template, word counts
-// (the engine's counting, which is also the database's), what Submit would be refused for, and the editor's state
-// when the squad edits the same draft from several screens.
+// The draft editor's logic, kept apart from React so it can be tested: the fields of each template (the PRD's nine
+// parts, the crisis solution's six), word counts (the engine's counting, which is also the database's), what a save
+// would be refused for, and the editor's state when the team edits the same draft from several screens. There is no
+// Submit: the last version saved before the lock (23:00, 01:45) is the one judged.
 //
 // Optimistic concurrency: every save names the version it was based on (save_draft's p_expected_version). A newer
-// version saved elsewhere arrives either with a page refresh or as the refusal of a save or submit (VERSION_CONFLICT,
-// with the newer draft). If nothing was typed here, the newer version is simply shown (also after a refused submit:
-// sending the old text again would overwrite the newer one). If something was typed, the two are merged section by
+// version saved elsewhere arrives either with a page refresh or as the refusal of a save (VERSION_CONFLICT, with the
+// newer draft). If nothing was typed here, the newer version is simply shown (sending the old text again would
+// overwrite the newer one). If something was typed, the two are merged section by
 // section from the version the typed text was based on: the other screen's changes to sections not typed in here
 // are taken at once, the typed text stays, and only a section changed differently on both sides waits for a choice
 // (keep the typed text, so the next save replaces theirs there, or use theirs, setting the typed text aside).
 
-import { RULES, TEMPLATES, submissionWords, validateSubmission, wordCount, type SubmissionType } from "@msim/engine";
+import { RULES, TEMPLATES, submissionWords, validateDraft, wordCount, type SubmissionType } from "@msim/engine";
 
 export type Fields = Record<string, string>;
 
-/** A saved version of the squad's draft, as the database returned it. */
+/** A saved version of the team's draft, as the database returned it (version 0: nothing saved yet). */
 export interface DraftSnapshot {
   version: number;
   content: Record<string, unknown>;
   updatedAt: string | null;
-  updatedBy: string | null;
 }
 
 export interface FieldSpec {
@@ -29,10 +29,10 @@ export interface FieldSpec {
   counted: boolean;
 }
 
-/** The pitch also carries the company name and the ticker claim, which save_draft keeps for a pitch only. */
+/** The PRD also carries the company name and the ticker claim, which save_draft keeps for a PRD only. */
 export function fieldSpecs(type: SubmissionType): FieldSpec[] {
   const head: FieldSpec[] =
-    type === "PITCH"
+    type === "PRD"
       ? [
           { key: "company_name", label: "Company name", counted: false },
           { key: "ticker", label: "Ticker", counted: false },
@@ -60,7 +60,7 @@ export function draftPayload(type: SubmissionType, fields: Fields): Fields {
   return Object.fromEntries(fieldSpecs(type).map((f) => [f.key, typeof fields[f.key] === "string" ? fields[f.key]! : ""]));
 }
 
-/** A typed ticker: capital letters only, at most 4 (TICKER_RE is checked again on submit by the database). */
+/** A typed ticker: capital letters only, at most 4 (the database checks again, and claims it on save). */
 export function normaliseTicker(v: string): string {
   return v.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 4);
 }
@@ -81,14 +81,23 @@ export function wordStats(type: SubmissionType, fields: Fields): WordStats {
   return { perField, total, limit, over: Math.max(0, total - limit) };
 }
 
-/** Why submit_submission would refuse this text (the engine's checks, the same as SQL), or null. */
-export function submitProblem(type: SubmissionType, fields: Fields): { code: string; message: string } | null {
-  const check = validateSubmission(type, draftPayload(type, fields));
+/** Why save_draft would refuse this text (the engine's checks, the same as SQL), or null. */
+export function saveProblem(type: SubmissionType, fields: Fields): { code: string; message: string } | null {
+  const check = validateDraft(type, draftPayload(type, fields));
   return check.ok ? null : { code: check.code, message: check.message };
 }
 
+/** A four-letter ticker is needed for the PRD to have a name of its own (one is given at the lock otherwise). */
+export function tickerNote(type: SubmissionType, fields: Fields): string | null {
+  if (type !== "PRD") return null;
+  const t = fields.ticker ?? "";
+  if (t.length === 0) return "Choose a four-letter ticker: it is claimed by the first team to save it.";
+  if (t.length < 4) return "The ticker is exactly four letters.";
+  return null;
+}
+
 /** save_draft refuses content whose jsonb text is longer than this. */
-export const MAX_CONTENT_CHARS = 20_000;
+export const MAX_CONTENT_CHARS = 40_000;
 
 /**
  * An upper bound on the length of the content's jsonb text (`{"k": "v", …}`): JSON.stringify escapes as Postgres
@@ -136,7 +145,7 @@ export function mergeFields(type: SubmissionType, base: Fields, mine: Fields, th
   return out;
 }
 
-/** "The crisis", "The crisis and The money", "The crisis, The money and Risks" (in the template's order). */
+/** "Problem", "Problem and Risks", "Problem, Must have and Risks" (in the template's order). */
 export function sectionNames(type: SubmissionType, keys: readonly string[]): string {
   const labels = fieldSpecs(type)
     .filter((f) => keys.includes(f.key))
@@ -156,12 +165,12 @@ export interface Stash {
 }
 
 /** Which action a refusal (VERSION_CONFLICT) answered. */
-export type Refused = "save" | "submit";
+export type Refused = "save";
 
 export type EditorNotice =
   /** Nothing was typed here: the newer version is shown. */
   | { kind: "updated"; draft: DraftSnapshot }
-  /** Nothing was typed here and a save or submit was refused for a newer version: that version is shown, not the old one sent. */
+  /** Nothing was typed here and a save was refused for a newer version: that version is shown, not the old one sent. */
   | { kind: "refused"; draft: DraftSnapshot; action: Refused }
   /** A newer version's changes to `keys` were merged into the text typed here. */
   | { kind: "merged"; draft: DraftSnapshot; keys: string[] }
@@ -177,8 +186,8 @@ export interface EditorState {
   base: DraftSnapshot;
   /**
    * Sections changed here and, differently, in `base` by another save: the text typed here is still on screen and
-   * waits for a choice (keep it, so the next save replaces theirs; or use theirs, setting it aside). Save and Submit
-   * wait for every choice. Never a section whose text equals the saved one.
+   * waits for a choice (keep it, so the next save replaces theirs; or use theirs, setting it aside). Saving waits
+   * for every choice. Never a section whose text equals the saved one.
    */
   conflicts: string[];
   /** Typed text set aside when the saved version's text was chosen (or found in this device's backup). */
@@ -220,7 +229,7 @@ export function theirText(s: EditorState, key: string): string {
   return fieldsOf(s.type, s.base.content)[key] ?? "";
 }
 
-/** A newer saved version arrived: from a refresh, or as the refusal of this screen's save or submit. */
+/** A newer saved version arrived: from a refresh, or as the refusal of this screen's save. */
 function newer(s: EditorState, draft: DraftSnapshot, refused: Refused | null): EditorState {
   if (draft.version <= s.base.version) return s;
   const theirs = fieldsOf(s.type, draft.content);
@@ -315,10 +324,9 @@ function restoreBackup(s: EditorState, b: Backup | null): EditorState {
 }
 
 /**
- * What a save or submit result does to the editor. A refusal for a newer version brings that version (merged with
- * what was typed here, or shown if nothing was). Any other result that carries a draft carries one this screen
- * saved (Submit saves first; submit_submission may still refuse, e.g. TICKER_TAKEN), so it becomes the base: a
- * refresh bringing it back is then not mistaken for another save.
+ * What a save result does to the editor. A refusal for a newer version brings that version (merged with what was
+ * typed here, or shown if nothing was). A saved draft becomes the base, so a refresh bringing it back is not mistaken
+ * for another screen's save.
  */
 export function afterResult(r: { code?: string; draft?: DraftSnapshot }, action: Refused = "save"): EditorAction {
   if (r.code === "VERSION_CONFLICT" && r.draft) return { type: "conflict", draft: r.draft, action };
@@ -327,7 +335,7 @@ export function afterResult(r: { code?: string; draft?: DraftSnapshot }, action:
 }
 
 /**
- * What a closed editor (deadline passed, or this team does not write it) shows: the latest saved version, and the
+ * What a closed editor (the lock has passed, or the window is not open) shows: the latest saved version, and the
  * text typed here that was never saved (null when there is none), so it is not mistaken for the saved draft.
  */
 export function closedView(s: EditorState): { shown: DraftSnapshot; fields: Fields; unsaved: Fields | null } {
@@ -346,8 +354,8 @@ export interface Backup {
   conflicts?: string[];
 }
 
-export function backupKey(squadId: string, teamId: string, type: SubmissionType): string {
-  return `msim:draft:${squadId}:${teamId}:${type}`;
+export function backupKey(teamId: string, type: SubmissionType): string {
+  return `primus:draft:${teamId}:${type}`;
 }
 
 /** What to keep in the backup: the unsaved text and its base, or null when there is nothing unsaved. */
@@ -391,27 +399,14 @@ export function toSnapshot(raw: unknown): DraftSnapshot | null {
     version: d.version as number,
     content: d.content && typeof d.content === "object" && !Array.isArray(d.content) ? (d.content as Record<string, unknown>) : {},
     updatedAt: typeof d.updated_at === "string" ? d.updated_at : null,
-    updatedBy: typeof d.updated_by_team === "string" ? d.updated_by_team : null,
   };
 }
 
-/** The submission row in submit_submission's result. */
-export interface SubmittedRow {
-  content: Record<string, unknown>;
-  submittedAt: string;
-  words: number;
-}
+/** The empty draft (nothing saved yet). */
+export const NO_DRAFT: DraftSnapshot = { version: 0, content: {}, updatedAt: null };
 
-export function toSubmitted(raw: unknown): SubmittedRow | null {
-  if (!raw || typeof raw !== "object") return null;
-  const s = raw as Record<string, unknown>;
-  if (typeof s.submitted_at !== "string" || !Number.isSafeInteger(s.word_count)) return null;
-  return {
-    content: s.content && typeof s.content === "object" ? (s.content as Record<string, unknown>) : {},
-    submittedAt: s.submitted_at,
-    words: s.word_count as number,
-  };
-}
+/** Autosave waits this long after the last keystroke. */
+export const AUTOSAVE_MS = 2500;
 
 /** Rows for a textarea: enough for its text (about 45 characters a line on a phone), between `min` and 16. */
 export function rowsFor(text: string, min = 3): number {

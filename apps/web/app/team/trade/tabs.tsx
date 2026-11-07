@@ -5,12 +5,11 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/team/trade", label: "Orders" },
-  { href: "/team/trade/positions", label: "Positions" },
+  { href: "/team/trade/positions", label: "Portfolio" },
   { href: "/team/trade/history", label: "History" },
-  { href: "/team/trade/ipo", label: "IPO" },
 ] as const;
 
-// The fund's trading views. On a phone the pills wrap onto a second line (never wider than the screen).
+// The trading views. On a phone the pills wrap onto a second line (never wider than the screen).
 export function TradeTabs() {
   const pathname = usePathname();
   return (

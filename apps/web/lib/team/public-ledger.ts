@@ -1,27 +1,24 @@
-// The public ledger as every team sees it (PLAN decision Q4): the transfers that are not trades, labelled by squad
-// and role (seed money, IPO allocation totals, advisor fees, rescue deals, consultant bonuses, published
-// corrections), and per-round per-company totals (buys, sells, shorts, covers, the net and the new price). A fund's
-// own trades stay private. Newest first, 50 rows a page, filtered by company and kind (?company=&kind=&page=). Pure.
+// The public ledger as every team sees it: every filled trade once its round clears (team code, company, buy or sell,
+// quantity, price), each round's totals per company (bought, sold, the net and the new price) and published
+// corrections. Newest first, 50 rows a page, filtered by kind, company, team and side (?kind=&company=&team=&side=&page=).
+// Pure.
 
-import { clock, count, money, signedCount, signedMoney } from "@/lib/format";
+import { clock, count, money, signedCount } from "@/lib/format";
 
-export const PUBLIC_KINDS = ["SEED", "IPO", "ROUND", "FEE", "FEE_DEFAULT", "DEAL", "BONUS_PLAN", "BONUS_DEAL", "CALL_EARNINGS", "CORRECTION"] as const;
+export const PUBLIC_KINDS = ["TRADE", "ROUND", "CORRECTION"] as const;
 export type PublicKind = (typeof PUBLIC_KINDS)[number];
 
 export const PUBLIC_KIND_LABELS: Record<PublicKind, string> = {
-  SEED: "Seed money",
-  IPO: "IPO allocation",
+  TRADE: "Trade",
   ROUND: "Round totals",
-  FEE: "Advisor fee",
-  FEE_DEFAULT: "Default fee",
-  DEAL: "Rescue deal",
-  BONUS_PLAN: "Plan bonus",
-  BONUS_DEAL: "Deal bonus",
-  CALL_EARNINGS: "Call earnings",
   CORRECTION: "Correction",
 };
 
+export const SIDES = ["BUY", "SELL"] as const;
+export type Side = (typeof SIDES)[number];
+
 export const isPublicKind = (k: string): k is PublicKind => (PUBLIC_KINDS as readonly string[]).includes(k);
+const isSide = (s: string): s is Side => (SIDES as readonly string[]).includes(s);
 
 export const PAGE_SIZE = 50;
 
@@ -51,29 +48,35 @@ export interface PublicLedgerQuery {
   page: number;
   /** A ticker, or null for every company. */
   company: string | null;
+  /** A team code, or null for every team. */
+  team: string | null;
   kind: string | null;
+  side: string | null;
 }
 
 type SearchParams = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)?.trim() ?? "";
+const FILTERS = ["kind", "company", "team", "side"] as const;
 
 export function parsePublicLedgerQuery(sp: SearchParams): PublicLedgerQuery {
   const page = first(sp.page);
   const n = /^\d{1,6}$/.test(page) ? Number(page) : 1;
-  return { page: n >= 1 ? n : 1, company: first(sp.company).toUpperCase() || null, kind: first(sp.kind).toUpperCase() || null };
+  const up = (k: (typeof FILTERS)[number]) => first(sp[k]).toUpperCase().slice(0, 16) || null;
+  return { page: n >= 1 ? n : 1, kind: up("kind"), company: up("company"), team: up("team"), side: up("side") };
 }
 
 /** The address with `patch` applied; a changed filter goes back to page 1. */
 export function publicLedgerHref(base: string, q: PublicLedgerQuery, patch: Partial<PublicLedgerQuery> = {}): string {
-  const changed = (["company", "kind"] as const).some((k) => k in patch && patch[k] !== q[k]);
+  const changed = FILTERS.some((k) => k in patch && patch[k] !== q[k]);
   const next = { ...q, ...patch, page: patch.page ?? (changed ? 1 : q.page) };
   const params = new URLSearchParams();
-  if (next.company) params.set("company", next.company);
-  if (next.kind) params.set("kind", next.kind);
+  for (const k of FILTERS) if (next[k]) params.set(k, next[k]!);
   if (next.page > 1) params.set("page", String(next.page));
   const s = params.toString();
   return s ? `${base}?${s}` : base;
 }
+
+export const hasFilter = (q: PublicLedgerQuery) => FILTERS.some((k) => q[k] !== null);
 
 export interface CompanyRef {
   id: string;
@@ -82,21 +85,32 @@ export interface CompanyRef {
 
 export interface PublicFilter {
   companyId: string | null;
+  team: string | null;
   kind: PublicKind | null;
+  side: Side | null;
   /** A filter value that matches nothing (said plainly instead of an empty table). */
   problems: string[];
 }
 
+/** Team codes are checked only for their shape (a letter and three digits): the ledger itself lists who traded. */
 export function resolvePublicFilter(q: PublicLedgerQuery, companies: readonly CompanyRef[]): PublicFilter {
-  const out: PublicFilter = { companyId: null, kind: null, problems: [] };
+  const out: PublicFilter = { companyId: null, team: null, kind: null, side: null, problems: [] };
   if (q.company) {
     const c = companies.find((x) => x.ticker === q.company);
     if (c) out.companyId = c.id;
     else out.problems.push(`No listed company ${q.company}.`);
   }
+  if (q.team) {
+    if (/^[A-Z][0-9]{3}$/.test(q.team)) out.team = q.team;
+    else out.problems.push(`${q.team} is not a team code (a letter and three digits, like A101).`);
+  }
   if (q.kind) {
     if (isPublicKind(q.kind)) out.kind = q.kind;
     else out.problems.push(`No ledger kind ${q.kind}.`);
+  }
+  if (q.side) {
+    if (isSide(q.side)) out.side = q.side;
+    else out.problems.push(`No side ${q.side} (BUY or SELL).`);
   }
   return out;
 }
@@ -108,8 +122,10 @@ export interface PublicLedgerRow {
   created_at: string;
   kind: string;
   label: string;
+  team_code: string | null;
   company_id: string | null;
   ticker: string | null;
+  side: string | null;
   cash_cents: number | string | null;
   shares: number | null;
   price_cents: number | null;
@@ -123,42 +139,25 @@ export interface PublicLedgerLine {
   time: string;
   kind: string;
   kindLabel: string;
-  label: string;
+  round: string;
+  team: string;
   ticker: string;
-  cash: string;
+  side: string;
   shares: string;
   price: string;
+  value: string;
   details: string;
 }
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isSafeInteger(v) ? v : typeof v === "string" && /^-?\d+$/.test(v) ? Number(v) : null);
 
-/** The extra facts of a row, in words: what a round traded, how an IPO was subscribed, a correction's reason. */
+/** The extra facts of a row, in words: what a round traded, a correction's reason. */
 export function detailsText(kind: string, d: Record<string, unknown> | null): string {
   const x = d ?? {};
   switch (kind) {
     case "ROUND": {
-      const parts = (["buy", "sell", "short", "cover"] as const).map((k) => `${k} ${count(num(x[k]) ?? 0)}`);
       const before = num(x.before);
-      return `${parts.join(" · ")}${before !== null ? ` · was ${money(before)}` : ""}`;
-    }
-    case "IPO": {
-      const requested = num(x.requested);
-      const available = num(x.available);
-      const bidders = num(x.bidders);
-      const bits = [];
-      if (requested !== null) bits.push(`${count(requested)} requested${available !== null ? ` of ${count(available)}` : ""}`);
-      if (bidders !== null) bits.push(`${count(bidders)} ${bidders === 1 ? "fund" : "funds"}`);
-      return bits.join(" · ");
-    }
-    case "FEE":
-    case "FEE_DEFAULT": {
-      const v = num(x.value);
-      return v !== null ? `Total value ${money(v)} (shares at the IPO price)` : "";
-    }
-    case "DEAL": {
-      const post = num(x.post_crisis_price);
-      return post !== null ? `Post-crisis price ${money(post)}` : "";
+      return `bought ${count(num(x.buy) ?? 0)} · sold ${count(num(x.sell) ?? 0)}${before !== null ? ` · was ${money(before)}` : ""}`;
     }
     case "CORRECTION": {
       const n = num(x.entries);
@@ -170,7 +169,7 @@ export function detailsText(kind: string, d: Record<string, unknown> | null): st
   }
 }
 
-/** Table lines. Tickers come from the row or, for rows written before a ticker existed, from the company. */
+/** Table lines. Tickers come from the row or, failing that, from the company. */
 export function publicLedgerLines(rows: readonly PublicLedgerRow[], companies: readonly CompanyRef[]): PublicLedgerLine[] {
   const tickers = new Map(companies.map((c) => [c.id, c.ticker]));
   return rows.map((r) => {
@@ -181,12 +180,14 @@ export function publicLedgerLines(rows: readonly PublicLedgerRow[], companies: r
       time: clock(r.created_at, true),
       kind: r.kind,
       kindLabel: isPublicKind(r.kind) ? PUBLIC_KIND_LABELS[r.kind] : r.kind,
-      label: r.label,
+      round: r.round_number === null ? "—" : String(r.round_number),
+      team: r.team_code ?? "—",
       ticker: r.ticker ?? (r.company_id ? (tickers.get(r.company_id) ?? "—") : "—"),
-      // A bonus can be negative (a plan bonus below 50); the other transfers are amounts moved.
-      cash: cash === null ? "—" : r.kind.startsWith("BONUS") ? signedMoney(cash) : money(cash),
+      side: r.side ?? "—",
+      // A round's net can be negative (more sold than bought); a trade's quantity is what changed hands.
       shares: r.shares === null ? "—" : r.kind === "ROUND" ? signedCount(r.shares) : count(r.shares),
       price: r.price_cents === null ? "—" : money(r.price_cents),
+      value: cash === null ? "—" : money(cash),
       details: detailsText(r.kind, r.details),
     };
   });

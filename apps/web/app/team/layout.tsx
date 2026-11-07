@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHASE_LABELS, TRACK_LABELS } from "@msim/engine";
+import { PHASE_LABELS } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, money } from "@/lib/format";
 import { ClockProvider } from "@/lib/live/clock";
 import { EventChannel } from "@/lib/live/channel";
-import { SquadChannel } from "@/lib/live/squad-channel";
 import { Heartbeat } from "@/lib/live/heartbeat";
 import { FeedbackBar, FeedbackProvider } from "@/lib/live/feedback";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -20,16 +19,17 @@ import { loadPlanFacts } from "@/lib/team/home-data";
 import { homePlan } from "@/lib/team/home";
 import { alertTasks, nextAction } from "@/lib/team/alerts";
 import { PhaseEnd } from "./phase-end";
+import { BULLETIN_KIND_LABELS, type BulletinKind } from "@/lib/admin/content-bulletins";
 
 export const metadata: Metadata = { title: { template: "%s · Team", default: "Team" } };
 
 // Every team screen (laptop or phone): the team, where the night is (phase and countdown, trading, the open round),
-// its cash, the latest bulletin and the sections of its track. The event's realtime channel refreshes the page on
-// every broadcast, the squad's channel announces chat messages, and the heartbeat tells the control panel the screen
-// is connected.
+// its cash, the companies it built and rescues, the "Do this now" bar, the alerts, the latest news and the sections.
+// The event's realtime channel refreshes the page on every broadcast, and the heartbeat tells the control panel the
+// screen is connected.
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
-  const { team, event, status } = ctx;
+  const { team, event, status, built, rescued } = ctx;
   // The bar and the alerts are guidance: if the plan cannot be read (say, the database is older than the app), every
   // page still works, without them.
   const plan = await loadPlanFacts(ctx).then(homePlan, (err: unknown) => {
@@ -46,11 +46,9 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
     .order("published_at", { ascending: false })
     .limit(1)
     .maybeSingle<{ id: string; kind: string; title: string; published_at: string }>();
-  const finance = team.track === "FINANCE";
   return (
     <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
       <EventChannel eventId={event.id}>
-        <SquadChannel squadId={ctx.squad?.id ?? null}>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <div className="min-h-screen bg-slate-50">
@@ -58,7 +56,6 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pt-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h1 className="font-mono text-lg font-bold">{team.code}</h1>
-                <Badge tone="slate">{TRACK_LABELS[team.track]}</Badge>
                 <span className="hidden truncate text-sm text-slate-600 sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
               </div>
@@ -98,17 +95,17 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                   {money(team.cash)}
                 </dd>
               </div>
-              {finance ? (
-                <div>
-                  <dt className="text-xs text-slate-500">Collateral locked</dt>
-                  <dd className="font-mono tabular-nums">{money(team.collateral)}</dd>
-                </div>
-              ) : null}
+              <div>
+                <dt className="text-xs text-slate-500">Built · rescued</dt>
+                <dd className="font-mono" data-testid="team-companies">
+                  {built?.ticker ?? "—"} · {rescued?.ticker ?? "—"}
+                </dd>
+              </div>
             </dl>
-            <TeamNav track={team.track} />
+            <TeamNav phase={status.phase} />
           </header>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
-          <Alerts tasks={plan ? alertTasks(plan) : []} track={team.track} teamId={team.id} />
+          <Alerts tasks={plan ? alertTasks(plan) : []} />
           {status.paused ? (
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.
@@ -125,7 +122,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
               className="mx-auto block max-w-5xl px-4 pt-3 text-sm [overflow-wrap:anywhere]"
               data-testid="latest-bulletin"
             >
-              <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">{latest.kind}</span>{" "}
+              <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">{BULLETIN_KIND_LABELS[latest.kind as BulletinKind] ?? latest.kind}</span>{" "}
               <span className="font-mono text-xs text-slate-500">{clock(latest.published_at)}</span>{" "}
               <span className="font-semibold text-slate-900 underline-offset-2 hover:underline">{latest.title}</span>
             </Link>
@@ -134,7 +131,6 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
           <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
         </div>
       </FeedbackProvider>
-        </SquadChannel>
       </EventChannel>
     </ClockProvider>
   );

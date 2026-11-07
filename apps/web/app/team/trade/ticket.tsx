@@ -1,8 +1,8 @@
 "use client";
 
-// The order ticket: company (never the fund's own squad company), type and whole-share quantity, checked as the
-// person types with the engine's validateOrder against the fund's own view (the page's data, re-read after every
-// action and every broadcast), the reserve or collateral the order will lock, and a Max button (the engine's
+// The order ticket: company (never the one the team built or the one it rescued), BUY or SELL and a whole-share
+// quantity, checked as the person types with the engine's validateOrder against the team's own view (the page's data,
+// re-read after every action and every broadcast), the cash a buy will reserve, and a Max button (the engine's
 // maxQuantity). The check is guidance: the database checks again and its refusal is shown as it comes.
 //
 // One click places the order: it can be edited or cancelled until the round closes, so a second click would only
@@ -27,6 +27,8 @@ export interface TicketCompany {
   ticker: string;
   name: string | null;
   price: number;
+  /** Why this team may not trade it ("you built it", "you rescued it"), or null. */
+  blocked: string | null;
 }
 
 type Action = (prev: ActionResult | null, form: FormData) => Promise<ActionResult>;
@@ -105,9 +107,10 @@ export function OrderTicket({
             Choose a company…
           </option>
           {companies.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option key={c.id} value={c.id} disabled={c.blocked !== null}>
               {c.ticker}
               {c.name ? ` · ${c.name}` : ""} · {money(c.price)}
+              {c.blocked ? ` (not for you: ${c.blocked})` : ""}
             </option>
           ))}
         </select>
@@ -116,7 +119,7 @@ export function OrderTicket({
 
       <fieldset>
         <legend className="text-xs font-medium text-slate-600">Order type</legend>
-        <div className="mt-1 grid grid-cols-4 gap-1">
+        <div className="mt-1 grid grid-cols-2 gap-1">
           {ORDER_TYPES.map((t) => (
             <label
               key={t}
@@ -199,9 +202,9 @@ export function OrderTicket({
       {company && pos ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md bg-slate-50 px-3 py-2 text-xs sm:grid-cols-4" aria-label={`Your position in ${company.ticker}`}>
           <Fact label="Price now" value={money(pos.price)} />
-          <Fact label="You hold (exchange lot)" value={`${count(pos.exchangeQty)}${pos.pending.SELL ? ` · selling ${count(pos.pending.SELL)}` : ""}`} />
-          <Fact label="You are short" value={`${count(pos.shortQty)}${pos.pending.COVER ? ` · covering ${count(pos.pending.COVER)}` : ""}`} />
-          <Fact label={roomLabel(type)} value={count(roomOf(type, pos))} />
+          <Fact label="You hold" value={`${count(pos.owned)}${pos.pending.SELL ? ` · selling ${count(pos.pending.SELL)}` : ""}`} />
+          <Fact label="Pending buys" value={count(pos.pending.BUY)} />
+          <Fact label={type === "BUY" ? "Can still buy (5,000 limit)" : "Can still sell"} value={count(type === "BUY" ? pos.room : pos.sellable)} />
         </dl>
       ) : null}
 
@@ -223,21 +226,11 @@ export function OrderTicket({
   );
 }
 
-/** Each order type's colour when chosen: buying green, selling red, shorting orange, covering blue. */
+/** Each order type's colour when chosen: buying green, selling red. */
 const TYPE_ON: Record<OrderType, string> = {
   BUY: "bg-emerald-600 text-white ring-emerald-600",
   SELL: "bg-red-600 text-white ring-red-600",
-  SHORT: "bg-orange-500 text-white ring-orange-500",
-  COVER: "bg-sky-600 text-white ring-sky-600",
 };
-
-function roomLabel(type: OrderType): string {
-  return { BUY: "Can still buy (4,000 limit)", SELL: "Can still sell", SHORT: "Can still short (2,000 limit)", COVER: "Can still cover" }[type];
-}
-
-function roomOf(type: OrderType, pos: ReturnType<typeof companyPosition>): number {
-  return { BUY: pos.longRoom, SELL: pos.sellable, SHORT: pos.shortRoom, COVER: pos.coverable }[type];
-}
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -275,11 +268,6 @@ export function Preview({ preview, type, roundNumber, ticker = null }: { preview
             {type === "BUY" ? (
               <>
                 Cash reserved until the clearing: <Num>{money(preview.reserve)}</Num> (quantity × price × 1.10).
-              </>
-            ) : type === "SHORT" ? (
-              <>
-                Collateral reserved until the clearing: <Num>{money(preview.reserve)}</Num> (quantity × price × 150% × 1.10). After it, 150% of the short&apos;s value
-                stays locked as collateral.
               </>
             ) : (
               ORDER_TYPE_INFO[type].reserve

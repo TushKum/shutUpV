@@ -5,9 +5,9 @@ import { fetchAll } from "@/lib/fetch-all";
 import { Panel } from "@/components/ui/ui";
 import { BulletinItem, type PublishedBulletin } from "./bulletin";
 
-export const metadata: Metadata = { title: "Bulletins" };
+export const metadata: Metadata = { title: "News" };
 
-// Bulletins: every published bulletin of the event, newest first. A new one arrives over the event's realtime
+// News: every published bulletin of the event (the twist, the crisis, rumours, notices), newest first. A new one arrives over the event's realtime
 // channel, which refreshes the page.
 export default async function TeamBulletinsPage() {
   const { event } = await loadTeamContext();
@@ -23,9 +23,9 @@ export default async function TeamBulletinsPage() {
       .range(from, to),
   );
   return (
-    <Panel title={`Bulletins (${rows.length})`}>
+    <Panel title={`News (${rows.length})`}>
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No bulletins yet. They appear here, and in the header, the moment the organisers publish them.</p>
+        <p className="text-sm text-slate-500">Nothing yet. The twist (22:15), market rumours (from 00:30) and notices appear here the moment the organisers publish them.</p>
       ) : (
         <ul className="space-y-3" aria-label="Bulletins">
           {rows.map((b) => (

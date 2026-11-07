@@ -5,11 +5,10 @@ import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 
 const WAITING: Partial<Record<PhaseCode, string>> = {
   SETUP: "waiting to start",
-  SQUAD_DRAW: "waiting for the draw",
-  READING: "waiting for the pitch scores",
-  VERDICTS: "waiting for the plan scores",
-  ROUNDS_13_21: "waiting for the flash scores",
-  APPEALS: "waiting for the fairness officer",
+  BRIEFING: "waiting for the problem cards",
+  JUDGING_1: "waiting for every PRD score",
+  MARKET_BLIND: "waiting for every crisis-solution score",
+  SETTLEMENT: "waiting for the fairness officer",
 };
 
 /** The text after the planned end has passed (null: keep the countdown). */

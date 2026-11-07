@@ -5,7 +5,7 @@ import { loadTradeData } from "@/lib/team/trade-data";
 import { STATUS_LABELS, orderHistory, type OrderLine } from "@/lib/team/trade";
 import { clock, count, money, signedMoney } from "@/lib/format";
 import { Badge, Panel, Table, Td } from "@/components/ui/ui";
-import { tradeGate } from "../gate";
+import { TradingNotYet } from "../not-yet";
 
 export const metadata: Metadata = { title: "Order history" };
 
@@ -14,8 +14,8 @@ export const metadata: Metadata = { title: "Order history" };
 // re-reads itself after every round.
 export default async function HistoryPage() {
   const ctx = await loadTeamContext();
-  const gate = tradeGate(ctx);
-  if (gate) return gate;
+  const notYet = TradingNotYet({ phase: ctx.status.phase, title: "Order history" });
+  if (notYet) return notYet;
   const data = await loadTradeData(ctx, { orders: "all" });
   const rounds = orderHistory(data.orders, data.rounds, data.companies);
 

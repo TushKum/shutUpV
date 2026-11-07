@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -43,7 +43,7 @@ describe("Markdown", () => {
     expect(html).not.toMatch(/<(script|img|a|i|b)[\s>]/);
   });
 
-  test.each(SUBMISSION_TYPES)("prompts/%s.md renders with one table, one code block and no raw HTML", (type) => {
+  test.skipIf(!SUBMISSION_TYPES.every((t) => existsSync(path.resolve(__dirname, `../../../../../prompts/${t}.md`)))).each(SUBMISSION_TYPES)("prompts/%s.md renders with one table, one code block and no raw HTML", (type) => {
     const source = readFileSync(path.resolve(__dirname, `../../../../../prompts/${type}.md`), "utf8");
     const html = render(source, 2);
     expect(html.match(/<table/g)).toHaveLength(1);

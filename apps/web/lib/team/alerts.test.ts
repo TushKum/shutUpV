@@ -16,7 +16,7 @@ const plan = (now: HomeTask[]): HomePlan => ({ now, next: [], idle: "" });
 
 describe("nextAction and alertTasks", () => {
   test("the first open task of this team with somewhere to go; partners' turns and done tasks are skipped", () => {
-    const p = plan([task("a", "waiting", "2026-11-14T19:35:00Z"), task("b", "done", null), task("c", "todo", null, null), task("d", "todo", "2026-11-14T19:40:00Z"), task("e", "todo", "2026-11-14T19:50:00Z")]);
+    const p = plan([task("a", "info", "2026-11-14T19:35:00Z"), task("b", "done", null), task("c", "todo", null, null), task("d", "todo", "2026-11-14T19:40:00Z"), task("e", "todo", "2026-11-14T19:50:00Z")]);
     expect(nextAction(p)?.key).toBe("d");
     expect(alertTasks(p).map((t) => t.key)).toEqual(["d", "e"]);
     expect(nextAction(plan([task("x", "done", null)]))).toBeNull();
@@ -47,20 +47,28 @@ describe("dueAlert", () => {
 });
 
 describe("eventToast", () => {
-  test("rounds: every team hears a clearing; only funds hear that a round opened", () => {
-    expect(eventToast("round_cleared", { round: 4 }, "PRODUCT")).toMatchObject({ text: "Round 4 cleared: new prices are in.", href: "/team/market" });
-    expect(eventToast("round_cleared", { round: 4 }, "FINANCE")).toMatchObject({ href: "/team/trade/positions" });
-    expect(eventToast("round_open", { round: 5 }, "FINANCE")).toMatchObject({ text: "Round 5 is open: place your orders." });
-    expect(eventToast("squad_draw", {}, "PRODUCT")).toMatchObject({ href: "/team/squad", loud: true });
-    expect(eventToast("squad_draw", {}, "FINANCE")).toMatchObject({ href: "/team/chat" });
-    expect(eventToast("round_open", { round: 5 }, "CONSULTING")).toBeNull();
+  test("the night's big moments are loud and point to the right page", () => {
+    expect(eventToast("problem_draw", {})).toMatchObject({ href: "/team/build", loud: true });
+    expect(eventToast("twist", { title: "Fuel prices double" })).toMatchObject({ text: "The twist: Fuel prices double. Your PRD must answer it.", loud: true });
+    expect(eventToast("prices_started", {})).toMatchObject({ href: "/team/build", loud: true });
+    expect(eventToast("crisis", {})).toMatchObject({ href: "/team/rescue", loud: true, tone: "warn" });
+    expect(eventToast("scores_revealed", {})).toMatchObject({ href: "/team/rescue", loud: true });
+    expect(eventToast("closing_bell", {})).toMatchObject({ loud: true });
+    expect(eventToast("locked", { type: "SOLUTION" })).toMatchObject({ href: "/team/rescue", loud: false });
+    expect(eventToast("locked", { type: "PRD" })).toMatchObject({ href: "/team/build" });
   });
 
-  test("a flash bulletin is loud; other news quiet; unknown kinds say nothing", () => {
-    expect(eventToast("bulletin", { title: "Interest rates rise", bulletin_kind: "FLASH" }, "PRODUCT")).toMatchObject({ text: "Flash news: Interest rates rise", loud: true, tone: "warn" });
-    expect(eventToast("bulletin", { title: "Dinner is served", bulletin_kind: "GENERAL" }, "PRODUCT")).toMatchObject({ text: "News: Dinner is served", loud: false });
-    expect(eventToast("crisis", {}, "CONSULTING")).toMatchObject({ href: "/team/rescue", loud: true });
-    expect(eventToast("qa", {}, "PRODUCT")).toBeNull();
-    expect(eventToast("correction", {}, "FINANCE")).toBeNull();
+  test("rounds", () => {
+    expect(eventToast("round_cleared", { round: 4 })).toMatchObject({ text: "Round 4 cleared: new prices are in.", href: "/team/trade/positions" });
+    expect(eventToast("round_open", { round: 5 })).toMatchObject({ text: "Round 5 is open: place your orders.", href: "/team/trade" });
+  });
+
+  test("rumours and news are quiet; the twist bulletin has its own toast; unknown kinds say nothing", () => {
+    expect(eventToast("bulletin", { title: "A buyer is circling CMP", bulletin_kind: "RUMOUR" })).toMatchObject({ text: "Rumour: A buyer is circling CMP", loud: false });
+    expect(eventToast("bulletin", { title: "Dinner is served", bulletin_kind: "GENERAL" })).toMatchObject({ text: "News: Dinner is served", loud: false });
+    expect(eventToast("bulletin", { title: "x", bulletin_kind: "TWIST" })).toBeNull();
+    expect(eventToast("extended", { minutes: 5 })).toMatchObject({ text: "The organisers added 5 minutes: deadlines moved later." });
+    expect(eventToast("qa", {})).toBeNull();
+    expect(eventToast("correction", {})).toBeNull();
   });
 });
