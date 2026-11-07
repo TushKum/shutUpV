@@ -1,27 +1,26 @@
 import { describe, expect, test } from "vitest";
 import { sha256Hex } from "@msim/engine";
 import {
-  competitionRanks,
-  awardMetric,
-  capPodium,
+  AWARD_STEP_SECONDS,
+  ceremony,
   changeBp,
+  circleLines,
   closingMovers,
-  crisisTitle,
+  competitionRanks,
   evenPages,
   hexGroups,
   lotteryRecordUrl,
+  nextAwardAt,
+  awardsRevealed,
   pageAt,
-  pitchSummary,
-  podiumDensity,
-  podiumNumbers,
-  podiums,
-  specialAwards,
-  verdictMovers,
-  type AwardRow,
+  prdSummary,
+  rescueCircles,
+  revealMovers,
   type ClosingRow,
-  type PitchRow,
-  type VerdictRow,
+  type PrdRow,
+  type RevealRow,
 } from "./takeovers";
+
 
 describe("hexGroups", () => {
   test("a SHA-256 commitment is 4 groups of 16, lower case", () => {
@@ -76,168 +75,86 @@ describe("changeBp", () => {
   });
 });
 
-describe("crisisTitle", () => {
-  test("only when it says more than the category", () => {
-    expect(crisisTitle("Data breach", "Data breach")).toBeNull();
-    expect(crisisTitle("Data breach", " data BREACH ")).toBeNull();
-    expect(crisisTitle("Data breach", "")).toBeNull();
-    expect(crisisTitle("Data breach", "Customer records leaked")).toBe("Customer records leaked");
+describe("prdSummary", () => {
+  const row = (ticker: string, score: number | null, startPrice: number | null): PrdRow => ({ ticker, name: null, score, startPrice });
+  test("the top PRDs, highest score first, then ticker; the count and the range of starting prices", () => {
+    const s = prdSummary([row("BBB", 80, 1300), row("AAA", 80, 1300), row("CCC", 95, 1450), row("DDD", 0, 500), row("EEE", 60, 1100), row("FFF", 60, 1100), row("GGG", 60, 1100)]);
+    expect(s.top.map((r) => r.ticker)).toEqual(["CCC", "AAA", "BBB", "EEE", "FFF"]);
+    expect(s).toMatchObject({ listed: 7, low: 500, high: 1450, moreTied: 1 });
+    expect(competitionRanks(s.top.map((r) => r.score))).toEqual([1, 2, 2, 4, 4]);
+  });
+  test("nothing listed yet", () => {
+    expect(prdSummary([row("AAA", null, null)])).toEqual({ listed: 0, low: null, high: null, top: [], moreTied: 0 });
   });
 });
 
-const v = (ticker: string, tierBp: number, score: number | null = 60): VerdictRow => ({ ticker, name: `${ticker} Ltd`, score, tierBp, before: 1000, after: 1000 });
-
-describe("verdictMovers", () => {
-  test("risers by highest tier, then score, then ticker; fallers by lowest tier, then score, then ticker", () => {
-    const rows = [v("AAA", 500, 62), v("BBB", 2500, 95), v("CCC", 2000, 85), v("DDD", 2000, 88), v("EEE", -2000, 30), v("FFF", -1000, 45), v("GGG", -2000, 10), v("HHH", 0, 55)];
-    const m = verdictMovers(rows);
-    expect(m.risers.map((r) => r.ticker)).toEqual(["BBB", "DDD", "CCC", "AAA"]);
-    expect(m.fallers.map((r) => r.ticker)).toEqual(["GGG", "EEE", "FFF"]);
-    expect([m.up, m.down, m.unchanged]).toEqual([4, 3, 1]);
+describe("rescueCircles", () => {
+  // Teams t1..t5 built A..E. t1 rescues C, t3 rescues B, t2 rescues A: one circle A → C → B → A. t4 and t5 swap.
+  const c = (id: string, ticker: string, founder: string, rescuer: string | null) => ({ id, ticker, founder_team_id: founder, rescuer_team_id: rescuer });
+  const companies = [c("a", "AAA", "t1", "t2"), c("b", "BBB", "t2", "t3"), c("c", "CCC", "t3", "t1"), c("d", "DDD", "t4", "t5"), c("e", "EEE", "t5", "t4")];
+  test("every circle, starting at its first ticker and closing on it", () => {
+    expect(rescueCircles(companies)).toEqual([
+      ["AAA", "CCC", "BBB", "AAA"],
+      ["DDD", "EEE", "DDD"],
+    ]);
   });
-
-  test("ties on tier and score go by ticker; at most 5 each", () => {
-    const rows = ["ZZZ", "QQQ", "AAA", "MMM", "BBB", "CCC", "DDD"].map((t) => v(t, 1000, 75));
-    const m = verdictMovers(rows);
-    expect(m.risers.map((r) => r.ticker)).toEqual(["AAA", "BBB", "CCC", "DDD", "MMM"]);
-    expect(m.fallers).toEqual([]);
-    expect(m.up).toBe(7);
+  test("before the lottery: nothing", () => {
+    expect(rescueCircles(companies.map((x) => ({ ...x, rescuer_team_id: null })))).toEqual([]);
   });
-
-  test("fewer than 5 companies", () => {
-    const m = verdictMovers([v("AAA", -500, 40), v("BBB", 500, 75)]);
-    expect(m.risers.map((r) => r.ticker)).toEqual(["BBB"]);
-    expect(m.fallers.map((r) => r.ticker)).toEqual(["AAA"]);
-  });
-
-  test("all tiers equal: everyone on one side (or nobody moved)", () => {
-    expect(verdictMovers([v("AAA", -500), v("BBB", -500)]).fallers.map((r) => r.ticker)).toEqual(["AAA", "BBB"]);
-    const none = verdictMovers([v("AAA", 0), v("BBB", 0), v("CCC", 0)]);
-    expect(none).toEqual({ risers: [], fallers: [], up: 0, down: 0, unchanged: 3 });
-  });
-
-  test("zero movers: no companies at all", () => {
-    expect(verdictMovers([])).toEqual({ risers: [], fallers: [], up: 0, down: 0, unchanged: 0 });
-  });
-
-  test("a missing score sorts after any real score among equal tiers", () => {
-    const m = verdictMovers([v("AAA", -2000, null), v("BBB", -2000, 0), v("CCC", 2000, null), v("DDD", 2000, 80)]);
-    expect(m.risers.map((r) => r.ticker)).toEqual(["DDD", "CCC"]);
-    expect(m.fallers.map((r) => r.ticker)).toEqual(["BBB", "AAA"]);
+  test("long circles wrap into lines", () => {
+    const big = Array.from({ length: 23 }, (_, i) => c(`x${i}`, `T${String(i).padStart(2, "0")}`, `t${i}`, `t${(i + 22) % 23}`));
+    const circles = rescueCircles(big);
+    expect(circles).toHaveLength(1);
+    expect(circles[0]).toHaveLength(24);
+    expect(circleLines(circles, 10).map((l) => l.length)).toEqual([10, 10, 4]);
   });
 });
 
-const p = (ticker: string, score: number | null, ipoPrice: number | null): PitchRow => ({ ticker, name: null, score, ipoPrice });
-
-describe("pitchSummary", () => {
-  test("the highest IPO prices, highest score first; the count and the range", () => {
-    const rows = [p("AAA", 60, 1050), p("BBB", 85, 1100), p("CCC", 81, 1100), p("DDD", 30, 900), p("EEE", 55, 1000), p("FFF", 60, 1050), p("GGG", 45, 950)];
-    const s = pitchSummary(rows);
-    expect(s.top.map((r) => r.ticker)).toEqual(["BBB", "CCC", "AAA", "FFF", "EEE"]);
-    expect(s).toMatchObject({ listed: 7, low: 900, high: 1100 });
-  });
-
-  test("fewer than 5, all equal, and companies without a price", () => {
-    const s = pitchSummary([p("CCC", 60, 1050), p("AAA", 60, 1050), p("BBB", null, null)]);
-    expect(s.top.map((r) => r.ticker)).toEqual(["AAA", "CCC"]);
-    expect(s).toMatchObject({ listed: 2, low: 1050, high: 1050 });
-    expect(pitchSummary([])).toEqual({ listed: 0, low: null, high: null, top: [], moreTied: 0 });
+describe("revealMovers", () => {
+  const row = (ticker: string, score: number, before = 850): RevealRow => {
+    const factorBp = 10_000 + 50 * (score - 50);
+    return { ticker, name: null, score, factorBp, before, after: before };
+  };
+  test("risers by highest factor, fallers by lowest; a 50 is neither; ties by ticker; at most 5", () => {
+    const m = revealMovers([row("A", 90), row("B", 90), row("C", 50), row("D", 10), row("E", 70), row("F", 60), row("G", 55), row("H", 51), row("I", 52)]);
+    expect(m.risers.map((r) => r.ticker)).toEqual(["A", "B", "E", "F", "G"]);
+    expect(m.fallers.map((r) => r.ticker)).toEqual(["D"]);
+    expect(m).toMatchObject({ up: 7, down: 1, unchanged: 1 });
   });
 });
-
-const c = (ticker: string, ipoPrice: number | null, closingPrice: number | null): ClosingRow => ({ ticker, name: null, ipoPrice, closingPrice });
 
 describe("closingMovers", () => {
-  test("gainers and losers by the change from the IPO price to the closing price", () => {
-    const rows = [c("AQS", 1050, 1263), c("CCRT", 1000, 815), c("SNAP", 1000, 922), c("FLAT", 1000, 1000), c("UPP", 900, 1350), c("NOPE", 1000, null)];
-    const m = closingMovers(rows);
-    expect(m.gainers.map((r) => [r.ticker, r.changeBp])).toEqual([["UPP", 5000], ["AQS", 2029]]);
-    expect(m.losers.map((r) => [r.ticker, r.changeBp])).toEqual([["CCRT", -1850], ["SNAP", -780]]);
+  const row = (ticker: string, startPrice: number | null, closingPrice: number | null): ClosingRow => ({ ticker, name: null, startPrice, closingPrice });
+  test("gainers and losers from the starting price to the closing price", () => {
+    const m = closingMovers([row("A", 1000, 1250), row("B", 1000, 900), row("C", 1000, 1000), row("D", null, 900), row("E", 800, 1200)]);
+    expect(m.gainers.map((r) => [r.ticker, r.changeBp])).toEqual([
+      ["E", 5000],
+      ["A", 2500],
+    ]);
+    expect(m.losers.map((r) => [r.ticker, r.changeBp])).toEqual([["B", -1000]]);
     expect(m.flat).toBe(1);
   });
-
-  test("ties go by ticker; at most 5; nobody moved", () => {
-    const rows = ["FFF", "EEE", "DDD", "CCC", "BBB", "AAA"].map((t) => c(t, 1000, 1100));
-    expect(closingMovers(rows).gainers.map((r) => r.ticker)).toEqual(["AAA", "BBB", "CCC", "DDD", "EEE"]);
-    expect(closingMovers([c("AAA", 1000, 1000)])).toEqual({ gainers: [], losers: [], flat: 1 });
-    expect(closingMovers([])).toEqual({ gainers: [], losers: [], flat: 0 });
-  });
 });
 
-const team = (code: string) => ({ code, name: `Team ${code}` });
-const a = (code: string, place: number, t: string | null, metric: Record<string, unknown> = {}, ticker: string | null = null): AwardRow => ({
-  code,
-  place,
-  metric,
-  teams: t ? team(t) : null,
-  companies: ticker ? { ticker, name: `${ticker} Ltd` } : null,
-});
-
-describe("podiums", () => {
-  test("each track's places in order; a tie shares a place", () => {
-    const awards = [
-      a("PRODUCT_TOP3", 2, "P05"),
-      a("PRODUCT_TOP3", 1, "P01"),
-      a("PRODUCT_TOP3", 2, "P03"),
-      a("FINANCE_TOP3", 1, "F02"),
-      a("FINANCE_TOP3", 3, "F09"),
-      a("FINANCE_TOP3", 2, "F04"),
-      a("BEST_TURNAROUND", 1, "P01"),
-    ];
-    const [product, consulting, finance] = podiums(awards);
-    expect(product!.label).toBe("Product");
-    expect(product!.places.map((x) => [x.place, x.winners.map((w) => w.teams!.code)])).toEqual([
-      [1, ["P01"]],
-      [2, ["P03", "P05"]],
-    ]);
-    expect(consulting!.places).toEqual([]);
-    expect(finance!.places.map((x) => x.place)).toEqual([1, 2, 3]);
+describe("the awards, one by one", () => {
+  const at = "2026-11-20T23:45:00.000Z"; // 05:15 IST
+  const t = (s: number) => Date.parse(at) + s * 1000;
+  test("the first at once, then one more every step, until all are up", () => {
+    expect(awardsRevealed(at, t(-1), 7)).toBe(0);
+    expect(awardsRevealed(at, t(0), 7)).toBe(1);
+    expect(awardsRevealed(at, t(AWARD_STEP_SECONDS - 1), 7)).toBe(1);
+    expect(awardsRevealed(at, t(AWARD_STEP_SECONDS), 7)).toBe(2);
+    expect(awardsRevealed(at, t(3600), 7)).toBe(7);
+    expect(awardsRevealed(at, t(0), 0)).toBe(0);
   });
-
-  test("at most 6 teams on a podium; the tied teams left out are counted", () => {
-    const places = (sizes: number[]) => sizes.map((n, i) => ({ place: i + 1, winners: Array.from({ length: n }, (_, k) => a("FINANCE_TOP3", i + 1, `F${i}${k}`)) }));
-    expect(capPodium(places([1, 1, 1]))).toMatchObject({ more: 0 });
-    expect(capPodium(places([1, 2, 3])).places.map((p) => p.winners.length)).toEqual([1, 2, 3]);
-    const big = capPodium(places([1, 1, 7]));
-    expect(big.places.map((p) => p.winners.length)).toEqual([1, 1, 4]);
-    expect(big.more).toBe(3);
-    const firsts = capPodium(places([8]));
-    expect(firsts.places.map((p) => p.winners.length)).toEqual([6]);
-    expect(firsts.more).toBe(2);
-    const late = capPodium(places([6, 1]));
-    expect(late.places.map((p) => p.place)).toEqual([1]);
-    expect(late.more).toBe(1);
-    expect(capPodium([])).toEqual({ places: [], more: 0 });
-    expect([1, 3, 4, 5, 6, 9].map(podiumDensity)).toEqual(["large", "large", "compact", "compact", "dense", "dense"]);
+  test("when the next one comes; faster in a rehearsal, never below 5 s", () => {
+    expect(nextAwardAt(at, t(10), 7)).toBe(new Date(t(AWARD_STEP_SECONDS)).toISOString());
+    expect(nextAwardAt(at, t(3600), 7)).toBeNull();
+    expect(awardsRevealed(at, t(10), 7, 60)).toBe(3); // 5 s steps
   });
-
-  test("the final value and return of a winner", () => {
-    expect(podiumNumbers(a("FINANCE_TOP3", 1, "F02", { final_value: 73_413_000, return_bp: 46_826 }))).toEqual({ value: "$734,130.00", change: "+468.26%", changeBp: 46_826 });
-    expect(podiumNumbers(a("FINANCE_TOP3", 1, "F02", { final_value: "6663000", return_bp: null }))).toEqual({ value: "$66,630.00", change: "—", changeBp: null });
-  });
-});
-
-describe("specialAwards", () => {
-  test("a fixed order, with the winners of each (none, one, or a tie)", () => {
-    const s = specialAwards([
-      a("BEST_JUDGING_FUND", 1, "F07", { ai_value: 52_000_000, return_bp: 400 }),
-      a("BEST_JUDGING_FUND", 1, "F03", { ai_value: 52_000_000, return_bp: 400 }),
-      a("BEST_RESCUE_PLAN", 1, "P02", { score: 88, median: 88 }, "AQS"),
-      a("PRODUCT_TOP3", 1, "P01"),
-    ]);
-    expect(s.map((x) => x.code)).toEqual(["BEST_TURNAROUND", "BEST_RESCUE_PLAN", "BEST_JUDGING_FUND"]);
-    expect(s[0]!.winners).toEqual([]);
-    expect(s[1]!.winners.map((w) => w.companies!.ticker)).toEqual(["AQS"]);
-    expect(s[2]!.winners.map((w) => w.teams!.code)).toEqual(["F03", "F07"]);
-    expect(s.map((x) => x.label)).toEqual(["Best turnaround", "Best rescue plan", "Best judging fund"]);
-  });
-
-  test("each metric in plain English", () => {
-    expect(awardMetric(a("BEST_TURNAROUND", 1, "P01", { closing_price: 1263, post_crisis_price: 956 }, "AQS"))).toBe("$9.56 after the crisis → $12.63 at the close (+32.11%)");
-    expect(awardMetric(a("BEST_RESCUE_PLAN", 1, "P01", { score: 88, median: 88 }, "AQS"))).toBe("Plan score 88 / 100");
-    expect(awardMetric(a("BEST_JUDGING_FUND", 1, "F01", { ai_value: 52_000_000, return_bp: 400 }))).toBe("$520,000.00 at AI prices (+4%)");
-    expect(awardMetric(a("PRODUCT_TOP3", 1, "P01", { final_value: 73_413_000, return_bp: 46_826 }))).toBe("$734,130.00 (+468.26%)");
-    expect(awardMetric(a("BEST_RESCUE_PLAN", 1, "P01", {}))).toBe("Plan score — / 100");
+  test("ceremony order: special awards first, the winner last", () => {
+    const lines = [{ code: "WINNER" as const }, { code: "BEST_PRD" as const }, { code: "THIRD" as const }, { code: "BEST_COMPANY" as const }];
+    expect(ceremony(lines).map((l) => l.code)).toEqual(["BEST_PRD", "BEST_COMPANY", "THIRD", "WINNER"]);
   });
 });
 
@@ -272,16 +189,3 @@ describe("competitionRanks", () => {
   });
 });
 
-describe("pitchSummary ties across the cut", () => {
-  const row = (ticker: string, score: number) => ({ ticker, name: null, score, ipoPrice: 1050 });
-  test("counts the companies left out that share the last shown score", () => {
-    const s = pitchSummary([row("AAA", 90), row("BBB", 82), row("CCC", 82), row("DDD", 82), row("EEE", 82), row("FFF", 82), row("GGG", 70)]);
-    expect(s.top.map((r) => r.ticker)).toEqual(["AAA", "BBB", "CCC", "DDD", "EEE"]);
-    expect(s.moreTied).toBe(1);
-  });
-  test("no tie across the cut, or fewer companies than the limit: none", () => {
-    expect(pitchSummary([row("AAA", 90), row("BBB", 80), row("CCC", 70), row("DDD", 60), row("EEE", 50), row("FFF", 40)]).moreTied).toBe(0);
-    expect(pitchSummary([row("AAA", 90)]).moreTied).toBe(0);
-    expect(pitchSummary([]).moreTied).toBe(0);
-  });
-});

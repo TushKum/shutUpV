@@ -5,7 +5,7 @@ import {
   BOARD_PAGE_MS,
   BOARD_PAGE_SIZE,
   boardTiles,
-  changeSinceIpoBp,
+  changeSinceStartBp,
   highlightUntil,
   moveOf,
   pageCount,
@@ -19,39 +19,39 @@ import {
 const co = (over: Partial<BoardCompany> & { id: string }): BoardCompany => ({
   ticker: over.id.toUpperCase(),
   name: `Company ${over.id}`,
-  ipo_price: 1050,
+  start_price: 1050,
   market_price: 1050,
   closing_price: null,
   ...over,
 });
 
-describe("change since the IPO price, in basis points", () => {
+describe("change since the starting price, in basis points", () => {
   test("rounded half-up, as the brief's clearing example: $10.50 → $10.82 is +3.05%", () => {
-    expect(changeSinceIpoBp(1050, 1082)).toBe(305); // 304.76…
-    expect(bp(changeSinceIpoBp(1050, 1082))).toBe("+3.05%");
-    expect(changeSinceIpoBp(1050, 1050)).toBe(0);
-    expect(changeSinceIpoBp(1000, 1100)).toBe(1000);
+    expect(changeSinceStartBp(1050, 1082)).toBe(305); // 304.76…
+    expect(bp(changeSinceStartBp(1050, 1082))).toBe("+3.05%");
+    expect(changeSinceStartBp(1050, 1050)).toBe(0);
+    expect(changeSinceStartBp(1000, 1100)).toBe(1000);
   });
 
   test("exact halves go away from zero, also when the price fell", () => {
-    expect(changeSinceIpoBp(2000, 2001)).toBe(5); // 5.0
-    expect(changeSinceIpoBp(400, 401)).toBe(25); // 25.0
-    expect(changeSinceIpoBp(800, 801)).toBe(13); // 12.5 → 13
-    expect(changeSinceIpoBp(800, 799)).toBe(-13); // −12.5 → −13
-    expect(changeSinceIpoBp(1050, 1040)).toBe(-95); // −95.24
-    expect(bp(changeSinceIpoBp(1050, 1040))).toBe("−0.95%");
-    expect(changeSinceIpoBp(1050, 893)).toBe(-1495); // −1495.24
+    expect(changeSinceStartBp(2000, 2001)).toBe(5); // 5.0
+    expect(changeSinceStartBp(400, 401)).toBe(25); // 25.0
+    expect(changeSinceStartBp(800, 801)).toBe(13); // 12.5 → 13
+    expect(changeSinceStartBp(800, 799)).toBe(-13); // −12.5 → −13
+    expect(changeSinceStartBp(1050, 1040)).toBe(-95); // −95.24
+    expect(bp(changeSinceStartBp(1050, 1040))).toBe("−0.95%");
+    expect(changeSinceStartBp(1050, 893)).toBe(-1495); // −1495.24
   });
 
-  test("no IPO price (scores not released) or no price: no change", () => {
-    expect(changeSinceIpoBp(null, 1050)).toBeNull();
-    expect(changeSinceIpoBp(1050, null)).toBeNull();
-    expect(changeSinceIpoBp(null, null)).toBeNull();
+  test("no starting price (scores not released) or no price: no change", () => {
+    expect(changeSinceStartBp(null, 1050)).toBeNull();
+    expect(changeSinceStartBp(1050, null)).toBeNull();
+    expect(changeSinceStartBp(null, null)).toBeNull();
   });
 
   test("refuses anything that is not whole positive cents", () => {
-    expect(() => changeSinceIpoBp(0, 100)).toThrow();
-    expect(() => changeSinceIpoBp(10.5, 100)).toThrow();
+    expect(() => changeSinceStartBp(0, 100)).toThrow();
+    expect(() => changeSinceStartBp(10.5, 100)).toThrow();
   });
 });
 
@@ -101,12 +101,12 @@ describe("tiles", () => {
     ]);
   });
 
-  test("the IPO price pending (pitch scores not released): no price and no change", () => {
-    const [t] = boardTiles([co({ id: "zaab", ipo_price: null, market_price: null })], [], false);
+  test("the starting price pending (pitch scores not released): no price and no change", () => {
+    const [t] = boardTiles([co({ id: "zaab", start_price: null, market_price: null })], [], false);
     expect(t).toMatchObject({ price: null, changeBp: null, closing: false, move: null });
   });
 
-  test("after the close: the closing price, and the change since IPO is to the closing price", () => {
+  test("after the close: the closing price, and the change since the start is to the closing price", () => {
     const c = co({ id: "eta", market_price: 1200, closing_price: 1155 });
     const [open] = boardTiles([c], [], false);
     expect(open).toMatchObject({ price: 1200, closing: false, changeBp: 1429 }); // 1428.57

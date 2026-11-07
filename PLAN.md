@@ -194,6 +194,30 @@ by `drafts`).
 - **Not yet:** the browser (e2e) tests still describe the old game and cannot run here (the full local Supabase
   stack cannot be downloaded). They are rewritten with the rehearsal in Phase 7.
 
+## 7d. Decisions made while building (Phase 5)
+
+- **Takeovers, in night order:** the twist (22:15, 3 min), PRD scores and starting prices with the top 5 PRDs
+  (23:30, 3 min), the crisis with the rescue circle and the seed check (23:45, 3 min), the crisis-solution scores
+  with the biggest risers and fallers (02:45, 2½ min), the closing bell with the biggest gainers and losers from the
+  starting price (04:30, 2 min), and the awards (05:15, stays up). Each is worked out from a time the database
+  stores, so a projector that reloads mid-takeover shows the rest of it. A rehearsal's faster clock shortens them
+  (never below 30 s).
+- **The rescue circle** is shown by ticker only ("AAA → CCC" = the team that built AAA rescues CCC), 10 to a line,
+  pages turning every 20 s. No team code appears before the awards.
+- **Before 23:30** the main screen is a large countdown to the next moment (briefing, cards dealt, twist, PRD lock,
+  reveal), the evening's schedule, and the twist once it is out. The trading badge appears only from 02:15.
+- **From 23:30** the price board (change since the starting price; 25 tiles a page, every 20 s). Until the 03:30
+  freeze the leaderboard (top 30 by team code, with each round's points) takes a turn after the last page of
+  tiles; after the freeze it is not shown at all.
+- **Rumours** show in the banner and the ticker, marked as unconfirmed and as never moving a price.
+- **The awards are revealed one by one by the clock:** best PRD, best crisis solution, best investor, best company,
+  third, runner-up, then the winner, 45 s apart (shorter in a rehearsal). The newest fills the screen; earlier ones
+  stay listed. *If you would rather have the MC press "next" for each award, that needs a small control-panel button
+  and one more column; say so and I will add it.*
+- **Database (migration 13):** the projector account may now read the leaderboard (refused after the freeze, like
+  teams) and the lottery record; the public download `/api/lottery-record?event=<slug>` works again (it called a
+  function that no longer existed) and is checked in the database tests, signed out, before and after the crisis.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

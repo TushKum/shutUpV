@@ -25,7 +25,7 @@ import {
   type Fill,
 } from "@msim/engine";
 import { createTestDb } from "./pg";
-import { as, rowsAs } from "./helpers";
+import { anon, as, rowsAs } from "./helpers";
 import { COMMITMENT, Night, SEED } from "./night";
 
 let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -98,6 +98,9 @@ describe("a PRIMUS night", () => {
     expect(await rowsAs(db.pool, n.team(alpha), "select * from event_secrets")).toEqual([]);
     expect(await rowsAs(db.pool, n.display, "select * from event_secrets")).toEqual([]);
     expect((await n.call(n.team(alpha), "lottery_record", n.eventId)).code).toBe("NOT_YET");
+    // The public download (signed out) has nothing before the crisis either.
+    const { slug } = await n.one("select slug from events where id = $1", [n.eventId]);
+    expect(await rowsAs(db.pool, anon, "select public.public_lottery_record($1) as r", [slug])).toEqual([{ r: null }]);
   });
 
   test("Round 1: PRDs with word limits, version locks and first-come tickers; the twist", async () => {
@@ -206,6 +209,10 @@ describe("a PRIMUS night", () => {
     // 10. The published record re-runs every draw; the secret is gone.
     const rec = await n.ok(n.team(alpha), "lottery_record", n.eventId);
     expect(checkLotteryRecord(rec.record, COMMITMENT)).toEqual([]);
+    // The projector and the public download (signed out) read the same record.
+    expect((await n.ok(n.display, "lottery_record", n.eventId)).record).toEqual(rec.record);
+    const { slug } = await n.one("select slug from events where id = $1", [n.eventId]);
+    expect(await rowsAs(db.pool, anon, "select public.public_lottery_record($1) as r", [slug])).toEqual([{ r: rec.record }]);
     expect(await n.q("select * from event_secrets where event_id = $1", [n.eventId])).toEqual([]);
 
     beta = await n.codeOf((await n.company(alpha)).rescuer_team_id);
@@ -342,6 +349,8 @@ describe("a PRIMUS night", () => {
       if (r === 7) {
         // 03:30: the leaderboard freezes.
         expect((await n.ok(n.team(alpha), "leaderboard", n.eventId)).frozen).toBe(false);
+        // The projector shows the live leaderboard until the freeze.
+        expect((await n.ok(n.display, "leaderboard", n.eventId)).rows).toHaveLength(8);
         await n.deadlinePassed("LEADERBOARD_FREEZE");
         await n.ok(n.lead, "tick", n.eventId);
       }
@@ -461,5 +470,8 @@ describe("a PRIMUS night", () => {
     expect(board.final).toBe(true);
     expect(board.rows).toHaveLength(8);
     expect((await rowsAs(db.pool, n.team(alpha), "select code from awards")).length).toBeGreaterThan(0);
+    // The projector reveals the same final results and awards.
+    expect(await n.ok(n.display, "leaderboard", n.eventId)).toEqual(board);
+    expect((await rowsAs(db.pool, n.display, "select code from awards")).length).toBeGreaterThan(0);
   });
 });

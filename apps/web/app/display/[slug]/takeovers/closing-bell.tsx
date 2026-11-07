@@ -1,6 +1,6 @@
-// The 05:00 closing bell: the market is closed. The closing price of every company is final; the five biggest gainers
-// and losers from the IPO price to the closing price (basis points, half-up). Final results wait for the awards, so
-// no team or fund appears here.
+// 04:30 the closing bell: the market is closed. Each closing price is half the market price and half the score-based
+// price; the five biggest gainers and losers from the starting price to the closing price (basis points, half-up).
+// Final results wait for the awards, so no team appears here.
 
 import { TAKEOVER_TITLES } from "@/lib/display/takeover";
 import { closingMovers, type ClosingRow } from "@/lib/display/takeovers";
@@ -16,7 +16,7 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
     id: c.id,
     ticker: c.ticker,
     name: c.name,
-    ipoPrice: c.ipo_price,
+    startPrice: c.start_price,
     closingPrice: c.closing_price,
   }));
   const m = closingMovers(rows);
@@ -24,7 +24,7 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
     key: r.id,
     ticker: r.ticker,
     name: r.name,
-    middle: <PriceMove before={r.ipoPrice} after={r.closingPrice} tone={tone} className="text-[34px]" />,
+    middle: <PriceMove before={r.startPrice} after={r.closingPrice} tone={tone} className="text-[34px]" />,
     right: <span className={`text-[44px] font-black tabular-nums ${tone === "up" ? "text-emerald-400" : "text-red-400"}`}>{bp(r.changeBp)}</span>,
   });
   return (
@@ -37,29 +37,29 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
           <p className="text-right text-[32px] leading-snug text-slate-300">
             Closing prices are final.
             <br />
-            Change from the IPO price to the closing price.
+            Change from the starting price to the closing price.
           </p>
         </div>
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-12">
           <MoverColumn
             title="Top gainers"
             tone="up"
-            headers={["Company", "IPO → close", "Change"]}
+            headers={["Company", "Start → close", "Change"]}
             rows={m.gainers.map((r) => toRow(r, "up"))}
-            empty="No company closed above its IPO price."
+            empty="No company closed above its starting price."
             testId="closing-gainers"
           />
           <MoverColumn
             title="Top losers"
             tone="down"
-            headers={["Company", "IPO → close", "Change"]}
+            headers={["Company", "Start → close", "Change"]}
             rows={m.losers.map((r) => toRow(r, "down"))}
-            empty="No company closed below its IPO price."
+            empty="No company closed below its starting price."
             testId="closing-losers"
           />
         </div>
         <p className="shrink-0 text-[40px] leading-tight font-black text-amber-300" data-testid="closing-awards">
-          Final results are announced at the awards.
+          Final results are revealed at the awards, at 05:15.
         </p>
       </div>
     </TakeoverFrame>

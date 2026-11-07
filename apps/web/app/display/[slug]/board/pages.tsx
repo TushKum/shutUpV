@@ -4,7 +4,7 @@
 // same page, and a reload carries on where the screen was. The first render (on the server and while hydrating) uses
 // the time the server rendered at, so both agree. Tiles that moved in a round that has just cleared light up briefly.
 
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { useServerNow } from "@/lib/live/clock";
 import { bp, money } from "@/lib/format";
 import {
@@ -34,6 +34,7 @@ export function BoardPages({
   serverTime,
   highlightUntil,
   compact = false,
+  extra = null,
 }: {
   tiles: BoardTile[];
   /** The last cleared round's number (null before any round has cleared). */
@@ -45,30 +46,42 @@ export function BoardPages({
   highlightUntil: number | null;
   /** Less height for the tiles (a bulletin banner or the pause strip is shown): one step smaller type. */
   compact?: boolean;
+  /** A page shown after the last page of tiles (the leaderboard until 03:30). */
+  extra?: ReactNode;
 }) {
   const live = useServerNow(500);
   const hydrated = useSyncExternalStore(noSubscription, () => true, () => false);
   const now = hydrated ? live : Date.parse(serverTime);
-  const pages = pageCount(tiles.length);
+  const tilePages = pageCount(tiles.length);
+  const pages = tilePages + (extra ? 1 : 0);
   const page = pageIndex(now, pages);
+  const onExtra = extra !== null && page === tilePages;
   const glow = highlightUntil !== null && now < highlightUntil;
   const pending = tiles.every((t) => t.price === null);
 
   return (
     <>
-      <div className="grid min-h-0 flex-1 grid-cols-5 grid-rows-5 gap-x-3 gap-y-1 px-6 py-2" data-testid="board-page-tiles" data-page={page + 1}>
-        {pageOf(tiles, page).map((t) => (
-          <Tile key={t.id} tile={t} round={round} glow={glow} size={compact ? SIZES.compact : SIZES.normal} />
-        ))}
-      </div>
+      {onExtra ? (
+        <div className="min-h-0 flex-1 px-6 py-2" data-testid="board-page-extra" data-page={page + 1}>
+          {extra}
+        </div>
+      ) : (
+        <div className="grid min-h-0 flex-1 grid-cols-5 grid-rows-5 gap-x-3 gap-y-1 px-6 py-2" data-testid="board-page-tiles" data-page={page + 1}>
+          {pageOf(tiles, page).map((t) => (
+            <Tile key={t.id} tile={t} round={round} glow={glow} size={compact ? SIZES.compact : SIZES.normal} />
+          ))}
+        </div>
+      )}
       <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-white/15 px-8 text-[28px] text-slate-300">
         <p className="min-w-0 truncate" data-testid="board-legend">
-          {pending ? (
-            "IPO prices are set when the pitch scores are released."
+          {onExtra ? (
+            "The leaderboard: Round 1 + Round 2 + Round 3 points so far (Round 3 at current market prices). It freezes at 03:30."
+          ) : pending ? (
+            "Starting prices are set when the PRD scores are revealed at 23:30."
           ) : (
             <>
               {closed ? <span className="font-bold text-amber-300">Closing prices · </span> : null}
-              % change since the IPO price
+              % change since the starting price
               {round !== null ? (
                 <>
                   {" · "}
@@ -145,7 +158,7 @@ function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number |
       </div>
       {t.price === null ? (
         <p className={`leading-[1.2] font-semibold text-slate-400 ${size.pending}`} data-testid="tile-pending">
-          IPO price pending
+          Starting price at 23:30
         </p>
       ) : (
         <PriceRow price={money(t.price)} change={bp(t.changeBp)} tone={tone} fit={size.fit} />

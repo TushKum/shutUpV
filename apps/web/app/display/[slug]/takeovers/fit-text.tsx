@@ -1,6 +1,6 @@
 "use client";
 
-// The flash bulletin's title and body, as large as fits: the sizes step down until everything fits the content area.
+// A big announcement's title and body (the twist), as large as fits: the sizes step down until everything fits the content area.
 // A body too long even at the smallest size is cut after the last whole word that fits, with an ellipsis. Sizes are set
 // on the box as CSS variables before the browser paints (and the stage stays hidden until it has measured), so the
 // projector never shows the text at the wrong size.
@@ -18,7 +18,7 @@ const STEPS: [number, number][] = [
   [52, 28],
 ];
 
-export function FlashFit({ title, body, published }: { title: string; body: string; published: string }) {
+export function FitText({ title, body, label, tone = "text-amber-300", testId = "fit-text" }: { title: string; body: string; label: string; tone?: string; testId?: string }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLParagraphElement>(null);
 
@@ -30,8 +30,8 @@ export function FlashFit({ title, body, published }: { title: string; body: stri
     text.textContent = body;
     delete box.dataset.clamped;
     for (const [t, b] of STEPS) {
-      box.style.setProperty("--flash-title", `${t}px`);
-      box.style.setProperty("--flash-body", `${b}px`);
+      box.style.setProperty("--fit-title", `${t}px`);
+      box.style.setProperty("--fit-body", `${b}px`);
       box.dataset.size = String(b);
       if (fits()) return;
     }
@@ -51,22 +51,20 @@ export function FlashFit({ title, body, published }: { title: string; body: stri
   }, [title, body]);
 
   return (
-    <div ref={boxRef} className="flex h-full flex-col gap-8 overflow-hidden" data-testid="flash-news">
-      <p className="shrink-0 text-[32px] font-bold tracking-wide text-amber-300 uppercase">
-        Published <span className="font-mono tabular-nums">{published}</span>
-      </p>
+    <div ref={boxRef} className="flex h-full flex-col gap-8 overflow-hidden" data-testid={testId}>
+      <p className={`shrink-0 text-[32px] font-bold tracking-wide uppercase ${tone}`}>{label}</p>
       {/* Centred in the space left when it is short; at the top (auto margins collapse) when it fills it. */}
       <div className="my-auto flex flex-col gap-8">
         <h2
-          className="text-[length:var(--flash-title,112px)] leading-[1.08] font-black break-words text-white"
-          data-testid="flash-title"
+          className="text-[length:var(--fit-title,112px)] leading-[1.08] font-black break-words text-white"
+          data-testid={`${testId}-title`}
         >
           {title}
         </h2>
         <p
           ref={bodyRef}
-          className="text-[length:var(--flash-body,60px)] leading-[1.35] break-words whitespace-pre-line text-slate-100"
-          data-testid="flash-body"
+          className="text-[length:var(--fit-body,60px)] leading-[1.35] break-words whitespace-pre-line text-slate-100"
+          data-testid={`${testId}-body`}
         >
           {body}
         </p>

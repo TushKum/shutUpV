@@ -1,10 +1,9 @@
 // What the full-screen takeovers show, worked out from public rows: the seed commitment split so the hall can read
-// it, the verdicts' top movers, the closing bell's gainers and losers, the awards grouped by track and place, and
-// which page of a long list is on screen. Pure, so the choices (ties, short lists, nobody moving) are unit-tested.
+// it, the top PRDs and starting prices, the rescue circle, the reveal's risers and fallers, the closing bell's
+// gainers and losers, the awards one by one, and which page of a long list is on screen. Pure, so the choices (ties, short lists, nobody moving) are unit-tested.
 // Changes are basis points rounded half-up (divRoundHalfUp); no floating point decides a number on the screen.
 
-import { divRoundHalfUp, TRACK_LABELS, type Track } from "@msim/engine";
-import { bp, money } from "@/lib/format";
+import { divRoundHalfUp, type AwardCode } from "@msim/engine";
 
 // ───────────── Lottery ─────────────
 
@@ -42,75 +41,31 @@ export function changeBp(from: number | null | undefined, to: number | null | un
 
 const byTicker = (a: { ticker: string }, b: { ticker: string }) => (a.ticker < b.ticker ? -1 : a.ticker > b.ticker ? 1 : 0);
 
-// ───────────── Crisis ─────────────
+// ───────────── 23:30: starting prices ─────────────
 
-/** The crisis card's title when it says more than its category (a deck may repeat the category as the title). */
-export function crisisTitle(category: string | null | undefined, title: string | null | undefined): string | null {
-  const t = (title ?? "").trim();
-  if (!t || t.toLowerCase() === (category ?? "").trim().toLowerCase()) return null;
-  return t;
-}
-
-// ───────────── Verdicts ─────────────
-
-export interface VerdictRow {
-  ticker: string;
-  name: string | null;
-  /** The released final score (0–100). */
-  score: number | null;
-  /** The tier applied, in basis points. */
-  tierBp: number;
-  /** Market price before → after the tier (null for the pitch, which sets the IPO price). */
-  before: number | null;
-  after: number | null;
-}
-
-export interface Movers<T> {
-  /** Up to `limit` companies whose tier moved them up: highest tier, then highest score, then ticker. */
-  risers: T[];
-  /** Up to `limit` companies whose tier moved them down: lowest tier, then lowest score, then ticker. */
-  fallers: T[];
-  up: number;
-  down: number;
-  unchanged: number;
-}
-
-/** The verdict release's top movers (plan and flash). A tier of 0% is neither a riser nor a faller. */
-export function verdictMovers<T extends VerdictRow>(rows: readonly T[], limit = 5): Movers<T> {
-  const up = rows.filter((r) => r.tierBp > 0);
-  const down = rows.filter((r) => r.tierBp < 0);
-  return {
-    risers: [...up].sort((a, b) => b.tierBp - a.tierBp || (b.score ?? -1) - (a.score ?? -1) || byTicker(a, b)).slice(0, limit),
-    fallers: [...down].sort((a, b) => a.tierBp - b.tierBp || (a.score ?? 101) - (b.score ?? 101) || byTicker(a, b)).slice(0, limit),
-    up: up.length,
-    down: down.length,
-    unchanged: rows.length - up.length - down.length,
-  };
-}
-
-export interface PitchRow {
+export interface PrdRow {
   ticker: string;
   name: string | null;
   score: number | null;
-  ipoPrice: number | null;
+  startPrice: number | null;
 }
 
-export interface PitchSummary<T> {
-  /** Companies with an IPO price. */
+export interface PrdSummary<T> {
+  /** Companies with a starting price. */
   listed: number;
   low: number | null;
   high: number | null;
-  /** The highest IPO prices: highest score first, then the higher price, then ticker. */
+  /** The best PRDs: highest score first, then ticker. */
   top: T[];
   /** Companies left out of `top` that share the last shown company's score (a tie across the cut). */
   moreTied: number;
 }
 
-/** The pitch release: how many companies are listed, the range of IPO prices and the top `limit`. */
-export function pitchSummary<T extends PitchRow>(rows: readonly T[], limit = 5): PitchSummary<T> {
-  const listed = rows.filter((r) => r.ipoPrice !== null);
-  const prices = listed.map((r) => r.ipoPrice!);
-  const sorted = [...listed].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || b.ipoPrice! - a.ipoPrice! || byTicker(a, b));
+/** The 23:30 reveal: how many companies are listed, the range of starting prices and the top `limit` PRDs. */
+export function prdSummary<T extends PrdRow>(rows: readonly T[], limit = 5): PrdSummary<T> {
+  const listed = rows.filter((r) => r.startPrice !== null);
+  const prices = listed.map((r) => r.startPrice!);
+  const sorted = [...listed].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || byTicker(a, b));
   const top = sorted.slice(0, limit);
   const last = top.at(-1);
   return {
@@ -127,30 +82,117 @@ export function pitchSummary<T extends PitchRow>(rows: readonly T[], limit = 5):
  * reads as a winner chosen by ticker.
  */
 export function competitionRanks(scores: readonly (number | null)[]): number[] {
-  return scores.map((score, i) => scores.indexOf(score) === i ? i + 1 : scores.indexOf(score) + 1);
+  return scores.map((score, i) => (scores.indexOf(score) === i ? i + 1 : scores.indexOf(score) + 1));
 }
 
-// ───────────── Closing bell ─────────────
+// ───────────── 23:45: the rescue circle ─────────────
+
+export interface CircleCompany {
+  id: string;
+  ticker: string | null;
+  founder_team_id: string;
+  rescuer_team_id: string | null;
+}
+
+/**
+ * Who rescues whom, as tickers only (no team is named): the team that built X rescues Y, written X → Y. The rescue
+ * lottery gives every team another team's company, so following the arrows makes one or more closed circles. Each
+ * circle starts at its alphabetically first ticker; circles are listed by that ticker. A company whose rescuer built
+ * nothing listed (should not happen) ends its chain.
+ */
+export function rescueCircles(companies: readonly CircleCompany[]): string[][] {
+  const tickerOf = (c: CircleCompany) => c.ticker ?? "?";
+  const builtBy = new Map(companies.map((c) => [c.founder_team_id, c]));
+  /** X → the company X's founders rescue. */
+  const next = new Map<string, CircleCompany>();
+  for (const c of companies) {
+    if (!c.rescuer_team_id) continue;
+    const rescuerCompany = builtBy.get(c.rescuer_team_id);
+    if (rescuerCompany) next.set(rescuerCompany.id, c);
+  }
+  const seen = new Set<string>();
+  const out: string[][] = [];
+  const sorted = [...companies].sort((a, b) => (tickerOf(a) < tickerOf(b) ? -1 : tickerOf(a) > tickerOf(b) ? 1 : 0));
+  for (const start of sorted) {
+    if (seen.has(start.id) || !next.has(start.id)) continue;
+    const chain: string[] = [];
+    let c: CircleCompany | undefined = start;
+    while (c && !seen.has(c.id)) {
+      seen.add(c.id);
+      chain.push(tickerOf(c));
+      c = next.get(c.id);
+    }
+    // Back at the start: a closed circle, written with its first ticker again at the end.
+    if (c && c.id === start.id) chain.push(tickerOf(start));
+    out.push(chain);
+  }
+  return out;
+}
+
+/** Cuts the circles into lines of at most `perLine` tickers, so a circle of 150 wraps on screen. */
+export function circleLines(circles: readonly string[][], perLine = 10): string[][] {
+  const out: string[][] = [];
+  for (const c of circles) for (let i = 0; i < c.length; i += perLine) out.push(c.slice(i, i + perLine));
+  return out;
+}
+
+// ───────────── 02:45: the score reveal ─────────────
+
+export interface RevealRow {
+  ticker: string;
+  name: string | null;
+  /** The crisis-solution score (0–100). */
+  score: number | null;
+  /** The reveal factor, in basis points (11,700 = × 1.17). */
+  factorBp: number;
+  before: number | null;
+  after: number | null;
+}
+
+export interface RevealMovers<T> {
+  /** Up to `limit` biggest risers: highest factor, then ticker. */
+  risers: T[];
+  /** Up to `limit` biggest fallers: lowest factor, then ticker. */
+  fallers: T[];
+  up: number;
+  down: number;
+  unchanged: number;
+}
+
+/** The reveal's biggest risers and fallers. A score of exactly 50 (factor 10,000) is neither. */
+export function revealMovers<T extends RevealRow>(rows: readonly T[], limit = 5): RevealMovers<T> {
+  const up = rows.filter((r) => r.factorBp > 10_000);
+  const down = rows.filter((r) => r.factorBp < 10_000);
+  return {
+    risers: [...up].sort((a, b) => b.factorBp - a.factorBp || byTicker(a, b)).slice(0, limit),
+    fallers: [...down].sort((a, b) => a.factorBp - b.factorBp || byTicker(a, b)).slice(0, limit),
+    up: up.length,
+    down: down.length,
+    unchanged: rows.length - up.length - down.length,
+  };
+}
+
+// ───────────── 04:30: the closing bell ─────────────
 
 export interface ClosingRow {
   ticker: string;
   name: string | null;
-  ipoPrice: number | null;
+  startPrice: number | null;
   closingPrice: number | null;
 }
 
 export interface ClosingMovers<T> {
-  /** Biggest rises from the IPO price to the closing price (then ticker). */
+  /** Biggest rises from the starting price to the closing price (then ticker). */
   gainers: (T & { changeBp: number })[];
   /** Biggest falls (then ticker). */
   losers: (T & { changeBp: number })[];
-  /** Companies that closed exactly at their IPO price. */
+  /** Companies that closed exactly at their starting price. */
   flat: number;
 }
 
 export function closingMovers<T extends ClosingRow>(rows: readonly T[], limit = 5): ClosingMovers<T> {
   const withChange = rows.flatMap((r) => {
-    const c = changeBp(r.ipoPrice, r.closingPrice);
+    const c = changeBp(r.startPrice, r.closingPrice);
     return c === null ? [] : [{ ...r, changeBp: c }];
   });
   return {
@@ -160,114 +202,38 @@ export function closingMovers<T extends ClosingRow>(rows: readonly T[], limit = 
   };
 }
 
-// ───────────── Awards ─────────────
+// ───────────── 05:15: the awards, one by one ─────────────
 
-/** One row of public.rankings(event).awards. */
-export interface AwardRow {
-  code: string;
-  place: number;
-  metric: Record<string, unknown> | null;
-  teams: { code: string; name: string } | null;
-  companies: { ticker: string; name: string | null } | null;
-}
+/** The order of the ceremony: the special awards first, the podium last, the winner at the very end. */
+export const CEREMONY_ORDER: readonly AwardCode[] = ["BEST_PRD", "BEST_SOLUTION", "BEST_INVESTOR", "BEST_COMPANY", "THIRD", "RUNNER_UP", "WINNER"];
 
-export interface Podium {
-  track: Track;
-  label: string;
-  /** Places 1–3 that have a winner, in order; tied teams share a place (1, 2, 2 leaves no third). */
-  places: { place: number; winners: AwardRow[] }[];
-}
-
-const TRACKS: Track[] = ["PRODUCT", "CONSULTING", "FINANCE"];
-
-const byWinner = (a: AwardRow, b: AwardRow) => {
-  const x = a.teams?.code ?? a.companies?.ticker ?? "";
-  const y = b.teams?.code ?? b.companies?.ticker ?? "";
-  return x < y ? -1 : x > y ? 1 : 0;
-};
-
-function byPlace(rows: AwardRow[]): { place: number; winners: AwardRow[] }[] {
-  const places = new Map<number, AwardRow[]>();
-  for (const r of rows) places.set(r.place, [...(places.get(r.place) ?? []), r]);
-  return [...places]
-    .sort(([a], [b]) => a - b)
-    .map(([place, winners]) => ({ place, winners: winners.sort(byWinner) }));
-}
-
-/** The top 3 of each track (Product, Consulting, Finance), grouped by place. */
-export function podiums(awards: readonly AwardRow[]): Podium[] {
-  return TRACKS.map((track) => ({
-    track,
-    label: TRACK_LABELS[track],
-    places: byPlace(awards.filter((a) => a.code === `${track}_TOP3` && a.place >= 1 && a.place <= 3)),
-  }));
-}
+/** How long each award has the screen before the next is revealed, at the night's real speed. */
+export const AWARD_STEP_SECONDS = 45;
 
 /**
- * At most `max` teams on one podium (ties could in theory put many teams on it): the first `max` in place order are
- * shown, and `more` counts the tied teams that are not.
+ * How many awards are revealed at `nowMs`: the first at once, then one more every AWARD_STEP_SECONDS (shorter in a
+ * rehearsal, never below 5 s), until all `total` are up. By the server clock, so every screen and a reload agree.
  */
-export function capPodium(places: Podium["places"], max = 6): { places: Podium["places"]; more: number } {
-  let room = max;
-  let more = 0;
-  const out: Podium["places"] = [];
-  for (const p of places) {
-    const shown = p.winners.slice(0, Math.max(0, room));
-    if (shown.length > 0) out.push({ place: p.place, winners: shown });
-    more += p.winners.length - shown.length;
-    room -= shown.length;
-  }
-  return { places: out, more };
+export function awardsRevealed(awardsAt: string, nowMs: number, total: number, clockSpeed = 1): number {
+  const start = Date.parse(awardsAt);
+  if (Number.isNaN(start) || total <= 0 || nowMs < start) return 0;
+  const speed = Number.isFinite(clockSpeed) && clockSpeed > 1 ? clockSpeed : 1;
+  const step = Math.max(5, AWARD_STEP_SECONDS / speed) * 1000;
+  return Math.min(total, 1 + Math.floor((nowMs - start) / step));
 }
 
-/** How densely a podium is set: up to 3 teams large, up to 5 compact, more dense. */
-export function podiumDensity(teams: number): "large" | "compact" | "dense" {
-  return teams <= 3 ? "large" : teams <= 5 ? "compact" : "dense";
+/** When the next award is revealed (null once all are up). */
+export function nextAwardAt(awardsAt: string, nowMs: number, total: number, clockSpeed = 1): string | null {
+  const shown = awardsRevealed(awardsAt, nowMs, total, clockSpeed);
+  if (shown >= total) return null;
+  const speed = Number.isFinite(clockSpeed) && clockSpeed > 1 ? clockSpeed : 1;
+  const step = Math.max(5, AWARD_STEP_SECONDS / speed) * 1000;
+  return new Date(Date.parse(awardsAt) + shown * step).toISOString();
 }
 
-export const SPECIAL_AWARDS = [
-  { code: "BEST_TURNAROUND", label: "Best turnaround", description: "The biggest rise from the post-crisis price to the closing price" },
-  { code: "BEST_RESCUE_PLAN", label: "Best rescue plan", description: "The highest rescue plan score" },
-  { code: "BEST_JUDGING_FUND", label: "Best judging fund", description: "The best portfolio valued at the AI's prices" },
-] as const;
-
-export type SpecialAwardCode = (typeof SPECIAL_AWARDS)[number]["code"];
-
-/** The three special awards in a fixed order, each with its winners (a tie may give two; none: not awarded). */
-export function specialAwards(awards: readonly AwardRow[]) {
-  return SPECIAL_AWARDS.map((s) => ({ ...s, winners: awards.filter((a) => a.code === s.code).sort(byWinner) }));
-}
-
-/** A whole number from a jsonb metric (numbers, or the string form of a bigint); null otherwise. */
-function int(v: unknown): number | null {
-  const n = typeof v === "number" ? v : typeof v === "string" && /^-?\d+$/.test(v.trim()) ? Number(v) : NaN;
-  return Number.isSafeInteger(n) ? n : null;
-}
-
-/** The award's metric in plain English. */
-export function awardMetric(a: AwardRow): string {
-  const m = a.metric ?? {};
-  switch (a.code) {
-    case "BEST_TURNAROUND": {
-      const post = int(m.post_crisis_price);
-      const close = int(m.closing_price);
-      const change = changeBp(post, close);
-      return `${money(post)} after the crisis → ${money(close)} at the close${change === null ? "" : ` (${bp(change)})`}`;
-    }
-    case "BEST_RESCUE_PLAN":
-      return `Plan score ${int(m.score) ?? "—"} / 100`;
-    case "BEST_JUDGING_FUND":
-      return `${money(int(m.ai_value))} at AI prices (${bp(int(m.return_bp))})`;
-    default:
-      return `${money(int(m.final_value))} (${bp(int(m.return_bp))})`;
-  }
-}
-
-/** The final value and return of a top-3 award (money and basis points), for the podium. */
-export function podiumNumbers(a: AwardRow): { value: string; change: string; changeBp: number | null } {
-  const m = a.metric ?? {};
-  const r = int(m.return_bp);
-  return { value: money(int(m.final_value)), change: bp(r), changeBp: r };
+/** The award lines in ceremony order (only the awards given). */
+export function ceremony<T extends { code: AwardCode }>(lines: readonly T[]): T[] {
+  return CEREMONY_ORDER.flatMap((c) => lines.filter((l) => l.code === c));
 }
 
 // ───────────── Paging ─────────────

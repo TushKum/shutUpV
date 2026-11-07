@@ -16,9 +16,9 @@ const TONE: Record<TickerItem["tone"], string> = {
 };
 
 export async function NewsTicker({ event, status }: { event: DisplayEvent; status: EventStatus }) {
-  if (!phaseReached(status.phase, "READING") || phaseReached(status.phase, "AWARDS")) return null;
+  if (!event.prices_started_at || phaseReached(status.phase, "AWARDS")) return null;
   const sb = await supabaseServer();
-  const [round, bulletins, deals, companies, deadlines] = await Promise.all([
+  const [round, bulletins, deadlines] = await Promise.all([
     sb
       .from("rounds")
       .select("number, round_prices(market_before, market_after, companies(ticker))")
@@ -28,14 +28,18 @@ export async function NewsTicker({ event, status }: { event: DisplayEvent; statu
       .order("number", { ascending: false })
       .limit(1)
       .maybeSingle<{ number: number; round_prices: { market_before: number | null; market_after: number; companies: { ticker: string | null } | null }[] }>(),
-    sb.from("bulletins").select("kind, title").eq("event_id", event.id).not("published_at", "is", null).order("published_at", { ascending: false }).limit(3),
-    sb.from("public_ledger").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("kind", "DEAL"),
-    sb.from("companies").select("id", { count: "exact", head: true }).eq("event_id", event.id),
+    sb
+      .from("bulletins")
+      .select("kind, title")
+      .eq("event_id", event.id)
+      .not("published_at", "is", null)
+      .lte("published_at", status.server_time)
+      .order("published_at", { ascending: false })
+      .limit(4),
     sb.from("deadlines").select("code, at").eq("event_id", event.id),
   ]);
-  for (const r of [round, bulletins, deals, companies, deadlines]) if (r.error) throw new Error(`Could not read the ticker: ${r.error.message}`);
+  for (const r of [round, bulletins, deadlines]) if (r.error) throw new Error(`Could not read the ticker: ${r.error.message}`);
   const items = tickerItems({
-    phase: status.phase,
     nowMs: Date.parse(status.server_time),
     lastRound: round.data
       ? {
@@ -46,8 +50,6 @@ export async function NewsTicker({ event, status }: { event: DisplayEvent; statu
         }
       : null,
     bulletins: (bulletins.data ?? []) as { kind: string; title: string }[],
-    dealsSigned: deals.count ?? 0,
-    squads: companies.count ?? 0,
     deadlines: (deadlines.data ?? []) as { code: DeadlineCode; at: string }[],
     clock: (iso) => clock(iso),
   });
