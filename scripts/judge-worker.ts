@@ -6,7 +6,7 @@
 // Reads .env: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY and the
 // JUDGE_* settings. It claims runs until neither the judge queue nor the calibration queue has anything queued or
 // running, waiting for runs that are backing off or that another worker holds, then exits. --once does one turn of
-// JUDGE_WORK_BUDGET_MS instead. Before each turn with the real model it checks the API with the model of the event's
+// JUDGE_WORK_BUDGET_MS instead. Before each turn with the real model it checks the API with each round's model in its
 // current slot (no run used), and stops if that fails. Ctrl-C once stops claiming and lets the calls in flight
 // finish; Ctrl-C twice aborts them (they go back to the queue). The fake judge (JUDGE_FAKE=1) is refused on a live
 // event.
@@ -22,7 +22,9 @@ import {
   queueCounts,
   runWorker,
   supabaseJudgeDb,
-  type JudgeSlot,
+  modelsInUse,
+  SLOT_COLUMNS,
+  type EventSlots,
   type QueueCounts,
   type WorkerSummary,
 } from "../apps/web/lib/judge/index";
@@ -79,9 +81,9 @@ async function main(): Promise<number> {
 
   const { data: event, error } = await sb
     .from("events")
-    .select("id, slug, name, is_rehearsal, judge_model_slot")
+    .select(`id, slug, name, is_rehearsal, ${SLOT_COLUMNS}`)
     .eq("slug", args.event)
-    .maybeSingle<{ id: string; slug: string; name: string; is_rehearsal: boolean; judge_model_slot: JudgeSlot }>();
+    .maybeSingle<{ id: string; slug: string; name: string; is_rehearsal: boolean } & EventSlots>();
   if (error) throw new Error(`could not read the event: ${error.message}`);
   if (!event) throw new Error(`there is no event with the slug ${args.event}`);
 
@@ -89,11 +91,11 @@ async function main(): Promise<number> {
   if (refusal) throw new Error(refusal);
   if (!config.fake && !hasApiCredential()) throw new Error("ANTHROPIC_API_KEY is not set");
   const prompts = promptLoader();
-  for (const t of ["PITCH", "PLAN", "FLASH"] as const) prompts(t);
+  for (const t of ["PRD", "SOLUTION"] as const) prompts(t);
 
   const judgeName = config.fake
     ? `the FAKE judge (${config.fakeLatencyMs} ms a call)`
-    : `${config.models.PRIMARY} (backup ${config.models.BACKUP}; this event uses the ${event.judge_model_slot} slot), effort ${config.effort}` +
+    : `${modelsInUse(config, event).map((m) => `${m.type} ${m.model} (${m.slot})`).join(", ")}, effort ${config.effort}` +
       (config.temperature !== undefined ? `, temperature ${config.temperature}` : "");
   console.log(`Judging ${event.name} (${event.slug}${event.is_rehearsal ? ", rehearsal" : ""}) with ${judgeName}, ${config.concurrency} calls at a time.`);
 
@@ -114,18 +116,15 @@ async function main(): Promise<number> {
   let lastWait = "";
   for (;;) {
     if (!config.fake) {
-      // The slot may have been switched since the last turn (set_judge_model): check the model it uses now.
-      const { data: current, error: slotError } = await sb
-        .from("events")
-        .select("judge_model_slot")
-        .eq("id", event.id)
-        .single<{ judge_model_slot: JudgeSlot }>();
+      // A round may have been switched to its backup since the last turn (set_model_slot): check the models in use now.
+      const { data: current, error: slotError } = await sb.from("events").select(SLOT_COLUMNS).eq("id", event.id).single<EventSlots>();
       if (slotError) throw new Error(`could not read the event: ${slotError.message}`);
-      const slot: JudgeSlot = current.judge_model_slot === "BACKUP" ? "BACKUP" : "PRIMARY";
-      const check = await checkJudgeModel(config.models[slot]);
-      if (!check.ok) {
-        console.error(`Stopped before claiming: the API check of ${config.models[slot]} (the ${slot} model) failed: ${check.error}`);
-        return 1;
+      for (const m of modelsInUse(config, current)) {
+        const check = await checkJudgeModel(m.model);
+        if (!check.ok) {
+          console.error(`Stopped before claiming: the API check of ${m.model} (the ${m.type} round's ${m.slot} model) failed: ${check.error}`);
+          return 1;
+        }
       }
     }
 

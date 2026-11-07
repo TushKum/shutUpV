@@ -17,12 +17,12 @@ const EVENT = "11111111-1111-1111-1111-111111111111";
 
 describe("supabaseJudgeDb", () => {
   test("calls the RPCs of docs/JUDGE.md with p_ parameters", async () => {
-    const run = { run_id: "r1", submission_id: "s1", company_id: "c1", type: "PITCH", generation: 1, run_no: 1, attempts: 1, claim_token: 2, slot: "PRIMARY" };
+    const run = { run_id: "r1", submission_id: "s1", company_id: "c1", type: "PRD", generation: 1, run_no: 1, attempts: 1, claim_token: 2, slot: "PRIMARY" };
     const { client, calls } = fakeRpc({
       [RPC.claimRuns]: { data: [run] },
       [RPC.finish]: { data: { ok: true, status: "DONE", sealed: false } },
       [RPC.input]: {
-        data: { run_id: "r1", type: "PITCH", ticker: "AQS", company_name: "AquaSense", names: ["A", 3], submission_id: "s1", submission_text: "x", injections_recorded: false },
+        data: { run_id: "r1", type: "PRD", ticker: "AQS", company_name: "AquaSense", names: ["A", 3], submission_id: "s1", submission_text: "x", injections_recorded: false },
       },
     });
     const db = supabaseJudgeDb(client, EVENT);
@@ -50,19 +50,19 @@ describe("supabaseJudgeDb", () => {
     await expect(db.claimCalibration(8)).rejects.toThrow("claim_calibration_runs: permission denied");
   });
 
-  test("judge_input's member names and the deal's post-crisis price come through", async () => {
+  test("judge_input's member names and context come through", async () => {
     const { client } = fakeRpc({
       [RPC.input]: {
         data: {
-          run_id: "r1", type: "PLAN", ticker: "AQS", company_name: "AquaSense", names: ["AquaSense", "Priya Sharma"],
+          run_id: "r1", type: "SOLUTION", ticker: "AQS", company_name: "AquaSense", names: ["AquaSense", "Priya Sharma"],
           member_names: ["Priya Sharma", null], submission_id: "s1", submission_text: "x", injections_recorded: true,
-          deal: { signed: true, executed_at: null, amount_cents: 6000000, price_cents: 750, shares: 8000, post_crisis_price_cents: 956, deadline: null },
+          context: { prd_text: "AquaSense (AQS)\n\nProblem:\nWells.", crisis_card: { category: "Supply", title: "Fire", body: "It burns." } },
         },
       },
     });
     const input = await supabaseJudgeDb(client, EVENT).input("r1");
     expect(input.member_names).toEqual(["Priya Sharma"]);
-    expect(input.deal?.post_crisis_price_cents).toBe(956);
+    expect(input.context?.crisis_card).toEqual({ category: "Supply", title: "Fire", body: "It burns." });
   });
 
   test("judge_input is checked", async () => {
@@ -70,45 +70,35 @@ describe("supabaseJudgeDb", () => {
     await expect(supabaseJudgeDb(client, EVENT).input("r1")).rejects.toThrow(/unknown type MEMO/);
   });
 
-  test("a calibration run without text reads the sample from the file by sample_no", async () => {
+  test("a calibration sample comes from the database with its type and context", async () => {
     const { client, calls } = fakeRpc({
-      [RPC.calibrationInput]: { data: { run_id: "c1", sample_no: 4, type: "PITCH", ticker: "", text: null } },
+      [RPC.calibrationInput]: {
+        data: {
+          run_id: "c1", type: "SOLUTION", batch: 1, sample_no: 2, run_no: 1, ticker: "CRSP", company_name: "Crisp Coast",
+          names: ["Crisp Coast"], context_text: "The PRD and the crisis card.", text: "Diagnosis:\n…", title: "Very weak",
+        },
+      },
       [RPC.finishCalibration]: { data: null },
     });
-    const db = supabaseJudgeDb(client, EVENT, { calibrationText: (n) => `sample ${n} from the file` });
+    const db = supabaseJudgeDb(client, EVENT);
     expect(await db.calibrationInput("c1")).toEqual({
       run_id: "c1",
-      sample_no: 4,
-      type: "PITCH",
-      ticker: "CAL",
-      company_name: "",
-      names: [],
-      text: "sample 4 from the file",
+      sample_no: 2,
+      type: "SOLUTION",
+      ticker: "CRSP",
+      company_name: "Crisp Coast",
+      names: ["Crisp Coast"],
+      context_text: "The PRD and the crisis card.",
+      text: "Diagnosis:\n…",
     });
     expect(await db.finishCalibration("c1", { ok: false, attempt: 1, error: "x", retryable: false })).toEqual({ ok: true });
     expect(calls.map((c) => c.fn)).toEqual(["calibration_input", "finish_calibration_run"]);
     expect(calls[1]!.args).toEqual({ p_run: "c1", p_result: { ok: false, attempt: 1, error: "x", retryable: false } });
   });
 
-  test("calibration text from the database wins over the file (the shape public.calibration_input returns)", async () => {
-    const { client } = fakeRpc({
-      [RPC.calibrationInput]: {
-        data: {
-          run_id: "c1", type: "PITCH", batch: 1, sample_no: 2, run_no: 1, ticker: "RTB", company_name: "Raatri Bites",
-          names: ["Raatri Bites"], text: "Raatri Bites (RTB)\n\nThe problem:\n…", title: "Very weak",
-        },
-      },
-    });
-    const db = supabaseJudgeDb(client, EVENT, { calibrationText: () => "from the file" });
-    expect(await db.calibrationInput("c1")).toEqual({
-      run_id: "c1",
-      sample_no: 2,
-      type: "PITCH",
-      ticker: "RTB",
-      company_name: "Raatri Bites",
-      names: ["Raatri Bites"],
-      text: "Raatri Bites (RTB)\n\nThe problem:\n…",
-    });
+  test("a calibration sample of an unknown type is refused", async () => {
+    const { client } = fakeRpc({ [RPC.calibrationInput]: { data: { run_id: "c1", type: "PITCH", sample_no: 1, text: "x" } } });
+    await expect(supabaseJudgeDb(client, EVENT).calibrationInput("c1")).rejects.toThrow(/unknown type PITCH/);
   });
 });
 

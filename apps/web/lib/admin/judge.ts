@@ -179,3 +179,109 @@ export function pickType(query: unknown, crisisApplied: boolean): SubmissionType
   const q = typeof query === "string" ? parseJudgeType(query.toUpperCase()) : null;
   return q ?? (crisisApplied ? "SOLUTION" : "PRD");
 }
+
+// ───────────────────────────── Re-runs and appeals ─────────────────────────────
+
+export interface AppealRow {
+  id: string;
+  company_id: string;
+  type: SubmissionType;
+  status: "JUDGING" | "READY" | "APPLIED" | "DISMISSED";
+  after_reveal: boolean;
+  reason: string;
+  requested_by: string | null;
+  requested_at: string;
+  old_score: { final?: number | null } | null;
+  new_score: { final?: number | null; median?: number | null; run_totals?: number[] } | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  note: string | null;
+}
+
+export interface AppealLine {
+  id: string;
+  ticker: string;
+  status: AppealRow["status"];
+  afterReveal: boolean;
+  reason: string;
+  requestedAt: string;
+  oldFinal: number | null;
+  newFinal: number | null;
+  newTotals: number[];
+  /** The signed-in organiser asked for it, so may not approve it. */
+  mine: boolean;
+  /** What happens next, in words. */
+  next: string;
+  note: string | null;
+}
+
+export const APPEAL_STATUS_LABELS: Record<AppealRow["status"], string> = {
+  JUDGING: "Being re-judged",
+  READY: "Waiting for approval",
+  APPLIED: "Applied",
+  DISMISSED: "Dismissed",
+};
+
+/** The round's re-runs, newest first, with what each waits for. */
+export function appealLines(appeals: readonly AppealRow[], companies: readonly JudgeCompanyRow[], type: SubmissionType, viewerId: string): AppealLine[] {
+  const ticker = new Map(companies.map((c) => [c.id, c.ticker ?? "—"]));
+  return appeals
+    .filter((a) => a.type === type)
+    .map((a) => {
+      const mine = a.requested_by === viewerId;
+      const next =
+        a.status === "JUDGING"
+          ? a.after_reveal
+            ? "Three new readings; then a second organiser decides."
+            : "Three new readings; the new median replaces the score."
+          : a.status === "READY"
+            ? mine
+              ? "Another organiser must approve or dismiss it."
+              : "Approve to apply the new score and its price effect, or dismiss it."
+            : a.status === "APPLIED"
+              ? a.after_reveal
+                ? "The new score and its price effect were applied."
+                : "The new score replaced the old one before the reveal."
+              : "The revealed score stands.";
+      return {
+        id: a.id,
+        ticker: ticker.get(a.company_id) ?? "—",
+        status: a.status,
+        afterReveal: a.after_reveal,
+        reason: a.reason,
+        requestedAt: a.requested_at,
+        oldFinal: a.old_score?.final ?? null,
+        newFinal: a.new_score?.final ?? null,
+        newTotals: a.new_score?.run_totals ?? [],
+        mine,
+        next,
+        note: a.note,
+      };
+    })
+    .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+}
+
+/** Companies with an open re-run (being re-judged or waiting for approval). */
+export function openAppealCompanies(appeals: readonly AppealRow[], type: SubmissionType): Set<string> {
+  return new Set(appeals.filter((a) => a.type === type && (a.status === "JUDGING" || a.status === "READY")).map((a) => a.company_id));
+}
+
+// ───────────────────────────── Calibration ─────────────────────────────
+
+export interface CalibrationSampleRow {
+  batch: number;
+  sample_no: number;
+  type: SubmissionType;
+  title: string;
+  expected_min: number;
+  expected_max: number;
+}
+
+export interface CalibrationRunRow {
+  sample_no: number;
+  run_no: number;
+  status: RunStatus;
+  total: number | null;
+  model: string | null;
+  error: string | null;
+}

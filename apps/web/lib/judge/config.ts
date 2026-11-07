@@ -3,10 +3,14 @@
 // rejects sampling parameters (every call would be a 400), and an effort above high (with thinking always on, xhigh
 // and max need more output than MAX_TOKENS, and more than that needs streaming).
 
+import { SUBMISSION_TYPES, type SubmissionType } from "@msim/engine";
 import type { JudgeEffort, JudgeSlot } from "./types";
 
+/** Each round's model and its backup (an organiser switches a round to its backup on the control panel). */
+export type JudgeModels = Record<SubmissionType, Record<JudgeSlot, string>>;
+
 export interface JudgeConfig {
-  models: Record<JudgeSlot, string>;
+  models: JudgeModels;
   /** Sent to the API only when set (current Claude models reject temperature: PLAN Q3). */
   temperature?: number;
   effort: JudgeEffort;
@@ -19,9 +23,12 @@ export interface JudgeConfig {
   fakeLatencyMs: number;
 }
 
+/** The brief: PRDs by Opus 5.5, crisis solutions by Sonnet 5.5; each round's backup is the other model. */
 export const JUDGE_DEFAULTS = {
-  model: "claude-opus-5-5",
-  backupModel: "claude-sonnet-5-5",
+  models: {
+    PRD: { PRIMARY: "claude-opus-5-5", BACKUP: "claude-sonnet-5-5" },
+    SOLUTION: { PRIMARY: "claude-sonnet-5-5", BACKUP: "claude-opus-5-5" },
+  } satisfies JudgeModels,
   effort: "low",
   concurrency: 8,
   budgetMs: 50_000,
@@ -51,6 +58,12 @@ export function rejectsSampling(model: string): boolean {
 }
 
 type Env = Record<string, string | undefined>;
+
+/** The environment variables that override each round's models. */
+export const MODEL_VARIABLES: Record<SubmissionType, Record<JudgeSlot, string>> = {
+  PRD: { PRIMARY: "JUDGE_PRD_MODEL", BACKUP: "JUDGE_PRD_BACKUP_MODEL" },
+  SOLUTION: { PRIMARY: "JUDGE_SOLUTION_MODEL", BACKUP: "JUDGE_SOLUTION_BACKUP_MODEL" },
+};
 
 /** An unset or blank variable counts as unset (.env.example ships `JUDGE_TEMPERATURE=`). */
 function read(env: Env, name: string): string | undefined {
@@ -88,18 +101,25 @@ export function judgeConfig(env: Env = process.env): JudgeConfig {
     throw new Error(`JUDGE_FAKE must be 1 or 0, got "${fakeFlag}"`);
   }
 
-  const models: Record<JudgeSlot, string> = {
-    PRIMARY: read(env, "JUDGE_MODEL") ?? JUDGE_DEFAULTS.model,
-    BACKUP: read(env, "JUDGE_BACKUP_MODEL") ?? JUDGE_DEFAULTS.backupModel,
-  };
+  const models = Object.fromEntries(
+    SUBMISSION_TYPES.map((t) => [
+      t,
+      {
+        PRIMARY: read(env, MODEL_VARIABLES[t].PRIMARY) ?? JUDGE_DEFAULTS.models[t].PRIMARY,
+        BACKUP: read(env, MODEL_VARIABLES[t].BACKUP) ?? JUDGE_DEFAULTS.models[t].BACKUP,
+      },
+    ]),
+  ) as JudgeModels;
   if (temperature !== undefined) {
-    // Both slots: an organiser can switch to the backup in the middle of the night.
-    for (const [slot, variable] of [["PRIMARY", "JUDGE_MODEL"], ["BACKUP", "JUDGE_BACKUP_MODEL"]] as const) {
-      if (rejectsSampling(models[slot])) {
-        throw new Error(
-          `JUDGE_TEMPERATURE is set, but ${models[slot]} (${variable}) rejects temperature, so every judging call would ` +
-            `fail with HTTP 400. Unset JUDGE_TEMPERATURE, or use models that accept it in both slots (PLAN.md Q3).`,
-        );
+    // Every slot: an organiser can switch a round to its backup in the middle of the night.
+    for (const t of SUBMISSION_TYPES) {
+      for (const slot of ["PRIMARY", "BACKUP"] as const) {
+        if (rejectsSampling(models[t][slot])) {
+          throw new Error(
+            `JUDGE_TEMPERATURE is set, but ${models[t][slot]} (${MODEL_VARIABLES[t][slot]}) rejects temperature, so every judging call would ` +
+              `fail with HTTP 400. Unset JUDGE_TEMPERATURE, or use models that accept it in every slot (PLAN.md Q3).`,
+          );
+        }
       }
     }
   }

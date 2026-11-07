@@ -140,7 +140,7 @@ describe("seed_event: rules", () => {
       codeLetter: "W",
       staff: [{ email: "boss@example.org", role: "ORGANISER", name: "Boss" }],
     });
-    const ids = new Map(plan.teams.map((t) => [t.email, crypto.randomUUID()]));
+    const ids = new Map<string, string>(plan.teams.map((t) => [t.email, crypto.randomUUID()]));
     for (const [email, id] of ids) await db.pool.query("insert into auth.users (id, email) values ($1, $2)", [id, email]);
     ids.set("boss@example.org", teamUser);
     await expect(

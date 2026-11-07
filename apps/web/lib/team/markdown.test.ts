@@ -215,18 +215,19 @@ describe.skipIf(!PROMPTS_READY)("the published prompts", () => {
     for (const l of RUBRICS[type]) expect(codes[0]!.text).toContain(`"${l.key}": <0–${l.max}>`);
   });
 
-  test("PLAN.md: What you receive is a list whose first item holds a nested list", () => {
-    const blocks = parseMarkdown(read("PLAN.md"));
-    const list = blocks[blocks.findIndex((b) => b.kind === "heading" && inlineText(b.content) === "What you receive") + 1]!;
-    expect(kinds([list])).toEqual(["list"]);
+  test.each([
+    ["PRD", ["<problem_card>", "<twist>"]],
+    ["SOLUTION", ["<rescued_company_prd>", "<crisis_card>"]],
+  ] as const)("%s.md: What you receive is a list whose first item holds the context's tags", (type, tags) => {
+    const blocks = parseMarkdown(read(`${type}.md`));
+    const start = blocks.findIndex((b) => b.kind === "heading" && inlineText(b.content) === "What you receive");
+    // "The user message holds:" and then the list.
+    expect(kinds(blocks.slice(start + 1, start + 3))).toEqual(["paragraph", "list"]);
+    const list = blocks[start + 2]!;
     if (list.kind !== "list") return;
     expect(list.items.map(kinds)).toEqual([["paragraph", "list"], ["paragraph"]]);
     const nested = list.items[0]![1]!;
-    expect(nested.kind === "list" && nested.items.map((i) => (i[0]!.kind === "paragraph" ? i[0]!.content[0] : null))).toEqual([
-      code("<pitch_card>"),
-      code("<crisis_card>"),
-      code("<deal>"),
-    ]);
+    expect(nested.kind === "list" && nested.items.map((i) => (i[0]!.kind === "paragraph" ? i[0]!.content[0] : null))).toEqual(tags.map(code));
   });
 
   test.each([...SUBMISSION_TYPES.map((t) => `${t}.md`), "README.md"])("%s: every word of the file is shown, once, in order", (file) => {

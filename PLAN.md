@@ -218,6 +218,35 @@ by `drafts`).
   teams) and the lottery record; the public download `/api/lottery-record?event=<slug>` works again (it called a
   function that no longer existed) and is checked in the database tests, signed out, before and after the crisis.
 
+## 7e. Decisions made while building (Phase 6)
+
+- **Models:** PRDs are judged by `claude-opus-5-5` (backup `claude-sonnet-5-5`), crisis solutions by
+  `claude-sonnet-5-5` (backup `claude-opus-5-5`), each set in its own environment variable
+  (`JUDGE_PRD_MODEL`, `JUDGE_PRD_BACKUP_MODEL`, `JUDGE_SOLUTION_MODEL`, `JUDGE_SOLUTION_BACKUP_MODEL`). An organiser
+  switches one round to its backup on the Judge page; readings claimed from then on use it.
+- **Exactly three readings, no extra ones:** the median of three counts, as the brief says (the old game's runs 4
+  and 5 are gone).
+- **Judging starts by itself at the lock:** the lock queues the readings; an organiser only needs a worker running
+  ("Run the judge here" on the Judge page, or `pnpm judge-worker` on a laptop).
+- **The prompts** (`prompts/PRD.md`, `prompts/SOLUTION.md`) give the rubric with anchors for each line, how to judge,
+  and the exact answer format. They are what teams read on "How judging works".
+- **Calibration:** 8 samples (4 PRDs, 4 crisis solutions, very weak to excellent, each with its context and the
+  range it should score in) in `prompts/calibration/samples.json`; uploaded and judged from the Judge page.
+- **Re-runs (technical errors only):** before a reveal, one organiser re-runs with a written reason and the new
+  median replaces the score. After a reveal, the new score waits for a **second** organiser to approve or dismiss.
+- **What an approved appeal does to prices** *(the brief does not say; please confirm)*: it re-applies the score's own
+  price effect. For a PRD the market price moves by new starting price ÷ old starting price; for a crisis solution by
+  new reveal factor ÷ old reveal factor. The score-based price is recomputed from the scores; after the close the
+  closing price follows, and after settlement the results and awards are recomputed. Earlier price history is not
+  rewritten (an APPEAL price row records the change); the opening "starting price" stays as it was shown at 23:30.
+- **Human-panel fallback:** three judges per submission (CSV rows judge 1–3), fed through the same queue
+  (`pnpm human-scores`).
+- **Fixed on the way:** `pnpm verify-lottery` (the command the crisis screen gives the hall) still expected the old
+  record and crashed on a bad file; it now checks the PRIMUS record and explains a malformed one.
+- **Tests:** the database queue (claims, leases, stale reports, retries, sealing, re-runs, appeals, calibration) and
+  the real worker loop judging whole rounds against the real database with the fake judge. The real model has not
+  been called from here (no API key in this environment): run calibration on the deployed app before the night.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

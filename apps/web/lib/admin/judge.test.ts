@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { judgeLines, judgeProgress, parseJudgeType, pickType, type JudgeRows } from "./judge";
+import { appealLines, judgeLines, judgeProgress, openAppealCompanies, parseJudgeType, pickType, type AppealRow, type JudgeRows } from "./judge";
 
 const rows = (): JudgeRows => ({
   companies: [
@@ -96,4 +96,36 @@ test("the type to show", () => {
   expect(pickType("solution", false)).toBe("SOLUTION");
   expect(pickType(undefined, false)).toBe("PRD");
   expect(pickType("nonsense", true)).toBe("SOLUTION");
+});
+
+describe("appealLines", () => {
+  const companies = [{ id: "c1", ticker: "CRSP", name: "Crisp", founder_team_id: "t1", rescuer_team_id: "t2" }];
+  const appeal = (over: Partial<AppealRow>): AppealRow => ({
+    id: "a1",
+    company_id: "c1",
+    type: "PRD",
+    status: "JUDGING",
+    after_reveal: true,
+    reason: "Cut off at the lock.",
+    requested_by: "u1",
+    requested_at: "2026-11-20T18:10:00Z",
+    old_score: { final: 60 },
+    new_score: null,
+    decided_by: null,
+    decided_at: null,
+    note: null,
+    ...over,
+  });
+  test("what each re-run waits for; the organiser who asked cannot approve", () => {
+    const ready = appeal({ id: "a2", status: "READY", new_score: { final: 72, run_totals: [70, 72, 74] }, requested_at: "2026-11-20T18:20:00Z" });
+    const lines = appealLines([appeal({}), ready, appeal({ id: "a3", type: "SOLUTION" })], companies as never, "PRD", "u1");
+    expect(lines.map((l) => [l.id, l.ticker, l.oldFinal, l.newFinal, l.mine])).toEqual([
+      ["a2", "CRSP", 60, 72, true],
+      ["a1", "CRSP", 60, null, true],
+    ]);
+    expect(lines[0]!.next).toBe("Another organiser must approve or dismiss it.");
+    expect(appealLines([ready], companies as never, "PRD", "u2")[0]!.next).toMatch(/^Approve/);
+    expect(appealLines([appeal({ after_reveal: false })], companies as never, "PRD", "u1")[0]!.next).toBe("Three new readings; the new median replaces the score.");
+    expect([...openAppealCompanies([appeal({}), appeal({ id: "x", company_id: "c9", status: "APPLIED" })], "PRD")]).toEqual(["c1"]);
+  });
 });

@@ -97,8 +97,8 @@ Every variable in `.env.example` is covered here:
 | `NEXT_PUBLIC_TEAM_EMAIL_DOMAIN` | Vercel and local web; same synthetic domain as `TEAM_EMAIL_DOMAIN`; public |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Server only**, Vercel and trusted operator laptop; never client code |
 | `ANTHROPIC_API_KEY` | **Server only**, Vercel and laptop judge worker; funded Anthropic account |
-| `JUDGE_MODEL` | **Server only**, `claude-opus-5-5`; verify actual model access |
-| `JUDGE_BACKUP_MODEL` | **Server only**, `claude-sonnet-5-5`; verify access before the night |
+| `JUDGE_PRD_MODEL` / `JUDGE_PRD_BACKUP_MODEL` | **Server only**, `claude-opus-5-5` / `claude-sonnet-5-5`; verify actual model access |
+| `JUDGE_SOLUTION_MODEL` / `JUDGE_SOLUTION_BACKUP_MODEL` | **Server only**, `claude-sonnet-5-5` / `claude-opus-5-5`; verify access before the night |
 | `JUDGE_TEMPERATURE` | **Server only**, leave empty/unset; defaults reject it |
 | `JUDGE_EFFORT` | **Server only**, `low`; only low/medium/high accepted |
 | `JUDGE_CONCURRENCY` | **Server only**, `8` per worker |
@@ -119,8 +119,8 @@ abort deadline **and** `JUDGE_WORK_BUDGET_MS` consistently and verify lease reco
 is insufficient. The laptop worker is an existing alternative for processing the queue outside Vercel.
 
 `apps/web/next.config.ts` uses `outputFileTracingRoot` and `outputFileTracingIncludes` to include root-level
-`prompts/PITCH.md`, `PLAN.md`, `FLASH.md` and calibration samples. Inspect the build/deployment trace and open
-`/team/judging` and `/admin/<slug>/judge/calibration` on the deployed app. Verify hashes against source and run
+`prompts/PRD.md`, `SOLUTION.md` and the calibration samples. Inspect the build/deployment trace and open
+`/team/judging` and `/admin/<slug>/judge` on the deployed app. Verify hashes against source and run
 calibration there; a local build alone does not prove the deployed functions contain prompt files.
 
 ## 4. Anthropic capacity and cost

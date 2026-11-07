@@ -155,8 +155,8 @@ registration desk and the preparation checklist. Six ready flash bulletins are i
 If both models fail on the night, a human panel scores on paper and the scores go through the same queue:
 
 ```
-pnpm human-scores --event <slug> --type PITCH --file pitch.csv --check   # list missing rows
-pnpm human-scores --event <slug> --type PITCH --file pitch.csv           # record them; then release as usual
+pnpm human-scores --event <slug> --type PRD --file prd.csv --check   # list missing rows
+pnpm human-scores --event <slug> --type PRD --file prd.csv           # record them; sealed and revealed as usual
 ```
 
 See [`docs/event/staff/HUMAN-JUDGING.md`](docs/event/staff/HUMAN-JUDGING.md).
