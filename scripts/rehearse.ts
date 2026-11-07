@@ -1,27 +1,29 @@
-// A rehearsal night played by bots (Phase 7). Every team of a rehearsal event signs in with the password on its
-// card and plays through the real public game functions: problem cards, pitches, IPO bids, orders every round, the
-// fee, the deal, consultant calls, the plan and the flash answer. With --autopilot the script also does the
-// organisers' part (as the service role): the seed commitment and the draw, auto-advance, judging (the judge worker
-// in-process: the fake judge with JUDGE_FAKE=1, else the real model), the releases, the flash bulletin and the
-// fairness decisions. Humans can watch (and act) on /admin, /display and /team at the same time.
+// A rehearsal night played by bots. Every team of a rehearsal event signs in with the password on its card and plays
+// through the real public game functions: its PRD (a first draft and a revision), the Q&A board (the rescuer asks,
+// the founders answer), its crisis solution and orders in every trading round. With --autopilot the script also does
+// the organisers' part (as the service role): the seed commitment, the start of the night, auto-advance, the lottery
+// draw, judging (the judge worker in-process: the fake judge with JUDGE_FAKE=1, else the real models), a rumour and
+// the fairness decisions. The database's own clock (the 2-second tick) does the rest: the twist, the locks, the
+// reveals, the crisis, the rounds and the close. Humans can watch (and play) on /admin, /display and /team at the same
+// time.
 //
 //   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… CARD_SECRET=… TEAM_EMAIL_DOMAIN=… \
-//     pnpm rehearse --slug rehearsal [--autopilot] [--teams 150] [--except XP50,XC50] [--interval 5000] [--minutes 90]
+//     pnpm rehearse --slug rehearsal [--autopilot] [--teams 150] [--except X050,X051] [--interval 5000] [--minutes 90]
 //
 // Seed the event first (pnpm seed --rehearsal --slug rehearsal --starts-at … --speed 10). Refuses a live event.
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { sha256Hex, type PhaseCode, type SubmissionType } from "@msim/engine";
+import { sha256Hex, type PhaseCode } from "@msim/engine";
 import { createJudge, judgeConfig, promptLoader, runWorker, supabaseJudgeDb } from "../apps/web/lib/judge/index";
 import { parseArgs, required } from "./lib/args";
 import { Bot, emptyStats, pool, signInTeam, sleep, type Env, type TeamLogin } from "./lib/bot-runner";
 
 const HELP = `pnpm rehearse --slug <rehearsal slug> [--autopilot] [--teams N] [--except CODES] [--interval ms] [--minutes N]
-  --autopilot   also play the organisers: draw, advance, judge, release, flash bulletin, flags
+  --autopilot   also play the organisers: commitment, start, draw, judge, a rumour, flags
   --teams N     how many teams play (default: all)
-  --except CODES  teams the bots leave alone, for people to play (comma-separated, e.g. XP50,XC50)
+  --except CODES  teams the bots leave alone, for people to play (comma-separated, e.g. X050,X051)
   --interval ms how often each team takes a turn (default 5000)
   --minutes N   stop after N minutes (default: when the event reaches AWARDS)
 Environment: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, CARD_SECRET, TEAM_EMAIL_DOMAIN
@@ -47,9 +49,10 @@ async function main() {
   if (error || !event) throw new Error(`no event ${slug}${error ? `: ${error.message}` : ""}`);
   if (!event.is_rehearsal) throw new Error(`${slug} is a live event: bots play rehearsal events only`);
 
-  const { data: teams } = await admin.from("teams").select("id, code, track").eq("event_id", event.id).order("code");
+  const { data: teams } = await admin.from("teams").select("id, code").eq("event_id", event.id).order("code");
   const except = new Set(typeof args.except === "string" ? args.except.toUpperCase().split(",").map((c) => c.trim()) : []);
-  const playing = (teams ?? []).filter((t) => !except.has(t.code)).slice(0, typeof args.teams === "string" ? Number(args.teams) : undefined) as TeamLogin[];
+  const all: TeamLogin[] = (teams ?? []).map((t, index) => ({ id: t.id as string, code: t.code as string, index }));
+  const playing = all.filter((t) => !except.has(t.code)).slice(0, typeof args.teams === "string" ? Number(args.teams) : undefined);
   const interval = typeof args.interval === "string" ? Number(args.interval) : 5000;
   const until = typeof args.minutes === "string" ? Date.now() + Number(args.minutes) * 60_000 : Number.POSITIVE_INFINITY;
 
@@ -94,7 +97,6 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
   };
   const seedFile = `out/${slug}-rehearsal-seed.txt`;
   let seed = existsSync(seedFile) ? readFileSync(seedFile, "utf8").trim() : "";
-  const started = new Set<string>();
   let over = false; // the awards are up: the judge loop stops too
   const finished = () => over || done();
   const say = (m: string) => console.log(`${time()}  [autopilot] ${m}`);
@@ -116,6 +118,7 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
     }
   })();
 
+  let rumoured = false;
   while (!done()) {
     const { data: ev, error: evError } = await sb.from("events").select("current_phase, seed_commitment, drawn_at, auto_advance").eq("id", eventId).single();
     if (evError || !ev) {
@@ -124,8 +127,6 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
       continue;
     }
     const phase = ev.current_phase as PhaseCode;
-    const passed = async (code: string) =>
-      ((await sb.from("deadlines").select("at").eq("event_id", eventId).eq("code", code).single()).data?.at ?? "9999") <= new Date().toISOString();
 
     if (phase === "SETUP" && !ev.seed_commitment) {
       seed = randomBytes(32).toString("hex");
@@ -141,41 +142,23 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
         say(`start the night: ${r.ok ? "CHECKIN" : r.message}`);
       }
     }
-    if (!ev.auto_advance) say(`auto-advance on: ${(await rpc("set_auto_advance", { p_event: eventId, p_on: true })).ok}`);
-    if (phase === "SQUAD_DRAW" && !ev.drawn_at) {
-      if (!seed) throw new Error(`the seed of ${slug} is not in ${seedFile}; draw it in /admin instead`);
+    if (!ev.auto_advance && phase !== "SETUP") say(`auto-advance on: ${(await rpc("set_auto_advance", { p_event: eventId, p_on: true, p_advance_now: false })).ok}`);
+    // 21:15 the lottery deals the problem cards (the same seed and dice give the crisis cards and the circle at 23:45).
+    if (phase === "BRIEFING" && !ev.drawn_at) {
+      if (!seed) throw new Error(`the seed of ${slug} is not in ${seedFile}; run the lottery in /admin instead`);
       const r = await rpc("run_lottery", { p_event: eventId, p_seed: seed, p_dice: "4" });
-      say(`draw: ${r.ok ? "done" : r.message}`);
+      say(`lottery: ${r.ok ? "the problem cards are dealt" : r.message}`);
     }
-    for (const [type, deadline] of [["PITCH", "PITCH"], ["PLAN", "PLAN"], ["FLASH", "FLASH"]] as [SubmissionType, string][]) {
-      if (!started.has(type) && (await passed(deadline))) {
-        const r = await rpc("start_judging", { p_event: eventId, p_type: type });
-        if (r.ok || r.code === "ALREADY_RELEASED") {
-          started.add(type);
-          say(`start judging ${type}: ${JSON.stringify(r)}`);
-        }
-      }
+    // A market rumour during Round 2 (rumours never move a price).
+    if (phase === "RESCUE" && !rumoured) {
+      const r = await rpc("publish_bulletin", { p_event: eventId, p_kind: "RUMOUR", p_title: "A big buyer is said to be circling the snack companies", p_body: "Unconfirmed." });
+      rumoured = r.ok;
+      if (r.ok) say("rumour published");
     }
-    const release = async (type: SubmissionType) => {
-      await rpc("seal_missing_scores", { p_event: eventId, p_type: type });
-      const r = await rpc("release_scores", { p_event: eventId, p_type: type });
-      if (r.ok) say(`released ${type}`);
-    };
-    if (phase === "READING") await release("PITCH");
-    if (phase === "VERDICTS") await release("PLAN");
-    if (phase === "ROUNDS_13_21") {
-      if (await passed("FLASH_BULLETIN")) {
-        const { count } = await sb.from("bulletins").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("kind", "FLASH").not("published_at", "is", null);
-        if (!count) {
-          await rpc("prepare_flash_bulletin", { p_event: eventId, p_title: "Interest rates rise", p_body: "Investors now want a path to profit within 12 months." });
-          say(`flash bulletin: ${(await rpc("publish_flash_bulletin", { p_event: eventId })).ok ? "published" : "refused"}`);
-        }
-      }
-      await release("FLASH");
-    }
-    if (phase === "APPEALS") {
+    if (phase === "SETTLEMENT") {
       const { data: flags } = await sb.from("flags").select("id").eq("event_id", eventId).eq("status", "OPEN");
       for (const f of flags ?? []) await rpc("decide_flag", { p_flag: f.id, p_status: "CLEARED", p_reason: "Rehearsal: cleared by the autopilot." });
+      if (flags?.length) say(`${flags.length} flags cleared`);
     }
     if (phase === "AWARDS") {
       say("the awards are up: the night is over");

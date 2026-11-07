@@ -247,6 +247,34 @@ by `drafts`).
   the real worker loop judging whole rounds against the real database with the fake judge. The real model has not
   been called from here (no API key in this environment): run calibration on the deployed app before the night.
 
+## 7f. Decisions made while building (Phase 7)
+
+- **Bots** (`scripts/lib/bots.ts`) play every team: a first PRD and a revision, a question to the founders of the
+  company they rescue, answers to the questions about their own company, a crisis solution, and 1–3 orders in every
+  trading round (never the built or rescued company, within cash and the 5,000-share limit). The quality of what they
+  write varies by team, so the judge gives a spread of scores.
+- **Practice night, verified here:** 150 bot teams played a whole night against the real database (`supabase/tests/
+  practice-night.test.ts`): 450 PRD saves, 150 questions and answers, 2,840 orders, every score sealed, the awards.
+  Each of the nine rounds (250–360 orders) cleared in **68–93 ms** (target: under 5 s) and matched the engine exactly.
+- **Rehearsal on the real site** (`pnpm rehearse --autopilot`): the autopilot sets the commitment, starts the night,
+  turns auto-advance on, runs the lottery, judges (fake judge with `JUDGE_FAKE=1`), publishes a rumour and clears the
+  flags; the database's clock does the rest. Not run here (no hosted Supabase); this is the organisers' rehearsal.
+- **Load test** (`pnpm load-test`): 1,000 connections by default and every team trading in the last minute; it
+  reports the clearing time and how fast every screen heard it, against 5 s and 2 s. It needs the hosted project.
+- **Certificates** (`pnpm certificates`): one A4 landscape page per participant, with the team, its final rank and
+  points by round, and any award ("Certificate of Achievement"); a disqualified team's members get participation
+  certificates without results.
+- **Documents:** README, `docs/DEPLOY.md` (step by step, for a non-technical organiser, with a **new** Supabase
+  project for PRIMUS) and `RUNBOOK.md` rewritten for PRIMUS. The old game's participant handbook, track cards, case
+  studies and staff scripts are moved to `docs/archive/event-market-sim/` (they describe another game). *A PRIMUS
+  participant handbook is not in the brief; I can write one if you want it.*
+- **Browser tests:** the old specs (another game) are removed; `e2e/smoke.spec.ts` and a new `e2e/primus-night.spec.ts`
+  (the PRD editor saving by itself, the reveal, the projector) are written but **not run here**: the local Supabase
+  stack's images cannot be downloaded in this environment (registry limits). The rehearsal on the real site is the
+  browser check.
+- **Production build** checked: it succeeds, and the judge prompts and calibration samples are packed into the
+  functions that read them.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.
