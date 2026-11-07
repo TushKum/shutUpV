@@ -50,7 +50,7 @@ export default async function ResultsPage({ params }: PageProps<"/admin/[slug]/r
           final ? (
             <Badge tone="green">Settled</Badge>
           ) : status.leaderboard_frozen ? (
-            <Badge tone="amber">Frozen for teams since 03:30</Badge>
+            <Badge tone="amber">Frozen for teams</Badge>
           ) : (
             <Badge tone="blue">Live</Badge>
           )
@@ -59,7 +59,7 @@ export default async function ResultsPage({ params }: PageProps<"/admin/[slug]/r
         <p className="text-sm text-slate-600">
           {final
             ? "Total = Round 1 + Round 2 + Round 3 points (out of 300). Ties: higher Round 2, then higher Round 1, then the higher exact return. Disqualified teams are not ranked."
-            : "The total so far: Round 1 points from 23:30, Round 2 points from 02:45, Round 3 points at current market prices from 02:15. Teams see it until 03:30; from then until the awards only staff do."}
+            : "The total so far: Round 1 points from the PRD reveal, Round 2 points from the score reveal, Round 3 points at current market prices once trading opens. Teams see it until the leaderboard freeze; from then until the awards only staff do."}
         </p>
         <div className="mt-3 max-h-[36rem] overflow-y-auto">
           <Table head={["Rank", "Team", "R1", "R2", "R3", "Total", ...(final ? ["Return"] : [])]} empty="No teams.">
@@ -83,7 +83,7 @@ export default async function ResultsPage({ params }: PageProps<"/admin/[slug]/r
 
       <Panel title="Awards">
         {awardList.length === 0 ? (
-          <Notice>The awards are decided at settlement (04:30) and revealed on the big screen at 05:15.</Notice>
+          <Notice>The awards are decided at settlement (the closing bell) and revealed on the big screen at the awards.</Notice>
         ) : (
           <ul className="divide-y divide-slate-100">
             {awardList.map((a) => (

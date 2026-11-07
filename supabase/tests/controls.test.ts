@@ -39,7 +39,7 @@ describe("pause, resume and extend", () => {
     await n.org("extend_event", n.eventId, 5);
     const lockExtended = (await n.one("select at from deadlines where event_id = $1 and code = 'PRD_LOCK'", [n.eventId])).at as Date;
     expect(lockExtended.getTime() - lockAfter.getTime()).toBe(300_000);
-    await expect(n.call(n.lead, "extend_event", n.eventId, 0)).rejects.toThrow(/1 to 120/);
+    expect(await n.call(n.lead, "extend_event", n.eventId, 0)).toMatchObject({ ok: false, code: "BAD_DURATION" });
   });
 
   test("pausing during a round shows TRADING_PAUSED to an order", async () => {

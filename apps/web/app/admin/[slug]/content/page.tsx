@@ -44,7 +44,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
 
       <Panel title="Problem deck" actions={<LockBadge lock={locks.problem} />}>
         <Summary>
-          {problemRows.length} cards. At 21:15 the draw deals one card to each of the {teamCount} teams and gives no card to more than 3 teams,
+          {problemRows.length} cards. At the start of Build the draw deals one card to each of the {teamCount} teams and gives no card to more than 3 teams,
           so the deck needs at least {needed} cards.
         </Summary>
         <Upload kind="problem" lock={locks.problem} organiser={organiser} action={uploadProblemDeck.bind(null, event.id)} label="Upload the problem deck" />
@@ -64,7 +64,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
 
       <Panel title="Crisis deck" actions={<LockBadge lock={locks.crisis} />}>
         <Summary>
-          {crisisRows.length} cards, one per crisis type. At 23:45 the companies are dealt round the deck, so every type goes to the same number of
+          {crisisRows.length} cards, one per crisis type. At the crisis the companies are dealt round the deck, so every type goes to the same number of
           companies{crisisRows.length ? (crisisEven ? ` (${perCrisis} each)` : ` (${perCrisis} or ${perCrisis + 1} each)`) : ""}. The guide has 10 types × 15
           companies.
         </Summary>
@@ -90,8 +90,8 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
 
       <Panel title="The twist" actions={<LockBadge lock={locks.twist} />}>
         <Summary>
-          Shown to every team at the same moment at 22:15, as a takeover on every screen; PRDs are expected to deal with it. Hidden from teams and the big
-          screen until then. The phase clock publishes it at 22:15 (or publish it by hand under{" "}
+          Shown to every team at the same moment (the twist time on Event timing), as a takeover on every screen; PRDs are expected to deal with it. Hidden from teams and the big
+          screen until then. The phase clock publishes it at that time (or publish it by hand under{" "}
           <Link href={`/admin/${slug}/bulletins`} className="underline">
             Bulletins
           </Link>

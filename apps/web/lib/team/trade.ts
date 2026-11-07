@@ -299,7 +299,7 @@ export function tradingNotice(
   const nx = nextRound(rounds);
   const next = nx ? { number: nx.number, opensAt: nx.opens_at, phase: nx.phase } : null;
   if (s.marketClosed || phaseReached(s.phase, "SETTLEMENT")) {
-    return { tone: "slate", text: "The market closed at 04:30. Your portfolio is valued at the closing prices; results at the awards.", next: null };
+    return { tone: "slate", text: "The market has closed. Your portfolio is valued at the closing prices; results at the awards.", next: null };
   }
   if (s.paused) {
     const interrupted = rounds.find((r) => r.status === "OPEN" && new Date(r.closes_at).getTime() > s.nowMs);
@@ -307,13 +307,13 @@ export function tradingNotice(
       ? { tone: "amber", text: `The event is paused: orders are refused until it resumes. Round ${interrupted.number} carries on then, and its closing time moves later by the length of the pause.`, next: null }
       : { tone: "amber", text: "The event is paused: orders are refused until it resumes. The schedule moves later by the length of the pause.", next };
   }
-  if (!phaseReached(s.phase, "MARKET_BLIND")) return { tone: "blue", text: "Trading (Round 3) starts at 02:15 with $100,000 for every team.", next };
+  if (!phaseReached(s.phase, "MARKET_BLIND")) return { tone: "blue", text: "Trading (Round 3) starts after Round 2, with $100,000 for every team.", next };
   const closing = rounds.find((r) => (r.status === "OPEN" || r.status === "CLOSED") && new Date(r.closes_at).getTime() <= s.nowMs);
   if (closing) return { tone: "blue", text: `Round ${closing.number} has closed and is being cleared.`, next };
   if (next && next.number === 3 && s.phase === "MARKET_BLIND") {
-    return { tone: "blue", text: `Round 3 opens after the 02:45 score reveal${s.gate ? " (waiting for every crisis-solution score)" : ""}.`, next };
+    return { tone: "blue", text: `Round 3 opens after the score reveal${s.gate ? " (waiting for every crisis-solution score)" : ""}.`, next };
   }
-  if (next && new Date(next.opensAt).getTime() <= s.nowMs) return { tone: "blue", text: `Round ${next.number} opens in a moment.`, next };
+  if (next && next.opensAt && new Date(next.opensAt).getTime() <= s.nowMs) return { tone: "blue", text: `Round ${next.number} opens in a moment.`, next };
   return { tone: "blue", text: "Trading is closed between rounds.", next };
 }
 

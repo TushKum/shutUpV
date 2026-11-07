@@ -97,7 +97,7 @@ export default async function BulletinsPage({ params }: PageProps<"/admin/[slug]
 
         <Panel title={`Q&A board (${threads.length} question${threads.length === 1 ? "" : "s"})`}>
           <p className="text-sm text-slate-600">
-            The rescuing team asks the team that built the company (23:45–00:15); the founders may answer until 01:45. Everything is public; a hidden
+            The rescuing team asks the team that built the company (while the Q&A board is open); the founders may answer until the crisis solution form locks. Everything is public; a hidden
             question (and its answers) leaves every team screen but stays here.
           </p>
           {threads.length === 0 ? (
@@ -194,7 +194,7 @@ export default async function BulletinsPage({ params }: PageProps<"/admin/[slug]
               >
                 Publish the twist now
               </ActionButton>
-              <p className="mt-2 text-xs text-slate-500">{twist.blocked ?? "The phase clock publishes it at 22:15 on its own; use this only if you need it earlier."}</p>
+              <p className="mt-2 text-xs text-slate-500">{twist.blocked ?? "The phase clock publishes it at the twist time on its own; use this only if you need it earlier."}</p>
             </div>
           ) : null}
         </Panel>

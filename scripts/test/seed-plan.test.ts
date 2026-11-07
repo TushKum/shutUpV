@@ -62,11 +62,13 @@ describe("seed plan", () => {
     expect(buildSeedPlan(base).starting_cash_cents).toBe(10_000_000);
   });
 
-  test("the schedule has the night's 13 phases, 9 rounds and 7 deadlines", () => {
+  test("the schedule: 13 phases and 9 rounds with durations, the twist and freeze offsets; no clock times", () => {
     const plan = buildSeedPlan(base);
     expect(plan.schedule.phases).toHaveLength(13);
     expect(plan.schedule.rounds).toHaveLength(9);
-    expect(plan.schedule.deadlines).toHaveLength(7);
+    expect(plan.schedule.phases.find((p) => p.code === "AWARDS")!.duration_seconds).toBeNull();
+    expect(plan.schedule.twist_offset_seconds).toBe(3600);
+    expect(JSON.stringify(plan.schedule)).not.toMatch(/_at"/);
   });
 
   test("the live event must have 150 teams coded T; a rehearsal can be smaller and uses another letter", () => {

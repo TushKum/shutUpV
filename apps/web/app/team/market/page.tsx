@@ -88,7 +88,7 @@ export default async function MarketPage() {
           })}
         </Table>
         <p className="mt-3 text-xs text-slate-500">
-          In ticker order. The market price moves with the crisis, the 02:45 reveal and every trading round; the score-based price only with the crisis and
+          In ticker order. The market price moves with the crisis, the score reveal and every trading round; the score-based price only with the crisis and
           the reveal. At the close, closing price = ½ market price (average of rounds 8 and 9) + ½ score-based price.
         </p>
       </Panel>

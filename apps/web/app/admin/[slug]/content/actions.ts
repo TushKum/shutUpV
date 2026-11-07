@@ -32,7 +32,7 @@ export async function uploadCrisisDeck(eventId: string, _prev: ActionResult | nu
 
 async function saveTwist(eventId: string, title: string, body: string): Promise<ActionResult> {
   const r = await rpc("set_twist", { p_event: eventId, p_title: title, p_body: body });
-  return r.ok ? { ...r, message: `Twist saved: “${title}”. It goes out at 22:15 (or publish it by hand under Bulletins).` } : r;
+  return r.ok ? { ...r, message: `Twist saved: “${title}”. It goes out at the twist time set on Event timing (or publish it by hand under Bulletins).` } : r;
 }
 
 /** The twist typed into the form. */

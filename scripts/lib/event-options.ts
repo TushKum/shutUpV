@@ -15,17 +15,17 @@ import {
 export const USAGE = `Options:
   --slug <slug>            event id, e.g. live-2026 (required)
   --name <name>            event name (default "PRIMUS")
-  --date <YYYY-MM-DD>      event day; 20:00 IST that day is the start (live events)
-  --starts-at <ISO time>   exact start instead of --date (rehearsals)
+  --date <YYYY-MM-DD>      event day; 20:00 IST that day is the planned start (the night starts when an organiser starts it)
+  --starts-at <ISO time>   exact planned start instead of --date (rehearsals: the autopilot starts the night then)
   --rehearsal              rehearsal event: X001… codes, may have fewer teams
-  --speed <n>              clock speed (default 1; rehearsal default 10)
+  --speed <n>              clock speed: every default duration divided by it (default 1; rehearsal default 10)
   --team-count <n>         number of teams (default 150; rehearsals may use fewer)
   --code-letter <A-Z>      rehearsal team-code letter (default X)
   --teams <csv>            team names and members (optional)
   --staff <csv>            organiser, fairness officer and display logins (optional)
   --problems <csv>         problem deck (default seed/problem-cards.csv)
   --crises <csv>           crisis deck (default seed/crisis-cards.csv)
-  --twist <csv>            the twist published at 22:15 (default seed/twist.csv; it can be edited in /admin)
+  --twist <csv>            the twist, published an hour into Build (default seed/twist.csv; it can be edited in /admin)
   --commitment <sha256>    published SHA-256 of the secret lottery seed (pnpm new-seed; can be set in /admin until the event starts)
 Environment: CARD_SECRET, TEAM_EMAIL_DOMAIN`;
 

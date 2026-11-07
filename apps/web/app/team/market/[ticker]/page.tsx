@@ -63,7 +63,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
           <Stat label="Market price" value={money(c.market_price)} />
           <Stat label="Score-based price" value={money(c.score_price)} hint="start × 0.85 × reveal factor" />
           <Stat label="Starting price" value={money(c.start_price)} hint={c.post_crisis_price ? `${money(c.post_crisis_price)} after the crisis` : undefined} />
-          {c.closing_price !== null ? <Stat label="Closing price" value={money(c.closing_price)} hint="½ market + ½ score-based" /> : <Stat label="Closing price" value="—" hint="at 04:30" />}
+          {c.closing_price !== null ? <Stat label="Closing price" value={money(c.closing_price)} hint="½ market + ½ score-based" /> : <Stat label="Closing price" value="—" hint="at the closing bell" />}
         </div>
         <div className="mt-4">
           <LineChart points={chartPoints(lines)} label={`${c.ticker} price by step`} mainName="Market price" secondName="Score-based price" testId="price-chart" />
@@ -77,7 +77,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
       ) : null}
 
       {types.includes("SOLUTION") ? (
-        <SubmissionPanel type="SOLUTION" s={submissions.SOLUTION} score={scores.SOLUTION ?? null} note={scores.SOLUTION ? null : "Its score is revealed at 02:45."} />
+        <SubmissionPanel type="SOLUTION" s={submissions.SOLUTION} score={scores.SOLUTION ?? null} note={scores.SOLUTION ? null : "Its score is revealed at the score reveal."} />
       ) : null}
       {types.includes("PRD") ? <SubmissionPanel type="PRD" s={submissions.PRD} score={scores.PRD ?? null} note={null} /> : null}
       {waiting.length ? <p className="text-sm text-slate-500">{waiting.map((t) => PUBLIC_FROM[t]).join(" ")}</p> : null}

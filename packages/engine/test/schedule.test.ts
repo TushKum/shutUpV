@@ -67,23 +67,32 @@ describe("default timetable matches the brief", () => {
 });
 
 describe("buildSchedule", () => {
-  test("live event: 20:00 IST on 20 November is 14:30 UTC", () => {
-    const start = eventStartIST("2026-11-20");
-    expect(start.toISOString()).toBe("2026-11-20T14:30:00.000Z");
-    const s = buildSchedule(start, 1);
-    expect(s.deadlines.find((d) => d.code === "PRD_LOCK")!.at).toBe("2026-11-20T17:30:00.000Z"); // 23:00 IST
-    expect(s.deadlines.find((d) => d.code === "SOLUTION_LOCK")!.at).toBe("2026-11-20T20:15:00.000Z"); // 01:45 IST
+  test("live event: durations from the planned night; untimed Setup, trading phases and awards", () => {
+    const s = buildSchedule(1);
+    const d = Object.fromEntries(s.phases.map((p) => [p.code, p.duration_seconds]));
+    expect(d.SETUP).toBeNull();
+    expect(d.BUILD).toBe(105 * 60); // 21:15–23:00
+    expect(d.RESCUE).toBe(90 * 60); // 00:15–01:45
+    expect(d.MARKET_BLIND).toBeNull();
+    expect(d.MARKET).toBeNull();
+    expect(d.AWARDS).toBeNull(); // open until an organiser ends the night
     expect(s.rounds).toHaveLength(9);
+    expect(s.rounds.every((r) => r.duration_seconds === 900)).toBe(true);
+    expect(s.twist_offset_seconds).toBe(60 * 60); // an hour into Build: 22:15
+    expect(s.freeze_offset_seconds).toBe(45 * 60); // 45 minutes into Market: 03:30
   });
 
-  test("rehearsal at 10× compresses the night into one hour", () => {
-    const start = new Date("2026-11-19T10:00:00Z");
-    const s = buildSchedule(start, 10);
-    const awards = s.phases.find((p) => p.code === "AWARDS")!;
-    expect(new Date(awards.ends_at).getTime() - start.getTime()).toBe(60 * 60_000);
-    const r1 = s.rounds[0]!;
-    expect(new Date(r1.closes_at).getTime() - new Date(r1.opens_at).getTime()).toBe(90_000);
-    expect(realToEventMinute(start, new Date(r1.opens_at), 10)).toBe(375);
+  test("rehearsal at 10x: every duration ten times shorter (never under 30 seconds)", () => {
+    const s = buildSchedule(10);
+    expect(s.rounds[0]!.duration_seconds).toBe(90);
+    expect(s.phases.find((p) => p.code === "REVEAL_1")!.duration_seconds).toBe(90);
+    expect(buildSchedule(100).rounds[0]!.duration_seconds).toBe(30);
+    expect(() => buildSchedule(0)).toThrow();
+  });
+
+  test("the 20:00 start of the planned night in IST", () => {
+    expect(eventStartIST("2026-11-20").toISOString()).toBe("2026-11-20T14:30:00.000Z");
+    expect(realToEventMinute(eventStartIST("2026-11-20"), new Date("2026-11-20T18:15:00Z"))).toBe(225);
   });
 });
 

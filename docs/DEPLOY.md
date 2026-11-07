@@ -54,7 +54,7 @@ version of this platform.
    supabase link --project-ref <your project reference, from Project Settings → General>
    supabase db push
    ```
-   It lists 14 migrations (`20261106000001` to `20261106000014`) and asks you to confirm. If anything fails, stop
+   It lists 15 migrations (`20261106000001` to `20261106000015`) and asks you to confirm. If anything fails, stop
    and ask for help; never mark a migration as applied by hand.
 4. **Check the clock.** In **SQL Editor**, run:
    ```sql
@@ -122,8 +122,9 @@ version of this platform.
    ```bash
    pnpm seed --slug primus-2026 --date 2026-11-20 --teams seed/teams.csv --staff seed/staff.csv --commitment <the commitment> --dry-run
    ```
-   Then run it again without `--dry-run`. It creates every login, the 150 teams and companies, the night's schedule
-   (from 20:00 IST) and the decks, and writes:
+   Then run it again without `--dry-run`. It creates every login, the 150 teams and companies, the night's default
+   durations and the decks, and writes (the date is the planned start only: the night starts when an organiser
+   clicks **Start the night** on the control panel's **Timing** page, and every time follows from there):
    - `out/primus-2026-login-cards.pdf`: 150 team cards, eight per A4 page;
    - `out/primus-2026-staff-logins.txt`: the staff passwords.
 6. Print the cards, cut them, and keep them locked away until check-in. To reprint some:
@@ -151,7 +152,8 @@ Use a separate rehearsal: best a second Supabase project and a second Vercel dep
 pretend judge, so no API costs). Then, from the laptop with that project's keys in `.env`:
 
 ```bash
-# A rehearsal event: X-prefixed teams, a clock 10 times faster (the night lasts about an hour)
+# A rehearsal event: X-prefixed teams, every duration 10 times shorter (the night lasts about an hour);
+# the autopilot starts it at --starts-at (or start it yourself on Timing)
 pnpm seed --slug rehearsal --rehearsal --starts-at 2026-11-17T18:00:00+05:30 --staff seed/staff.csv
 # 150 bot teams play the night; --autopilot also does the organisers' part (lottery, judging, a rumour, flags)
 JUDGE_FAKE=1 pnpm rehearse --slug rehearsal --autopilot
@@ -161,7 +163,8 @@ pnpm load-test --slug rehearsal --connections 1000
 
 The load test must report each clearing under 5 seconds and every screen updated within 2 seconds. Keep a few teams
 for people (`--except X001,X002`) and play them on phones while the bots run, with the projector open. Practise
-pausing, resuming, a re-run, the backup-model switch and the awards.
+starting the night, pausing, resuming, changing a duration (preview and apply), ending a phase by hand, closing a
+round early, a re-run, the backup-model switch, the awards and **End the night**.
 
 ## 6. The venue
 

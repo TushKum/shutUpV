@@ -30,7 +30,7 @@ export default async function SolutionsPage() {
     <div className="space-y-6">
       <MarketTabs current="SOLUTIONS" solutions />
       <p className="text-sm text-slate-600">
-        {revealed ? "Scores were revealed at 02:45." : "Scores stay secret until 02:45, when each one moves its company's prices by 1 + 0.5% × (score − 50)."}
+        {revealed ? "Scores have been revealed." : "Scores stay secret until the score reveal, when each one moves its company's prices by 1 + 0.5% × (score − 50)."}
       </p>
       {companies.map((c) => {
         const s = submissions.get(c.id);

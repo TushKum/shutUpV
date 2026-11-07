@@ -49,14 +49,14 @@ export default async function BuildPage() {
           <p className="mt-3 text-xs text-slate-500">Starting price = $10.00 + $0.10 × (score − 50). Round 1 points = your PRD score.</p>
         </Panel>
       ) : phaseReached(status.phase, "JUDGING_1") ? (
-        <Notice tone="blue">Your PRD is locked and being judged. Scores and starting prices are revealed together at 23:30.</Notice>
+        <Notice tone="blue">Your PRD is locked and being judged. Scores and starting prices are revealed together once every PRD is judged.</Notice>
       ) : null}
 
       <Panel title="Your problem card">
         {card ? (
           <CardView card={card} label="Problem card" />
         ) : (
-          <p className="text-sm text-slate-600">The lottery deals one problem card to every team at 21:15 (up to three teams share a card).</p>
+          <p className="text-sm text-slate-600">The lottery deals one problem card to every team when Build starts (up to three teams share a card).</p>
         )}
       </Panel>
 
@@ -69,7 +69,7 @@ export default async function BuildPage() {
           </div>
         ) : (
           <p className="text-sm text-slate-600">
-            One twist goes out to every team at the same moment, {twistAt ? <>at {clock(twistAt)} (<Countdown to={twistAt} />)</> : "at 22:15"}. Your PRD is expected to
+            One twist goes out to every team at the same moment, {twistAt ? <>at {clock(twistAt)} (<Countdown to={twistAt} />)</> : "during Build"}. Your PRD is expected to
             deal with it.
           </p>
         )}

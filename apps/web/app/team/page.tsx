@@ -83,21 +83,21 @@ export default async function TeamHome() {
               testId="home-built"
               c={built}
               market={market}
-              empty={event.drawn_at ? "Name your company and claim its ticker in your PRD." : "You get your problem card at 21:15 and build a company from it."}
+              empty={event.drawn_at ? "Name your company and claim its ticker in your PRD." : "You get your problem card when Build starts and build a company from it."}
             />
             <CompanyFact
               label="You rescue"
               testId="home-rescued"
               c={rescued}
               market={market}
-              empty="The rescue lottery at 23:45 gives you another team's company to rescue."
+              empty="The rescue lottery at the crisis gives you another team's company to rescue."
             />
           </dl>
           <p className="mt-3 text-xs text-slate-500">Your team can never trade the company it built or the one it rescues.</p>
         </Panel>
 
         <Panel title="Cash">
-          <Stat label="Cash" value={<span data-testid="home-cash">{money(team.cash)}</span>} hint={phaseReached(status.phase, "MARKET_BLIND") ? undefined : "Every team starts trading at 02:15 with $100,000."} />
+          <Stat label="Cash" value={<span data-testid="home-cash">{money(team.cash)}</span>} hint={phaseReached(status.phase, "MARKET_BLIND") ? undefined : "Every team starts trading with $100,000."} />
           {phaseReached(status.phase, "MARKET_BLIND") ? (
             <Link href="/team/trade/positions" className={`mt-3 inline-block ${buttonClass.secondary}`}>
               Your portfolio

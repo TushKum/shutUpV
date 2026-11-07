@@ -76,7 +76,13 @@ async function Evening({ event, status }: { event: DisplayEvent; status: EventSt
           </>
         ) : (
           <p className="text-[72px] leading-tight font-black" data-testid="evening-next">
-            The PRDs are being judged. Scores and starting prices in a moment.
+            {status.phase === "SETUP" || status.phase === "CHECKIN"
+              ? "Welcome to PRIMUS. The night begins shortly."
+              : status.phase === "BRIEFING"
+                ? "The briefing is on. The problem cards come next."
+                : status.phase === "BUILD"
+                  ? "Build your company. The organisers will close the PRD form."
+                  : "The PRDs are being judged. Scores and starting prices in a moment."}
           </p>
         )}
         {twist ? (

@@ -64,7 +64,8 @@ describe("the status line", () => {
     const n = await Night.create(db.pool, 3);
     const s = await n.call(n.team(n.codes[0]!), "event_status", n.eventId);
     expect(s).toMatchObject({ phase: "SETUP", next_phase: "CHECKIN", gate: null, paused: false, trading: "HALTED", open_round: null, drawn: false, leaderboard_frozen: false });
-    expect(s.next_deadline.code).toBe("TWIST");
+    // Nothing has a time before an organiser starts the night.
+    expect(s).toMatchObject({ next_deadline: null, phase_ends_at: null, started_at: null, ended_at: null, timing_version: 0 });
     expect(typeof s.server_time).toBe("string");
     const other = await Night.create(db.pool, 3);
     await expect(n.call(other.team(other.codes[0]!), "event_status", n.eventId)).rejects.toMatchObject({ code: "42501" });
@@ -74,7 +75,9 @@ describe("the status line", () => {
 describe("auto-advance, close round now, the model switch", () => {
   test("turning auto-advance on when overdue needs a confirmation", async () => {
     const n = await Night.create(db.pool, 3);
-    await n.q("update phases set starts_at = now() - interval '1 hour', ends_at = now() - interval '1 minute' where event_id = $1 and code = 'SETUP'", [n.eventId]);
+    await n.advanceTo("CHECKIN");
+    await n.q("update phases set paused_seconds = 0, duration_seconds = 60, started_at = now() - interval '2 minutes' where event_id = $1 and code = 'CHECKIN'", [n.eventId]);
+    await n.q("select app.reproject($1)", [n.eventId]);
     expect(await n.call(n.lead, "set_auto_advance", n.eventId, true, false)).toMatchObject({ ok: false, code: "OVERDUE" });
     await n.org("set_auto_advance", n.eventId, true, true);
     expect((await n.one("select auto_advance from events where id = $1", [n.eventId])).auto_advance).toBe(true);

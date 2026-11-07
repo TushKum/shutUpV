@@ -17,7 +17,7 @@ import { ActionBar } from "./action-bar";
 import { Alerts, SoundToggle } from "./alerts";
 import { loadPlanFacts } from "@/lib/team/home-data";
 import { homePlan } from "@/lib/team/home";
-import { alertTasks, nextAction } from "@/lib/team/alerts";
+import { alertTasks, changeText, nextAction, teamTimingChanges } from "@/lib/team/alerts";
 import { PhaseEnd } from "./phase-end";
 import { BULLETIN_KIND_LABELS, type BulletinKind } from "@/lib/admin/content-bulletins";
 
@@ -37,6 +37,12 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
     return null;
   });
   const next = plan ? nextAction(plan) : null;
+  // The last timing change stays on every screen for 20 minutes, so a team that was away (or reconnects) still sees
+  // which deadlines moved; the times themselves are always the server's.
+  const recent =
+    status.timing_change && status.timing_changed_at && Date.parse(status.server_time) - Date.parse(status.timing_changed_at) < 20 * 60_000
+      ? teamTimingChanges(status.timing_change.changes)
+      : [];
   const sb = await supabaseServer();
   const { data: latest } = await sb
     .from("bulletins")
@@ -71,7 +77,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                 <dt className="text-xs text-slate-500">Phase</dt>
                 <dd className="font-semibold" data-testid="team-phase">
                   {PHASE_LABELS[status.phase]}
-                  <PhaseEnd endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} />
+                  <PhaseEnd endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} ended={!!status.ended_at} />
                 </dd>
               </div>
               <div>
@@ -110,6 +116,21 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.
             </p>
+          ) : null}
+          {recent.length > 0 ? (
+            <div
+              className={`px-4 py-2 text-center text-sm font-medium ${recent.some((c) => c.earlier) ? "bg-amber-100 text-amber-950" : "bg-sky-50 text-sky-950"}`}
+              data-testid="timing-banner"
+              role="status"
+            >
+              <span className="font-semibold">{recent.some((c) => c.earlier) ? "Deadline moved earlier" : "Timing changed"}</span>
+              <span className="text-xs font-normal"> at {clock(status.timing_changed_at)}</span>:{" "}
+              {recent.slice(0, 4).map(changeText).join(" · ")}
+              {recent.length > 4 ? ` · +${recent.length - 4} more` : ""}
+            </div>
+          ) : null}
+          {status.ended_at ? (
+            <p className="bg-emerald-100 px-4 py-2 text-center text-sm font-medium text-emerald-900">The night is over. Thank you for playing PRIMUS.</p>
           ) : null}
           {team.disqualified ? (
             <p className="bg-red-100 px-4 py-2 text-center text-sm font-medium text-red-900">

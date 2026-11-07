@@ -39,7 +39,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
     return (
       <Panel title="Q&A board">
         <Notice>
-          The board opens at the crisis (23:45). You ask the founders of the company you rescue (up to 300 characters, until 00:15), and you answer the team
+          The board opens at the crisis. You ask the founders of the company you rescue (up to 300 characters, until the questions close), and you answer the team
           that rescues your company (up to 150 words). Everything on the board is public.
         </Notice>
       </Panel>

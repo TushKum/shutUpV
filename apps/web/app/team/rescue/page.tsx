@@ -26,8 +26,8 @@ export default async function RescuePage() {
     return (
       <Panel title="Round 2: Rescue">
         <p className="text-sm text-slate-700">
-          At 23:45 every company is hit by a crisis and every share price falls 15%. The lottery then gives each team another team&apos;s company to rescue:
-          you write its crisis solution (00:15–01:45), and its founders answer your questions on the Q&amp;A board until 00:15.
+          At the crisis every company is hit by a crisis and every share price falls 15%. The lottery then gives each team another team&apos;s company to rescue:
+          you write its crisis solution (until its form locks), and its founders answer your questions on the Q&amp;A board while it is open.
         </p>
       </Panel>
     );
@@ -52,11 +52,11 @@ export default async function RescuePage() {
         <Panel title={`Your crisis solution's score (${rescued.ticker})`}>
           <ScoreCard type="SOLUTION" score={solutionScore} />
           <p className="mt-3 text-xs text-slate-500">
-            At 02:45 {rescued.ticker}&apos;s market price and score-based price were multiplied by 1 + 0.5% × (score − 50). Round 2 points = this score.
+            At the score reveal {rescued.ticker}&apos;s market price and score-based price were multiplied by 1 + 0.5% × (score − 50). Round 2 points = this score.
           </p>
         </Panel>
       ) : phaseReached(status.phase, "JUDGING_2") ? (
-        <Notice tone="blue">Your crisis solution is locked and being judged. Scores stay secret until 02:45, when they move every price at once.</Notice>
+        <Notice tone="blue">Your crisis solution is locked and being judged. Scores stay secret until the score reveal, when they move every price at once.</Notice>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -70,7 +70,7 @@ export default async function RescuePage() {
             <Link href="/team/qa" className="font-semibold underline">
               Ask its founders on the Q&amp;A board
             </Link>{" "}
-            (until 00:15; every question and answer is public).
+            (while the board is open; every question and answer is public).
           </p>
           {theirPrd ? (
             <details className="mt-3 rounded-md bg-slate-50 p-3 text-sm ring-1 ring-inset ring-slate-200">

@@ -163,8 +163,8 @@ describe("tradingNotice", () => {
   it("null while a round accepts orders", () => {
     expect(tradingNotice({ ...base, trading: "OPEN" }, rounds)).toBeNull();
   });
-  it("before 02:15", () => {
-    expect(tradingNotice({ ...base, phase: "RESCUE" }, rounds)?.text).toContain("02:15");
+  it("before trading starts", () => {
+    expect(tradingNotice({ ...base, phase: "RESCUE" }, rounds)?.text).toContain("starts after Round 2");
   });
   it("paused with a round open", () => {
     expect(tradingNotice({ ...base, paused: true }, rounds)?.text).toContain("Round 2 carries on");
@@ -172,7 +172,7 @@ describe("tradingNotice", () => {
   it("waiting for the reveal before round 3", () => {
     const after = rounds.map((r) => (r.number === 2 ? { ...r, status: "CLEARED" as const } : r));
     const n = tradingNotice({ ...base, nowMs: Date.parse("2026-11-21T02:46:00Z"), gate: "scores" }, after);
-    expect(n?.text).toBe("Round 3 opens after the 02:45 score reveal (waiting for every crisis-solution score).");
+    expect(n?.text).toBe("Round 3 opens after the score reveal (waiting for every crisis-solution score).");
     expect(n?.next?.number).toBe(3);
   });
   it("a closed round being cleared", () => {

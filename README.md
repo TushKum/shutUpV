@@ -24,7 +24,7 @@ building are in [`PLAN.md`](PLAN.md).
 | Who | Where | What |
 |---|---|---|
 | Teams (one login per team, from its printed card) | `/team` | "Do this now" bar and alerts; Round 1 (problem card, twist, PRD editor that saves by itself, score and reason); Round 2 (crisis card, Q&A, solution editor); the market and every published solution; orders, portfolio and history; the public ledger; the leaderboard until 03:30; news; how judging works |
-| Organisers and the fairness officer | `/admin/<event>` | Phase control (start, pause, resume, extend, auto-advance), lottery, rounds, judge (worker, backup model, re-runs, appeals, calibration), bulletins, content, ledger and corrections, results, fairness flags, exports, health |
+| Organisers and the fairness officer | `/admin/<event>` | Phase control and **Event timing** (start and end the night, durations with a before/after preview, untimed phases, pause, resume, extend, manual or timed advance, early round close, timing log), lottery, rounds, judge (worker, backup model, re-runs, appeals, calibration), bulletins, content, ledger and corrections, results, fairness flags, exports, health |
 | The projector (display account) | `/display/<event>` | Countdown, the twist, starting prices and top 5 PRDs, the crisis and rescue circle, rumours, the price board and leaderboard, the 02:45 reveal, the closing bell, the awards one by one |
 | Anyone | `/api/lottery-record?event=<event>` | The public lottery record after 23:45, checked with `pnpm verify-lottery` |
 
@@ -49,7 +49,7 @@ Commands read `.env` (copy `.env.example`). `out/` is never committed: it holds 
 | Path | What |
 |---|---|
 | `packages/engine` | Pure TypeScript rules, the reference for the SQL: money in integer cents, prices, orders and clearing, the lottery, the judge's helpers, scoring, awards, collusion flags |
-| `supabase/migrations` | 14 migrations: schema, Row Level Security, integrity triggers, seeding, every game action as a database function, the 2-second clock (`pg_cron`), the judge queue |
+| `supabase/migrations` | 15 migrations: schema, Row Level Security, integrity triggers, seeding, every game action as a database function, the 2-second clock (`pg_cron`), the judge queue, organiser-controlled timing |
 | `supabase/tests` | Database tests on a throwaway Postgres: access rules, engine/SQL parity, the scripted night with every acceptance test, organiser controls, the judge queue and worker, and a 150-team practice night played by the bots |
 | `apps/web` | Next.js (App Router, TypeScript, Tailwind) |
 | `scripts` | The commands above, with their tests in `scripts/test` |

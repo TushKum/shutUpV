@@ -178,7 +178,7 @@ export default async function JudgePage({ params, searchParams }: PageProps<"/ad
         <p className="mt-3 text-xs text-slate-500">
           Re-runs are for technical errors only (for example a submission that was cut off). Before the reveal the new median replaces the score. After the
           reveal the new score waits until a second organiser approves it; applying it re-applies the score&apos;s price effect (the starting price for a PRD,
-          the 02:45 reveal for a crisis solution) to the current price, and is logged.
+          the score reveal for a crisis solution) to the current price, and is logged.
         </p>
       </Panel>
 

@@ -1,7 +1,8 @@
 // A rehearsal night played by bots. Every team of a rehearsal event signs in with the password on its card and plays
 // through the real public game functions: its PRD (a first draft and a revision), the Q&A board (the rescuer asks,
 // the founders answer), its crisis solution and orders in every trading round. With --autopilot the script also does
-// the organisers' part (as the service role): the seed commitment, the start of the night, auto-advance, the lottery
+// the organisers' part (as the service role): the seed commitment, the start of the night (at --starts-at), "advance
+// when timer expires", the lottery
 // draw, judging (the judge worker in-process: the fake judge with JUDGE_FAKE=1, else the real models), a rumour and
 // the fairness decisions. The database's own clock (the 2-second tick) does the rest: the twist, the locks, the
 // reveals, the crisis, the rounds and the close. Humans can watch (and play) on /admin, /display and /team at the same
@@ -120,7 +121,7 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
 
   let rumoured = false;
   while (!done()) {
-    const { data: ev, error: evError } = await sb.from("events").select("current_phase, seed_commitment, drawn_at, auto_advance").eq("id", eventId).single();
+    const { data: ev, error: evError } = await sb.from("events").select("current_phase, seed_commitment, drawn_at, auto_advance, starts_at, ended_at, timing_version").eq("id", eventId).single();
     if (evError || !ev) {
       say(`could not read the event (${evError?.message ?? "no answer"}); trying again`);
       await sleep(2000);
@@ -134,15 +135,13 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
       writeFileSync(seedFile, seed + "\n");
       say(`seed commitment: ${(await rpc("set_seed_commitment", { p_event: eventId, p_commitment: sha256Hex(seed) })).ok ? "set" : "refused"}`);
     }
-    // The heartbeat never starts a night by itself (an event in SETUP is not ticked): start it at its planned time.
-    if (phase === "SETUP" && ev.seed_commitment) {
-      const { data: setup } = await sb.from("phases").select("ends_at").eq("event_id", eventId).eq("code", "SETUP").single();
-      if (setup && setup.ends_at <= new Date().toISOString()) {
-        const r = await rpc("advance_phase", { p_event: eventId, p_from: "SETUP" });
-        say(`start the night: ${r.ok ? "CHECKIN" : r.message}`);
-      }
+    // The night starts only when an organiser starts it (the heartbeat never ticks an event in SETUP): the autopilot
+    // is that organiser, at the event's planned start (--starts-at); every time then follows from the durations.
+    if (phase === "SETUP" && ev.seed_commitment && Date.parse(ev.starts_at) <= Date.now()) {
+      const r = await rpc("start_event", { p_event: eventId, p_expected_version: ev.timing_version });
+      say(`start the night: ${r.ok ? "CHECKIN" : r.message}`);
     }
-    if (!ev.auto_advance && phase !== "SETUP") say(`auto-advance on: ${(await rpc("set_auto_advance", { p_event: eventId, p_on: true, p_advance_now: false })).ok}`);
+    if (!ev.auto_advance && phase !== "SETUP") say(`advance when timer expires: ${(await rpc("set_auto_advance", { p_event: eventId, p_on: true, p_advance_now: false })).ok}`);
     // 21:15 the lottery deals the problem cards (the same seed and dice give the crisis cards and the circle at 23:45).
     if (phase === "BRIEFING" && !ev.drawn_at) {
       if (!seed) throw new Error(`the seed of ${slug} is not in ${seedFile}; run the lottery in /admin instead`);
@@ -161,7 +160,7 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
       if (flags?.length) say(`${flags.length} flags cleared`);
     }
     if (phase === "AWARDS") {
-      say("the awards are up: the night is over");
+      say("the awards are up (untimed): end the night on Event timing when the last award is shown");
       over = true;
       break;
     }

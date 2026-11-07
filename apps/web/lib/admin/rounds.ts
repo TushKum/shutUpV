@@ -103,7 +103,7 @@ export type RoundFocus = { kind: "OPEN"; round: RoundRow; overdue: boolean } | {
 export function focusRound(rounds: readonly RoundRow[], nowMs: number): RoundFocus {
   const sorted = [...rounds].sort((a, b) => a.number - b.number);
   const open = sorted.find((r) => r.status === "OPEN");
-  if (open) return { kind: "OPEN", round: open, overdue: new Date(open.closes_at).getTime() <= nowMs };
+  if (open) return { kind: "OPEN", round: open, overdue: !!open.closes_at && new Date(open.closes_at).getTime() <= nowMs };
   const next = sorted.find((r) => r.status === "SCHEDULED");
   return next ? { kind: "NEXT", round: next } : null;
 }
@@ -120,7 +120,8 @@ export function roundWait(
   phaseLabel: (phase: string) => string,
 ): { tone: "amber" | "blue"; text: string } | null {
   if (!focus) return null;
-  const due = new Date(focus.kind === "OPEN" ? focus.round.closes_at : focus.round.opens_at).getTime() <= state.nowMs;
+  const at = focus.kind === "OPEN" ? focus.round.closes_at : focus.round.opens_at;
+  const due = !!at && new Date(at).getTime() <= state.nowMs;
   if (state.paused) {
     return {
       tone: "amber",

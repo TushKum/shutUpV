@@ -115,8 +115,8 @@ export default function TeamJudgingPage() {
           </Table>
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Starting price = $10.00 + $0.10 × (PRD score − 50). The crisis takes 15% off every price. At 02:45 the price moves by 0.5% for every point the
-          crisis solution scores above or below 50. At the 04:30 close the closing price is half the market price and half the score-based price, which
+          Starting price = $10.00 + $0.10 × (PRD score − 50). The crisis takes 15% off every price. At the score reveal the price moves by 0.5% for every point the
+          crisis solution scores above or below 50. At the closing bell the closing price is half the market price and half the score-based price, which
           trading never moves.
         </p>
       </Panel>

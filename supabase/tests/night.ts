@@ -1,6 +1,6 @@
 // A test driver that plays a PRIMUS night through the real game functions: teams and organisers call the public
 // functions as themselves (RLS and SECURITY DEFINER exactly as in production), the judge worker's part is played by
-// writing its readings and calling seal_score as the service role, and the clock is moved by editing the schedule.
+// writing its readings and calling seal_score as the service role, and the clock is moved by editing the projected times.
 // After every clearing it checks the database against the TypeScript engine, and it checks the ledger invariants.
 
 import assert from "node:assert/strict";
@@ -114,14 +114,10 @@ export class Night {
     ]);
   }
 
-  /** Advances phase by phase until `target`, keeping every later phase and deadline in the future. */
+  /** Ends phase after phase as the organiser until `target` (each phase starts now; its deadlines follow from its duration). */
   async advanceTo(target: string) {
     for (let i = 0; i < 15 && (await this.phase()) !== target; i++) {
       const from = await this.phase();
-      await this.q(
-        "update phases set starts_at = now() + interval '1 hour', ends_at = now() + interval '2 hours' where event_id = $1 and seq > (select seq from phases where event_id = $1 and code = $2)",
-        [this.eventId, from],
-      );
       const r = await this.call(this.lead, "advance_phase", this.eventId, from);
       if (!r.ok) throw new Error(`cannot leave ${from}: ${r.message}`);
     }

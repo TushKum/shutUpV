@@ -50,7 +50,7 @@ export function DisplayHeader({ event, status }: { event: DisplayEvent; status: 
             )}
           </>
         ) : (
-          <PhaseTimer endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} paused={status.paused} />
+          <PhaseTimer endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} paused={status.paused} ended={!!status.ended_at} />
         )}
       </div>
 

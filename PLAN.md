@@ -275,6 +275,38 @@ by `drafts`).
 - **Production build** checked: it succeeds, and the judge prompts and calibration samples are packed into the
   functions that read them.
 
+## 7g. Organiser-controlled timing (migration 15)
+
+The fixed timetable is replaced by durations that organisers control. The planned 20:00–06:00 night stays as the
+default durations (`buildSchedule`), not as clock times.
+
+- **Start and end.** The night starts only when an organiser starts it (Setup is never ticked) and ends only when an
+  organiser ends it, from the awards (`start_event`, `end_event`). After the end nothing changes.
+- **Durations, then projection.** Each phase has a duration, or none: untimed phases stay open until an organiser
+  ends them (the awards are untimed by default; Setup has none; a trading phase lasts as long as its rounds). Rounds
+  have durations (15 min default) and run back to back. The twist and the leaderboard freeze are offsets from the
+  start of Build and Market. `app.reproject` recomputes every time still ahead from when the current phase actually
+  started, plus its pauses and extensions; deadlines follow (PRD lock = end of Build, Q&A close = end of the crisis
+  Q&A, solution lock = end of Rescue, closing bell = end of Market). A time after an untimed phase is unknown (null)
+  and screens say "until the organisers end it".
+- **Pause and resume.** A pause freezes every countdown; resume adds exactly the paused seconds to the current phase
+  and the open round, so the time left is preserved.
+- **Modes.** "Advance when timer expires" or "Manual advance". In both, a timer that runs out still locks its form or
+  closes its round; manual only waits before starting the next phase.
+- **Safeguards.** Every change is organiser-only, versioned (`timing_version`: a stale console gets STALE), logged
+  (`audit_log` "timing:*" with what moved) and broadcast. A change that brings any time earlier needs a second
+  confirmation; previews are computed by applying the change and rolling it back (`preview_timing`,
+  `preview_advance`), so they are exactly what applying would do. Phase gates are unchanged. A duration shorter than
+  what has already run is refused (end the phase instead).
+- **Closing a round early.** CLEAR fills pending orders at the clearing price; CANCEL cancels them and the round
+  clears as if none were placed. The rounds after it start from the actual close. Ending a trading phase clears its
+  open round (CLEAR) and records unchanged prices for rounds that never opened.
+- **Teams and projector** see deadline changes as a toast (earlier ones loud), a banner for 20 minutes (10 on the
+  projector), and every page reads the times from the server, so a refresh shows the current ones. Texts that quoted
+  the planned clock ("at 23:45") now name the moment ("at the crisis").
+- **Panel.** `/admin/<slug>/timing`, dark Matrix-inspired style scoped to the panel (`.mx-*` in `globals.css`); the
+  rest of the control panel keeps its light style.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

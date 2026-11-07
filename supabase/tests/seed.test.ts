@@ -51,8 +51,16 @@ describe("seed_event: the live event", () => {
     expect((await q("select count(*)::int as n from rounds where event_id = $1"))[0].n).toBe(9);
     expect((await q("select count(*)::int as n from deadlines where event_id = $1"))[0].n).toBe(7);
     expect((await q("select current_phase from events where id = $1"))[0].current_phase).toBe("SETUP");
-    const freeze = (await q("select at from deadlines where event_id = $1 and code = 'LEADERBOARD_FREEZE'"))[0].at as Date;
-    expect(freeze.toISOString()).toBe("2026-11-20T22:00:00.000Z"); // 03:30 IST on 21 November
+    // Nothing has a time until an organiser starts the night: durations only.
+    expect((await q("select count(*)::int as n from deadlines where event_id = $1 and at is not null"))[0].n).toBe(0);
+    expect((await q("select count(*)::int as n from phases where event_id = $1 and (starts_at is not null or ends_at is not null)"))[0].n).toBe(0);
+    expect((await q("select duration_seconds from phases where event_id = $1 and code = 'BUILD'"))[0].duration_seconds).toBe(6300);
+    expect((await q("select duration_seconds from phases where event_id = $1 and code = 'AWARDS'"))[0].duration_seconds).toBeNull();
+    expect((await q("select twist_offset_seconds, freeze_offset_seconds, started_at from events where id = $1"))[0]).toEqual({
+      twist_offset_seconds: 3600,
+      freeze_offset_seconds: 2700,
+      started_at: null,
+    });
   });
 
   test("decks and the twist (a draft until 22:15)", async () => {

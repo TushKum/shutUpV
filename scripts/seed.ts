@@ -27,7 +27,7 @@ async function main() {
   console.log(
     `Event ${plan.event.slug}: ${plan.teams.length} teams, ${plan.staff.length} staff, ` +
       `${plan.problem_cards.length} problem cards, ${plan.crisis_cards.length} crisis cards, ` +
-      `starts ${plan.event.starts_at} at ${plan.event.clock_speed}×`,
+      `planned start ${plan.event.starts_at} (an organiser starts the night), durations ÷${plan.event.clock_speed}`,
   );
 
   if (args["dry-run"] !== true) {

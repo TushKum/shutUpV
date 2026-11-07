@@ -13,6 +13,8 @@ import { NewsTicker } from "./ticker";
 import { TakeoverView } from "./takeovers";
 import { ScreenSwitch } from "./screen-switch";
 import { FallbackRefresh } from "./fallback-refresh";
+import { changeText, teamTimingChanges } from "@/lib/team/alerts";
+import type { EventStatus } from "@/lib/event-status";
 
 export const metadata: Metadata = { title: "Big screen" };
 
@@ -46,13 +48,31 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
           >
             <DisplayHeader event={event} status={status} />
             <BulletinBanner bulletin={bulletin} />
-            {status.paused ? <PauseStrip className="shrink-0 py-2 text-[36px] leading-tight" /> : null}
+            {status.paused ? <PauseStrip className="shrink-0 py-2 text-[36px] leading-tight" /> : <TimingStrip status={status} />}
             <Board event={event} status={status} compact={bulletin !== null || status.paused} />
             <NewsTicker event={event} status={status} />
           </ScreenSwitch>
         </Stage>
       </EventChannel>
     </ClockProvider>
+  );
+}
+
+/** For 10 minutes after an organiser moves a deadline or a round, the hall sees what moved (earlier ones first). */
+function TimingStrip({ status }: { status: EventStatus }) {
+  if (!status.timing_change || !status.timing_changed_at) return null;
+  if (Date.parse(status.server_time) - Date.parse(status.timing_changed_at) > 10 * 60_000) return null;
+  const changes = teamTimingChanges(status.timing_change.changes);
+  if (changes.length === 0) return null;
+  const earlier = changes.some((c) => c.earlier);
+  const shown = [...changes.filter((c) => c.earlier), ...changes.filter((c) => !c.earlier)].slice(0, 3);
+  return (
+    <p
+      className={`shrink-0 truncate px-12 py-2 text-center text-[34px] leading-tight font-black ${earlier ? "bg-amber-400 text-black" : "bg-sky-300 text-black"}`}
+      data-testid="display-timing"
+    >
+      {earlier ? "Deadline moved earlier" : "New times"}: {shown.map(changeText).join(" · ")}
+    </p>
   );
 }
 

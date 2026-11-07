@@ -1,6 +1,7 @@
 // What the "Do this now" bar shows and when a team is alerted. Pure: the bar and the alerts (app/team/action-bar.tsx,
 // app/team/alerts.tsx) only draw these decisions.
 
+import { clock } from "@/lib/format";
 import type { HomePlan, HomeTask } from "./home";
 
 /** The one thing to do next: the open task of this team that closes first (the plan lists them in closing order). */
@@ -73,7 +74,7 @@ export function eventToast(kind: string, payload: Record<string, unknown>): Even
       return { text: k === "RUMOUR" ? `Rumour: ${title}` : k === "CRISIS" ? `Crisis news: ${title}` : `News: ${title}`, tone: k === "CRISIS" ? "warn" : "info", href: "/team/bulletins", loud: k === "CRISIS" };
     }
     case "leaderboard_frozen":
-      return { text: "The leaderboard is frozen until the awards. Trading carries on until 04:30.", tone: "info", href: null, loud: false };
+      return { text: "The leaderboard is frozen until the awards. Trading carries on until the closing bell.", tone: "info", href: null, loud: false };
     case "closing_bell":
       return { text: "The closing bell: the market is closed. Results at the awards.", tone: "info", href: "/team/trade/positions", loud: true };
     case "settled":
@@ -86,7 +87,50 @@ export function eventToast(kind: string, payload: Record<string, unknown>): Even
       const m = typeof payload.minutes === "number" ? payload.minutes : null;
       return { text: m ? `The organisers added ${m} minutes: deadlines moved later.` : "Deadlines moved later.", tone: "info", href: null, loud: false };
     }
+    case "timing":
+      return timingToast(payload);
+    case "ended":
+      return { text: "The night is over. Thank you for playing PRIMUS!", tone: "good", href: null, loud: true };
     default:
       return null;
   }
+}
+
+export interface TimingChange {
+  key: string;
+  kind: "phase" | "round" | "deadline";
+  label: string;
+  from: string | null;
+  to: string | null;
+  earlier: boolean;
+}
+
+/** The changes a team cares about: its deadlines and the trading rounds (the phases' own ends are for the staff). */
+export function teamTimingChanges(changes: unknown): TimingChange[] {
+  if (!Array.isArray(changes)) return [];
+  return (changes as TimingChange[]).filter(
+    (c) => c && typeof c.label === "string" && (c.kind === "deadline" || c.kind === "round") && c.key !== "deadline:PROBLEM_DRAW",
+  );
+}
+
+/** "PRD form locks 23:00 → 22:45": one moved time, as a team reads it. */
+export function changeText(c: TimingChange): string {
+  if (!c.to) return `${c.label}: when the organisers end the phase`;
+  if (!c.from) return `${c.label} at ${clock(c.to)}`;
+  return `${c.label} ${clock(c.from)} → ${clock(c.to)}`;
+}
+
+/** An organiser changed the timing: which deadlines moved, earlier ones first (they are the ones to act on). */
+export function timingToast(payload: Record<string, unknown>): EventToast | null {
+  const changes = teamTimingChanges(payload.changes);
+  if (changes.length === 0) return null;
+  const earlier = changes.filter((c) => c.earlier);
+  const shown = [...earlier, ...changes.filter((c) => !c.earlier)].slice(0, 2).map(changeText);
+  const more = changes.length > 2 ? ` (+${changes.length - 2} more)` : "";
+  return {
+    text: `${earlier.length > 0 ? "Deadline moved earlier" : "Timing changed"}: ${shown.join("; ")}${more}.`,
+    tone: earlier.length > 0 ? "warn" : "info",
+    href: null,
+    loud: earlier.length > 0,
+  };
 }

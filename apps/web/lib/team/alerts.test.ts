@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { alertTasks, dueAlert, eventToast, leftText, nextAction } from "./alerts";
+import { alertTasks, changeText, dueAlert, eventToast, leftText, nextAction, type TimingChange } from "./alerts";
 import type { HomePlan, HomeTask } from "./home";
 
 const task = (key: string, state: HomeTask["state"], due: string | null, href: string | null = "/team/rescue"): HomeTask => ({
@@ -70,5 +70,32 @@ describe("eventToast", () => {
     expect(eventToast("extended", { minutes: 5 })).toMatchObject({ text: "The organisers added 5 minutes: deadlines moved later." });
     expect(eventToast("qa", {})).toBeNull();
     expect(eventToast("correction", {})).toBeNull();
+  });
+});
+
+describe("timing changes", () => {
+  const lock = { key: "deadline:PRD_LOCK", kind: "deadline", label: "PRD form locks", from: "2026-11-20T17:30:00Z", to: "2026-11-20T17:15:00Z", earlier: true };
+  const round = { key: "round:3", kind: "round", label: "Round 3 closes", from: "2026-11-20T21:30:00Z", to: "2026-11-20T21:40:00Z", earlier: false };
+  const phase = { key: "phase:BUILD", kind: "phase", label: "Build ends", from: "2026-11-20T17:30:00Z", to: "2026-11-20T17:15:00Z", earlier: true };
+
+  test("a deadline brought earlier is loud, names the new time and comes first", () => {
+    const t = eventToast("timing", { action: "set_timing", changes: [round, phase, lock] })!;
+    expect(t).toMatchObject({ tone: "warn", loud: true });
+    expect(t.text).toBe("Deadline moved earlier: PRD form locks 23:00 → 22:45; Round 3 closes 03:00 → 03:10.");
+  });
+
+  test("later only is a quiet notice; the phases' own ends and the draw are for the staff", () => {
+    expect(eventToast("timing", { changes: [round] })).toMatchObject({ tone: "info", loud: false, text: "Timing changed: Round 3 closes 03:00 → 03:10." });
+    expect(eventToast("timing", { changes: [phase, { ...lock, key: "deadline:PROBLEM_DRAW" }] })).toBeNull();
+    expect(eventToast("timing", { changes: "nonsense" })).toBeNull();
+  });
+
+  test("untimed and newly timed", () => {
+    expect(changeText({ ...lock, to: null } as TimingChange)).toBe("PRD form locks: when the organisers end the phase");
+    expect(changeText({ ...lock, from: null } as TimingChange)).toBe("PRD form locks at 22:45");
+  });
+
+  test("the end of the night", () => {
+    expect(eventToast("ended", {})).toMatchObject({ tone: "good", loud: true });
   });
 });

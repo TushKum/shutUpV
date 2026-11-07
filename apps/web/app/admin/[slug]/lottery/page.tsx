@@ -40,7 +40,7 @@ function CommitmentPanel({ eventId, commitment, setup, organiser }: { eventId: s
     <Panel title="Seed commitment">
       <p className="text-sm text-slate-600">
         SHA-256 of the secret seed, published the day before the event (<code className="font-mono">pnpm new-seed</code> prints a seed and its
-        commitment). The seed itself stays secret until the crisis at 23:45.
+        commitment). The seed itself stays secret until the crisis.
       </p>
       <div className="mt-3">
         <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Published commitment</div>
@@ -76,7 +76,7 @@ function CommitmentPanel({ eventId, commitment, setup, organiser }: { eventId: s
 function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string; phase: PhaseCode; commitment: string | null; organiser: boolean }) {
   const open = phase === "BRIEFING" || phase === "BUILD";
   return (
-    <Panel title="Draw (21:15)">
+    <Panel title="Draw (start of Build)">
       {!open ? (
         <Notice tone="slate">The draw is entered on stage at the start of Round 1 (Briefing or Build). The event is in {PHASE_LABELS[phase]}.</Notice>
       ) : !commitment ? (
@@ -85,7 +85,7 @@ function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string;
         <>
           <p className="text-sm text-slate-600">
             Enter the secret seed and the dice roll. The database checks SHA-256(seed) against the published commitment before anything is drawn; a
-            mismatch changes nothing. The seed and dice deal the problem cards now, and the crisis cards and the rescue circle at 23:45.
+            mismatch changes nothing. The seed and dice deal the problem cards now, and the crisis cards and the rescue circle at the crisis.
           </p>
           <ConfirmForm action={runLottery.bind(null, eventId)} submit="Verify the seed and draw" confirm="Click again to draw with dice {dice}" className="mt-3 grid max-w-2xl gap-3">
             <label className="block">
@@ -119,11 +119,11 @@ function DrawnPanels({ slug, rows, drawnAt, revealed, crisisAt }: { slug: string
           <Stat
             label="Seed"
             value={check.seedMatches ? <Badge tone="green">Seed matches commitment</Badge> : <Badge tone="red">Seed does NOT match commitment</Badge>}
-            hint={revealed ? "Published at the crisis" : "Secret until 23:45"}
+            hint={revealed ? "Published at the crisis" : "Secret until the crisis"}
           />
           <Stat
             label="Crisis and rescue circle"
-            value={crisisAt ? clock(crisisAt, true) : "23:45"}
+            value={crisisAt ? clock(crisisAt, true) : "at the crisis"}
             hint={crisisAt ? "Drawn from the same seed" : "Drawn at the crisis"}
           />
         </div>
@@ -153,7 +153,7 @@ function DrawnPanels({ slug, rows, drawnAt, revealed, crisisAt }: { slug: string
       >
         <p className="text-sm text-slate-600">
           The engine re-does the draw here from the seed, the dice, the team codes and the card numbers, and compares it with what the database stored
-          {check.scope === "all" ? ": problem cards, crisis cards and the rescue circle." : ": the problem cards (the crisis draw comes at 23:45)."}
+          {check.scope === "all" ? ": problem cards, crisis cards and the rescue circle." : ": the problem cards (the crisis draw comes at the crisis)."}
         </p>
         <div className="mt-3">
           {check.problems.length === 0 ? (
@@ -174,7 +174,7 @@ function DrawnPanels({ slug, rows, drawnAt, revealed, crisisAt }: { slug: string
         </div>
         {crisisAt ? (
           <p className="mt-3 text-xs text-slate-500">
-            The record is public from 23:45 (teams can download it too). Anyone can check it with{" "}
+            The record is public from the crisis (teams can download it too). Anyone can check it with{" "}
             <code className="font-mono">pnpm verify-lottery --file {recordFileName(slug)} --commitment &lt;published commitment&gt;</code>.
           </p>
         ) : null}

@@ -98,7 +98,7 @@ export default async function PublicLedgerPage({ searchParams }: PageProps<"/tea
             <Table
               head={["Time", "Round", "Kind", "Team", "Company", "Side", "Shares", "Price", "Value", "Details"]}
               label="Public ledger rows"
-              empty={hasFilter(q) ? "No rows match this filter." : "Nothing in the public ledger yet: trades appear when round 1 clears at 02:30."}
+              empty={hasFilter(q) ? "No rows match this filter." : "Nothing in the public ledger yet: trades appear when round 1 clears."}
               className="mt-2"
             >
               {lines.map((l) => (

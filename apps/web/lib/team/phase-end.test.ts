@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { phaseOverText } from "./phase-end";
+import { phaseOpenText, phaseOverText } from "./phase-end";
 
 describe("phase end text", () => {
   test("a phase held at its gate says what it waits for, in team words", () => {
@@ -12,5 +12,12 @@ describe("phase end text", () => {
   test("otherwise the next phase, or the end of the event", () => {
     expect(phaseOverText("BUILD", null, "JUDGING_1")).toBe("Judging the PRDs next");
     expect(phaseOverText("AWARDS", "The event has ended.", null)).toBe("the event is over");
+  });
+
+  test("a phase without an end time: before the start, untimed, or over", () => {
+    expect(phaseOpenText("SETUP", false)).toBe("waiting for the organisers to start");
+    expect(phaseOpenText("BRIEFING", false)).toBe("until the organisers end it");
+    expect(phaseOpenText("AWARDS", false)).toBe("until the organisers close the night");
+    expect(phaseOpenText("AWARDS", true)).toBe("the night is over");
   });
 });

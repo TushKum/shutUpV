@@ -140,7 +140,7 @@ export function buildSeedPlan(o: SeedOptions): SeedPlan {
       starts_at: o.startsAt.toISOString(),
       seed_commitment: o.seedCommitment ?? null,
     },
-    schedule: buildSchedule(o.startsAt, o.clockSpeed),
+    schedule: buildSchedule(o.clockSpeed),
     teams,
     staff,
     problem_cards: o.problemCards ?? [],

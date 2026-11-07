@@ -21,7 +21,7 @@ export default async function LeaderboardPage() {
     return (
       <Panel title="Leaderboard" actions={<Badge tone="amber">Frozen</Badge>}>
         <p className="text-sm text-slate-700" data-testid="leaderboard-frozen">
-          The leaderboard froze at 03:30 and stays hidden until the awards at 05:15. Trading carries on until 04:30: your Round 3 points come from your
+          The leaderboard has frozen and stays hidden until the awards. Trading carries on until the closing bell: your Round 3 points come from your
           portfolio at closing prices.
         </p>
       </Panel>
@@ -35,7 +35,7 @@ export default async function LeaderboardPage() {
 
   return (
     <div className="space-y-4">
-      <Panel title={final ? "Final results" : "Leaderboard"} actions={final ? <Badge tone="green">Final</Badge> : <Badge tone="blue">Live until 03:30</Badge>}>
+      <Panel title={final ? "Final results" : "Leaderboard"} actions={final ? <Badge tone="green">Final</Badge> : <Badge tone="blue">Live until the freeze</Badge>}>
         {view.mine ? (
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             <Stat label="Your rank" value={<span data-testid="my-rank">{rankText(view.mine, ranked)}</span>} />
@@ -76,17 +76,17 @@ export default async function LeaderboardPage() {
           )}
         </Panel>
       ) : !phaseReached(status.phase, "REVEAL_1") ? (
-        <Notice>Nothing is scored yet: Round 1 points appear at 23:30.</Notice>
+        <Notice>Nothing is scored yet: Round 1 points appear at the PRD reveal.</Notice>
       ) : null}
     </div>
   );
 }
 
 function liveText(parts: { r1: boolean; r2: boolean; r3: boolean }): string {
-  const waiting = [!parts.r1 ? "Round 1 points appear at 23:30" : null, !parts.r3 ? "Round 3 points (at current market prices) from 02:15" : null, !parts.r2 ? "Round 2 points at 02:45" : null].filter(
+  const waiting = [!parts.r1 ? "Round 1 points appear at the PRD reveal" : null, !parts.r3 ? "Round 3 points (at current market prices) once trading starts" : null, !parts.r2 ? "Round 2 points at the score reveal" : null].filter(
     Boolean,
   );
-  return `The total so far.${waiting.length ? ` ${waiting.join("; ")}.` : " Round 3 counts at current market prices."} The leaderboard freezes at 03:30 and the final ranking is revealed at the awards.`;
+  return `The total so far.${waiting.length ? ` ${waiting.join("; ")}.` : " Round 3 counts at current market prices."} The leaderboard freezes during the market and the final ranking is revealed at the awards.`;
 }
 
 function Row({ r, mine, final }: { r: BoardRow; mine: boolean; final: boolean }) {

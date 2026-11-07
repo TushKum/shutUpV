@@ -1,5 +1,6 @@
-// The default timetable of the night, in event minutes after 20:00 (Asia/Kolkata).
-// Real time = startsAt + minutes ÷ clockSpeed (clockSpeed 10 in rehearsal: 1 real minute = 10 event minutes).
+// The planned timetable of the night, in event minutes after 20:00 (Asia/Kolkata). Organisers start the night and
+// control its timing; these are the default durations (buildSchedule), and the clock helpers read a planned time.
+// clockSpeed 10 in rehearsal: 1 real minute = 10 event minutes.
 
 import type { DeadlineCode, PhaseCode, TradingPhase } from "./types";
 
@@ -74,19 +75,39 @@ export function formatEventMinute(minute: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/**
+ * The night's timing as the database keeps it: durations, not clock times. Nothing has a time until an organiser
+ * starts the event; every time is then projected from when each phase actually started.
+ *   • A phase's duration is null when it has none: Setup (the event starts when an organiser starts it), the trading
+ *     phases (they last as long as their rounds) and the awards (open until an organiser ends the event).
+ *   • The twist and the leaderboard freeze are offsets from the start of Build and of Market.
+ */
 export interface BuiltSchedule {
-  phases: { seq: number; code: PhaseCode; starts_at: string; ends_at: string }[];
-  rounds: { number: number; phase: TradingPhase; opens_at: string; closes_at: string }[];
-  deadlines: { code: DeadlineCode; at: string }[];
+  phases: { seq: number; code: PhaseCode; duration_seconds: number | null }[];
+  rounds: { number: number; phase: TradingPhase; duration_seconds: number }[];
+  twist_offset_seconds: number;
+  freeze_offset_seconds: number;
 }
 
-/** Concrete timestamps for an event that starts (event 20:00) at `startsAt`. */
-export function buildSchedule(startsAt: Date, clockSpeed = 1): BuiltSchedule {
-  const at = (m: number) => eventMinuteToReal(startsAt, m, clockSpeed).toISOString();
+/** Phases with no duration of their own (see BuiltSchedule). */
+export const UNTIMED_PHASES: readonly PhaseCode[] = ["SETUP", "MARKET_BLIND", "MARKET", "AWARDS"];
+
+const seconds = (minutes: number, clockSpeed: number) => Math.max(30, Math.round((minutes * 60) / clockSpeed));
+
+/** The default durations of the night (the planned 20:00–06:00 timetable), faster by `clockSpeed` in rehearsal. */
+export function buildSchedule(clockSpeed = 1): BuiltSchedule {
+  if (!Number.isInteger(clockSpeed) || clockSpeed < 1) throw new Error("clockSpeed must be a positive integer");
+  const at = (code: DeadlineCode) => DEFAULT_DEADLINES.find((d) => d.code === code)!.at;
+  const start = (code: PhaseCode) => DEFAULT_PHASES.find((p) => p.code === code)!.start;
   return {
-    phases: DEFAULT_PHASES.map((p, seq) => ({ seq, code: p.code, starts_at: at(p.start), ends_at: at(p.end) })),
-    rounds: DEFAULT_ROUNDS.map((r) => ({ number: r.number, phase: r.phase, opens_at: at(r.start), closes_at: at(r.end) })),
-    deadlines: DEFAULT_DEADLINES.map((d) => ({ code: d.code, at: at(d.at) })),
+    phases: DEFAULT_PHASES.map((p, seq) => ({
+      seq,
+      code: p.code,
+      duration_seconds: UNTIMED_PHASES.includes(p.code) ? null : seconds(p.end - p.start, clockSpeed),
+    })),
+    rounds: DEFAULT_ROUNDS.map((r) => ({ number: r.number, phase: r.phase, duration_seconds: seconds(r.end - r.start, clockSpeed) })),
+    twist_offset_seconds: seconds(at("TWIST") - start("BUILD"), clockSpeed),
+    freeze_offset_seconds: seconds(at("LEADERBOARD_FREEZE") - start("MARKET"), clockSpeed),
   };
 }
 

@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   if (!event) return reply(404, "No such event.");
   const rows = await loadLotteryRows(sb, event);
   if (!rows) return reply(409, "The lottery has not been drawn yet.");
-  if (!rows.crisisApplied) return reply(409, "The record is complete at 23:45, once the crisis cards and the rescue circle are drawn.");
+  if (!rows.crisisApplied) return reply(409, "The record is complete at the crisis, once the crisis cards and the rescue circle are drawn.");
   return new Response(`${JSON.stringify(buildLotteryRecord(rows), null, 2)}\n`, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
