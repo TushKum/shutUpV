@@ -318,9 +318,11 @@ export function TimingPanel({ eventId, organiser, rehearsal, status, phases, rou
   const untimedWidth = Math.max(timedTotal * 0.06, 60);
   const state = ended ? "ENDED" : !started ? "NOT STARTED" : status.paused ? "PAUSED" : "RUNNING";
 
-  const edit = (key: "phases" | "rounds", id: string, value: string) =>
+  const edit = (key: "phases" | "rounds", id: string, value: string | null) =>
     setDraft((d) => ({ ...d, [key]: { ...d[key], [id]: value } }));
-  const phaseValue = (p: PhaseTiming) => draft.phases[p.code] ?? toMinutes(p.duration_seconds);
+  /** Untimed: ticked in the draft, or untimed in the database and not changed. */
+  const isUntimed = (p: PhaseTiming) => (p.code in draft.phases ? draft.phases[p.code] === null : p.duration_seconds === null);
+  const phaseValue = (p: PhaseTiming) => (isUntimed(p) ? "" : (draft.phases[p.code] ?? toMinutes(p.duration_seconds)));
   const roundValue = (r: Round) => draft.rounds[String(r.number)] ?? toMinutes(r.duration_seconds);
 
   return (
@@ -587,7 +589,7 @@ export function TimingPanel({ eventId, organiser, rehearsal, status, phases, rou
                     const done = !!p.ended_at;
                     const editable = organiser && !done && !FIXED_PHASES.includes(p.code) && !ended;
                     const value = phaseValue(p);
-                    const untimed = value === "";
+                    const untimed = isUntimed(p);
                     const err = computed.errors[`phase:${p.code}`];
                     const rowRounds = rounds.filter((r) => r.phase === p.code);
                     return (
@@ -635,7 +637,7 @@ export function TimingPanel({ eventId, organiser, rehearsal, status, phases, rou
                                 type="checkbox"
                                 checked={untimed}
                                 aria-label={`${PHASE_LABELS[p.code]} untimed`}
-                                onChange={(e) => edit("phases", p.code, e.target.checked ? "" : toMinutes(p.duration_seconds ?? 1800))}
+                                onChange={(e) => edit("phases", p.code, e.target.checked ? null : toMinutes(p.duration_seconds ?? 1800))}
                                 className="accent-emerald-500"
                               />
                             ) : p.code === "AWARDS" && p.duration_seconds === null ? (

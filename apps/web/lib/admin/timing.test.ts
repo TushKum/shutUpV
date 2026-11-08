@@ -52,7 +52,7 @@ describe("minutes", () => {
 describe("the draft", () => {
   test("only what differs is sent; untimed is null; ended phases, Setup and trading phases are never sent", () => {
     const r = draftChanges(
-      { phases: { CHECKIN: "30", BRIEFING: "", SETUP: "10", MARKET_BLIND: "60", AWARDS: "" }, rounds: { "1": "10", "2": "15", "3": "5" }, twist: "60", freeze: "30" },
+      { phases: { CHECKIN: "30", BRIEFING: null, SETUP: "10", MARKET_BLIND: "60", AWARDS: null }, rounds: { "1": "10", "2": "15", "3": "5" }, twist: "60", freeze: "30" },
       phases,
       rounds,
       offsets,
@@ -65,6 +65,8 @@ describe("the draft", () => {
   test("a bad entry is an error on its row and is not sent", () => {
     const r = draftChanges({ phases: { BRIEFING: "abc" }, rounds: { "1": "500" } }, phases, rounds, offsets);
     expect(Object.keys(r.errors)).toEqual(["phase:BRIEFING", "round:1"]);
+    // An emptied box is being typed in: an error, never "untimed".
+    expect(draftChanges({ phases: { BRIEFING: "" }, rounds: {} }, phases, rounds, offsets).errors).toEqual({ "phase:BRIEFING": "Enter minutes, like 45 or 1.5." });
     expect(r.count).toBe(0);
   });
 });

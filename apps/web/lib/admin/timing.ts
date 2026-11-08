@@ -42,9 +42,12 @@ export interface TimingChanges {
   extend_seconds?: number;
 }
 
-/** The panel's draft: minutes as typed, per row; "" for an untimed phase. Only rows the organiser touched are in it. */
+/**
+ * The panel's draft: minutes as typed, per row; null for a phase made untimed (an empty box is a box being typed in,
+ * not "untimed"). Only rows the organiser touched are in it.
+ */
 export interface TimingDraft {
-  phases: Partial<Record<PhaseCode, string>>;
+  phases: Partial<Record<PhaseCode, string | null>>;
   rounds: Record<string, string>;
   twist?: string;
   freeze?: string;
@@ -86,11 +89,11 @@ export function draftChanges(
   const changes: TimingChanges = {};
   const errors: Record<string, string> = {};
   let count = 0;
-  for (const [code, text] of Object.entries(draft.phases) as [PhaseCode, string][]) {
+  for (const [code, text] of Object.entries(draft.phases) as [PhaseCode, string | null][]) {
     const row = phases.find((p) => p.code === code);
     if (!row || FIXED_PHASES.includes(code) || row.ended_at) continue;
     let secs: number | null;
-    if (text === "") secs = null;
+    if (text === null) secs = null;
     else {
       const p = parseMinutes(text, PHASE_LIMITS);
       if ("error" in p) {
