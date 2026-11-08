@@ -35,6 +35,9 @@ export async function signIn(_prev: LoginState, form: FormData): Promise<LoginSt
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
     const wrongCredentials = error.status === 400 || error.code === "invalid_credentials";
+    // The real cause stays on the server (the host's logs), never on the screen: a wrong key or address in the site's
+    // settings shows here as a 401 or a network error.
+    if (!wrongCredentials) console.error(`sign-in failed: status ${error.status ?? "none"}, code ${error.code ?? "none"}, ${error.message}`);
     return {
       login,
       error:
