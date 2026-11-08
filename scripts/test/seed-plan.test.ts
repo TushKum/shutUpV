@@ -50,11 +50,12 @@ describe("derived passwords", () => {
 describe("seed plan", () => {
   test("150 teams with codes T001–T150 and unique logins", () => {
     const plan = buildSeedPlan(base);
-    expect(plan.teams).toHaveLength(150);
+    expect(plan.teams).toHaveLength(160); // and 10 backups, B001–B010
     expect(plan.teams[0]!.code).toBe("T001");
     expect(plan.teams[149]!.code).toBe("T150");
-    expect(new Set(plan.teams.map((t) => t.email)).size).toBe(150);
-    expect(new Set(plan.teams.map((t) => t.password)).size).toBe(150);
+    expect(plan.teams[150]!).toMatchObject({ code: "B001", backup: true });
+    expect(new Set(plan.teams.map((t) => t.email)).size).toBe(160);
+    expect(new Set(plan.teams.map((t) => t.password)).size).toBe(160);
     expect(plan.teams.find((t) => t.code === "T007")!.email).toBe("t007@teams.example.org");
   });
 

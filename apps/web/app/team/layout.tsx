@@ -36,7 +36,11 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
     console.error("team layout: no plan for the bar and alerts:", err);
     return null;
   });
-  const next = plan ? nextAction(plan) : null;
+  // A backup or withdrawn team: before the draw it can look around (and is told it is not playing yet); once the
+  // problem cards are dealt it is out of the night, and every page says so instead of showing the game.
+  const notPlaying = team.status !== "ACTIVE";
+  const outOfTheNight = notPlaying && !!event.drawn_at;
+  const next = plan && !notPlaying ? nextAction(plan) : null;
   // The last timing change stays on every screen for 20 minutes, so a team that was away (or reconnects) still sees
   // which deadlines moved; the times themselves are always the server's.
   const recent =
@@ -111,7 +115,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <TeamNav phase={status.phase} />
           </header>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
-          <Alerts tasks={plan ? alertTasks(plan) : []} />
+          <Alerts tasks={plan && !notPlaying ? alertTasks(plan) : []} />
           {status.paused ? (
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.
@@ -132,6 +136,15 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
           {status.ended_at ? (
             <p className="bg-emerald-100 px-4 py-2 text-center text-sm font-medium text-emerald-900">The night is over. Thank you for playing PRIMUS.</p>
           ) : null}
+          {notPlaying ? (
+            <p className="bg-slate-800 px-4 py-2 text-center text-sm font-medium text-white" data-testid="team-not-playing">
+              {outOfTheNight
+                ? "Your team is not playing tonight: the problem cards were dealt to the active teams only."
+                : team.status === "BACKUP"
+                  ? "Your team is a backup: you play only if the organisers activate your team before the problem cards are dealt. Stay near the registration desk."
+                  : "Your team has been withdrawn from tonight's game. If this is a mistake, go to the registration desk before the problem cards are dealt."}
+            </p>
+          ) : null}
           {team.disqualified ? (
             <p className="bg-red-100 px-4 py-2 text-center text-sm font-medium text-red-900">
               Your team has been disqualified by the fairness officer{team.disqualified_reason ? `: ${team.disqualified_reason}` : "."}
@@ -149,7 +162,15 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             </Link>
           ) : null}
           <FeedbackBar className="mx-auto max-w-5xl px-4 pt-3" />
-          <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
+          <main className="mx-auto max-w-5xl px-4 py-4">
+            {outOfTheNight ? (
+              <p className="rounded-lg bg-white p-6 text-center text-slate-700 shadow-sm">
+                Thank you for coming. You can follow the night on the big screen.
+              </p>
+            ) : (
+              children
+            )}
+          </main>
         </div>
       </FeedbackProvider>
       </EventChannel>

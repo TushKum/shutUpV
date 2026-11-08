@@ -20,11 +20,11 @@ const plan = buildSeedPlan({
 
 const cards = plan.teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name }));
 
-test("150 cards print on 19 A4 pages, 8 per page", async () => {
+test("160 cards (150 teams and 10 backups) print on 20 A4 pages, 8 per page", async () => {
   const bytes = await renderLoginCards(cards, { eventName: plan.event.name, loginUrl: "https://msim.example.org/login" });
   const doc = await PDFDocument.load(bytes);
   expect(CARDS_PER_PAGE).toBe(8);
-  expect(doc.getPageCount()).toBe(19);
+  expect(doc.getPageCount()).toBe(20);
   const { width, height } = doc.getPage(0).getSize();
   expect(Math.round(width)).toBe(595);
   expect(Math.round(height)).toBe(842);

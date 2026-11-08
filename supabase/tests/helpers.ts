@@ -67,7 +67,7 @@ export const TEST_STAFF: StaffRow[] = [
 // Team codes are logins, so they are unique across events; each test event gets its own code letter (T is the live
 // event's).
 let letterCounter = 0;
-const LETTERS = "ABCDEFGHJKLMNPQRSUVWYZ";
+const LETTERS = "ACDEFGHJKLMNPQRSUVWZ"; // not B or Y (backup codes), O (the backup test) or T and X
 
 /** Creates auth users (as Supabase Auth would) and calls seed_event() as the service role. */
 export async function seedEvent(pool: pg.Pool, overrides: Partial<SeedOptions> = {}): Promise<SeededEvent> {

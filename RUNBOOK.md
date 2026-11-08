@@ -16,7 +16,7 @@ two-click button says "Click again to …": the second click counts only for wha
 | Exchange desk (organiser) | laptop 4, **Rounds** and **Ledger** | watches rounds open and clear; approves ledger corrections and appeals (the second organiser) |
 | Fairness officer (faculty) | own laptop, **Fairness** | reviews collusion flags in Settlement and decides each one |
 | Tech on call | any laptop, **Health** and the Supabase and Vercel dashboards | connections, errors, the venue network |
-| Registration desk | printed login cards | one card per team; reprints with `pnpm cards … --only <codes>` |
+| Registration desk | printed login cards | one card per team; the 10 backup cards (B001–B010) for walk-ins and replacements; reprints with `pnpm cards … --only <codes>` |
 | Projector | a laptop signed in with a display account | `/display/<slug>` in full screen (F11) |
 
 Keep the organiser laptops on wired or staff network, on power. Keep the main page open on laptop 1 all night: an
@@ -44,6 +44,7 @@ open control panel also ticks the event, as a backup to the database's clock.
 | Time | Phase | Do | Watch |
 |---|---|---|---|
 | 20:00 | SETUP → CHECKIN | **Timing → Start the night…**: check the preview, then confirm. Hand out the cards (one per team). | Health: connected screens rising towards 600 |
+| 20:00–21:15 | CHECKIN, BRIEFING | **Teams:** withdraw teams that did not come, and activate a backup card (B001–B010) for a walk-in team or a replacement. Only possible **before the lottery**: at the draw, only the playing teams get a company. | Teams: the number playing; the problem deck needs one card per three playing teams |
 | 20:45 | BRIEFING | Explain the night; show "How judging works" (`/team/judging`) on the projector. | |
 | 21:15 | BRIEFING → BUILD | **Lottery:** enter the secret seed and roll the dice in front of the room (two clicks). The problem cards are dealt; BUILD starts. | Lottery page: "verified"; teams' **Round 1** pages show their card |
 | 22:15 | BUILD | *(auto)* the twist is published to every screen. | The twist takeover on the projector |
@@ -59,6 +60,10 @@ open control panel also ticks the event, as a backup to the database's clock.
 | 04:30–05:10 | SETTLEMENT | **Fairness officer:** review each flag (Fairness), clear or disqualify with a written reason. | The main page shows what still holds the awards |
 | 05:15 | AWARDS | *(auto, once every flag is decided)* the awards, revealed one by one on the projector, the winner last. | |
 | after the last award | AWARDS | **Timing → End the night** (two clicks). `pnpm certificates --event <slug>` and print. | Every screen says the night is over |
+
+**Giving someone access.** Any organiser can make another person an organiser: **Access → Give organiser access**
+(name and email). The password is shown once on the screen: hand it over in person. The same page resets a password or
+removes someone's access. Nobody can remove their own access.
 
 ## When something goes wrong
 

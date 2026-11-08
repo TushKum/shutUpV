@@ -16,6 +16,7 @@ import {
   type TraderBook,
 } from "@msim/engine";
 import { as, seedEvent, service, user, type Caller, type SeededEvent } from "./helpers";
+import type { SeedOptions } from "../../scripts/lib/seed-plan";
 
 /** The seed every test night uses (64 hex characters) and its commitment. */
 export const SEED = "5eed".repeat(16);
@@ -38,8 +39,9 @@ export class Night {
     this.display = user(ev.staff.get("display@example.org")!);
   }
 
-  static async create(pool: pg.Pool, teamCount = 6): Promise<Night> {
+  static async create(pool: pg.Pool, teamCount = 6, overrides: Partial<SeedOptions> = {}): Promise<Night> {
     const ev = await seedEvent(pool, {
+      ...overrides,
       teamCount,
       seedCommitment: COMMITMENT,
       problemCards: Array.from({ length: Math.max(2, Math.ceil(teamCount / 3)) }, (_, i) => ({

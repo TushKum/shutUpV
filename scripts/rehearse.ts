@@ -50,7 +50,8 @@ async function main() {
   if (error || !event) throw new Error(`no event ${slug}${error ? `: ${error.message}` : ""}`);
   if (!event.is_rehearsal) throw new Error(`${slug} is a live event: bots play rehearsal events only`);
 
-  const { data: teams } = await admin.from("teams").select("id, code").eq("event_id", event.id).order("code");
+  // Bots play the active teams only (a backup an organiser has not activated sits the night out).
+  const { data: teams } = await admin.from("teams").select("id, code").eq("event_id", event.id).eq("status", "ACTIVE").order("code");
   const except = new Set(typeof args.except === "string" ? args.except.toUpperCase().split(",").map((c) => c.trim()) : []);
   const all: TeamLogin[] = (teams ?? []).map((t, index) => ({ id: t.id as string, code: t.code as string, index }));
   const playing = all.filter((t) => !except.has(t.code)).slice(0, typeof args.teams === "string" ? Number(args.teams) : undefined);

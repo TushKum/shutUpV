@@ -122,7 +122,9 @@ version of this platform.
    ```bash
    pnpm seed --slug primus-2026 --date 2026-11-20 --teams seed/teams.csv --staff seed/staff.csv --commitment <the commitment> --dry-run
    ```
-   Then run it again without `--dry-run`. It creates every login, the 150 teams and companies, the night's default
+   Then run it again without `--dry-run`. It creates every login, the 150 teams and companies, 10 backup teams
+   (B001–B010: they play only if an organiser activates them on the **Teams** tab before the lottery; change the number
+   with `--backups N`, name them with `--backup-teams seed/backups.csv`), the night's default
    durations and the decks, and writes (the date is the planned start only: the night starts when an organiser
    clicks **Start the night** on the control panel's **Timing** page, and every time follows from there):
    - `out/primus-2026-login-cards.pdf`: 150 team cards, eight per A4 page;

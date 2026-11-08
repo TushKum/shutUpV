@@ -307,6 +307,19 @@ default durations (`buildSchedule`), not as clock times.
 - **Panel.** `/admin/<slug>/timing`, dark Matrix-inspired style scoped to the panel (`.mx-*` in `globals.css`); the
   rest of the control panel keeps its light style.
 
+## 7h. Backup teams and organiser access (migration 16)
+
+- **Backups.** The live seed prints 150 team cards and 10 backup cards (B001–B010; up to 20; rehearsal backups are
+  Y001…). A team is ACTIVE, BACKUP or WITHDRAWN. Until the lottery draw an organiser activates backups (walk-ins,
+  replacements) and withdraws no-shows (**Teams** tab, logged). At the draw the companies of non-active teams are
+  removed, so they get no card, crisis, rescue, price, points or award; the draw, the crisis, the rescue circle, the
+  lottery record, the leaderboard, the results and the deck check all count active teams only. Up to 160 can play.
+  A non-active team's screen says it is not playing (before the draw: wait at the desk; after: thank you).
+- **Access.** Any organiser can make another person an organiser (**Access** tab): the website's server creates the
+  login with the service key and shows a one-time password; the database checks the caller is an organiser and logs
+  the grant. The same page resets a password or removes access (never one's own; the last organiser stays). Fairness
+  and projector logins still come from the seed's staff list.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.

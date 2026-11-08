@@ -16,6 +16,9 @@ import { derivePassword } from "./credentials";
 /** Every team starts Round 3 with $100,000 of virtual cash. */
 export const STARTING_CASH_CENTS = 10_000_000;
 export const LIVE_TEAMS = 150;
+/** Backup teams printed for the live event, and the most any event may have. */
+export const LIVE_BACKUPS = 10;
+export const MAX_BACKUPS = 20;
 
 export interface MemberRow {
   full_name: string;
@@ -51,6 +54,11 @@ export interface SeedOptions {
   seedCommitment?: string;
   /** The letter of every team code. Default: "T" for the live event, "X" for a rehearsal. */
   codeLetter?: string;
+  /** Backup teams an organiser can activate before the draw (codes B001… live, Y001… in a rehearsal). Default 10 live, 0 in a rehearsal. */
+  backupCount?: number;
+  /** The letter of the backup codes. Default: "B" for the live event, "Y" for a rehearsal. */
+  backupLetter?: string;
+  backupRows?: TeamRow[];
 }
 
 export interface PlannedTeam {
@@ -59,6 +67,8 @@ export interface PlannedTeam {
   email: string;
   password: string;
   members: MemberRow[];
+  /** A backup: not playing unless an organiser activates it before the draw. */
+  backup: boolean;
 }
 
 export interface PlannedStaff extends StaffRow {
@@ -111,6 +121,28 @@ export function buildSeedPlan(o: SeedOptions): SeedPlan {
       email: teamEmail(code, o.emailDomain),
       password: derivePassword(o.cardSecret, o.slug, code),
       members,
+      backup: false,
+    });
+  }
+
+  const backups = o.backupCount ?? (o.rehearsal ? 0 : LIVE_BACKUPS);
+  if (!Number.isInteger(backups) || backups < 0 || backups > MAX_BACKUPS) throw new Error(`between 0 and ${MAX_BACKUPS} backup teams`);
+  const backupLetter = o.backupLetter ?? (o.rehearsal ? "Y" : "B");
+  if (backupLetter === letter) throw new Error(`backup codes need another letter than ${letter}`);
+  const brows = o.backupRows ?? [];
+  if (brows.length > backups) throw new Error(`${brows.length} backup teams in the CSV, but only ${backups} backups`);
+  for (let i = 1; i <= backups; i++) {
+    const code = teamCode(i, backupLetter);
+    const row = brows[i - 1];
+    const members = (row?.members ?? []).filter((m) => m.full_name.trim() !== "");
+    if (members.length > 4) throw new Error(`team ${code}: at most four members`);
+    teams.push({
+      code,
+      name: row?.name?.trim() || `Backup ${code}`,
+      email: teamEmail(code, o.emailDomain),
+      password: derivePassword(o.cardSecret, o.slug, code),
+      members,
+      backup: true,
     });
   }
 
@@ -160,7 +192,7 @@ export function toSeedPayload(plan: SeedPlan, userIds: ReadonlyMap<string, strin
   return {
     event: plan.event,
     schedule: plan.schedule,
-    teams: plan.teams.map((t) => ({ code: t.code, name: t.name, user_id: idOf(t.email), members: t.members })),
+    teams: plan.teams.map((t) => ({ code: t.code, name: t.name, user_id: idOf(t.email), members: t.members, status: t.backup ? "BACKUP" : "ACTIVE" })),
     staff: plan.staff.map((s) => ({
       user_id: idOf(s.email),
       role: s.role,

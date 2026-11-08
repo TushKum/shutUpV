@@ -16,6 +16,8 @@ export interface TeamRow {
   cash: number;
   disqualified: boolean;
   disqualified_reason: string | null;
+  /** ACTIVE plays; a BACKUP plays only if activated before the draw; WITHDRAWN does not play. */
+  status: "ACTIVE" | "BACKUP" | "WITHDRAWN";
 }
 
 export interface TeamEvent {
@@ -68,7 +70,7 @@ export const loadTeamContext = cache(async (): Promise<TeamContext> => {
   const eventId = viewer.team!.eventId;
   const teamId = viewer.team!.id;
   const [team, event, companies, status] = await Promise.all([
-    sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason").eq("id", teamId).single(),
+    sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason, status").eq("id", teamId).single(),
     sb
       .from("events")
       .select("id, name, is_rehearsal, clock_speed, drawn_at, prds_locked_at, prices_started_at, crisis_applied_at, solutions_locked_at, scores_revealed_at, market_closed_at")
@@ -84,7 +86,7 @@ export const loadTeamContext = cache(async (): Promise<TeamContext> => {
   const t = team.data as Omit<TeamRow, "cash"> & { cash_cents: string | number };
   return {
     viewer,
-    team: { id: t.id, code: t.code, name: t.name, cash: cents(t.cash_cents), disqualified: t.disqualified, disqualified_reason: t.disqualified_reason },
+    team: { id: t.id, code: t.code, name: t.name, cash: cents(t.cash_cents), disqualified: t.disqualified, disqualified_reason: t.disqualified_reason, status: t.status ?? "ACTIVE" },
     event: event.data,
     status,
     built: rows.find((c) => c.founder_team_id === teamId) ?? null,

@@ -18,7 +18,7 @@ async function main() {
   const appUrl = (process.env.APP_URL ?? "https://your-app.vercel.app").replace(/\/$/, "");
 
   const pdf = await renderLoginCards(
-    teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name })),
+    teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name, backup: t.backup })),
     { eventName: plan.event.name, loginUrl: `${appUrl}/login`, rehearsal: plan.event.is_rehearsal },
   );
   mkdirSync("out", { recursive: true });

@@ -21,6 +21,9 @@ export const USAGE = `Options:
   --speed <n>              clock speed: every default duration divided by it (default 1; rehearsal default 10)
   --team-count <n>         number of teams (default 150; rehearsals may use fewer)
   --code-letter <A-Z>      rehearsal team-code letter (default X)
+  --backups <n>            backup teams an organiser can activate before the draw (default 10 live: B001–B010;
+                           0 in a rehearsal, whose backups are Y001…)
+  --backup-teams <csv>     names and members of the backup teams (optional, same columns as --teams)
   --teams <csv>            team names and members (optional)
   --staff <csv>            organiser, fairness officer and display logins (optional)
   --problems <csv>         problem deck (default seed/problem-cards.csv)
@@ -49,6 +52,8 @@ export function optionsFromArgs(args: Record<string, string | true>): SeedOption
     startsAt,
     teamCount: Number(str("team-count") ?? 150),
     codeLetter: str("code-letter"),
+    backupCount: str("backups") !== undefined ? Number(str("backups")) : undefined,
+    backupRows: str("backup-teams") ? teamRowsFromCsv(read(str("backup-teams")!)) : undefined,
     cardSecret: required("CARD_SECRET"),
     emailDomain: required("TEAM_EMAIL_DOMAIN"),
     teamRows: str("teams") ? teamRowsFromCsv(read(str("teams")!)) : undefined,

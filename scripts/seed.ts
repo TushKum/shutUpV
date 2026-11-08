@@ -40,7 +40,7 @@ async function main() {
 
   mkdirSync("out", { recursive: true });
   const pdf = await renderLoginCards(
-    plan.teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name })),
+    plan.teams.map((t) => ({ code: t.code, password: t.password, teamName: t.name, backup: t.backup })),
     { eventName: plan.event.name, loginUrl: `${appUrl}/login`, rehearsal: plan.event.is_rehearsal },
   );
   writeFileSync(`out/${plan.event.slug}-login-cards.pdf`, pdf);

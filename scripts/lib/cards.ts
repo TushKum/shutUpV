@@ -6,6 +6,8 @@ export interface LoginCard {
   code: string;
   password: string;
   teamName: string;
+  /** A backup team's card says so: it plays only if an organiser activates it before the draw. */
+  backup?: boolean;
 }
 
 export interface CardSheetOptions {
@@ -76,7 +78,7 @@ export async function renderLoginCards(cards: readonly LoginCard[], opts: CardSh
 
       // Header band (inverted) and event name.
       page.drawRectangle({ x: x - 2, y: top - 18, width: w + 4, height: 20, color: rgb(0, 0, 0) });
-      page.drawText("TEAM CARD", { x: x + 4, y: top - 13, size: 10, font: bold, color: rgb(1, 1, 1) });
+      page.drawText(card.backup ? "BACKUP TEAM CARD" : "TEAM CARD", { x: x + 4, y: top - 13, size: 10, font: bold, color: rgb(1, 1, 1) });
       const evt = fit(opts.rehearsal ? `REHEARSAL · ${opts.eventName}` : opts.eventName, sans, 8, w * 0.55);
       page.drawText(evt, {
         x: x + w - sans.widthOfTextAtSize(evt, 8) - 4,
@@ -108,10 +110,12 @@ export async function renderLoginCards(cards: readonly LoginCard[], opts: CardSh
       page.drawText(card.password, { x: x + 6, y: top - 116, size: 18, font: mono });
 
       page.drawText(fit(`Log in at ${opts.loginUrl}`, sans, 9, w), { x, y: top - 140, size: 9, font: sans });
-      const note = [
-        "Log in once at check-in. Anyone holding this card can act for your",
-        "team, so keep it with you. Lost card? Go to the technical support desk.",
-      ];
+      const note = card.backup
+        ? ["Backup team: you play only if the organisers activate your team before", "the problem cards are dealt. Keep this card until they tell you."]
+        : [
+            "Log in once at check-in. Anyone holding this card can act for your",
+            "team, so keep it with you. Lost card? Go to the technical support desk.",
+          ];
       note.forEach((line, n) =>
         page.drawText(fit(line, sans, 7, w), {
           x,

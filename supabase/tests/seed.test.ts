@@ -30,15 +30,16 @@ describe("seed_event: the live event", () => {
     eventId = ev.eventId;
   });
 
-  test("150 teams T001–T150, each with a login and one company it founds", async () => {
-    expect((await q("select count(*)::int as n from teams where event_id = $1"))[0].n).toBe(150);
-    expect((await q("select min(code) as lo, max(code) as hi from teams where event_id = $1"))[0]).toEqual({ lo: "T001", hi: "T150" });
+  test("150 teams T001–T150 and 10 backups B001–B010, each with a login and one company it founds", async () => {
+    expect((await q("select count(*)::int as n from teams where event_id = $1 and status = 'ACTIVE'"))[0].n).toBe(150);
+    expect((await q("select min(code) as lo, max(code) as hi from teams where event_id = $1 and status = 'ACTIVE'"))[0]).toEqual({ lo: "T001", hi: "T150" });
+    expect((await q("select min(code) as lo, max(code) as hi, count(*)::int as n from teams where event_id = $1 and status = 'BACKUP'"))[0]).toEqual({ lo: "B001", hi: "B010", n: 10 });
     expect(
       (await q("select count(*)::int as n from accounts a join teams t on t.id = a.team_id where t.event_id = $1"))[0].n,
-    ).toBe(150);
+    ).toBe(160);
     expect((await q("select count(*)::int as n, count(distinct founder_team_id)::int as f from companies where event_id = $1"))[0]).toEqual({
-      n: 150,
-      f: 150,
+      n: 160, // a backup's company is removed at the draw unless it was activated
+      f: 160,
     });
     // Nothing is drawn, priced or rescued yet.
     expect(
