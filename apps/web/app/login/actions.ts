@@ -56,7 +56,9 @@ export async function signIn(_prev: LoginState, form: FormData): Promise<LoginSt
     await sb.auth.signOut();
     return { error: "This login is not set up for the event. Please go to the technical support desk.", login };
   }
-  redirect(safeNext(form.get("next"), viewer.role));
+  // A team signing in from the sign-in page itself opens on the PRIMUS welcome screen; one sent here from a page
+  // (its session had expired) goes straight back to that page.
+  redirect(viewer.role === "TEAM" && !form.get("next") ? "/welcome" : safeNext(form.get("next"), viewer.role));
 }
 
 export async function signOut(): Promise<void> {

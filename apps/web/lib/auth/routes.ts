@@ -4,6 +4,8 @@ import type { AccountRole } from "@msim/engine";
 
 export const AREAS = {
   "/team": ["TEAM"],
+  // The opening screen a team sees right after signing in (the PRIMUS wordmark), before its pages.
+  "/welcome": ["TEAM"],
   "/admin": ["ORGANISER", "FAIRNESS"],
   "/display": ["DISPLAY", "ORGANISER", "FAIRNESS"],
 } as const satisfies Record<string, readonly AccountRole[]>;
