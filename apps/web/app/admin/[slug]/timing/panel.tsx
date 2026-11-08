@@ -349,7 +349,9 @@ export function TimingPanel({ eventId, organiser, rehearsal, status, phases, rou
               tone={remaining !== null && remaining <= 60_000 ? "warn" : status.phase_ends_at ? "on" : "dim"}
               value={ended ? "—" : status.phase_ends_at ? (remaining! > 0 ? span(remaining) : "0:00") : status.phase_untimed ? "untimed" : started ? "—" : "—"}
               hint={
-                status.paused
+                ended
+                  ? "the night has ended"
+                  : status.paused
                   ? `frozen: paused at ${clock(status.paused_at)}`
                   : status.phase_untimed
                     ? "until you end it"
@@ -408,6 +410,12 @@ export function TimingPanel({ eventId, organiser, rehearsal, status, phases, rou
           <div className="grid gap-5 xl:grid-cols-2">
             {/* ── The controls ── */}
             <Frame title="Controls">
+              {ended ? (
+                <p className="text-sm text-emerald-400" data-testid="timing-ended">
+                  The night ended at {clock(status.ended_at, true)}. Nothing can change now: the results, the ledger and the exports stay as they
+                  are.
+                </p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {!started ? (
                   <MButton tone="primary" onRun={askAdvance} busy={busy} title="Shows what starts and every time that follows">

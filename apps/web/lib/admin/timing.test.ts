@@ -75,6 +75,8 @@ describe("the readout", () => {
   test("elapsed does not count pauses", () => {
     expect(elapsedMs(phases[1], Date.parse("2026-11-20T14:40:00Z"))).toBe(540_000);
     expect(elapsedMs(phases[2], Date.now())).toBeNull();
+    // An ended phase (the awards after the end of the night) stops counting at its end.
+    expect(elapsedMs({ started_at: "2026-11-20T23:45:00Z", ended_at: "2026-11-20T23:57:00Z", paused_seconds: 0 }, Date.parse("2026-11-21T01:00:00Z"))).toBe(720_000);
     expect(span(540_000)).toBe("9:00");
     expect(span(3_909_000)).toBe("1:05:09");
     expect(span(null)).toBe("—");

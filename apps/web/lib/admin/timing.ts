@@ -136,10 +136,14 @@ export function draftChanges(
   return { changes, count, errors };
 }
 
-/** How long the current phase has run, not counting pauses (frozen while paused). */
-export function elapsedMs(phase: Pick<PhaseTiming, "started_at" | "paused_seconds"> | undefined, now: number): number | null {
+/** How long the current phase has run, not counting pauses (frozen while paused, and fixed once the phase has ended). */
+export function elapsedMs(
+  phase: Pick<PhaseTiming, "started_at" | "paused_seconds"> & { ended_at?: string | null } | undefined,
+  now: number,
+): number | null {
   if (!phase?.started_at) return null;
-  return Math.max(0, now - Date.parse(phase.started_at) - phase.paused_seconds * 1000);
+  const until = phase.ended_at ? Math.min(now, Date.parse(phase.ended_at)) : now;
+  return Math.max(0, until - Date.parse(phase.started_at) - phase.paused_seconds * 1000);
 }
 
 /** "1:05:09" or "4:09" for a span; "—" for none. */
