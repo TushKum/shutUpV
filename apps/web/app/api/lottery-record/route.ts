@@ -1,5 +1,5 @@
 // GET /api/lottery-record?event=<slug> — the public lottery record (the JSON `pnpm verify-lottery` checks), for anyone,
-// signed in or not, once the seed has been revealed at the crisis (23:45). Before that the seed is secret and the
+// signed in or not, once the seed has been revealed at the crisis. Before that the seed is secret and the
 // answer is 404. The record comes from public.public_lottery_record, which reads the stored draw on the server side
 // and returns nothing until `seed_revealed` is set, so no service key is needed here. After the reveal the draw cannot
 // change, so the answer may be cached for a minute.
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const sb = await supabaseServer();
   const { data, error } = await sb.rpc("public_lottery_record", { p_slug: slug });
   if (error) return reply(500, "Could not read the lottery record.");
-  if (!data) return reply(404, "There is no lottery record for that event yet: it is published when the seed is revealed at the crisis (23:45).");
+  if (!data) return reply(404, "There is no lottery record for that event yet: it is published when the seed is revealed at the crisis.");
   return new Response(`${JSON.stringify(data, null, 2)}\n`, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",

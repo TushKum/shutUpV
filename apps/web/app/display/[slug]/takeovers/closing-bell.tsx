@@ -59,7 +59,7 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
           />
         </div>
         <p className="shrink-0 text-[40px] leading-tight font-black text-amber-300" data-testid="closing-awards">
-          Final results are revealed at the awards, at 05:15.
+          Final results are revealed at the awards.
         </p>
       </div>
     </TakeoverFrame>

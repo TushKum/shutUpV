@@ -17,7 +17,7 @@ export async function TwistTakeover({ event, takeover }: TakeoverProps) {
         <FitText
           title={twist.title}
           body={twist.body}
-          label={`Published ${clock(twist.published_at)} · every PRD must answer it by 23:00`}
+          label={`Published ${clock(twist.published_at)} · every PRD must answer it`}
           tone="text-violet-300"
           testId="twist"
         />

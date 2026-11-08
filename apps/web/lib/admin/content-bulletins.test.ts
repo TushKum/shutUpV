@@ -20,7 +20,7 @@ describe("the composer", () => {
   });
 
   test("refuses the twist, the game's own kinds, an early rumour and bad text", () => {
-    expect(bulletinFromForm({ kind: "TWIST", title: "t", body: "" })).toEqual({ ok: false, message: "Write the twist under Content; it goes out at 22:15." });
+    expect(bulletinFromForm({ kind: "TWIST", title: "t", body: "" })).toEqual({ ok: false, message: "Write the twist under Content; it goes out at the twist time set on Event timing." });
     expect(bulletinFromForm({ kind: "CRISIS", title: "t", body: "" }).ok).toBe(false);
     expect(bulletinFromForm({ kind: "RUMOUR", title: "t", body: "" }, "CRISIS_QA")).toEqual({ ok: false, message: RUMOUR_TOO_EARLY });
     expect(bulletinFromForm({ kind: "GENERAL", title: " ", body: "" })).toEqual({ ok: false, message: "A bulletin needs a title." });

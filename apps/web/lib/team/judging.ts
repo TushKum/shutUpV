@@ -21,8 +21,8 @@ import { PROMPT_FILES, loadPrompt, type JudgePrompt } from "@/lib/judge/prompts"
 
 /** What a type's score does. */
 const MOVES: Record<SubmissionType, string> = {
-  PRD: "Its score is your Round 1 points and sets your company's starting share price at 23:30.",
-  SOLUTION: "Its score is your Round 2 points and moves the rescued company's price at the 02:45 reveal.",
+  PRD: "Its score is your Round 1 points and sets your company's starting share price at the PRD reveal.",
+  SOLUTION: "Its score is your Round 2 points and moves the rescued company's price at the score reveal.",
 };
 
 /** What the judge reads besides the submission. */
@@ -106,7 +106,7 @@ export function judgingSteps(): JudgingStep[] {
   return [
     {
       title: "The last saved version is judged.",
-      text: "There is no submit button: whatever your form holds when it locks (23:00:00 for the PRD, 01:45:00 for the crisis solution) is what the judge reads. An empty form scores 0.",
+      text: "There is no submit button: whatever your form holds when it locks (at the end of Build for the PRD, at the end of the rescue for the crisis solution) is what the judge reads. An empty form scores 0.",
     },
     {
       title: "Names become the ticker.",
@@ -132,7 +132,7 @@ export function judgingSteps(): JudgingStep[] {
     },
     {
       title: "Scores stay sealed until the reveal.",
-      text: "PRD scores are revealed at 23:30 and crisis-solution scores at 02:45. Before then nobody outside the organisers can see a score.",
+      text: "PRD scores are revealed after Round 1 is judged, and crisis-solution scores at the score reveal during the market. Before then nobody outside the organisers can see a score.",
     },
     {
       title: "Every reading is stored.",

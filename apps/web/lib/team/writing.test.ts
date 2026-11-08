@@ -28,7 +28,7 @@ describe("the PRD window", () => {
   });
 
   test("the closed editor says why", () => {
-    expect(closedNote("PRD", { ...base, drawnAt: null })).toBe("The PRD opens when the problem cards are dealt at 21:15.");
+    expect(closedNote("PRD", { ...base, drawnAt: null })).toBe("The PRD opens when the problem cards are dealt.");
     expect(closedNote("PRD", { ...base, nowMs: Date.parse(lock) + 1 })).toBe("The PRD is locked (23:00): the version saved before then is the one judged.");
     expect(closedNote("PRD", { ...base, paused: true, pausedAt: lock })).toMatch(/paused/);
   });

@@ -59,7 +59,7 @@ export async function PricesTakeover({ event, takeover }: TakeoverProps) {
                 and {s.moreTied} more with the same score
               </p>
             ) : null}
-            <p className="mt-auto pt-4 text-[30px] text-slate-300">Starting price = $10.00 + $0.10 × (PRD score − 50). The crisis hits at 23:45.</p>
+            <p className="mt-auto pt-4 text-[30px] text-slate-300">Starting price = $10.00 + $0.10 × (PRD score − 50). The crisis comes next.</p>
           </section>
         </div>
       )}

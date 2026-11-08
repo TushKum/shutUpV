@@ -75,9 +75,9 @@ export function BoardPages({
       <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-white/15 px-8 text-[28px] text-slate-300">
         <p className="min-w-0 truncate" data-testid="board-legend">
           {onExtra ? (
-            "The leaderboard: Round 1 + Round 2 + Round 3 points so far (Round 3 at current market prices). It freezes at 03:30."
+            "The leaderboard: Round 1 + Round 2 + Round 3 points so far (Round 3 at current market prices). It freezes during the market."
           ) : pending ? (
-            "Starting prices are set when the PRD scores are revealed at 23:30."
+            "Starting prices are set when the PRD scores are revealed."
           ) : (
             <>
               {closed ? <span className="font-bold text-amber-300">Closing prices · </span> : null}
@@ -158,7 +158,7 @@ function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number |
       </div>
       {t.price === null ? (
         <p className={`leading-[1.2] font-semibold text-slate-400 ${size.pending}`} data-testid="tile-pending">
-          Starting price at 23:30
+          Starting price
         </p>
       ) : (
         <PriceRow price={money(t.price)} change={bp(t.changeBp)} tone={tone} fit={size.fit} />

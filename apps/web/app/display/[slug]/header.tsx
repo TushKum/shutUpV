@@ -55,7 +55,7 @@ export function DisplayHeader({ event, status }: { event: DisplayEvent; status: 
       </div>
 
       <div className="flex items-center gap-8">
-        {/* Trading runs from 02:15 to 04:30; before then the badge would only say HALTED. */}
+        {/* Trading runs from the blind market to the closing bell; before then the badge would only say HALTED. */}
         {phaseReached(status.phase, "MARKET_BLIND") && !event.market_closed_at ? (
           <span className={`rounded-xl px-6 py-2 text-[44px] font-black tracking-wider ${BADGE[status.trading]}`} data-testid="display-trading">
             {status.trading}

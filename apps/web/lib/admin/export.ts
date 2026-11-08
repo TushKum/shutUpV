@@ -35,7 +35,7 @@ export const EXPORTS: Record<ExportKind, { title: string; description: string; t
   },
   results: {
     title: "Final results",
-    description: "Every team's Round 1, 2 and 3 points, total, portfolio value, return, rank and eligibility. Empty until settlement (04:30).",
+    description: "Every team's Round 1, 2 and 3 points, total, portfolio value, return, rank and eligibility. Empty until settlement (the closing bell).",
     table: "results",
   },
   awards: {

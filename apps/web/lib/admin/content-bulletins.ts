@@ -23,14 +23,14 @@ export type ComposerKind = (typeof COMPOSER_KINDS)[number];
 export const TITLE_MAX = 140;
 export const BODY_MAX = 4000;
 
-export const RUMOUR_TOO_EARLY = "Rumours start during Round 2 (from 00:30).";
+export const RUMOUR_TOO_EARLY = "Rumours start during Round 2 (the rescue).";
 
 export function bulletinFromForm(
   input: { kind: unknown; title: unknown; body: unknown },
   phase?: PhaseCode,
 ): Parsed<{ kind: ComposerKind; title: string; body: string }> {
   const kind = typeof input.kind === "string" ? input.kind : "";
-  if (kind === "TWIST") return { ok: false, message: "Write the twist under Content; it goes out at 22:15." };
+  if (kind === "TWIST") return { ok: false, message: "Write the twist under Content; it goes out at the twist time set on Event timing." };
   if (!(COMPOSER_KINDS as readonly string[]).includes(kind)) {
     return { ok: false, message: `Choose a kind: ${COMPOSER_KINDS.map((k) => BULLETIN_KIND_LABELS[k]).join(", ")}.` };
   }
@@ -70,7 +70,7 @@ export function twistState(rows: readonly BulletinRow[], drawn: boolean): TwistS
   const twist = rows.find((b) => b.kind === "TWIST") ?? null;
   if (!twist) return { bulletin: null, published: false, blocked: "No twist has been written: write it under Content." };
   if (twist.published_at) return { bulletin: twist, published: true, blocked: "The twist has already been published." };
-  if (!drawn) return { bulletin: twist, published: false, blocked: "The twist is published after the problem cards are dealt (21:15)." };
+  if (!drawn) return { bulletin: twist, published: false, blocked: "The twist is published after the problem cards are dealt." };
   return { bulletin: twist, published: false, blocked: null };
 }
 

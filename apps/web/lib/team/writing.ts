@@ -33,7 +33,7 @@ export function closedNote(type: SubmissionType, f: WritingFacts): string {
   const what = type === "PRD" ? "PRD" : "crisis solution";
   if (f.paused) return "The event is paused: writing resumes when it does (the lock moves later by the length of the pause).";
   if (locked || deadlinePassed(f.lock, f.nowMs)) return `The ${what} is locked${f.lock ? ` (${clock(f.lock)})` : ""}: the version saved before then is the one judged.`;
-  if (type === "PRD" && !f.drawnAt) return "The PRD opens when the problem cards are dealt at 21:15.";
-  if (type === "SOLUTION" && !f.crisisAppliedAt) return "The crisis solution opens at the crisis (23:45), when you learn which company you rescue.";
+  if (type === "PRD" && !f.drawnAt) return "The PRD opens when the problem cards are dealt.";
+  if (type === "SOLUTION" && !f.crisisAppliedAt) return "The crisis solution opens at the crisis, when you learn which company you rescue.";
   return `Writing is closed in ${PHASE_LABELS[f.phase]}.`;
 }

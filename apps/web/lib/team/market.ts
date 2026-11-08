@@ -172,8 +172,8 @@ export function publicTypes(phase: PhaseCode): SubmissionType[] {
 export const SUBMISSION_TITLES: Record<SubmissionType, string> = { PRD: "PRD", SOLUTION: "Crisis solution" };
 
 export const PUBLIC_FROM: Record<SubmissionType, string> = {
-  PRD: "PRDs go public at 23:30 with the starting prices.",
-  SOLUTION: "Crisis solutions go public at 02:15, without their scores (the scores are revealed at 02:45).",
+  PRD: "PRDs go public with the starting prices, at the PRD reveal.",
+  SOLUTION: "Crisis solutions go public when trading starts, without their scores (the scores are revealed at the score reveal).",
 };
 
 /** The template parts of a submission, in order, with the text as locked ("" when a part was left empty). */
@@ -186,5 +186,5 @@ export function submissionSections(type: SubmissionType, content: Readonly<Recor
 
 /** "The market opens at 23:30 with the starting prices." */
 export function marketOpensText(): string {
-  return "The market list opens at 23:30, when the PRD scores set every company's starting price. Trading (Round 3) starts at 02:15.";
+  return "The market list opens at the PRD reveal, when the scores set every company's starting price. Trading (Round 3) starts after Round 2.";
 }

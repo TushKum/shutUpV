@@ -222,22 +222,22 @@ export function idleText(f: HomeFacts): string {
     case "CHECKIN":
       return "Check in with the organisers and sign in on every laptop and phone your team will use.";
     case "BRIEFING":
-      return `The briefing is on. The problem cards are dealt at ${when(f.deadlines.PROBLEM_DRAW, "21:15")}.`;
+      return `The briefing is on. The problem cards are dealt at ${when(f.deadlines.PROBLEM_DRAW, "the start of Build")}.`;
     case "BUILD":
     case "JUDGING_1":
-      return `Your PRD is locked and with the judges. Scores and starting prices at ${when(f.phaseStarts.REVEAL_1, "23:30")}.`;
+      return `Your PRD is locked and with the judges. Scores and starting prices at ${when(f.phaseStarts.REVEAL_1, "the PRD reveal")}.`;
     case "REVEAL_1":
-      return `PRD scores are out: see Round 1. The crisis hits at ${when(f.phaseStarts.CRISIS_QA, "23:45")}.`;
+      return `PRD scores are out: see Round 1. The crisis hits at ${when(f.phaseStarts.CRISIS_QA, "the end of the reveal")}.`;
     case "CRISIS_QA":
     case "RESCUE":
     case "JUDGING_2":
-      return `Your crisis solution is locked and with the judges. Trading starts at ${when(f.phaseStarts.MARKET_BLIND, "02:15")}.`;
+      return `Your crisis solution is locked and with the judges. Trading starts at ${when(f.phaseStarts.MARKET_BLIND, "the end of judging")}.`;
     case "MARKET_BLIND":
     case "MARKET":
       if (f.marketClosedAt) return "The market is closed. Results at the awards.";
       return f.nextRound ? `Between rounds: round ${f.nextRound.number} opens at ${clock(f.nextRound.opens_at)}.` : "Trading is closed between rounds.";
     case "SETTLEMENT":
-      return `The market is closed and the results are being checked. The awards start at ${when(f.phaseStarts.AWARDS, "05:15")}.`;
+      return `The market is closed and the results are being checked. The awards start at ${when(f.phaseStarts.AWARDS, "the end of the checks")}.`;
     case "AWARDS":
       return "The results are out: see the leaderboard.";
     default:
