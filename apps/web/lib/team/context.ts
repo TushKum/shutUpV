@@ -64,13 +64,25 @@ export interface TeamContext {
   rescued: CompanyRow | null;
 }
 
+/**
+ * The team's own row. The playing status (backup teams) comes with database update 16; if the website is deployed
+ * before that update is loaded, the row is read without it and the team counts as playing, instead of every team page
+ * failing.
+ */
+async function readTeam(sb: Awaited<ReturnType<typeof supabaseServer>>, teamId: string) {
+  const full = await sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason, status").eq("id", teamId).single();
+  if (!full.error || !/status/.test(full.error.message)) return full;
+  console.error("team context: the database has no team status yet (run supabase db push); reading without it");
+  return sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason").eq("id", teamId).single();
+}
+
 export const loadTeamContext = cache(async (): Promise<TeamContext> => {
   const viewer = await requireRole(["TEAM"], "/team");
   const sb = await supabaseServer();
   const eventId = viewer.team!.eventId;
   const teamId = viewer.team!.id;
   const [team, event, companies, status] = await Promise.all([
-    sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason, status").eq("id", teamId).single(),
+    readTeam(sb, teamId),
     sb
       .from("events")
       .select("id, name, is_rehearsal, clock_speed, drawn_at, prds_locked_at, prices_started_at, crisis_applied_at, solutions_locked_at, scores_revealed_at, market_closed_at")

@@ -23,6 +23,14 @@ export default async function TeamsPage({ params }: PageProps<"/admin/[slug]/tea
     sb.from("teams").select("id, code, name, status").eq("event_id", event.id).order("code"),
     sb.from("members").select("team_id").eq("event_id", event.id),
   ]);
+  if (teams.error) {
+    return (
+      <Notice tone="amber">
+        The database does not have backup teams yet: load the latest update (<code>npx supabase db push</code> on the organiser laptop), then
+        reload this page.
+      </Notice>
+    );
+  }
   const rows = (teams.data ?? []) as { id: string; code: string; name: string; status: Status }[];
   const count = new Map<string, number>();
   for (const m of members.data ?? []) count.set(m.team_id, (count.get(m.team_id) ?? 0) + 1);

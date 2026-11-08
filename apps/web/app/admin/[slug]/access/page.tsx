@@ -33,7 +33,13 @@ export default async function AccessPage() {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="min-w-0 space-y-6 lg:col-span-2">
         <Panel title={`Staff with access (${staff.length})`}>
-          {error ? <Notice tone="red">Could not read the staff list: {error.message}</Notice> : null}
+          {error ? (
+            <Notice tone="amber">
+              {/staff_list/.test(error.message)
+                ? "The database does not have this page's functions yet: load the latest update (npx supabase db push on the organiser laptop), then reload."
+                : `Could not read the staff list: ${error.message}`}
+            </Notice>
+          ) : null}
           <Table head={["Name", "Email", "Role", "Since", ""]} empty="No staff.">
             {staff.map((s) => (
               <tr key={s.user_id}>
