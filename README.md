@@ -17,6 +17,7 @@ building are in [`PLAN.md`](PLAN.md).
 |---|---|
 | Put the site online and prepare the event (no technical background needed) | [`docs/DEPLOY.md`](docs/DEPLOY.md) |
 | Run the night, and what to do when something fails | [`RUNBOOK.md`](RUNBOOK.md) |
+| Hand out the guides (illustrated PDFs) | [`docs/guides/PRIMUS-organiser-guide.pdf`](docs/guides/PRIMUS-organiser-guide.pdf), [`docs/guides/PRIMUS-team-guide.pdf`](docs/guides/PRIMUS-team-guide.pdf) |
 | Understand the AI judge | [`docs/JUDGE.md`](docs/JUDGE.md) and the prompts in [`prompts/`](prompts/README.md) |
 
 ## The four areas of the site
