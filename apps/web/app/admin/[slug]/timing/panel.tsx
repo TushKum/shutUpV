@@ -127,6 +127,12 @@ function Result({ result }: { result: ActionResult | null }) {
   );
 }
 
+/** The database labels a phase by its code; the panel uses the names everyone sees. */
+function changeLabel(c: TimingChange): string {
+  const code = c.key.startsWith("phase:") ? (c.key.slice(6) as PhaseCode) : null;
+  return code && PHASE_LABELS[code] ? `${phaseLabel(code)} ends` : c.label;
+}
+
 function delta(c: TimingChange): string {
   if (!c.from || !c.to) return c.to ? "now timed" : "untimed";
   const s = Math.round((Date.parse(c.to) - Date.parse(c.from)) / 1000);
@@ -151,7 +157,7 @@ function ChangesTable({ changes, empty = "No time moves." }: { changes: TimingCh
           {changes.map((c) => (
             <tr key={c.key} className={`border-t border-emerald-500/10 ${c.earlier ? "text-amber-200" : ""}`}>
               <td className="py-1 pr-3">
-                {c.label}
+                {changeLabel(c)}
                 {c.kind === "deadline" ? <span className="ml-2 rounded border border-emerald-500/40 px-1 text-[10px] uppercase">teams</span> : null}
               </td>
               <td className="py-1 pr-3 font-mono tabular-nums">{c.from ? clock(c.from, true) : "untimed"}</td>
