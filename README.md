@@ -35,6 +35,7 @@ building are in [`PLAN.md`](PLAN.md).
 | `pnpm new-seed` | A secret lottery seed and the commitment to publish the day before |
 | `pnpm seed --slug … --date … --teams … --staff … --commitment …` | Creates the event, every login, the decks and the twist; prints the login cards to `out/` |
 | `pnpm cards … --only T007` | Reprints login cards |
+| `pnpm staff-sheet --slug …` | The staff logins as a printable PDF (the seed also writes it) |
 | `pnpm judge-worker --event <slug>` | Runs the AI judge from a laptop (the control panel can run it too) |
 | `pnpm human-scores --event <slug> --type PRD --file prd.csv` | The AI-outage fallback: three human judges' marks through the same queue |
 | `pnpm rehearse --slug rehearsal --autopilot` | 150 bot teams play a rehearsal night (with the organisers' part) |

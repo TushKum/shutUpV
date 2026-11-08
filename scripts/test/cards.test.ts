@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PDFDocument } from "pdf-lib";
 import { expect, test } from "vitest";
-import { CARDS_PER_PAGE, renderLoginCards, toWinAnsi } from "../lib/cards";
+import { CARDS_PER_PAGE, parseStaffLogins, renderLoginCards, renderStaffLogins, toWinAnsi } from "../lib/cards";
 import { buildSeedPlan } from "../lib/seed-plan";
 
 const plan = buildSeedPlan({
@@ -49,4 +49,20 @@ test("names outside the PDF font's character set never break printing", async ()
     rehearsal: true,
   });
   expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+});
+
+test("staff logins: parsed from the seed's text file, one slip each, 8 to an A4 page, organisers first", async () => {
+  const text = "FAIRNESS  f@x.org  AAAA-BBBB-CCCC\nORGANISER lead@x.org  DDDD-EEEE-FFFF\n\nDISPLAY   d@x.org  GGGG-HHHH-JJJJ\n";
+  const staff = parseStaffLogins(text);
+  expect(staff).toEqual([
+    { role: "FAIRNESS", email: "f@x.org", password: "AAAA-BBBB-CCCC" },
+    { role: "ORGANISER", email: "lead@x.org", password: "DDDD-EEEE-FFFF" },
+    { role: "DISPLAY", email: "d@x.org", password: "GGGG-HHHH-JJJJ" },
+  ]);
+  expect(() => parseStaffLogins("ORGANISER only-two")).toThrow(/not a staff login line/);
+  const one = await PDFDocument.load(await renderStaffLogins(staff, { eventName: "PRIMUS", loginUrl: "https://x.example/login" }));
+  expect(one.getPageCount()).toBe(1);
+  const many = Array.from({ length: 9 }, (_, i) => ({ role: "ORGANISER", email: `o${i}@x.org`, password: "AAAA-BBBB-CCCC" }));
+  const two = await PDFDocument.load(await renderStaffLogins(many, { eventName: "PRIMUS", loginUrl: "https://x.example/login" }));
+  expect(two.getPageCount()).toBe(2);
 });

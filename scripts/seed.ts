@@ -11,7 +11,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { parseArgs, required } from "./lib/args";
-import { renderLoginCards } from "./lib/cards";
+import { renderLoginCards, renderStaffLogins } from "./lib/cards";
 import { USAGE, optionsFromArgs } from "./lib/event-options";
 import { buildSeedPlan } from "./lib/seed-plan";
 import { seedWithLogins } from "./lib/seed-run";
@@ -49,6 +49,11 @@ async function main() {
       `out/${plan.event.slug}-staff-logins.txt`,
       plan.staff.map((s) => `${s.role.padEnd(9)} ${s.email}  ${s.password}`).join("\n") + "\n",
     );
+    const staffPdf = await renderStaffLogins(
+      plan.staff.map((s) => ({ role: s.role, email: s.email, password: s.password })),
+      { eventName: plan.event.name, loginUrl: `${appUrl}/login`, rehearsal: plan.event.is_rehearsal },
+    );
+    writeFileSync(`out/${plan.event.slug}-staff-logins.pdf`, staffPdf);
   }
   console.log(`Wrote out/${plan.event.slug}-login-cards.pdf${plan.staff.length ? " and the staff logins" : ""}`);
   console.log("The out/ folder holds live passwords: print it, then keep it off shared drives.");

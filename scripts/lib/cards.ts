@@ -134,3 +134,76 @@ export async function renderLoginCards(cards: readonly LoginCard[], opts: CardSh
 
   return doc.save();
 }
+
+// ───────────── Staff logins ─────────────
+
+export interface StaffLogin {
+  role: string;
+  email: string;
+  password: string;
+}
+
+const ROLE_NOTE: Record<string, string> = {
+  ORGANISER: "The control panel: /admin",
+  FAIRNESS: "Fairness officer: /admin, the Fairness tab",
+  DISPLAY: "The projector: /display, full screen (F11)",
+};
+
+/** Reads the seed's out/<slug>-staff-logins.txt ("ROLE  email  password" per line). */
+export function parseStaffLogins(text: string): StaffLogin[] {
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const [role, email, password] = l.split(/\s+/);
+      if (!role || !email || !password) throw new Error(`not a staff login line: ${l}`);
+      return { role, email, password };
+    });
+}
+
+/**
+ * The staff logins as one A4 sheet per 8 people: a slip each (role, what it opens, email, password, sign-in address),
+ * with cut lines, so each person gets only their own. Organisers first.
+ */
+export async function renderStaffLogins(staff: readonly StaffLogin[], opts: CardSheetOptions): Promise<Uint8Array> {
+  const order = ["ORGANISER", "FAIRNESS", "DISPLAY"];
+  const sorted = [...staff].sort((a, b) => (order.indexOf(a.role) + 9) % 9 - (order.indexOf(b.role) + 9) % 9 || a.email.localeCompare(b.email));
+  const doc = await PDFDocument.create();
+  doc.setTitle(toWinAnsi(`${opts.eventName} - staff logins`));
+  doc.setCreator("PRIMUS platform");
+  const sans = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const mono = await doc.embedFont(StandardFonts.CourierBold);
+  const PER_PAGE = 8;
+  const slipH = (A4[1] - 2 * MARGIN - 30) / PER_PAGE;
+  const w = A4[0] - 2 * MARGIN;
+
+  for (let start = 0; start < sorted.length || start === 0; start += PER_PAGE) {
+    const page = doc.addPage(A4);
+    page.drawText(toWinAnsi(`${opts.rehearsal && !/rehearsal/i.test(opts.eventName) ? "REHEARSAL - " : ""}${opts.eventName} - staff logins (confidential: cut and hand out)`), {
+      x: MARGIN,
+      y: A4[1] - MARGIN - 12,
+      size: 11,
+      font: bold,
+    });
+    const top0 = A4[1] - MARGIN - 30;
+    sorted.slice(start, start + PER_PAGE).forEach((s, i) => {
+      const top = top0 - i * slipH;
+      dashedLine(page, MARGIN, top, A4[0] - MARGIN, top);
+      const x = MARGIN + 10;
+      page.drawRectangle({ x, y: top - 24, width: 92, height: 16, color: rgb(0, 0, 0) });
+      page.drawText(toWinAnsi(s.role), { x: x + 6, y: top - 20, size: 9, font: bold, color: rgb(1, 1, 1) });
+      page.drawText(fit(ROLE_NOTE[s.role] ?? "", sans, 8.5, w - 120), { x: x + 104, y: top - 20, size: 8.5, font: sans, color: rgb(0.3, 0.3, 0.3) });
+      page.drawText("EMAIL", { x, y: top - 40, size: 7, font: bold, color: rgb(0.35, 0.35, 0.35) });
+      page.drawText(fit(s.email, sans, 12, w * 0.55), { x, y: top - 55, size: 12, font: sans });
+      page.drawText("PASSWORD", { x: x + w * 0.6, y: top - 40, size: 7, font: bold, color: rgb(0.35, 0.35, 0.35) });
+      page.drawText(toWinAnsi(s.password), { x: x + w * 0.6, y: top - 57, size: 15, font: mono });
+      page.drawText(fit(`Sign in at ${opts.loginUrl} (Organiser tab)`, sans, 8, w - 20), { x, y: top - 72, size: 8, font: sans, color: rgb(0.3, 0.3, 0.3) });
+    });
+    const shown = Math.min(PER_PAGE, Math.max(0, sorted.length - start));
+    dashedLine(page, MARGIN, top0 - shown * slipH, A4[0] - MARGIN, top0 - shown * slipH);
+    if (sorted.length === 0) break;
+  }
+  return doc.save();
+}
