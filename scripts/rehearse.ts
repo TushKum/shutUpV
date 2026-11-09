@@ -9,7 +9,7 @@
 // time.
 //
 //   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… NEXT_PUBLIC_SUPABASE_ANON_KEY=… CARD_SECRET=… TEAM_EMAIL_DOMAIN=… \
-//     pnpm rehearse --slug rehearsal [--autopilot] [--teams 150] [--except X050,X051] [--interval 5000] [--minutes 90]
+//     pnpm rehearse --slug rehearsal [--autopilot] [--teams 50] [--except X050,X051] [--interval 5000] [--minutes 90]
 //
 // Seed the event first (pnpm seed --rehearsal --slug rehearsal --starts-at … --speed 10). Refuses a live event.
 

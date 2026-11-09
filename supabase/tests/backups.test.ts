@@ -63,14 +63,14 @@ describe("backup teams", () => {
     expect(board.rows.map((r: { code: string }) => r.code).sort()).toEqual(playing.map((r) => r.code));
   });
 
-  test("the live seed: 150 playing teams and 10 backups (at most 20)", () => {
+  test("the live seed: 50 playing teams and 3 backups (at most 20)", () => {
     const base = {
-      slug: "primus-test", name: "PRIMUS", rehearsal: false, clockSpeed: 1, startsAt: new Date(), teamCount: 150,
+      slug: "primus-test", name: "PRIMUS", rehearsal: false, clockSpeed: 1, startsAt: new Date(), teamCount: 50,
       cardSecret: "test-secret-0123456789", emailDomain: "teams.example.org",
     };
     const plan = buildSeedPlan(base);
-    expect(plan.teams.filter((t) => !t.backup)).toHaveLength(150);
-    expect(plan.teams.filter((t) => t.backup).map((t) => t.code)).toEqual(Array.from({ length: 10 }, (_, i) => `B${String(i + 1).padStart(3, "0")}`));
+    expect(plan.teams.filter((t) => !t.backup)).toHaveLength(50);
+    expect(plan.teams.filter((t) => t.backup).map((t) => t.code)).toEqual(Array.from({ length: 3 }, (_, i) => `B${String(i + 1).padStart(3, "0")}`));
     expect(() => buildSeedPlan({ ...base, backupCount: 21 })).toThrow(/backup/);
   });
 });

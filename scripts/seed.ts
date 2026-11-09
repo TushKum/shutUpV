@@ -1,5 +1,5 @@
 // Seeds an event: creates (or refreshes) the auth logins, then calls public.seed_event() which writes the
-// event, schedule, 150 teams, members, accounts, one company per team, starting cash, decks and the twist in one transaction.
+// event, schedule, the teams (50 live) and backups, members, accounts, one company per team, starting cash, decks and the twist in one transaction.
 // Finally prints the login cards and the staff credentials.
 //
 //   SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… CARD_SECRET=… TEAM_EMAIL_DOMAIN=… APP_URL=… \

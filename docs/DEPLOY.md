@@ -1,8 +1,8 @@
 <!-- Deployment instructions for organisers; keep credentials and printed passwords outside version control. -->
 # Deploy PRIMUS: step by step
 
-This guide takes you from nothing to a live site for PRIMUS (Friday 20 November 2026, 20:00–06:00 IST, 150 teams,
-about 600 participants). It is written for an organiser without a technical background: follow the steps in order,
+This guide takes you from nothing to a live site for PRIMUS (Friday 20 November 2026, 20:00–06:00 IST, 50 teams and
+3 backup teams, about 200 participants). It is written for an organiser without a technical background: follow the steps in order,
 and do not skip the checks. The night itself is in [RUNBOOK.md](../RUNBOOK.md); how the AI judge works is in
 [JUDGE.md](JUDGE.md).
 
@@ -54,7 +54,7 @@ version of this platform.
    supabase link --project-ref <your project reference, from Project Settings → General>
    supabase db push
    ```
-   It lists 15 migrations (`20261106000001` to `20261106000015`) and asks you to confirm. If anything fails, stop
+   It lists 17 migrations (`20261106000001` to `20261106000017`) and asks you to confirm. If anything fails, stop
    and ask for help; never mark a migration as applied by hand.
 4. **Check the clock.** In **SQL Editor**, run:
    ```sql
@@ -63,7 +63,7 @@ version of this platform.
    You should see one row: `primus-tick`, `2 seconds`, `true`.
 5. **Authentication → Sign In / Providers → Email:** turn **off** "Allow new users to sign up". Every account is
    created by the seed command.
-6. **Authentication → Rate Limits:** about 600 phones will sign in from a few shared venue IP addresses. Raise the
+6. **Authentication → Rate Limits:** about 200 phones will sign in from a few shared venue IP addresses. Raise the
    sign-in limits well above the defaults ([current limits](https://supabase.com/docs/guides/auth/rate-limits)).
 7. **Realtime → Settings:** turn **off** "Allow public access". Every screen uses private, signed-in channels.
 8. **Project Settings → API:** copy the **Project URL**, the **anon public** key and the **service_role** key into
@@ -107,7 +107,7 @@ version of this platform.
 1. In `.env`, set `CARD_SECRET` to a long random secret (run `openssl rand -hex 32` and paste the result) and
    `TEAM_EMAIL_DOMAIN` to the same domain as on Vercel. **Back up `.env` securely**: the same `CARD_SECRET` is needed
    to reprint a lost card.
-2. Copy `seed/teams.example.csv` to `seed/teams.csv` and fill in 150 teams: the team name and up to four members
+2. Copy `seed/teams.example.csv` to `seed/teams.csv` and fill in 50 teams: the team name and up to four members
    (name and roll number). Copy `seed/staff.example.csv` to `seed/staff.csv` with each staff member's email, role
    (`ORGANISER`, `FAIRNESS` for the faculty fairness officer, `DISPLAY` for each projector) and roll number. These
    files hold personal data: they stay on the laptop.
@@ -122,12 +122,12 @@ version of this platform.
    ```bash
    pnpm seed --slug primus-2026 --date 2026-11-20 --teams seed/teams.csv --staff seed/staff.csv --commitment <the commitment> --dry-run
    ```
-   Then run it again without `--dry-run`. It creates every login, the 150 teams and companies, 10 backup teams
-   (B001–B010: they play only if an organiser activates them on the **Teams** tab before the lottery; change the number
+   Then run it again without `--dry-run`. It creates every login, the 50 teams and companies, 3 backup teams
+   (B001–B003: they play only if an organiser activates them on the **Teams** tab before the lottery; change the number
    with `--backups N`, name them with `--backup-teams seed/backups.csv`), the night's default
    durations and the decks, and writes (the date is the planned start only: the night starts when an organiser
    clicks **Start the night** on the control panel's **Timing** page, and every time follows from there):
-   - `out/primus-2026-login-cards.pdf`: 150 team cards, eight per A4 page;
+   - `out/primus-2026-login-cards.pdf`: 53 cards (50 teams and 3 backups), eight per A4 page;
    - `out/primus-2026-staff-logins.txt`: the staff passwords.
 6. Print the cards, cut them, and keep them locked away until check-in. To reprint some:
    `pnpm cards --slug primus-2026 --date 2026-11-20 --teams seed/teams.csv --only T007,T112`.
@@ -135,7 +135,7 @@ version of this platform.
 ## 4. The AI judge (Anthropic)
 
 1. In the Anthropic Console, add credits and set a billing alert. Create an API key and put it on Vercel (step 2.5).
-2. **How much it will be asked:** 150 PRDs and 150 crisis solutions, each read 3 times: about 900 calls, plus
+2. **How much it will be asked:** 50 PRDs and 50 crisis solutions, each read 3 times: about 300 calls, plus
    calibration (24 calls a batch) and a few retries. With two consoles judging at 8 calls each, up to 16 calls run at
    once. Check your account's [rate limits](https://platform.claude.com/docs/en/api/rate-limits) for both models and
    ask Anthropic for a higher tier if needed, at least a week before.
@@ -170,7 +170,7 @@ round early, a re-run, the backup-model switch, the awards and **End the night**
 
 ## 6. The venue
 
-Ask the venue's network team to test about 600 phones at once, long-lived connections (websockets) to
+Ask the venue's network team to test about 200 phones at once, long-lived connections (websockets) to
 `*.supabase.co`, and the captive portal (sign everyone in to Wi-Fi before check-in). Put the projector and the
 organiser desk on wired network and backup power; keep a mobile hotspot ready and one spare signed-in projector
 laptop.

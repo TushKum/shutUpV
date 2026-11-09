@@ -7,6 +7,7 @@ import {
   bulletinFromCsv,
   crisisCardsFromCsv,
   problemCardsFromCsv,
+  LIVE_TEAMS,
   staffFromCsv,
   teamRowsFromCsv,
   type SeedOptions,
@@ -19,9 +20,9 @@ export const USAGE = `Options:
   --starts-at <ISO time>   exact planned start instead of --date (rehearsals: the autopilot starts the night then)
   --rehearsal              rehearsal event: X001… codes, may have fewer teams
   --speed <n>              clock speed: every default duration divided by it (default 1; rehearsal default 10)
-  --team-count <n>         number of teams (default 150; rehearsals may use fewer)
+  --team-count <n>         number of teams (live: exactly 50, the default; rehearsals: 3 to 150)
   --code-letter <A-Z>      rehearsal team-code letter (default X)
-  --backups <n>            backup teams an organiser can activate before the draw (default 10 live: B001–B010;
+  --backups <n>            backup teams an organiser can activate before the draw (default 3 live: B001–B003;
                            0 in a rehearsal, whose backups are Y001…)
   --backup-teams <csv>     names and members of the backup teams (optional, same columns as --teams)
   --teams <csv>            team names and members (optional)
@@ -50,7 +51,7 @@ export function optionsFromArgs(args: Record<string, string | true>): SeedOption
     rehearsal,
     clockSpeed: Number(str("speed") ?? (rehearsal ? 10 : 1)),
     startsAt,
-    teamCount: Number(str("team-count") ?? 150),
+    teamCount: Number(str("team-count") ?? LIVE_TEAMS),
     codeLetter: str("code-letter"),
     backupCount: str("backups") !== undefined ? Number(str("backups")) : undefined,
     backupRows: str("backup-teams") ? teamRowsFromCsv(read(str("backup-teams")!)) : undefined,

@@ -11,7 +11,7 @@ const base = {
   rehearsal: false,
   clockSpeed: 1,
   startsAt: new Date("2026-11-20T14:30:00Z"),
-  teamCount: 150,
+  teamCount: 50,
   cardSecret: SECRET,
   emailDomain: "teams.example.org",
 };
@@ -48,14 +48,14 @@ describe("derived passwords", () => {
 });
 
 describe("seed plan", () => {
-  test("150 teams with codes T001–T150 and unique logins", () => {
+  test("50 teams with codes T001–T050, 3 backups and unique logins", () => {
     const plan = buildSeedPlan(base);
-    expect(plan.teams).toHaveLength(160); // and 10 backups, B001–B010
+    expect(plan.teams).toHaveLength(53); // and 3 backups, B001–B003
     expect(plan.teams[0]!.code).toBe("T001");
-    expect(plan.teams[149]!.code).toBe("T150");
-    expect(plan.teams[150]!).toMatchObject({ code: "B001", backup: true });
-    expect(new Set(plan.teams.map((t) => t.email)).size).toBe(160);
-    expect(new Set(plan.teams.map((t) => t.password)).size).toBe(160);
+    expect(plan.teams[49]!.code).toBe("T050");
+    expect(plan.teams[50]!).toMatchObject({ code: "B001", backup: true });
+    expect(new Set(plan.teams.map((t) => t.email)).size).toBe(53);
+    expect(new Set(plan.teams.map((t) => t.password)).size).toBe(53);
     expect(plan.teams.find((t) => t.code === "T007")!.email).toBe("t007@teams.example.org");
   });
 
@@ -72,8 +72,8 @@ describe("seed plan", () => {
     expect(JSON.stringify(plan.schedule)).not.toMatch(/_at"/);
   });
 
-  test("the live event must have 150 teams coded T; a rehearsal can be smaller and uses another letter", () => {
-    expect(() => buildSeedPlan({ ...base, teamCount: 10 })).toThrow(/exactly 150/);
+  test("the live event must have 50 teams coded T; a rehearsal can be smaller and uses another letter", () => {
+    expect(() => buildSeedPlan({ ...base, teamCount: 10 })).toThrow(/exactly 50/);
     expect(() => buildSeedPlan({ ...base, codeLetter: "X" })).toThrow(/start with T/);
     const plan = buildSeedPlan({ ...base, slug: "rehearsal-1", rehearsal: true, clockSpeed: 10, teamCount: 4 });
     expect(plan.teams.map((t) => t.code)).toEqual(["X001", "X002", "X003", "X004"]);

@@ -15,9 +15,11 @@ import { derivePassword } from "./credentials";
 
 /** Every team starts Round 3 with $100,000 of virtual cash. */
 export const STARTING_CASH_CENTS = 10_000_000;
-export const LIVE_TEAMS = 150;
+/** The live night: 50 teams. A rehearsal can have from 3 up to MAX_TEAMS (150, for load tests). */
+export const LIVE_TEAMS = 50;
+export const MAX_TEAMS = 150;
 /** Backup teams printed for the live event, and the most any event may have. */
-export const LIVE_BACKUPS = 10;
+export const LIVE_BACKUPS = 3;
 export const MAX_BACKUPS = 20;
 
 export interface MemberRow {
@@ -97,8 +99,8 @@ export interface SeedPlan {
 export function buildSeedPlan(o: SeedOptions): SeedPlan {
   if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(o.slug)) throw new Error(`bad event slug: ${o.slug}`);
   if (!o.rehearsal && o.teamCount !== LIVE_TEAMS) throw new Error(`the live event has exactly ${LIVE_TEAMS} teams`);
-  if (!Number.isInteger(o.teamCount) || o.teamCount < 3 || o.teamCount > LIVE_TEAMS) {
-    throw new Error(`between 3 and ${LIVE_TEAMS} teams`);
+  if (!Number.isInteger(o.teamCount) || o.teamCount < 3 || o.teamCount > MAX_TEAMS) {
+    throw new Error(`between 3 and ${MAX_TEAMS} teams`);
   }
   if (o.seedCommitment && !/^[0-9a-f]{64}$/.test(o.seedCommitment)) {
     throw new Error("seed commitment must be a lower-case SHA-256 hex digest");

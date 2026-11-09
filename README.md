@@ -1,7 +1,7 @@
 # PRIMUS platform
 
 The live web platform for PRIMUS, a one-night college business case competition (Friday 20 November 2026,
-20:00–06:00 IST, 150 teams of 3–4). Every team plays three rounds:
+20:00–06:00 IST, 50 teams of 3–4, plus 3 backup teams). Every team plays three rounds:
 
 1. **Build** (21:15–23:00): the lottery deals each team a problem card; it writes a PRD and names its company.
 2. **Rescue** (23:45–01:45): a crisis hits every company; each team rescues another team's company and writes a crisis

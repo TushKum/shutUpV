@@ -22,7 +22,7 @@ describe("seed_event: the live event", () => {
       slug: "primus-2026",
       rehearsal: false,
       startsAt: eventStartIST("2026-11-20"),
-      teamCount: 150,
+      teamCount: 50,
       problemCards: problemCardsFromCsv(readFileSync("seed/problem-cards.csv", "utf8")),
       crisisCards: crisisCardsFromCsv(readFileSync("seed/crisis-cards.csv", "utf8")),
       twist: bulletinFromCsv(readFileSync("seed/twist.csv", "utf8"), "twist"),
@@ -30,16 +30,16 @@ describe("seed_event: the live event", () => {
     eventId = ev.eventId;
   });
 
-  test("150 teams T001–T150 and 10 backups B001–B010, each with a login and one company it founds", async () => {
-    expect((await q("select count(*)::int as n from teams where event_id = $1 and status = 'ACTIVE'"))[0].n).toBe(150);
-    expect((await q("select min(code) as lo, max(code) as hi from teams where event_id = $1 and status = 'ACTIVE'"))[0]).toEqual({ lo: "T001", hi: "T150" });
-    expect((await q("select min(code) as lo, max(code) as hi, count(*)::int as n from teams where event_id = $1 and status = 'BACKUP'"))[0]).toEqual({ lo: "B001", hi: "B010", n: 10 });
+  test("50 teams T001–T050 and 3 backups B001–B003, each with a login and one company it founds", async () => {
+    expect((await q("select count(*)::int as n from teams where event_id = $1 and status = 'ACTIVE'"))[0].n).toBe(50);
+    expect((await q("select min(code) as lo, max(code) as hi from teams where event_id = $1 and status = 'ACTIVE'"))[0]).toEqual({ lo: "T001", hi: "T050" });
+    expect((await q("select min(code) as lo, max(code) as hi, count(*)::int as n from teams where event_id = $1 and status = 'BACKUP'"))[0]).toEqual({ lo: "B001", hi: "B003", n: 3 });
     expect(
       (await q("select count(*)::int as n from accounts a join teams t on t.id = a.team_id where t.event_id = $1"))[0].n,
-    ).toBe(160);
+    ).toBe(53);
     expect((await q("select count(*)::int as n, count(distinct founder_team_id)::int as f from companies where event_id = $1"))[0]).toEqual({
-      n: 160, // a backup's company is removed at the draw unless it was activated
-      f: 160,
+      n: 53, // a backup's company is removed at the draw unless it was activated
+      f: 53,
     });
     // Nothing is drawn, priced or rescued yet.
     expect(
@@ -101,7 +101,7 @@ describe("seed_event: the live event", () => {
 });
 
 describe("seed_event: rules", () => {
-  test("the live event needs exactly 150 teams; any event at least 3", async () => {
+  test("the live event needs exactly 50 teams; any event at least 3", async () => {
     const plan = buildSeedPlan({
       slug: "small",
       name: "x",
@@ -118,7 +118,7 @@ describe("seed_event: rules", () => {
     const payload = toSeedPayload(plan, ids);
     await expect(
       as(db.pool, service, (c) => c.query("select public.seed_event($1)", [{ ...payload, event: { ...payload.event, is_rehearsal: false } }])),
-    ).rejects.toThrow(/exactly 150 teams/);
+    ).rejects.toThrow(/exactly 50 teams/);
     await expect(
       as(db.pool, service, (c) => c.query("select public.seed_event($1)", [{ ...payload, teams: payload.teams.slice(0, 2) }])),
     ).rejects.toThrow(/between 3 and 150/);

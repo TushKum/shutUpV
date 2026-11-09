@@ -320,6 +320,14 @@ default durations (`buildSchedule`), not as clock times.
   the grant. The same page resets a password or removes access (never one's own; the last organiser stays). Fairness
   and projector logins still come from the seed's staff list.
 
+## 7i. 50 teams (migration 17)
+
+The live night is 50 teams (T001–T050) and 3 backups (B001–B003), about 200 participants, instead of the brief's 150
+and 10. The seed command and the database's seeding check require exactly 50 for a live event; a rehearsal can still
+have 3 to 150 teams (the load test and the bots' practice night use 150). Every other rule scales with the number of
+playing teams: the problem deck needs one card per three teams, the 10 crisis types go to 5 companies each, and the
+rescue circle covers whoever plays.
+
 ## 8. Open questions
 
 All 13 in the brief were answered "defaults are fine" on 6 November. None open.
