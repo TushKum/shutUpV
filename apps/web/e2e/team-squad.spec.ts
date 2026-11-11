@@ -75,8 +75,9 @@ test("after the draw: the overview, and the Product team picks a problem card wi
   await expect(page.getByTestId("squad-company")).toContainText("No name or ticker claimed yet");
   await expect(page.getByTestId("squad-problem")).toContainText("Not picked yet.");
   await expect(page.getByTestId("status-PITCH")).toContainText("Not started");
-  await expect(page.getByTestId("status-PLAN")).toContainText("Not open yet");
-  await expect(page.getByTestId("status-FLASH")).toContainText("Not open yet");
+  // Only this round's submission: the plan and the flash answer appear in their own rounds.
+  await expect(page.getByTestId("status-PLAN")).toHaveCount(0);
+  await expect(page.getByTestId("status-FLASH")).toHaveCount(0);
 
   await page.getByRole("link", { name: "Pick a card" }).click();
   await expect(page).toHaveURL(/\/team\/squad\/problem$/);

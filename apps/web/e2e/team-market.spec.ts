@@ -311,6 +311,10 @@ test("the public ledger: transfers by squad and role, round totals, newest first
   }
   const total = Number((await ev.n.one("select count(*)::int as n from public_ledger where event_id = $1", [ev.n.eventId])).n);
   expect(total).toBeGreaterThan(50);
+  // During the rounds teams see only that round's sections; the public ledger opens with the results.
+  await as(page, s[2]!.c_code, "/team/ledger");
+  await expect(page.getByTestId("not-now")).toContainText("This opens at the results.");
+  await ev.n.q("update events set current_phase = 'AWARDS' where id = $1", [ev.n.eventId]); // test-only: jump to the results
 
   await as(page, s[2]!.c_code, "/team/ledger");
   const pager = page.getByRole("navigation", { name: "Ledger pages", exact: true });

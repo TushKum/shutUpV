@@ -17,7 +17,7 @@ describe("focus mode", () => {
     expect(labels(focusSections("PRODUCT", "SETUP"))).toEqual(["Home", "Bulletins", "Judging"]);
     expect(labels(focusSections("PRODUCT", "BUILD"))).toEqual(["Home", "Squad", "Chat", "Market", "Q&A", "Bulletins"]);
     expect(labels(focusSections("PRODUCT", "RESCUE_1"))).toEqual(["Home", "Squad", "Rescue", "Chat", "Market", "Q&A", "Bulletins"]);
-    expect(labels(focusSections("CONSULTING", "ROUNDS_13_21"))).toEqual(["Home", "Squad", "Chat", "Calls", "Market", "Q&A", "Bulletins"]);
+    expect(labels(focusSections("CONSULTING", "ROUNDS_13_21"))).toEqual(["Home", "Squad", "Chat", "Calls", "Earnings", "Market", "Q&A", "Bulletins"]);
     expect(labels(focusSections("FINANCE", "IPO"))).toEqual(["Home", "Trade", "Chat", "Market", "Q&A", "Bulletins"]);
     expect(labels(focusSections("FINANCE", "CRISIS"))).toEqual(["Home", "Trade", "Rescue", "Chat", "Market", "Q&A", "Bulletins"]);
     // The results show everything.

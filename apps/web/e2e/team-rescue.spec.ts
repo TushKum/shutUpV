@@ -49,20 +49,12 @@ async function twoClicks(page: Page, name: string | RegExp, confirm: string | Re
   await again.click();
 }
 
-test("before the crisis, every team of the squad reads what will happen at the crisis", async ({ page }) => {
+test("before the crisis (Round 1) the rescue is out of sight: it opens in Round 2", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await loginAsTeam(page, ev, s[0]!.c_code);
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Rescue" })).toHaveCount(0);
   await page.goto("/team/rescue");
-  await expect(page).toHaveTitle(/Rescue/);
-  const before = page.getByTestId("crisis-before");
-  await expect(before).toContainText("multiplied by 0.85 (−15%)");
-  await expect(before).toContainText("post-crisis price");
-  await expect(before.getByRole("listitem")).toHaveCount(3);
-  await expect(before).toContainText("Advisor fee");
-  await expect(before).toContainText("$5,000 deal bonus");
-  await expect(before).toContainText("capped at 50");
-  await expect(page.getByTestId("fee")).toHaveAttribute("data-stage", "BEFORE_CRISIS");
-  await expect(page.getByTestId("deal")).toHaveAttribute("data-stage", "BEFORE_CRISIS");
+  await expect(page.getByTestId("not-now")).toContainText("This opens in Round 2: Crisis & rescue.");
   await expect(page.getByRole("form", { name: "Propose a fee" })).toHaveCount(0);
   await noSideScroll(page);
   // The database refuses a fee before the crisis anyway.
