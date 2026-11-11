@@ -53,7 +53,8 @@ export function DitherLayer({
   const across = from === "left" || from === "right";
   const size = 100 / BANDS;
   return (
-    <svg aria-hidden className={`mx-dither ${className}`} style={{ opacity }}>
+    // Inline position and pointer-events too: the layer must never catch a click, even before the stylesheet loads.
+    <svg aria-hidden className={`mx-dither ${className}`} style={{ opacity, position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
       {Array.from({ length: BANDS }, (_, i) => {
         // Band 0 is at the top (or left); the pattern gets denser towards the `from` side.
         const level = from === "bottom" || from === "right" ? i + 1 : BANDS - i;

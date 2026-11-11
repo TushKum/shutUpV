@@ -28,7 +28,8 @@ export function ActionBar({ task }: { task: BarTask | null }) {
         <span className="min-w-[10rem] flex-1 font-semibold [overflow-wrap:anywhere]" data-testid="action-bar-title">
           {task.title}
         </span>
-        <span className="ml-auto flex items-center gap-3">
+        {/* On a phone the countdown and the button may wrap onto two lines rather than run past the screen edge. */}
+        <span className="ml-auto flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
           {task.due ? (
             <span className="whitespace-nowrap text-paper">
               closes in <Countdown to={task.due} passed="now" className="font-semibold text-phosphor" />

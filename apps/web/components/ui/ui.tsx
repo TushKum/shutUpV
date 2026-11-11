@@ -107,7 +107,8 @@ export function Stat({ label, value, hint }: { label: ReactNode; value: ReactNod
 }
 
 export function Notice({ tone = "slate", children }: { tone?: Tone; children: ReactNode }) {
-  return <div className={`rounded-md bg-panel px-3 py-2 text-sm ring-1 ring-inset ${TONES[tone]}`}>{children}</div>;
+  // A red notice keeps bg-red-50 (a test hook, themed in globals.css as a faint red on black).
+  return <div className={`rounded-md ${tone === "red" ? "bg-red-50" : "bg-panel"} px-3 py-2 text-sm ring-1 ring-inset ${TONES[tone]}`}>{children}</div>;
 }
 
 // Buttons are terminal keys: an outlined, glowing key (primary), a quiet outline (secondary) and a red key (danger).
