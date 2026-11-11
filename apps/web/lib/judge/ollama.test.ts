@@ -8,7 +8,7 @@ const VALID = JSON.stringify({
   total: 65,
   rationale: "Clear problem. Workable solution. Thin feasibility.",
 });
-const request = { model: "qwen2.5:7b", system: "You are the judge.", userText: "The PRD.", type: "PITCH" as const };
+const request = { model: "qwen2.5:7b", system: "You are the judge.", userText: "The PRD.", requestText: "The PRD.", runNo: 1, type: "PITCH" as const };
 
 /** A stand-in for Ollama: answers the queued replies in order and records each request. */
 function fakeOllama(replies: ({ status?: number; body?: unknown; text?: string } | Error)[]) {
