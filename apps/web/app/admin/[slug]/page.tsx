@@ -30,10 +30,12 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   const status = await loadEventStatus(event.id);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
-  const [phases, deadlines, rounds] = await Promise.all([
+  const [phases, deadlines, rounds, subrounds, engagements] = await Promise.all([
     sb.from("phases").select("code, seq, starts_at, ends_at, started_at, ended_at").eq("event_id", event.id).order("seq"),
     sb.from("deadlines").select("code, at").eq("event_id", event.id).order("at"),
     sb.from("rounds").select("number, phase, status, opens_at, closes_at, cleared_at").eq("event_id", event.id).order("number"),
+    sb.from("subrounds").select("k, revealed_at, hiring_closed_at, due_closed_at, rated_at").eq("event_id", event.id).order("k"),
+    sb.from("engagements").select("k, escrow, rating").eq("event_id", event.id),
   ]);
   const next = status.next_phase;
   const blocked = status.gate ?? (status.paused ? "Resume the event before advancing." : null);
@@ -141,6 +143,31 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
         ) : (
           <Notice>The fairness officer can follow the night here; only organisers change the phase.</Notice>
         )}
+
+        {event.format === "PRIMUS" ? (
+          <Panel title="PRIMUS sub-rounds">
+            <Table head={["Sub-round", "Revealed", "Hiring closed", "Escrow settled", "Ratings closed", "Firms hired", "Rated"]} empty="No sub-round has started.">
+              {((subrounds.data ?? []) as { k: number; revealed_at: string | null; hiring_closed_at: string | null; due_closed_at: string | null; rated_at: string | null }[]).map((s) => {
+                const hires = ((engagements.data ?? []) as { k: number; escrow: string; rating: number | null }[]).filter((e) => e.k === s.k);
+                return (
+                  <tr key={s.k} data-testid={`subround-${s.k}`}>
+                    <Td>{s.k === 5 ? "Round 3" : `Crisis ${s.k}`}</Td>
+                    <Td mono>{clock(s.revealed_at)}</Td>
+                    <Td mono>{clock(s.hiring_closed_at)}</Td>
+                    <Td mono>{clock(s.due_closed_at)}</Td>
+                    <Td mono>{clock(s.rated_at)}</Td>
+                    <Td mono>{hires.length}</Td>
+                    <Td mono>{hires.filter((e) => e.rating !== null).length}</Td>
+                  </tr>
+                );
+              })}
+            </Table>
+            <p className="mt-2 text-xs text-muted">
+              The heartbeat reveals each crisis at its time, closes hiring, settles escrow at the due time and fills missing ratings with 3. Judge and
+              release each crisis plan, advice memo and the solution under Judge.
+            </p>
+          </Panel>
+        ) : null}
 
         <Panel title="Rounds">
           <Table head={["Round", "Phase", "Opens", "Closes", "Status"]} empty="No rounds.">

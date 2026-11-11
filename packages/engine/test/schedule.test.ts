@@ -15,7 +15,7 @@ const phase = (code: string) => DEFAULT_PHASES.find((p) => p.code === code)!;
 
 describe("default timetable matches the brief", () => {
   test("phases are in enum order and contiguous", () => {
-    expect(DEFAULT_PHASES.map((p) => p.code)).toEqual([...PHASE_CODES]);
+    expect(DEFAULT_PHASES.map((p) => p.code)).toEqual(PHASE_CODES.filter((c) => c !== "PRESSURE" && c !== "SATURATION"));
     for (let i = 1; i < DEFAULT_PHASES.length; i++) {
       expect(DEFAULT_PHASES[i]!.start).toBe(DEFAULT_PHASES[i - 1]!.end);
     }

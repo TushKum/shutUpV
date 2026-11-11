@@ -2,16 +2,25 @@
 
 import { avgHalfUp, clamp, mul, mulRate } from "./money";
 import { RULES } from "./rules";
-import type { OrderType, SubmissionType } from "./types";
+import { byKind, type OrderType, type SubmissionType } from "./types";
 
 // ───────────────────────────── Score tiers ─────────────────────────────
 
 /** Score bands (lower bound) and price change in basis points, from the brief's tier table. */
-const TIER_TABLE: Record<SubmissionType, readonly (readonly [minScore: number, bp: number])[]> = {
+type Tiers = readonly (readonly [minScore: number, bp: number])[];
+const PLAN_TIERS: Tiers = [[90, 2500], [80, 2000], [70, 1000], [60, 500], [50, 0], [40, -1000], [0, -2000]];
+const NO_MOVE: Tiers = [[0, 0]];
+
+/** PRIMUS crisis plans and solutions use the plan column (the solution is then scaled by saturation). */
+const TIER_TABLE: Record<SubmissionType, Tiers> = byKind<Tiers>({
   PITCH: [[90, 1000], [80, 1000], [70, 500], [60, 500], [50, 0], [40, -500], [0, -1000]],
-  PLAN: [[90, 2500], [80, 2000], [70, 1000], [60, 500], [50, 0], [40, -1000], [0, -2000]],
+  PLAN: PLAN_TIERS,
   FLASH: [[90, 500], [80, 500], [70, 500], [60, 0], [50, 0], [40, -500], [0, -500]],
-};
+  MEMO: NO_MOVE, // a firm's memo moves no price: it sets the firm's reputation bonus
+  ADVICE: NO_MOVE,
+  CRISIS: PLAN_TIERS,
+  SOLUTION: PLAN_TIERS,
+});
 
 export function assertScore(score: number): void {
   if (!Number.isInteger(score) || score < 0 || score > 100) throw new Error(`score must be 0–100, got ${score}`);

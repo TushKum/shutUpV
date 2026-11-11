@@ -31,7 +31,7 @@ function must<T>(r: { data: T | null; error: { message: string } | null }, what:
   return r.data as T;
 }
 
-const NONE: Record<SubmissionType, boolean> = { PITCH: false, PLAN: false, FLASH: false };
+const NONE: Partial<Record<SubmissionType, boolean>> = { PITCH: false, PLAN: false, FLASH: false, MEMO: false };
 
 interface PlanFactsRow {
   deadlines: { code: DeadlineCode; at: string }[];

@@ -44,6 +44,7 @@ import {
   type JudgeSubmissionRow,
   type TargetCheck,
   type TypeSummary,
+  judgeTypesFor,
 } from "./judge";
 
 const company = (id: string, ticker: string | null, squad: number | null = null): JudgeCompanyRow => ({ id, ticker, name: ticker ? `${ticker} Inc` : null, squad });
@@ -619,6 +620,7 @@ describe("re-runs and appeals", () => {
     expect(rerunBlock("PITCH", judged({ status: "RELEASED" }), open)).toBe(
       "A released pitch score cannot be re-run: it has set the IPO price and the IPO is allocated.",
     );
+    expect(rerunBlock("MEMO", judged({ status: "RELEASED" }), open)).toBe("A released crisis memo score is final: it cannot be re-run.");
     expect(rerunBlock("PITCH", judged(), { phase: "AWARDS", closed: true })).toBe("Appeals are decided before the awards.");
     expect(rerunBlock("PITCH", judged(), { phase: "BUILD", closed: false })).toBe("A submission is judged after its deadline.");
     expect(rerunBlock("PITCH", judged({}, [run("s-a", "a", 1, 60), run("s-a", "a", 2, null, { status: "RUNNING" })]), open)).toBe(
@@ -755,5 +757,15 @@ describe("the Runs column", () => {
       { runNo: 3, text: "Run 3 waits to be tried again (attempt 1 of 5 failed: rate limited (429))", tone: "amber" },
       { runNo: 4, text: "Run 4: attempt 2 of 5", tone: "slate" },
     ]);
+  });
+});
+
+describe("PRIMUS judging", () => {
+  it("each format judges its own types; Rounds 2 and 3 default to the crisis plan and the solution", () => {
+    expect([...judgeTypesFor("CLASSIC")].sort()).toEqual(["FLASH", "MEMO", "PITCH", "PLAN"]);
+    expect(judgeTypesFor("PRIMUS")).toEqual(expect.arrayContaining(["PITCH", "MEMO", "CRISIS_1", "CRISIS_4", "ADVICE_5", "SOLUTION"]));
+    expect(judgeTypesFor("PRIMUS")).not.toContain("PLAN");
+    expect(defaultJudgeType("PRESSURE")).toBe("CRISIS_1");
+    expect(defaultJudgeType("SATURATION")).toBe("SOLUTION");
   });
 });

@@ -20,6 +20,8 @@ export interface AdminEvent {
   seed_revealed: string | null;
   dice: string | null;
   drawn_at: string | null;
+  /** CLASSIC or PRIMUS (Rounds 2 and 3 as crisis sub-rounds and the draft). */
+  format: "CLASSIC" | "PRIMUS";
 }
 
 
@@ -27,7 +29,7 @@ export const loadAdminEvent = cache(async (slug: string): Promise<AdminEvent> =>
   const sb = await supabaseServer();
   const { data } = await sb
     .from("events")
-    .select("id, slug, name, is_rehearsal, clock_speed, starts_at, current_phase, paused, paused_at, auto_advance, seed_commitment, seed_revealed, dice, drawn_at")
+    .select("id, slug, name, is_rehearsal, clock_speed, starts_at, current_phase, paused, paused_at, auto_advance, seed_commitment, seed_revealed, dice, drawn_at, format")
     .eq("slug", slug)
     .maybeSingle<AdminEvent>();
   if (!data) notFound();

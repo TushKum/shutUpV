@@ -7,9 +7,11 @@
 import {
   RUBRICS,
   RULES,
-  SUBMISSION_TYPES,
+  PROMPT_TYPES,
   ipoPrice,
   medianScore,
+  perType,
+  submissionKind,
   tierBp,
   type RubricLine,
   type SubmissionType,
@@ -21,11 +23,20 @@ import { SUBMISSION_LABELS } from "./squad";
 export const EXTRA_RUN_SPREAD = 10;
 
 /** What a type's score moves. */
-const MOVES: Record<SubmissionType, string> = {
-  PITCH: "Its score sets the IPO price.",
-  PLAN: "Its score moves the market price and the AI price.",
-  FLASH: "Its score moves the market price and the AI price.",
-};
+const MOVES: Record<SubmissionType, string> = perType((t) => {
+  switch (submissionKind(t)) {
+    case "PITCH":
+      return "Its score sets the IPO price.";
+    case "MEMO":
+      return "It moves no price: its score sets the Consulting firm's reputation bonus, $500 × (score − 50), paid at settlement.";
+    case "ADVICE":
+      return "It moves no price: the firm earns a reputation bonus of $500 × (score − 50) plus $1,000 × (client rating − 3).";
+    case "SOLUTION":
+      return "Its score moves the price, scaled by its rank among the companies on the same problem statement.";
+    default:
+      return "Its score moves the market price and the AI price.";
+  }
+});
 
 export interface PublishedPrompt {
   type: SubmissionType;
@@ -40,9 +51,12 @@ export interface PublishedPrompt {
   prompt: { ok: true; text: string; sha: string } | { ok: false; error: string };
 }
 
-/** The three prompts in the order of the night (PITCH, PLAN, FLASH). A prompt that cannot be read is reported, not thrown. */
+/** Kinds whose prompt serves several sub-rounds are shown under one name. */
+const PROMPT_LABELS: Partial<Record<string, string>> = { CRISIS: "Crisis response plan", ADVICE: "Advice memo" };
+
+/** The prompts in the order of the night (PITCH, PLAN, FLASH). A prompt that cannot be read is reported, not thrown. */
 export function publishedPrompts(load: (type: SubmissionType) => JudgePrompt = (type) => loadPrompt(type)): PublishedPrompt[] {
-  return SUBMISSION_TYPES.map((type) => {
+  return PROMPT_TYPES.map((type) => {
     let prompt: PublishedPrompt["prompt"];
     try {
       const p = load(type);
@@ -52,8 +66,9 @@ export function publishedPrompts(load: (type: SubmissionType) => JudgePrompt = (
     }
     return {
       type,
-      label: SUBMISSION_LABELS[type],
+      label: PROMPT_LABELS[submissionKind(type)] ?? SUBMISSION_LABELS[type],
       file: PROMPT_FILES[type],
+      // CRISIS_1…4 and ADVICE_1…5 share one prompt, shown once.
       wordLimit: RULES.WORD_LIMIT[type],
       moves: MOVES[type],
       rubric: RUBRICS[type],
@@ -84,7 +99,7 @@ export interface TierRow {
   min: number;
   max: number;
   /** Price change per type, in basis points (+2000 = +20%), from the engine's tier rule. */
-  bp: Record<SubmissionType, number>;
+  bp: Record<"PITCH" | "PLAN" | "FLASH", number>;
   /** Integer cents: the IPO price a pitch score in this band gives ($10.00 × (1 + pitch tier)). */
   ipoPrice: number;
 }

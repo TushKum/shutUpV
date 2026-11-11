@@ -37,6 +37,10 @@ import {
   validateIpoBids,
   validateJudgeOutput,
   RUBRICS,
+  RULES,
+  SUBMISSION_TYPES,
+  TEMPLATES,
+  memoBonus,
   submissionText,
   submissionWords,
   wordCount,
@@ -111,7 +115,7 @@ describe("money", () => {
 
 describe("prices", () => {
   test("tier_bp, ipo_price for every score and type", async () => {
-    const cases = (["PITCH", "PLAN", "FLASH"] as SubmissionType[]).flatMap((type) =>
+    const cases = SUBMISSION_TYPES.flatMap((type) =>
       Array.from({ length: 101 }, (_, score) => ({ type, score })),
     );
     const sql = await sqlBatch<number[]>(
@@ -269,15 +273,11 @@ describe("submission text and word counts", () => {
 
   test("submission_text and submission_words match the engine for every type", async () => {
     const g = gen(12);
-    const fields = {
-      PITCH: ["company_name", "ticker", "problem", "solution", "customers", "business_model", "advantage", "use_of_seed"],
-      PLAN: ["crisis", "new_plan", "money", "deal", "time_to_recovery", "risks", "next_steps"],
-      FLASH: ["answer"],
-    } as const;
-    const cases = Array.from({ length: 600 }, () => {
-      const type = g.pick(["PITCH", "PLAN", "FLASH"] as const);
+    const fields = (type: SubmissionType) => [...(type === "PITCH" ? ["company_name", "ticker"] : []), ...TEMPLATES[type].map((f) => f.key)];
+    const cases = Array.from({ length: 800 }, () => {
+      const type = g.pick(SUBMISSION_TYPES);
       const content: Record<string, unknown> = {};
-      for (const f of fields[type]) {
+      for (const f of fields(type)) {
         const r = g.next();
         content[f] = r < 0.15 ? "" : r < 0.2 ? 42 : g.pick(samples) + (r < 0.5 ? "  " : "");
       }
@@ -361,7 +361,7 @@ describe("judging and scoring", () => {
 
   test("judge_run_valid: a stored run passes exactly when validateJudgeOutput accepts it", async () => {
     const g = gen(11);
-    const types = ["PITCH", "PLAN", "FLASH"] as SubmissionType[];
+    const types = [...SUBMISSION_TYPES];
     const cases = Array.from({ length: 3000 }, () => {
       const type = g.pick(types);
       const breakdown: Record<string, unknown> = {};
@@ -398,7 +398,7 @@ describe("judging and scoring", () => {
   });
 
   test("injection_penalty for every combination", async () => {
-    const cases = (["PITCH", "PLAN", "FLASH"] as SubmissionType[]).flatMap((type) =>
+    const cases = SUBMISSION_TYPES.flatMap((type) =>
       [0, 1, 2, 3, 4, 5, 6, 7].map((m) => ({ type, PITCH: !!(m & 1), PLAN: !!(m & 2), FLASH: !!(m & 4) })),
     );
     const sql = await sqlBatch<number>(
@@ -411,7 +411,7 @@ describe("judging and scoring", () => {
   test("final_score", async () => {
     const g = gen(9);
     const cases = Array.from({ length: 2000 }, () => ({
-      type: g.pick(["PITCH", "PLAN", "FLASH"] as SubmissionType[]),
+      type: g.pick(SUBMISSION_TYPES),
       median: g.next() < 0.1 ? null : g.int(0, 100),
       signed: g.next() < 0.5,
       penalty: g.pick([0, 0, 10]),
@@ -433,6 +433,17 @@ describe("judging and scoring", () => {
       cases,
     );
     cases.forEach((c, i) => expect(sql[i]!.map(Number)).toEqual([planBonus(c.score), returnBp(c.final, c.start)]));
+    // The memo bonus is paid with app.plan_bonus too.
+    for (const score of [0, 30, 50, 71, 100]) expect(memoBonus(score)).toBe(planBonus(score));
+  });
+
+  test("word_limit and template_fields for every type", async () => {
+    for (const type of SUBMISSION_TYPES) {
+      const { rows } = await db.pool.query("select app.word_limit($1::submission_type) as l", [type]);
+      expect(rows[0].l, type).toBe(RULES.WORD_LIMIT[type]);
+      const f = await db.pool.query("select key, label from app.template_fields($1::submission_type) order by ord", [type]);
+      expect(f.rows, type).toEqual(TEMPLATES[type].map((t) => ({ key: t.key, label: t.label })));
+    }
   });
 });
 

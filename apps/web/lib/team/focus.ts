@@ -16,6 +16,8 @@ const STAGE_OF: Record<PhaseCode, Stage> = {
   BUILD: "ROUND_1",
   READING: "ROUND_1",
   IPO: "ROUND_1",
+  PRESSURE: "ROUND_2",
+  SATURATION: "ROUND_3",
   ROUNDS_1_4: "ROUND_1",
   CRISIS: "ROUND_2",
   RESCUE_1: "ROUND_2",
@@ -58,6 +60,8 @@ export const STEPS: Record<PhaseCode, { name: string; what: string }> = {
   BUILD: { name: "Build your company", what: "Squads read the case and write their pitch." },
   READING: { name: "Read & ask", what: "Everyone reads the pitches and asks the companies questions." },
   IPO: { name: "Buy first shares", what: "Investment funds bid for the companies' first shares." },
+  PRESSURE: { name: "Crisis sub-rounds", what: "A crisis card each sub-round: hire a firm, write the response, trade the news." },
+  SATURATION: { name: "Market saturation", what: "Problem statements are drafted; companies that share one compete for the price move." },
   ROUNDS_1_4: { name: "Trading time", what: "Funds buy and sell shares. Prices move every round." },
   CRISIS: { name: "Crisis!", what: "Something bad has happened to every company. Prices fell 15%." },
   RESCUE_1: { name: "Rescue mission", what: "Agree the fee and the rescue deal, and write the rescue plan." },
@@ -121,6 +125,16 @@ const ROUND_PATHS: Record<Track, Record<Stage, readonly string[]>> = {
   },
 };
 
+/** A PRIMUS event's Round 2 (PRESSURE) and Round 3 (SATURATION): the crisis room replaces the classic rescue. */
+const PRIMUS_PATHS: Record<Track, readonly string[]> = {
+  PRODUCT: ["", "/crisis", "/squad", "/chat", "/qa", "/market", "/bulletins"],
+  CONSULTING: ["", "/crisis", "/squad", "/earnings", "/chat", "/qa", "/market", "/bulletins"],
+  FINANCE: ["", "/trade", "/crisis", "/chat", "/qa", "/market", "/bulletins"],
+};
+
+const pathsFor = (track: Track, phase: PhaseCode): readonly string[] =>
+  phase === "PRESSURE" || phase === "SATURATION" ? PRIMUS_PATHS[track] : ROUND_PATHS[track][stageOf(phase)];
+
 /** The section ("/squad", "" for Home) a team path belongs to. */
 export function sectionOf(path: string): string {
   const m = /^\/team(\/[^/?#]+)?/.exec(path);
@@ -135,7 +149,7 @@ export function focusSections(track: Track, phase: PhaseCode, taskHref: string |
   const stage = stageOf(phase);
   const all = TEAM_SECTIONS[track];
   if (stage === "RESULTS") return [...all];
-  const allowed = new Set(ROUND_PATHS[track][stage]);
+  const allowed = new Set(pathsFor(track, phase));
   if (taskHref) allowed.add(sectionOf(taskHref));
   return all.filter((s) => allowed.has(s.path));
 }
@@ -156,7 +170,7 @@ export function opensIn(track: Track, phase: PhaseCode, path: string): Stage | n
   const order: Stage[] = ["BEFORE", "ROUND_1", "ROUND_2", "ROUND_3", "RESULTS"];
   const section = sectionOf(path);
   for (const stage of order.slice(order.indexOf(stageOf(phase)) + 1)) {
-    if (stage === "RESULTS" || ROUND_PATHS[track][stage].includes(section)) return stage;
+    if (stage === "RESULTS" || ROUND_PATHS[track][stage].includes(section) || (stage !== "ROUND_1" && PRIMUS_PATHS[track].includes(section))) return stage;
   }
   return null;
 }
@@ -176,6 +190,11 @@ const DEADLINE_STAGE: Record<string, Stage> = {
   FLASH_BULLETIN: "ROUND_3",
   FLASH: "ROUND_3",
   CALL_3: "ROUND_3",
+  ...Object.fromEntries([1, 2, 3, 4].flatMap((k) => ["REVEAL", "HIRE", "DUE", "RATE"].map((d) => [`${d}_${k}`, "ROUND_2"]))),
+  DRAFT: "ROUND_3",
+  HIRE_5: "ROUND_3",
+  DUE_5: "ROUND_3",
+  RATE_5: "ROUND_3",
 };
 
 /**
@@ -194,22 +213,23 @@ export function inThisRound(phase: PhaseCode, key: string): boolean {
 export function squadTabsFor(phase: PhaseCode): readonly string[] {
   const stage = stageOf(phase);
   const base = ["/team/squad", "/team/squad/problem"];
-  if (stage === "ROUND_1") return [...base, "/team/squad/pitch"];
+  if (stage === "ROUND_1") return [...base, "/team/squad/pitch", "/team/squad/memo"];
   if (stage === "ROUND_2") return [...base, "/team/squad/plan"];
   if (stage === "ROUND_3") return [...base, "/team/squad/plan", "/team/squad/flash"];
-  return [...base, "/team/squad/pitch", "/team/squad/plan", "/team/squad/flash"];
+  return [...base, "/team/squad/pitch", "/team/squad/memo", "/team/squad/plan", "/team/squad/flash"];
 }
 
 /** The submissions (pitch, plan, flash) that belong to this round, for the squad overview. */
-export function submissionsFor(phase: PhaseCode): ("PITCH" | "PLAN" | "FLASH")[] {
+export function submissionsFor(phase: PhaseCode): ("PITCH" | "MEMO" | "PLAN" | "FLASH")[] {
   const tabs = squadTabsFor(phase);
-  return (["PITCH", "PLAN", "FLASH"] as const).filter((t) => tabs.includes(`/team/squad/${t.toLowerCase()}`));
+  return (["PITCH", "MEMO", "PLAN", "FLASH"] as const).filter((t) => tabs.includes(`/team/squad/${t.toLowerCase()}`));
 }
 
 /** Icons for the section buttons. */
 export const SECTION_ICONS: Record<string, string> = {
   "": "🏠",
   "/squad": "🧩",
+  "/crisis": "🚨",
   "/rescue": "🛟",
   "/chat": "💬",
   "/calls": "📞",

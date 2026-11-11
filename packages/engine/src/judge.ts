@@ -3,7 +3,7 @@
 
 import { clamp } from "./money";
 import { RULES } from "./rules";
-import { SUBMISSION_TYPES, type SubmissionType } from "./types";
+import { SUBMISSION_TYPES, byKind, type SubmissionType } from "./types";
 
 export interface RubricLine {
   key: string;
@@ -11,7 +11,7 @@ export interface RubricLine {
   max: number;
 }
 
-export const RUBRICS: Record<SubmissionType, readonly RubricLine[]> = {
+export const RUBRICS: Record<SubmissionType, readonly RubricLine[]> = byKind<readonly RubricLine[]>({
   PITCH: [
     { key: "problem", label: "Problem and target user", max: 20 },
     { key: "solution", label: "Solution and MVP scope", max: 20 },
@@ -33,7 +33,37 @@ export const RUBRICS: Record<SubmissionType, readonly RubricLine[]> = {
     { key: "realistic", label: "Realistic", max: 30 },
     { key: "clear", label: "Clear", max: 20 },
   ],
-};
+  MEMO: [
+    { key: "diagnosis", label: "Diagnosis", max: 25 },
+    { key: "options", label: "Options and trade-offs", max: 20 },
+    { key: "recommendation", label: "Recommendation", max: 20 },
+    { key: "numbers", label: "Numbers", max: 15 },
+    { key: "risks", label: "Risks", max: 10 },
+    { key: "next_steps", label: "Next steps", max: 10 },
+  ],
+  CRISIS: [
+    { key: "solves_crisis", label: "Solves the crisis", max: 25 },
+    { key: "money_logic", label: "Money logic", max: 20 },
+    { key: "consultant_advice", label: "Use of consultant advice", max: 15 },
+    { key: "time_to_recovery", label: "Time to recovery", max: 15 },
+    { key: "new_risks", label: "New risks it creates (fewer scores higher)", max: 15 },
+    { key: "next_steps", label: "Clear, practical next steps", max: 10 },
+  ],
+  SOLUTION: [
+    { key: "fit", label: "Fit to the statement", max: 25 },
+    { key: "differentiation", label: "Differentiation from rivals", max: 20 },
+    { key: "feasibility", label: "Feasibility", max: 20 },
+    { key: "business_impact", label: "Business impact", max: 20 },
+    { key: "clarity", label: "Clarity", max: 15 },
+  ],
+  ADVICE: [
+    { key: "diagnosis", label: "Diagnosis", max: 25 },
+    { key: "actionable_advice", label: "Actionable advice", max: 30 },
+    { key: "evidence", label: "Evidence and numbers", max: 20 },
+    { key: "fit", label: "Fit to the client's crisis", max: 15 },
+    { key: "clarity", label: "Clarity", max: 10 },
+  ],
+});
 
 for (const t of SUBMISSION_TYPES) {
   if (RUBRICS[t].reduce((s, l) => s + l.max, 0) !== 100) throw new Error(`rubric ${t} must total 100`);
@@ -114,7 +144,7 @@ export const INJECTION_PATTERNS: readonly { name: string; re: RegExp }[] = [
   {
     // Trying to close or open the XML wrapper.
     name: "tag-breakout",
-    re: /<\s*\/?\s*(?:submission|system|instructions?|rubric|assistant|user|context|bulletin|pitch_card|crisis_card|deal|data)\b[^>]*>/i,
+    re: /<\s*\/?\s*(?:submission|system|instructions?|rubric|assistant|user|context|bulletin|pitch_card|crisis_card|deal|data|advice|statement)\b[^>]*>/i,
   },
 ];
 
@@ -150,15 +180,26 @@ export function stripInjections(text: string): { clean: string; hits: InjectionH
   return { clean: kept.join("\n"), hits };
 }
 
-const ORDER: Record<SubmissionType, number> = { PITCH: 0, PLAN: 1, FLASH: 2 };
+/**
+ * The submissions of one company that count towards its second offence, in order: the classic night's pitch, plan
+ * and flash answer, or PRIMUS's PRD, crisis plans and solution. A firm's memos are its own work and never count.
+ */
+const CHAINS: readonly (readonly SubmissionType[])[] = [
+  ["PITCH", "PLAN", "FLASH"],
+  ["PITCH", "CRISIS_1", "CRISIS_2", "CRISIS_3", "CRISIS_4", "SOLUTION"],
+];
 
 /**
  * A squad's second (and any later) offence costs that submission 10 points. An offence is a judged
  * submission that had at least one line stripped; submissions count in the order PITCH → PLAN → FLASH.
+ * A Consulting team's memos (MEMO, ADVICE_k) are its own work, so they never count as a second offence. PRIMUS
+ * plans count after the PRD in the order of the night (CRISIS_1 … CRISIS_4, SOLUTION).
  */
 export function injectionPenalty(type: SubmissionType, offended: Partial<Record<SubmissionType, boolean>>): number {
   if (!offended[type]) return 0;
-  const count = SUBMISSION_TYPES.filter((t) => ORDER[t] <= ORDER[type] && offended[t]).length;
+  const chain = type === "PITCH" ? CHAINS[0]! : CHAINS.find((c) => c.includes(type));
+  if (!chain) return 0;
+  const count = chain.slice(0, chain.indexOf(type) + 1).filter((t) => offended[t]).length;
   return count >= 2 ? RULES.INJECTION_PENALTY : 0;
 }
 

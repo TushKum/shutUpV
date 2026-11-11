@@ -14,14 +14,27 @@ import {
   type DeadlineCode,
   type PhaseCode,
   type SubmissionType,
+  perType,
+  submissionDeadline,
+  subroundOf,
 } from "@msim/engine";
+import { SUBMISSION_LABELS } from "@/lib/team/squad";
 import { bp, clock, money } from "@/lib/format";
 
 export const JUDGE_TYPES = SUBMISSION_TYPES;
 
+/** The types an event judges: the classic night's four, or PRIMUS's PRD and memo, crisis plans, advice memos and solution. */
+export function judgeTypesFor(format: string | null | undefined): SubmissionType[] {
+  const primus = format === "PRIMUS";
+  return SUBMISSION_TYPES.filter((t) =>
+    primus ? !["PLAN", "FLASH"].includes(t) : ["PITCH", "MEMO", "PLAN", "FLASH"].includes(t),
+  );
+}
+
 /** Used in sentences and button labels ("Release pitch scores"). */
-export const TYPE_NAMES: Record<SubmissionType, string> = { PITCH: "pitch", PLAN: "plan", FLASH: "flash" };
-export const TYPE_TITLES: Record<SubmissionType, string> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash" };
+const CLASSIC_TITLES: Partial<Record<SubmissionType, string>> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash", MEMO: "Crisis memo" };
+export const TYPE_TITLES: Record<SubmissionType, string> = perType((t) => CLASSIC_TITLES[t] ?? SUBMISSION_LABELS[t]);
+export const TYPE_NAMES: Record<SubmissionType, string> = perType((t) => (t === "PITCH" ? "pitch" : TYPE_TITLES[t].replace(/^[A-Z]/, (c) => c.toLowerCase())));
 
 export type RunStatus = "QUEUED" | "RUNNING" | "DONE" | "FAILED";
 export const RUN_STATUSES: readonly RunStatus[] = ["QUEUED", "RUNNING", "DONE", "FAILED"];
@@ -124,6 +137,8 @@ export function parseJudgeType(v: string | string[] | undefined): SubmissionType
 
 /** The type the night is working on: pitches until the plans are published, plans until rounds 13–21, then flash. */
 export function defaultJudgeType(phase: PhaseCode): SubmissionType {
+  if (phase === "SATURATION") return "SOLUTION";
+  if (phase === "PRESSURE") return "CRISIS_1";
   if (phaseReached(phase, "ROUNDS_13_21")) return "FLASH";
   if (phaseReached(phase, "PLANS_PUBLISHED")) return "PLAN";
   return "PITCH";
@@ -489,7 +504,7 @@ export const TARGET_TONE: Record<TargetState, StatusTone> = { MET: "green", ON_P
 
 /** The deadline after which a type is judged and sealed: plans after both the plan and the deal deadline. */
 export function scoringClosesAt(type: SubmissionType, deadlines: Partial<Record<DeadlineCode, string>>): string | null {
-  if (type !== "PLAN") return deadlines[type] ?? null;
+  if (type !== "PLAN") return deadlines[submissionDeadline(type)] ?? null; // the memo closes with the PRD
   const plan = deadlines.PLAN;
   const deal = deadlines.DEAL;
   return plan && deal ? (plan > deal ? plan : deal) : null;
@@ -504,10 +519,12 @@ function deadlinePassed(at: string | undefined, now: number, pausedAt: string | 
 
 /** As app.scoring_closed: the type's deadline has passed (plans: the plan and the deal deadlines). */
 export function scoringClosed(type: SubmissionType, deadlines: Partial<Record<DeadlineCode, string>>, now: number, pausedAt: string | null): boolean {
-  return deadlinePassed(deadlines[type], now, pausedAt) && (type !== "PLAN" || deadlinePassed(deadlines.DEAL, now, pausedAt));
+  return deadlinePassed(deadlines[submissionDeadline(type)], now, pausedAt) && (type !== "PLAN" || deadlinePassed(deadlines.DEAL, now, pausedAt));
 }
 
-const DEADLINE_NAMES: Record<SubmissionType, string> = { PITCH: "pitch deadline", PLAN: "plan and deal deadlines", FLASH: "flash deadline" };
+const DEADLINE_NAMES: Record<SubmissionType, string> = perType((t) =>
+  t === "PLAN" ? "plan and deal deadlines" : t === "FLASH" ? "flash deadline" : subroundOf(t) === null ? "PRD deadline" : "due time",
+);
 
 /** Why Start judging is off for a type (null when it is on): before its deadline, and once its scores are released. */
 export function startBlock(type: SubmissionType, s: { closed: boolean; released: boolean; closesAt: string | null }): string | null {
@@ -526,6 +543,7 @@ export function rerunBlock(type: SubmissionType, v: CompanyJudgeView, s: { phase
   if (phaseReached(s.phase, "AWARDS")) return "Appeals are decided before the awards.";
   if (!s.closed) return "A submission is judged after its deadline.";
   if (!v.submission) return "No on-time submission to judge again.";
+  if (v.score?.status === "RELEASED" && type === "MEMO") return "A released crisis memo score is final: it cannot be re-run.";
   if (v.score?.status === "RELEASED" && type === "PITCH") {
     return "A released pitch score cannot be re-run: it has set the IPO price and the IPO is allocated.";
   }

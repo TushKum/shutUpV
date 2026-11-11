@@ -3,7 +3,8 @@
 // bulletin. Only what every team can already read (released scores, published plans, published bulletins).
 // Pure, so it is unit-tested; wire-data.ts reads the rows.
 
-import type { SubmissionType } from "@msim/engine";
+import { perType, type SubmissionType } from "@msim/engine";
+import { SUBMISSION_LABELS } from "./squad";
 
 export interface WireScore {
   ticker: string | null;
@@ -28,7 +29,8 @@ export interface WireItem {
   href: string | null;
 }
 
-const TYPE_LABEL: Record<SubmissionType, string> = { PITCH: "pitch", PLAN: "rescue plan", FLASH: "flash answer" };
+const CLASSIC_LABEL: Partial<Record<SubmissionType, string>> = { PITCH: "pitch", PLAN: "rescue plan", FLASH: "flash answer" };
+const TYPE_LABEL: Record<SubmissionType, string> = perType((t) => CLASSIC_LABEL[t] ?? SUBMISSION_LABELS[t].replace(/^[A-Z]/, (c) => c.toLowerCase()));
 const pct = (bp: number) => `${bp > 0 ? "+" : bp < 0 ? "−" : "±"}${(Math.abs(bp) / 100).toFixed(bp % 100 === 0 ? 0 : 1)}%`;
 
 export function wireFeed(input: { scores: readonly WireScore[]; bulletins: readonly WireBulletin[]; plansPublishedAt: string | null }, limit = 20): WireItem[] {

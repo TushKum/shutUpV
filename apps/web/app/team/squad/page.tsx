@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Squad" };
 
 const ROLE_WORK: Record<Track, string> = {
   PRODUCT: "Picks the problem card, writes the PRD, co-writes the rescue plan and the flash answer, agrees the fee and signs the deal.",
-  CONSULTING: "Co-writes the rescue plan and the flash answer, agrees the fee, proposes the deal price and signs the deal.",
+  CONSULTING: "Writes the crisis memo, co-writes the rescue plan and the flash answer, agrees the fee, proposes the deal price and signs the deal.",
   FINANCE: "Sets the deal amount and signs the deal.",
 };
 

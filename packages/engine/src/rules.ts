@@ -1,5 +1,7 @@
 // The fixed numbers of the game, in one place. Money in cents, rates in basis points.
 
+import { byKind } from "./types";
+
 export const RULES = {
   SHARES_PER_COMPANY: 100_000,
   RETAINED_SHARES: 60_000,
@@ -44,7 +46,7 @@ export const RULES = {
 
   INJECTION_PENALTY: 10,
 
-  WORD_LIMIT: { PITCH: 800, PLAN: 500, FLASH: 100, QA_ANSWER: 100 },
+  WORD_LIMIT: { ...byKind({ PITCH: 800, PLAN: 500, FLASH: 100, MEMO: 500, CRISIS: 500, SOLUTION: 600, ADVICE: 500 }), QA_ANSWER: 100 },
 
   FLAG_CAP_FUNDS: 3, // flag 1: ≥3 funds at the long cap
   FLAG_COSINE: { NUM: 9, DEN: 10 }, // flag 2: cosine ≥ 0.9

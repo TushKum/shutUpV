@@ -14,7 +14,7 @@ export interface CallsData {
   companies: CoveredCompany[];
   calls: CallRow[];
   deadlines: Deadlines;
-  released: Record<SubmissionType, boolean>;
+  released: Partial<Record<SubmissionType, boolean>>;
   marketClosedAt: string | null;
   settledAt: string | null;
 }

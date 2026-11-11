@@ -123,20 +123,20 @@ describe("price history", () => {
 
 describe("what is public", () => {
   test("pitch from Reading, plan from Plans published, flash once its scores are released", () => {
-    const none = { PITCH: false, PLAN: false, FLASH: false };
+    const none = { PITCH: false, PLAN: false, FLASH: false, MEMO: false };
     expect(publicTypes("BUILD", none)).toEqual([]);
     expect(publicTypes("READING", none)).toEqual(["PITCH"]);
     expect(publicTypes("RESCUE_2", { ...none, PITCH: true })).toEqual(["PITCH"]);
     expect(publicTypes("PLANS_PUBLISHED", none)).toEqual(["PITCH", "PLAN"]);
-    expect(publicTypes("ROUNDS_13_21", { PITCH: true, PLAN: true, FLASH: true })).toEqual(["PITCH", "PLAN", "FLASH"]);
+    expect(publicTypes("ROUNDS_13_21", { PITCH: true, PLAN: true, FLASH: true, MEMO: false })).toEqual(["PITCH", "PLAN", "FLASH"]);
   });
   test("books: the pitch book from Reading, crisis cards from the crisis, plans, then flash answers; ?type= is checked", () => {
-    const none = { PITCH: false, PLAN: false, FLASH: false };
+    const none = { PITCH: false, PLAN: false, FLASH: false, MEMO: false };
     expect(openBooks("BUILD", none)).toEqual([]);
     expect(openBooks("READING", none)).toEqual(["PITCH"]);
     expect(openBooks("CRISIS", { ...none, PITCH: true })).toEqual(["PITCH", "CRISIS"]);
     expect(openBooks("PLANS_PUBLISHED", { ...none, PITCH: true })).toEqual(["PITCH", "CRISIS", "PLAN"]);
-    expect(openBooks("AWARDS", { PITCH: true, PLAN: true, FLASH: true })).toEqual(["PITCH", "CRISIS", "PLAN", "FLASH"]);
+    expect(openBooks("AWARDS", { PITCH: true, PLAN: true, FLASH: true, MEMO: false })).toEqual(["PITCH", "CRISIS", "PLAN", "FLASH"]);
     expect(parseBookKind("crisis")).toBe("CRISIS");
     expect(parseBookKind(["plan", "x"])).toBe("PLAN");
     expect(parseBookKind("JUDGE_RUNS")).toBe("PITCH");

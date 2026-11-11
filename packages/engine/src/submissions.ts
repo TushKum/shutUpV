@@ -2,14 +2,14 @@
 // The database stores the same text (app.submission_text) and counts words the same way (app.word_count).
 
 import { RULES } from "./rules";
-import type { SubmissionType } from "./types";
+import { byKind, type SubmissionType } from "./types";
 
 export interface TemplateField {
   key: string;
   label: string;
 }
 
-export const TEMPLATES: Record<SubmissionType, readonly TemplateField[]> = {
+export const TEMPLATES: Record<SubmissionType, readonly TemplateField[]> = byKind<readonly TemplateField[]>({
   // The PRD (PRIMUS event guide, Round 1). The submission type keeps its code, PITCH.
   PITCH: [
     { key: "problem", label: "Problem and target user" },
@@ -30,7 +30,42 @@ export const TEMPLATES: Record<SubmissionType, readonly TemplateField[]> = {
     { key: "next_steps", label: "Next three steps" },
   ],
   FLASH: [{ key: "answer", label: "Our answer" }],
-};
+  // Round 1 Consultancy: the recommendation memo on the standalone opening crisis (PRIMUS event guide).
+  MEMO: [
+    { key: "diagnosis", label: "Diagnosis" },
+    { key: "options", label: "Options and trade-offs" },
+    { key: "recommendation", label: "Recommendation" },
+    { key: "numbers", label: "The numbers" },
+    { key: "risks", label: "Risks" },
+    { key: "next_steps", label: "Next steps" },
+  ],
+  // PRIMUS Round 2: the Product team's response to its sub-round crisis.
+  CRISIS: [
+    { key: "impact", label: "The crisis and what it does to us" },
+    { key: "response", label: "Our response" },
+    { key: "money", label: "The money" },
+    { key: "advice_used", label: "What we take from our consultant" },
+    { key: "time_to_recovery", label: "Time to recovery" },
+    { key: "risks", label: "New risks" },
+    { key: "next_steps", label: "Next steps" },
+  ],
+  // PRIMUS Round 3: the Product team's answer to its problem statement, written with its hired firm.
+  SOLUTION: [
+    { key: "solution", label: "Our solution" },
+    { key: "fit", label: "Why it fits the statement" },
+    { key: "differentiation", label: "How we stand apart" },
+    { key: "plan", label: "How we will build it" },
+    { key: "impact", label: "Business impact" },
+    { key: "risks", label: "Risks" },
+  ],
+  // PRIMUS Rounds 2 and 3: the hired firm's memo to its client.
+  ADVICE: [
+    { key: "diagnosis", label: "Diagnosis" },
+    { key: "advice", label: "What to do" },
+    { key: "evidence", label: "Evidence and numbers" },
+    { key: "fit", label: "Why it fits your company" },
+  ],
+});
 
 /** 3–4 capital letters (the brief says 4; its acceptance tests use AQS — see PLAN.md Q2). */
 export const TICKER_RE = /^[A-Z]{3,4}$/;

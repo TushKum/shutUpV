@@ -28,7 +28,7 @@ export const CALL_WINDOWS: readonly CallWindowSpec[] = [
 export interface CallsInput extends PauseState {
   nowMs: number;
   drawn: boolean;
-  released: Record<SubmissionType, boolean>;
+  released: Partial<Record<SubmissionType, boolean>>;
   marketClosed: boolean;
   deadlines: Deadlines;
 }

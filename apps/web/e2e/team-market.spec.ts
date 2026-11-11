@@ -144,7 +144,7 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
 
   await listRow(page, 0).getByRole("link", { name: ticker(0) }).click();
   await expect(page).toHaveURL(new RegExp(`/team/market/${ticker(0)}$`));
-  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch66\/100\+5% on the IPO price/);
+  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^PRD66\/100\+5% on the IPO price/);
   // Why: the published judge run's points per rubric line and its rationale.
   await page.getByTestId("verdict-PITCH").getByText("Why this score").click();
   await expect(page.getByTestId("verdict-PITCH")).toContainText("Problem and target user20/20");
@@ -163,7 +163,7 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
     "Net +3,000 (buy 3,500 · sell 500 · short 0 · cover 0)",
   ]);
   await page.goto(`/team/market/${ticker(2)}`);
-  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch45\/100−5% on the IPO price/);
+  await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^PRD45\/100−5% on the IPO price/);
 });
 
 test("the crisis: −15% on every price, each company's crisis card, and the crisis cards book", async ({ page }) => {

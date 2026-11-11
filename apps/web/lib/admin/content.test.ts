@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { MAX_CSV_BYTES, checkHeader, contentLocks, minProblemCards, parseCrisisDeck, parseFlashBulletin, parseProblemDeck, readCsvUpload } from "./content";
+import { MAX_CSV_BYTES, checkHeader, contentLocks, minProblemCards, parseCrisisDeck, parseFlashBulletin, parseProblemDeck, parseStatements, readCsvUpload } from "./content";
 
 const csv = (lines: string[]) => `${lines.join("\r\n")}\r\n`;
 
@@ -124,5 +124,22 @@ describe("locks", () => {
 
   test("the deck needs two more cards than there are squads", () => {
     expect(minProblemCards(50)).toBe(52);
+  });
+});
+
+describe("PRIMUS problem statements", () => {
+  test("rows with an optional cap (5 by default)", () => {
+    expect(parseStatements("number,title,body,cap\n1,Water,Clean water for towns,\n2,Grid,\"Power, cheaply\",3\n")).toEqual({
+      ok: true,
+      value: [
+        { number: 1, title: "Water", body: "Clean water for towns", cap: 5 },
+        { number: 2, title: "Grid", body: "Power, cheaply", cap: 3 },
+      ],
+    });
+  });
+  test("a mistake is named with its row", () => {
+    expect(parseStatements("number,title,body\n1,A,a\n1,B,b\n")).toMatchObject({ ok: false, message: "Row 3: statement 1 appears twice." });
+    expect(parseStatements("number,title,body,cap\n1,A,a,0\n")).toMatchObject({ ok: false, message: expect.stringContaining("cap") });
+    expect(parseStatements("number,title\n1,A\n")).toMatchObject({ ok: false, message: expect.stringContaining("Missing column: body") });
   });
 });
