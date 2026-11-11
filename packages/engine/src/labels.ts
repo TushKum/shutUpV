@@ -27,7 +27,7 @@ export const PHASE_LABELS: Record<PhaseCode, string> = {
 
 export const DEADLINE_LABELS: Record<DeadlineCode, string> = {
   PROBLEM_PICK: "Problem card pick",
-  PITCH: "Pitch",
+  PITCH: "PRD and crisis memo",
   CALL_1: "Consultant call 1",
   IPO_BIDS: "IPO bids",
   FEE: "Advisor fee",

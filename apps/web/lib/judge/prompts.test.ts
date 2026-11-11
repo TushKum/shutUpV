@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, test } from "vitest";
 import { loadCalibrationSamples } from "./calibration";
-import { findPromptsDir, loadPrompt, promptLoader } from "./prompts";
+import { caseParagraphs, findPromptsDir, loadPrompt, memoCase, promptLoader } from "./prompts";
 
 const dirs: string[] = [];
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -81,7 +81,18 @@ describe("the repository's prompts/", () => {
   const dir = path.resolve(__dirname, "../../../../prompts");
   test.skipIf(!existsSync(path.join(dir, "PITCH.md")))("are found from apps/web and load, with the 10 calibration samples", () => {
     expect(findPromptsDir(path.resolve(__dirname, "../.."), {})).toBe(dir);
-    for (const t of ["PITCH", "PLAN", "FLASH"] as const) expect(loadPrompt(t, dir).sha).toMatch(/^[0-9a-f]{64}$/);
+    for (const t of ["PITCH", "PLAN", "FLASH", "MEMO"] as const) expect(loadPrompt(t, dir).sha).toMatch(/^[0-9a-f]{64}$/);
     expect(loadCalibrationSamples(dir).map((s) => s.sample_no)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+});
+
+describe("the crisis case", () => {
+  test("the paragraphs under ## The case in MEMO.md, joined into lines; nothing when there is no case or no file", () => {
+    expect(caseParagraphs("# T\n\n## The case\n\nOne\nline.\n\nTwo.\n\n## Next\nx")).toEqual(["One line.", "Two."]);
+    expect(caseParagraphs("# T\n\n## Other\n\nx\n")).toEqual([]);
+    const paragraphs = memoCase();
+    expect(paragraphs.length).toBeGreaterThan(0);
+    expect(paragraphs[0]).toMatch(/^Kaveri Fresh/);
+    expect(memoCase(() => { throw new Error("missing"); })).toEqual([]);
   });
 });

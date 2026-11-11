@@ -8,13 +8,13 @@ import { phaseIndex, phaseReached, submissionWords, type DeadlineCode, type Phas
 import type { Tone } from "@/components/ui/ui";
 import { clock } from "@/lib/format";
 
-export const SUBMISSION_LABELS: Record<SubmissionType, string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer" };
+export const SUBMISSION_LABELS: Record<SubmissionType, string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer", MEMO: "Crisis memo" };
 
 /** The deadline that closes each submission. */
-export const SUBMISSION_DEADLINE: Record<SubmissionType, DeadlineCode> = { PITCH: "PITCH", PLAN: "PLAN", FLASH: "FLASH" };
+export const SUBMISSION_DEADLINE: Record<SubmissionType, DeadlineCode> = { PITCH: "PITCH", PLAN: "PLAN", FLASH: "FLASH", MEMO: "PITCH" };
 
 /** Where each submission is edited. */
-export const SUBMISSION_PATHS: Record<SubmissionType, string> = { PITCH: "/team/squad/pitch", PLAN: "/team/squad/plan", FLASH: "/team/squad/flash" };
+export const SUBMISSION_PATHS: Record<SubmissionType, string> = { PITCH: "/team/squad/pitch", PLAN: "/team/squad/plan", FLASH: "/team/squad/flash", MEMO: "/team/squad/memo" };
 
 export interface PauseState {
   paused: boolean;
@@ -69,7 +69,9 @@ export function otherSaver(s: SquadTeams, me: string, teamId: string | null | un
 
 /** The pitch is the Product team's; the plan and the flash answer are written by Product and Consulting together. */
 export function mayWrite(type: SubmissionType, track: Track): boolean {
-  return type === "PITCH" ? track === "PRODUCT" : track === "PRODUCT" || track === "CONSULTING";
+  if (type === "PITCH") return track === "PRODUCT";
+  if (type === "MEMO") return track === "CONSULTING";
+  return track === "PRODUCT" || track === "CONSULTING";
 }
 
 export type Stage = "BEFORE" | "OPEN" | "CLOSED";
@@ -104,6 +106,7 @@ function stageOf(type: SubmissionType, w: WindowInput): Stage {
   const passed = deadlinePassed(w.deadlines[SUBMISSION_DEADLINE[type]], w.nowMs, w);
   switch (type) {
     case "PITCH":
+    case "MEMO":
       if (!w.drawn || !phaseReached(w.phase, "SQUAD_DRAW")) return "BEFORE";
       return passed || !between(w.phase, "SQUAD_DRAW", "BUILD") ? "CLOSED" : "OPEN";
     case "PLAN":
@@ -127,14 +130,15 @@ export function submissionWindow(type: SubmissionType, track: Track, w: WindowIn
     const bulletin = w.deadlines.FLASH_BULLETIN;
     note = {
       PITCH: "The PRD opens at the squad draw.",
+      MEMO: "The crisis memo opens at the squad draw.",
       PLAN: "The rescue plan opens when the crisis is published.",
       FLASH: `The flash answer opens when the flash bulletin is published${bulletin ? ` (planned for ${clock(bulletin)})` : ""}.`,
     }[type];
   } else if (stage === "CLOSED") {
     const at = deadline ? ` at ${clock(deadline)}` : "";
-    note = { PITCH: `The PRD closed${at}.`, PLAN: `The rescue plan closed${at}.`, FLASH: `The flash answer closed${at}.` }[type];
+    note = { PITCH: `The PRD closed${at}.`, PLAN: `The rescue plan closed${at}.`, FLASH: `The flash answer closed${at}.`, MEMO: `The crisis memo closed${at}.` }[type];
   } else if (!may) {
-    note = "The Product team writes the PRD; you can read it here.";
+    note = type === "MEMO" ? "The Consulting team writes the crisis memo; you can read it here." : "The Product team writes the PRD; you can read it here.";
   }
   return { type, stage, mayWrite: may, editable, deadline, note };
 }

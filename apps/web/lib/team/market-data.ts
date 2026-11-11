@@ -26,7 +26,7 @@ const COMPANY_COLUMNS = "id, name, ticker, ipo_price, market_price, ai_price, po
 /** Which score types are released (any company's released score means the type's release has happened). */
 export async function loadReleased(sb: SupabaseClient, eventId: string): Promise<Released> {
   const rows = must(await sb.from("scores").select("type").eq("event_id", eventId), "the scores") as { type: SubmissionType }[];
-  const out: Released = { PITCH: false, PLAN: false, FLASH: false };
+  const out: Released = { PITCH: false, PLAN: false, FLASH: false, MEMO: false };
   for (const r of rows) out[r.type] = true;
   return out;
 }

@@ -269,6 +269,32 @@ test("Consulting reads the pitch as it is written; a ticker another company clai
   expect((await ev.n.one("select ticker from companies where id = $1", [y!.company_id])).ticker).toBe("BLU");
 });
 
+test("Consulting writes the crisis memo beside the case; Product reads it; the home page lists it", async ({ page, browser }) => {
+  const [x] = s;
+  const consulting = await screen(browser, x!.c_code, 390);
+  await consulting.goto("/team");
+  await expect(consulting.getByText("Write and submit your crisis memo")).toBeVisible();
+  await consulting.goto("/team/squad/memo");
+  await expect(consulting.getByTestId("memo-case")).toContainText("Kaveri Fresh");
+  const memo = consulting.getByRole("form", { name: "Crisis memo editor" });
+  await memo.getByLabel("Diagnosis").fill("One cold-storage partner held 60% of the stock and it burned down.");
+  await memo.getByLabel("Recommendation").fill("Rent cold space now and build later.");
+  await expect(memo.getByTestId("word-total")).toHaveText("19 / 500 words");
+  await memo.getByRole("button", { name: "Save and submit" }).click();
+  await memo.getByRole("button", { name: "Click again to save and submit 19 words" }).click();
+  await expect(memo.getByText(/^Submitted at \d\d:\d\d:\d\d \(19 words\)/)).toBeVisible();
+  await noSideScroll(consulting);
+  await consulting.context().close();
+
+  await loginAsTeam(page, ev, x!.p_code);
+  await page.goto("/team/squad/memo");
+  const read = page.getByRole("form", { name: "Crisis memo editor" });
+  await expect(read.getByTestId("draft-closed")).toHaveText("The Consulting team writes the crisis memo; you can read it here.");
+  await expect(read.getByLabel("Diagnosis")).toHaveAttribute("readonly", "");
+  await page.goto("/team/squad");
+  await expect(page.getByTestId("submitted-MEMO")).toContainText("by Consulting · 19 words");
+});
+
 test("the pitch hard-closes at its deadline on an open page: read-only, unsaved text kept apart, and the server refuses", async ({ page }) => {
   const z = s[2]!;
   await loginAsTeam(page, ev, z.p_code);

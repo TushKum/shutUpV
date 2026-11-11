@@ -26,7 +26,7 @@ const DEADLINES: Record<DeadlineCode, string> = {
 
 const progress = (p: Partial<HomeProgress> = {}): HomeProgress => ({
   problemPicked: false,
-  submitted: { PITCH: false, PLAN: false, FLASH: false },
+  submitted: { PITCH: false, PLAN: false, FLASH: false, MEMO: false },
   fee: null,
   deal: null,
   calls: { 1: { made: 0, total: 2 }, 2: { made: 0, total: 2 }, 3: { made: 0, total: 2 } },
@@ -47,7 +47,7 @@ function facts(track: Track, phase: PhaseCode, now: string, extra: Partial<HomeF
     ipoAllocated: false,
     marketClosed: false,
     flashBulletinPublished: false,
-    released: { PITCH: false, PLAN: false, FLASH: false },
+    released: { PITCH: false, PLAN: false, FLASH: false, MEMO: false },
     deadlines: Object.entries(DEADLINES).map(([code, t]) => ({ code: code as DeadlineCode, at: at(t) })),
     phaseStarts: { SQUAD_DRAW: at("21:00"), READING: at("22:30"), CLOSE: at("05:00"), AWARDS: at("05:40") },
     openRound: null,
@@ -103,12 +103,15 @@ describe("what to do now, per track and phase", () => {
   test("Consulting sees the pitch as its partner's, and call 1 is open from the draw until 23:15 or the pitch release", () => {
     const f = facts("CONSULTING", "BUILD", "21:30");
     const plan = homePlan(f);
-    expect(plan.now.map((t) => t.key)).toEqual(["PITCH", "CALL_1"]);
-    expect(plan.now[0]).toMatchObject({ title: "Help with the PRD", state: "info" });
-    expect(plan.now[1]).toMatchObject({ href: "/team/calls", state: "todo" });
+    expect(plan.now.map((t) => t.key)).toEqual(["MEMO", "PITCH", "CALL_1"]);
+    expect(plan.now[0]).toMatchObject({ title: "Write and submit your crisis memo", href: "/team/squad/memo", due: at("22:30"), state: "todo" });
+    expect(plan.now[1]).toMatchObject({ title: "Help with the PRD", state: "info" });
+    expect(plan.now[2]).toMatchObject({ href: "/team/calls", state: "todo" });
+    const done = homePlan(facts("CONSULTING", "BUILD", "21:30", { progress: progress({ submitted: { PITCH: false, PLAN: false, FLASH: false, MEMO: true } }) }));
+    expect(done.now[0]).toMatchObject({ key: "MEMO", state: "done" });
     expect(keys(facts("CONSULTING", "READING", "23:00", { progress: progress({ calls: { 1: { made: 2, total: 2 }, 2: { made: 0, total: 2 }, 3: { made: 0, total: 2 } } }) }))).toEqual(["CALL_1"]);
     expect(homePlan(facts("CONSULTING", "READING", "23:00", { progress: progress({ calls: { 1: { made: 2, total: 2 }, 2: { made: 0, total: 2 }, 3: { made: 0, total: 2 } } }) })).now[0]!.state).toBe("done");
-    expect(keys(facts("CONSULTING", "READING", "23:10", { released: { PITCH: true, PLAN: false, FLASH: false } }))).toEqual([]);
+    expect(keys(facts("CONSULTING", "READING", "23:10", { released: { PITCH: true, PLAN: false, FLASH: false, MEMO: false } }))).toEqual([]);
   });
 
   test("Finance during the IPO: place IPO bids (Trade) until 23:30; not while paused or once allocated", () => {
@@ -163,10 +166,10 @@ describe("what to do now, per track and phase", () => {
   });
 
   test("the flash answer opens with the bulletin and closes at 04:15 or the flash release", () => {
-    const f = facts("CONSULTING", "ROUNDS_13_21", "04:05", { released: { PITCH: true, PLAN: true, FLASH: false }, flashBulletinPublished: true });
+    const f = facts("CONSULTING", "ROUNDS_13_21", "04:05", { released: { PITCH: true, PLAN: true, FLASH: false, MEMO: false }, flashBulletinPublished: true });
     expect(keys(f)).toEqual(["FLASH"]); // call 2 closed at 03:40
     expect(keys({ ...f, nowMs: new Date(at("03:35")).getTime() })).toEqual(["CALL_2", "FLASH"]);
-    expect(keys({ ...f, released: { PITCH: true, PLAN: true, FLASH: true } })).toEqual(["CALL_3"]);
+    expect(keys({ ...f, released: { PITCH: true, PLAN: true, FLASH: true, MEMO: false } })).toEqual(["CALL_3"]);
   });
 
   test("Product answers questions from Reading until the close, with the number waiting", () => {
@@ -177,7 +180,7 @@ describe("what to do now, per track and phase", () => {
   });
 
   test("upcoming: only this track's deadlines, not passed, not open now, not closed early; soonest first", () => {
-    const plan = homePlan(facts("CONSULTING", "READING", "22:40", { released: { PITCH: false, PLAN: false, FLASH: false } }));
+    const plan = homePlan(facts("CONSULTING", "READING", "22:40", { released: { PITCH: false, PLAN: false, FLASH: false, MEMO: false } }));
     expect(plan.now.map((t) => t.key)).toEqual(["CALL_1"]);
     expect(plan.next.map((n) => n.key)).toEqual(["FEE", "DEAL_BONUS", "DEAL", "PLAN", "CALL_2"]);
     expect(plan.next[0]).toMatchObject({ href: "/team/rescue", at: at("01:05") });

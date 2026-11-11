@@ -57,13 +57,13 @@ describe("focus mode", () => {
   });
 
   test("the squad tabs follow the round", () => {
-    expect(squadTabsFor("BUILD")).toEqual(["/team/squad", "/team/squad/problem", "/team/squad/pitch"]);
+    expect(squadTabsFor("BUILD")).toEqual(["/team/squad", "/team/squad/problem", "/team/squad/pitch", "/team/squad/memo"]);
     expect(squadTabsFor("RESCUE_2")).toEqual(["/team/squad", "/team/squad/problem", "/team/squad/plan"]);
     expect(squadTabsFor("ROUNDS_13_21")).toContain("/team/squad/flash");
-    expect(squadTabsFor("AWARDS")).toHaveLength(5);
-    expect(submissionsFor("BUILD")).toEqual(["PITCH"]);
+    expect(squadTabsFor("AWARDS")).toHaveLength(6);
+    expect(submissionsFor("BUILD")).toEqual(["PITCH", "MEMO"]);
     expect(submissionsFor("RESCUE_1")).toEqual(["PLAN"]);
     expect(submissionsFor("ROUNDS_13_21")).toEqual(["PLAN", "FLASH"]);
-    expect(submissionsFor("SETUP")).toEqual(["PITCH", "PLAN", "FLASH"]);
+    expect(submissionsFor("SETUP")).toEqual(["PITCH", "MEMO", "PLAN", "FLASH"]);
   });
 });

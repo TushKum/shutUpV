@@ -25,6 +25,7 @@ const MOVES: Record<SubmissionType, string> = {
   PITCH: "Its score sets the IPO price.",
   PLAN: "Its score moves the market price and the AI price.",
   FLASH: "Its score moves the market price and the AI price.",
+  MEMO: "It moves no price: its score sets the Consulting firm's reputation bonus, $500 × (score − 50), paid at settlement.",
 };
 
 export interface PublishedPrompt {
@@ -84,7 +85,7 @@ export interface TierRow {
   min: number;
   max: number;
   /** Price change per type, in basis points (+2000 = +20%), from the engine's tier rule. */
-  bp: Record<SubmissionType, number>;
+  bp: Record<Exclude<SubmissionType, "MEMO">, number>;
   /** Integer cents: the IPO price a pitch score in this band gives ($10.00 × (1 + pitch tier)). */
   ipoPrice: number;
 }

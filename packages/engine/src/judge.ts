@@ -33,6 +33,14 @@ export const RUBRICS: Record<SubmissionType, readonly RubricLine[]> = {
     { key: "realistic", label: "Realistic", max: 30 },
     { key: "clear", label: "Clear", max: 20 },
   ],
+  MEMO: [
+    { key: "diagnosis", label: "Diagnosis", max: 25 },
+    { key: "options", label: "Options and trade-offs", max: 20 },
+    { key: "recommendation", label: "Recommendation", max: 20 },
+    { key: "numbers", label: "Numbers", max: 15 },
+    { key: "risks", label: "Risks", max: 10 },
+    { key: "next_steps", label: "Next steps", max: 10 },
+  ],
 };
 
 for (const t of SUBMISSION_TYPES) {
@@ -150,15 +158,16 @@ export function stripInjections(text: string): { clean: string; hits: InjectionH
   return { clean: kept.join("\n"), hits };
 }
 
-const ORDER: Record<SubmissionType, number> = { PITCH: 0, PLAN: 1, FLASH: 2 };
+const ORDER: Record<SubmissionType, number> = { PITCH: 0, PLAN: 1, FLASH: 2, MEMO: 3 };
 
 /**
  * A squad's second (and any later) offence costs that submission 10 points. An offence is a judged
  * submission that had at least one line stripped; submissions count in the order PITCH → PLAN → FLASH.
+ * The Consulting team's memo is its only submission of its own, so it never counts as a second offence.
  */
 export function injectionPenalty(type: SubmissionType, offended: Partial<Record<SubmissionType, boolean>>): number {
-  if (!offended[type]) return 0;
-  const count = SUBMISSION_TYPES.filter((t) => ORDER[t] <= ORDER[type] && offended[t]).length;
+  if (!offended[type] || type === "MEMO") return 0;
+  const count = SUBMISSION_TYPES.filter((t) => t !== "MEMO" && ORDER[t] <= ORDER[type] && offended[t]).length;
   return count >= 2 ? RULES.INJECTION_PENALTY : 0;
 }
 

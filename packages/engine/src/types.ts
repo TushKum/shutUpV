@@ -65,5 +65,5 @@ export type OrderType = (typeof ORDER_TYPES)[number];
 export const LOT_TYPES = ["RETAINED", "SQUAD", "EXCHANGE", "SHORT", "FEE"] as const;
 export type LotType = (typeof LOT_TYPES)[number];
 
-export const SUBMISSION_TYPES = ["PITCH", "PLAN", "FLASH"] as const;
+export const SUBMISSION_TYPES = ["PITCH", "PLAN", "FLASH", "MEMO"] as const;
 export type SubmissionType = (typeof SUBMISSION_TYPES)[number];
