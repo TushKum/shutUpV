@@ -21,21 +21,21 @@ export default async function AdminHome() {
         <h1 className="text-2xl font-bold">Control panel</h1>
         <SignOutButton />
       </div>
-      <p className="mt-1 text-slate-600">
+      <p className="mt-1 text-paper">
         {viewer.displayName} · {viewer.role === "FAIRNESS" ? "Fairness officer" : "Organiser"}
       </p>
       <Panel title="Events" className="mt-6">
         {!events?.length ? (
-          <p className="text-sm text-slate-600">No event has been seeded yet (see the README, “Seed an event”).</p>
+          <p className="text-sm text-paper">No event has been seeded yet (see the README, “Seed an event”).</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-line">
             {events.map((e) => (
               <li key={e.slug}>
-                <Link href={`/admin/${e.slug}`} className="flex items-center justify-between gap-3 py-3 hover:bg-slate-50">
+                <Link href={`/admin/${e.slug}`} className="flex items-center justify-between gap-3 py-3 hover:bg-raised">
                   <span>
                     <span className="font-semibold">{e.name}</span>{" "}
                     {e.is_rehearsal ? <Badge tone="violet">Rehearsal ×{e.clock_speed}</Badge> : <Badge tone="blue">Live</Badge>}
-                    <span className="block text-sm text-slate-500">Starts {dateTime(e.starts_at)} IST</span>
+                    <span className="block text-sm text-muted">Starts {dateTime(e.starts_at)} IST</span>
                   </span>
                   <span className="text-right text-sm">
                     {PHASE_LABELS[e.current_phase as PhaseCode]}

@@ -28,14 +28,14 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
       <EventChannel eventId={event.id} staff>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="admin" tick={organiser} />
-        <div className="min-h-screen bg-slate-50">
-          <header className="border-b border-slate-200 bg-white">
+        <div className="min-h-screen bg-raised">
+          <header className="border-b border-line bg-panel">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-900">
+                <Link href="/admin" className="text-sm text-muted hover:text-phosphor">
                   Events
                 </Link>
-                <span className="text-slate-300">/</span>
+                <span className="text-muted">/</span>
                 <h1 className="text-base font-semibold">{event.name}</h1>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : <Badge tone="blue">Live</Badge>}
                 <Badge tone="slate">{PHASE_LABELS[status.phase]}</Badge>
@@ -44,8 +44,8 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
               <div className="flex items-center gap-3 text-sm">
                 <RealtimeDot />
                 <ServerClock className="text-base font-semibold" />
-                <span className="text-slate-500">IST</span>
-                <span className="hidden text-slate-600 sm:inline">
+                <span className="text-muted">IST</span>
+                <span className="hidden text-paper sm:inline">
                   {viewer!.displayName} · {organiser ? "Organiser" : "Fairness officer"}
                 </span>
                 <SignOutButton />

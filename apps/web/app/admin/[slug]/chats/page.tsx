@@ -95,18 +95,18 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
   const Message = ({ m, showSquad }: { m: MessageRow; showSquad: boolean }) => {
     const t = teamById.get(m.team_id);
     return (
-      <li className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-        <div className="mb-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <li className="rounded-md border border-line bg-panel px-3 py-2 text-sm">
+        <div className="mb-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
           {showSquad ? (
-            <Link href={chatHref(slug, { squad: numberOf.get(m.squad_id) })} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
+            <Link href={chatHref(slug, { squad: numberOf.get(m.squad_id) })} className="font-semibold text-phosphor underline-offset-2 hover:underline">
               Squad {String(numberOf.get(m.squad_id) ?? 0).padStart(2, "0")}
             </Link>
           ) : null}
-          <span className="font-mono font-semibold text-slate-900">{t?.code ?? "?"}</span>
+          <span className="font-mono font-semibold text-phosphor">{t?.code ?? "?"}</span>
           {t ? <Badge tone={TRACK_TONE[t.track]}>{TRACK_LABELS[t.track]}</Badge> : null}
           <time dateTime={m.created_at}>{clock(m.created_at, true)}</time>
         </div>
-        <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-slate-900">{m.body}</p>
+        <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-phosphor">{m.body}</p>
       </li>
     );
   };
@@ -118,7 +118,7 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
       <AutoRefresh everyMs={10_000} />
       <div className="min-w-0 lg:col-span-1">
         <Panel title={`Squads · ${count(total)} messages`}>
-          <ol id="chat-squads" className="max-h-60 divide-y divide-slate-100 overflow-y-auto lg:max-h-[70vh]" aria-label="Squads">
+          <ol id="chat-squads" className="max-h-60 divide-y divide-line overflow-y-auto lg:max-h-[70vh]" aria-label="Squads">
             {list.map((s) => {
               const current = selected?.id === s.id && !q.q;
               return (
@@ -126,13 +126,13 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
                   <Link
                     href={chatHref(slug, { squad: s.number })}
                     aria-current={current ? "page" : undefined}
-                    className={`flex items-center justify-between gap-2 px-2 py-2 text-sm ${current ? "bg-slate-900 text-white" : "hover:bg-slate-50"}`}
+                    className={`flex items-center justify-between gap-2 px-2 py-2 text-sm ${current ? "bg-phosphor-deep text-phosphor" : "hover:bg-raised"}`}
                   >
                     <span className="font-semibold">
                       Squad {String(s.number).padStart(2, "0")}
-                      {s.ticker ? <span className={`ml-2 font-mono text-xs ${current ? "text-slate-300" : "text-slate-500"}`}>{s.ticker}</span> : null}
+                      {s.ticker ? <span className={`ml-2 font-mono text-xs ${current ? "text-muted" : "text-muted"}`}>{s.ticker}</span> : null}
                     </span>
-                    <span className={`text-xs ${current ? "text-slate-300" : "text-slate-500"}`}>
+                    <span className={`text-xs ${current ? "text-muted" : "text-muted"}`}>
                       {s.messages ? `${count(s.messages)} · ${clock(s.lastAt)}` : "quiet"}
                     </span>
                   </Link>
@@ -161,7 +161,7 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
         {q.q ? (
           <Panel title={`Messages containing “${q.q}”`}>
             {messages.length === 0 ? (
-              <p className="text-sm text-slate-500">No message matches.</p>
+              <p className="text-sm text-muted">No message matches.</p>
             ) : (
               <>
                 <ol className="space-y-2" aria-label="Search results">
@@ -169,7 +169,7 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
                     <Message key={m.id} m={m} showSquad />
                   ))}
                 </ol>
-                {more ? <p className="mt-2 text-xs text-slate-500">Only the latest {SEARCH_LIMIT} matches are shown.</p> : null}
+                {more ? <p className="mt-2 text-xs text-muted">Only the latest {SEARCH_LIMIT} matches are shown.</p> : null}
               </>
             )}
           </Panel>
@@ -177,16 +177,16 @@ export default async function ChatsPage({ params, searchParams }: PageProps<"/ad
           <SquadChannel squadId={selected.id}>
             <ChatLive newest={messages.at(-1)?.id ?? null} />
             <Panel title={`Squad ${String(selected.number).padStart(2, "0")}${tickers.get(selected.id) ? ` · ${tickers.get(selected.id)}` : ""}`}>
-              <p className="mb-3 text-xs text-slate-500">
+              <p className="mb-3 text-xs text-muted">
                 {(["PRODUCT", "CONSULTING", "FINANCE"] as const)
                   .map((tr) => teamById.get(selected[`${tr.toLowerCase() as "product" | "consulting" | "finance"}_team_id`])?.code ?? "?")
                   .join(" · ")}{" "}
                 · read-only, live
               </p>
               <div id="chat-log" className="max-h-[60vh] overflow-y-auto" data-testid="staff-chat-log">
-                {more ? <p className="mb-2 text-center text-xs text-slate-500">Older messages are not shown.</p> : null}
+                {more ? <p className="mb-2 text-center text-xs text-muted">Older messages are not shown.</p> : null}
                 {messages.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-slate-500">No messages yet.</p>
+                  <p className="py-6 text-center text-sm text-muted">No messages yet.</p>
                 ) : (
                   <ol className="space-y-2" aria-label="Messages">
                     {messages.map((m) => (

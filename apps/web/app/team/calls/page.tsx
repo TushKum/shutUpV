@@ -68,12 +68,12 @@ export default async function CallsPage() {
           <Stat label="Correct" value={summary.correct} />
           <Stat label="Earned" value={money(summary.earnings)} hint={`${money(RULES.CALL_EARNING)} per correct call`} />
         </div>
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-paper">
           In each window, call BUY or SELL on each covered company. A BUY is correct if the judged price is above the baseline, a SELL if it is below; an
           equal price or a missing call is wrong. You can change a call until it is due. Your calls are private: no other team sees them.
         </p>
         {unnamed ? (
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-paper">
             Your covered companies&apos; names and pitches are public from the Reading phase; until then they are numbered.
           </p>
         ) : null}
@@ -91,23 +91,23 @@ export default async function CallsPage() {
               </span>
             }
             actions={
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-paper">
                 Due <Due at={w.due} pause={pause} testId={`call-${w.no}-due`} passed="closed" closed={judged || w.stage === "CLOSED" ? "closed" : null} />
               </span>
             }
           >
             <section aria-label={`Call ${w.no}`} data-testid={`call-${w.no}`} data-stage={judged ? "JUDGED" : w.stage}>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-paper">
                 Baseline: the {w.baseline}. Judged at the {w.judgedAt}, {w.judged}.
                 {w.stage === "NOT_OPEN" ? ` Opens ${w.opens}.` : ""}
               </p>
-              <ul className="mt-3 divide-y divide-slate-100">
+              <ul className="mt-3 divide-y divide-line">
                 {w.cells.map(({ company, cell }) => (
                   <li key={company.id} className="flex flex-wrap items-start justify-between gap-3 py-3" data-testid={`call-${w.no}-${company.label}`}>
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-phosphor">
                         <span className={company.ticker ? "font-mono" : undefined}>{company.label}</span>
-                        {company.name ? <span className="ml-1 font-normal text-slate-600">{company.name}</span> : null}
+                        {company.name ? <span className="ml-1 font-normal text-paper">{company.name}</span> : null}
                       </p>
                       <CallState cell={cell} />
                     </div>
@@ -134,10 +134,10 @@ function CallState({ cell }: { cell: CallCell }) {
     );
   }
   return (
-    <p className="mt-1 text-sm text-slate-600" data-testid="call-current">
+    <p className="mt-1 text-sm text-paper" data-testid="call-current">
       {cell.direction ? (
         <>
-          Your call: <span className="font-semibold text-slate-900">{cell.direction}</span>
+          Your call: <span className="font-semibold text-phosphor">{cell.direction}</span>
           {cell.madeAt ? ` (made ${clock(cell.madeAt, true)})` : ""}
         </>
       ) : cell.stage === "CLOSED" ? (

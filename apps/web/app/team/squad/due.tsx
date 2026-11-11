@@ -10,18 +10,18 @@ import { Countdown } from "@/components/ui/countdown";
 
 export function Due({ at, paused, pausedAt, testId }: { at: string | null; paused: boolean; pausedAt: string | null; testId?: string }) {
   const now = useServerNow(1000);
-  if (!at) return <span className="text-slate-500">—</span>;
+  if (!at) return <span className="text-muted">—</span>;
   const p = { paused, pausedAt };
   const state = deadlineFrozen(at, p) ? "paused" : deadlinePassed(at, now, p) ? "passed" : "open";
   return (
     <span data-testid={testId} data-state={state} className="whitespace-nowrap">
       <span className="font-mono tabular-nums">{clock(at)}</span>{" "}
       {state === "paused" ? (
-        <span className="text-amber-700">· paused</span>
+        <span className="text-warn">· paused</span>
       ) : state === "passed" ? (
-        <span className="text-slate-500">· closed</span>
+        <span className="text-muted">· closed</span>
       ) : (
-        <span className="text-slate-600">
+        <span className="text-paper">
           · <Countdown to={at} passed="closed" /> left
         </span>
       )}

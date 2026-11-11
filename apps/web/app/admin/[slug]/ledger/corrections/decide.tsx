@@ -49,9 +49,9 @@ export function DecideCorrection({ decide, label }: { decide: (approve: boolean,
   };
 
   return (
-    <div className="mt-3 border-t border-slate-100 pt-3">
+    <div className="mt-3 border-t border-line pt-3">
       <label className="block max-w-xl">
-        <span className="text-xs font-medium text-slate-600">Note (optional)</span>
+        <span className="text-xs font-medium text-paper">Note (optional)</span>
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} aria-label={`Note on ${label}`} className={inputClass} />
       </label>
       <div className="mt-2 flex flex-wrap gap-2">

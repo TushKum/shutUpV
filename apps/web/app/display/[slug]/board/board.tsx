@@ -20,8 +20,8 @@ export async function Board({ event, status, compact = false }: { event: Display
           Companies are listed here from the Reading phase.
         </p>
         {reading ? (
-          <p className="text-[40px] text-slate-300" data-testid="board-reading">
-            Reading is planned to start at <span className="font-mono font-bold text-white tabular-nums">{clock(reading)}</span>
+          <p className="text-[40px] text-muted" data-testid="board-reading">
+            Reading is planned to start at <span className="font-mono font-bold text-phosphor tabular-nums">{clock(reading)}</span>
           </p>
         ) : null}
       </div>
@@ -33,7 +33,7 @@ export async function Board({ event, status, compact = false }: { event: Display
   if (tiles.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center" data-testid="board">
-        <p className="text-[48px] font-bold text-slate-300">No companies are listed.</p>
+        <p className="text-[48px] font-bold text-muted">No companies are listed.</p>
       </div>
     );
   }

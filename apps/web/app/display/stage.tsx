@@ -21,10 +21,10 @@ export function Stage({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("resize", measure);
   }, []);
   return (
-    <div className="fixed inset-0 overflow-hidden bg-black">
+    <div className="fixed inset-0 overflow-hidden bg-ink">
       <div
         data-testid="stage"
-        className="absolute flex flex-col overflow-hidden bg-black text-white antialiased"
+        className="absolute flex flex-col overflow-hidden bg-ink text-phosphor antialiased"
         style={{
           width: STAGE_W,
           height: STAGE_H,

@@ -11,9 +11,9 @@ import { loadAwards } from "./data";
 import { Neutral } from "./parts";
 
 const MEDAL: Record<number, string> = {
-  1: "bg-amber-300 text-black",
-  2: "bg-slate-300 text-black",
-  3: "bg-orange-400 text-black",
+  1: "bg-warn text-ink",
+  2: "bg-phosphor-deep text-ink",
+  3: "bg-warn text-ink",
 };
 
 /** Type sizes by how many teams share a podium (ties): the column always fits its teams. */
@@ -44,7 +44,7 @@ const LONGER_NAME = 60;
 export async function AwardsTakeover({ event, takeover }: TakeoverProps) {
   const awards = await loadAwards(event.id);
   return (
-    <TakeoverFrame title={TAKEOVER_TITLES.AWARDS} at={takeover.at} until={takeover.until} tone="bg-amber-300 text-black">
+    <TakeoverFrame title={TAKEOVER_TITLES.AWARDS} at={takeover.at} until={takeover.until} tone="bg-warn text-ink">
       {!awards || awards.length === 0 ? (
         <Neutral>The awards will appear here.</Neutral>
       ) : (
@@ -59,12 +59,12 @@ export async function AwardsTakeover({ event, takeover }: TakeoverProps) {
               <section
                 key={s.code}
                 aria-label={s.label}
-                className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border-2 border-white/25 bg-white/[0.06] px-6 py-4"
+                className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border-2 border-line bg-phosphor/10 px-6 py-4"
                 data-testid={`awards-${s.code}`}
               >
-                <h2 className="text-[36px] leading-tight font-black text-amber-300">{s.label}</h2>
+                <h2 className="text-[36px] leading-tight font-black text-warn">{s.label}</h2>
                 {s.winners.length === 0 ? (
-                  <p className="mt-2 text-[30px] text-slate-300">Not awarded.</p>
+                  <p className="mt-2 text-[30px] text-muted">Not awarded.</p>
                 ) : s.winners.length === 1 ? (
                   <SpecialWinner award={s.winners[0]!} />
                 ) : (
@@ -72,10 +72,10 @@ export async function AwardsTakeover({ event, takeover }: TakeoverProps) {
                   <>
                     {s.winners.slice(0, 3).map((w, i) => (
                       <p key={i} className="mt-1 truncate text-[30px] leading-tight font-bold">
-                        {w.teams?.name ?? w.companies?.name ?? "—"} <span className="font-mono text-[28px] font-normal text-slate-300">{who(w)}</span>
+                        {w.teams?.name ?? w.companies?.name ?? "—"} <span className="font-mono text-[28px] font-normal text-muted">{who(w)}</span>
                       </p>
                     ))}
-                    <p className="mt-1 line-clamp-2 text-[28px] leading-snug text-white">
+                    <p className="mt-1 line-clamp-2 text-[28px] leading-snug text-phosphor">
                       {s.winners.length > 3 ? `and ${s.winners.length - 3} more tied · ` : "Tied · "}
                       {awardMetric(s.winners[0]!)}
                     </p>
@@ -98,12 +98,12 @@ function TrackPodium({ podium }: { podium: Podium }) {
   return (
     <section
       aria-label={podium.label}
-      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border-2 border-amber-300/40 bg-amber-300/[0.06] px-6 py-5"
+      className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border-2 border-warn/40 bg-warn/[0.06] px-6 py-5"
       data-testid={`awards-${podium.track}`}
     >
-      <h2 className="text-[44px] leading-tight font-black text-amber-300">{podium.label}</h2>
+      <h2 className="text-[44px] leading-tight font-black text-warn">{podium.label}</h2>
       {places.length === 0 ? (
-        <p className="mt-4 text-[30px] text-slate-300">No eligible teams.</p>
+        <p className="mt-4 text-[30px] text-muted">No eligible teams.</p>
       ) : (
         <ol className={`mt-4 flex min-h-0 flex-col ${d.list}`}>
           {places.map((pl) => (
@@ -118,7 +118,7 @@ function TrackPodium({ podium }: { podium: Podium }) {
               </div>
             </li>
           ))}
-          {more > 0 ? <li className="text-[28px] text-slate-300">and {more} more tied</li> : null}
+          {more > 0 ? <li className="text-[28px] text-muted">and {more} more tied</li> : null}
         </ol>
       )}
     </section>
@@ -127,16 +127,16 @@ function TrackPodium({ podium }: { podium: Podium }) {
 
 function PodiumTeam({ award, density }: { award: AwardRow; density: Density }) {
   const n = podiumNumbers(award);
-  const tone = n.changeBp === null ? "text-slate-300" : n.changeBp >= 0 ? "text-emerald-400" : "text-red-400";
+  const tone = n.changeBp === null ? "text-muted" : n.changeBp >= 0 ? "text-phosphor" : "text-danger";
   const name = award.teams?.name ?? "—";
   return (
     <div className="min-w-0">
       <p className={`font-bold break-words ${name.length > LONGER_NAME ? density.longerName : name.length > LONG_NAME ? density.longName : density.name}`}>{name}</p>
       {/* Code, final value and return each stay whole; a long line wraps the return onto its own line. Consulting
           teams are ranked by final value only (settlement records no return for them), so no return is shown. */}
-      <p className="flex flex-wrap gap-x-2.5 text-[26px] leading-tight text-slate-300 tabular-nums" data-testid="award-numbers">
+      <p className="flex flex-wrap gap-x-2.5 text-[26px] leading-tight text-muted tabular-nums" data-testid="award-numbers">
         <span className="whitespace-nowrap">
-          <span className="font-mono text-white">{award.teams?.code ?? "—"}</span> ·{" "}
+          <span className="font-mono text-phosphor">{award.teams?.code ?? "—"}</span> ·{" "}
         </span>
         <span className="whitespace-nowrap">
           {n.value}
@@ -165,8 +165,8 @@ function SpecialWinner({ award }: { award: AwardRow }) {
       >
         {winner}
       </p>
-      <p className="truncate text-[28px] leading-snug text-slate-300">{who(award)}</p>
-      <p className="line-clamp-2 text-[28px] leading-snug text-white">{awardMetric(award)}</p>
+      <p className="truncate text-[28px] leading-snug text-muted">{who(award)}</p>
+      <p className="line-clamp-2 text-[28px] leading-snug text-phosphor">{awardMetric(award)}</p>
     </div>
   );
 }

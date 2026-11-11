@@ -135,14 +135,10 @@
   pre {
     color: var(--mx-green);
   }
-}
-
-/* Phones: fields and keys are 16 px too (this also stops iOS zooming into a focused field). */
-@media (max-width: 639px) {
-  input,
-  select,
-  textarea {
-    font-size: 1rem !important;
+  /* The projector is laid out to the pixel for the sans face: its headings keep it. */
+  .mx-stage :is(h1, h2, h3) {
+    font-family: inherit;
+    color: inherit;
   }
 }
 

@@ -28,14 +28,14 @@ export function OpenOrders({ ctx, items, closesAt, accepting }: { ctx: OrderCont
   const now = useServerNow(1000);
   const open = accepting && now < new Date(closesAt).getTime();
   return (
-    <ul className="divide-y divide-slate-100" aria-label="Open orders">
+    <ul className="divide-y divide-line" aria-label="Open orders">
       {items.map(({ line, edit, cancel }) => {
         const label = orderLabel(line.type, line.qty, line.ticker);
         return (
           <li key={line.id} className="py-3" data-testid="open-order">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <span className="font-mono font-semibold">{label}</span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted">
                 placed {clock(line.createdAt, true)} at {money(line.entryPrice)}
                 {line.reserve > 0 ? ` · ${line.type === "SHORT" ? "collateral" : "cash"} reserved ${money(line.reserve)}` : ""}
               </span>
@@ -115,15 +115,15 @@ function EditOrder({ ctx, line, label, action }: { ctx: OrderContext; line: Orde
         </button>
       </div>
       {maxNote ? (
-        <p className="mt-1 text-sm text-red-700" role="alert">
+        <p className="mt-1 text-sm text-danger-soft" role="alert">
           {maxNote}
         </p>
       ) : preview.state === "REFUSED" ? (
-        <p className="mt-1 text-sm text-red-700">The exchange would refuse this change: {preview.message}</p>
+        <p className="mt-1 text-sm text-danger-soft">The exchange would refuse this change: {preview.message}</p>
       ) : preview.state === "UNKNOWN" ? (
-        <p className="mt-1 text-sm text-amber-800">{preview.message}</p>
+        <p className="mt-1 text-sm text-warn">{preview.message}</p>
       ) : preview.state === "OK" && !unchanged && preview.reserve > 0 ? (
-        <p className="mt-1 text-xs text-slate-600">
+        <p className="mt-1 text-xs text-paper">
           {count(preview.qty)} shares reserve {money(preview.reserve)}; available cash after the change {money(preview.availableAfter)}.
         </p>
       ) : null}

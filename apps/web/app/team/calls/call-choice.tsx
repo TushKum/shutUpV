@@ -59,9 +59,9 @@ export function CallChoice({
               className={`min-w-20 rounded-md px-3 py-2 text-sm font-semibold ring-1 ring-inset disabled:cursor-not-allowed disabled:opacity-50 ${
                 chosen
                   ? d === "BUY"
-                    ? "bg-emerald-700 text-white ring-emerald-700"
-                    : "bg-red-700 text-white ring-red-700"
-                  : "bg-white text-slate-900 ring-slate-300 hover:bg-slate-50"
+                    ? "bg-phosphor text-phosphor ring-phosphor"
+                    : "bg-danger text-phosphor ring-danger/70"
+                  : "bg-panel text-phosphor ring-line hover:bg-raised"
               }`}
             >
               {d}
@@ -69,7 +69,7 @@ export function CallChoice({
           );
         })}
       </div>
-      {!open ? <p className="mt-1 text-xs text-slate-500">The due time has passed.</p> : null}
+      {!open ? <p className="mt-1 text-xs text-muted">The due time has passed.</p> : null}
       <ResultMessage result={result} />
     </div>
   );

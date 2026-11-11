@@ -13,7 +13,7 @@ export function TakeoverFrame({
   title,
   at,
   until,
-  tone = "bg-white text-black",
+  tone = "bg-panel text-ink",
   children,
 }: {
   title: string;
@@ -34,12 +34,12 @@ export function TakeoverFrame({
         <div className="shrink-0 text-right">
           <ServerClock className="text-[52px] leading-none font-bold" />
           {/* The realtime status, as in the header, so the operator can see the projector is live during a takeover. */}
-          <div className="mt-1 flex justify-end [&_span]:text-[18px] [&>span]:text-black/70">
+          <div className="mt-1 flex justify-end [&_span]:text-[18px] [&>span]:text-ink/70">
             <RealtimeDot />
           </div>
         </div>
         {left !== null ? (
-          <div className="absolute bottom-0 left-0 h-2 bg-black/40" style={{ width: `${left * 100}%` }} suppressHydrationWarning />
+          <div className="absolute bottom-0 left-0 h-2 bg-ink/40" style={{ width: `${left * 100}%` }} suppressHydrationWarning />
         ) : null}
       </div>
       <div className="min-h-0 flex-1 px-12 py-10">{children}</div>

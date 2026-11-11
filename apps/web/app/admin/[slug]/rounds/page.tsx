@@ -15,7 +15,7 @@ import { RefreshAt } from "@/lib/live/refresh-at";
 
 export const metadata: Metadata = { title: "Rounds" };
 
-const changeTone = (n: number) => (n > 0 ? "text-emerald-700" : n < 0 ? "text-red-700" : "text-slate-500");
+const changeTone = (n: number) => (n > 0 ? "text-phosphor" : n < 0 ? "text-danger-soft" : "text-muted");
 
 // Rounds: the open (or next) round, its pending orders, what clearing it now would do, "close now", the IPO book
 // during the IPO, and every cleared round's prices.
@@ -97,14 +97,14 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
             />
           </div>
         ) : (
-          <p className="text-sm text-slate-600">Every round has cleared.</p>
+          <p className="text-sm text-paper">Every round has cleared.</p>
         )}
         {wait ? (
           <div className="mt-3">
             <Notice tone={wait.tone}>{wait.text}</Notice>
           </div>
         ) : null}
-        {!organiser ? <p className="mt-3 text-sm text-slate-600">Only organisers close a round early.</p> : null}
+        {!organiser ? <p className="mt-3 text-sm text-paper">Only organisers close a round early.</p> : null}
       </Panel>
 
       {ipo ? <IpoBookPanel ipo={ipo} /> : null}
@@ -112,7 +112,7 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
       {open ? (
         <>
           <Panel title={`Pending orders · round ${open.number}`}>
-            <h3 className="text-sm font-semibold text-slate-900">Per company</h3>
+            <h3 className="text-sm font-semibold text-phosphor">Per company</h3>
             <Table head={["Ticker", "Buy", "Sell", "Short", "Cover", "Net", "Capped net", "Price"]} empty="No pending orders.">
               {book.map((b) => (
                 <tr key={b.companyId}>
@@ -127,7 +127,7 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
                 </tr>
               ))}
             </Table>
-            <h3 className="mt-5 text-sm font-semibold text-slate-900">Orders</h3>
+            <h3 className="mt-5 text-sm font-semibold text-phosphor">Orders</h3>
             <div className="max-h-[28rem] overflow-y-auto">
               <Table head={["Team", "Ticker", "Type", "Quantity", "Reserve", "Time"]} empty="No pending orders.">
                 {lines.map((o) => (
@@ -145,7 +145,7 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
           </Panel>
 
           <Panel title={`Clearing preview · round ${open.number}`}>
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-paper">
               What clearing round {open.number} now would do: the engine&apos;s clearing rule on the current prices, the pending orders and the
               funds&apos; books. New price = price × (100,000 + capped net) ÷ 100,000; every order fills at its company&apos;s new price.
             </p>
@@ -155,7 +155,7 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
               </div>
             ) : preview ? (
               <>
-                <h3 className="mt-4 text-sm font-semibold text-slate-900">Prices</h3>
+                <h3 className="mt-4 text-sm font-semibold text-phosphor">Prices</h3>
                 <Table head={["Ticker", "Price", "New price", "Change", "Net", "Capped net"]} empty="No price moves.">
                   {preview.companies.map((c) => (
                     <tr key={c.companyId}>
@@ -169,13 +169,13 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
                   ))}
                 </Table>
                 {preview.unchanged > 0 ? (
-                  <p className="mt-1 px-2 text-xs text-slate-500">
+                  <p className="mt-1 px-2 text-xs text-muted">
                     {preview.unchanged === 1
                       ? "1 other company has no orders and keeps its price."
                       : `${preview.unchanged} other companies have no orders and keep their prices.`}
                   </p>
                 ) : null}
-                <h3 className="mt-5 text-sm font-semibold text-slate-900">Funds</h3>
+                <h3 className="mt-5 text-sm font-semibold text-phosphor">Funds</h3>
                 <Table head={["Fund", "Orders", "Cash", "Cash after", "Change", "Collateral", "Collateral after"]} empty="No fund's cash or collateral changes.">
                   {preview.funds.map((f) => (
                     <tr key={f.teamId}>
@@ -189,7 +189,7 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
                     </tr>
                   ))}
                 </Table>
-                <p className="mt-2 px-2 text-xs text-slate-500">Exchange cash change: {signedMoney(preview.exchangeCashDelta)}</p>
+                <p className="mt-2 px-2 text-xs text-muted">Exchange cash change: {signedMoney(preview.exchangeCashDelta)}</p>
               </>
             ) : null}
           </Panel>
@@ -198,12 +198,12 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
 
       <Panel title="Cleared rounds">
         {history.length === 0 ? (
-          <p className="text-sm text-slate-500">No round has cleared yet.</p>
+          <p className="text-sm text-muted">No round has cleared yet.</p>
         ) : (
           <div className="space-y-2">
             {history.map((r, i) => (
-              <details key={r.number} open={i === 0} className="rounded-md border border-slate-200">
-                <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-900">
+              <details key={r.number} open={i === 0} className="rounded-md border border-line">
+                <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-phosphor">
                   Round {r.number} · cleared {clock(r.clearedAt, true)} · {r.traded} compan{r.traded === 1 ? "y" : "ies"} traded
                 </summary>
                 <div className="px-2 pb-2">
@@ -236,7 +236,7 @@ function IpoBookPanel({ ipo }: { ipo: ReturnType<typeof ipoBook> }) {
   const withBids = ipo.filter((c) => c.bidders > 0);
   return (
     <Panel title="IPO book">
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-paper">
         Bids per company against the {count(RULES.IPO_SHARES)} shares on offer. The allocation preview is what each bid would receive if the IPO
         were allocated now: everything requested when the book fits, otherwise pro rata, rounded down to 10 shares. The IPO is allocated when
         the phase advances to {PHASE_LABELS.ROUNDS_1_4}.
@@ -244,7 +244,7 @@ function IpoBookPanel({ ipo }: { ipo: ReturnType<typeof ipoBook> }) {
       <div className="mt-3">
         <Table head={["Ticker", "IPO price", "Bidders", "Requested", `Of ${count(RULES.IPO_SHARES)}`, "Allocation preview", "Unallocated"]} empty="No company has an IPO price.">
           {ipo.map((c) => (
-            <tr key={c.companyId} className={c.oversubscribed ? "bg-amber-50" : ""}>
+            <tr key={c.companyId} className={c.oversubscribed ? "bg-warn/10" : ""}>
               <Td mono className="font-semibold">{c.ticker}</Td>
               <Td mono>{money(c.ipoPrice)}</Td>
               <Td mono>{c.bidders}</Td>
@@ -261,8 +261,8 @@ function IpoBookPanel({ ipo }: { ipo: ReturnType<typeof ipoBook> }) {
       {withBids.length > 0 ? (
         <div className="mt-4 space-y-2">
           {withBids.map((c) => (
-            <details key={c.companyId} className="rounded-md border border-slate-200">
-              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-900">
+            <details key={c.companyId} className="rounded-md border border-line">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-phosphor">
                 {c.ticker} bids · {c.bidders} · {count(c.requested)} requested
               </summary>
               <div className="px-2 pb-2">

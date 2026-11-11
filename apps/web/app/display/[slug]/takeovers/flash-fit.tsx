@@ -52,20 +52,20 @@ export function FlashFit({ title, body, published }: { title: string; body: stri
 
   return (
     <div ref={boxRef} className="flex h-full flex-col gap-8 overflow-hidden" data-testid="flash-news">
-      <p className="shrink-0 text-[32px] font-bold tracking-wide text-amber-300 uppercase">
+      <p className="shrink-0 text-[32px] font-bold tracking-wide text-warn uppercase">
         Published <span className="font-mono tabular-nums">{published}</span>
       </p>
       {/* Centred in the space left when it is short; at the top (auto margins collapse) when it fills it. */}
       <div className="my-auto flex flex-col gap-8">
         <h2
-          className="text-[length:var(--flash-title,112px)] leading-[1.08] font-black break-words text-white"
+          className="text-[length:var(--flash-title,112px)] leading-[1.08] font-black break-words text-phosphor"
           data-testid="flash-title"
         >
           {title}
         </h2>
         <p
           ref={bodyRef}
-          className="text-[length:var(--flash-body,60px)] leading-[1.35] break-words whitespace-pre-line text-slate-100"
+          className="text-[length:var(--flash-body,60px)] leading-[1.35] break-words whitespace-pre-line text-paper"
           data-testid="flash-body"
         >
           {body}

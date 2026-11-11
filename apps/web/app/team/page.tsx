@@ -12,13 +12,16 @@ import { Notice, Table, Td } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
 import { BulletinItem } from "./bulletins/bulletin";
 import { inThisRound } from "@/lib/team/focus";
+import { Glyph } from "@/components/ui/matrix/glyph";
+import { CipherText } from "@/components/ui/matrix/cipher-text";
+import { DitherLayer } from "@/components/ui/matrix/dither-layer";
 
 export const metadata: Metadata = { title: "Home" };
 
 const STATE: Record<TaskState, { icon: string; label: string; chip: string } | null> = {
-  todo: { icon: "📝", label: "To do", chip: "bg-amber-100 text-amber-900" },
-  waiting: { icon: "⏳", label: "Waiting for partners", chip: "bg-sky-100 text-sky-900" },
-  done: { icon: "✅", label: "Done", chip: "bg-emerald-100 text-emerald-900" },
+  todo: { icon: "📝", label: "To do", chip: "text-warn" },
+  waiting: { icon: "⏳", label: "Waiting for partners", chip: "text-phosphor-mid" },
+  done: { icon: "✅", label: "Done", chip: "text-phosphor" },
   info: null,
 };
 
@@ -59,13 +62,13 @@ export default async function TeamHome() {
           </ul>
         ) : (
           <>
-            <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-              <span className="text-4xl" aria-hidden>
-                {plan.now.length ? "👍" : "☕"}
+            <div className="mx-panel flex items-center gap-4 rounded-2xl p-5">
+              <span className="text-4xl text-phosphor" aria-hidden>
+                <Glyph e={plan.now.length ? "👍" : "☕"} />
               </span>
               <div>
-                <h2 className="text-xl font-extrabold text-slate-900">{plan.now.length ? "Nothing to press right now" : "Nothing to do yet"}</h2>
-                <p className="mt-0.5 text-slate-700" data-testid="home-idle">
+                <h2 className="text-xl font-extrabold text-phosphor glow">{plan.now.length ? "Nothing to press right now" : "Nothing to do yet"}</h2>
+                <p className="mt-0.5 text-base text-paper" data-testid="home-idle">
                   {plan.idle}
                 </p>
               </div>
@@ -82,47 +85,47 @@ export default async function TeamHome() {
       </section>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Tile icon="💵" label="Cash" tone="bg-emerald-50 ring-emerald-200">
+        <Tile icon="💵" label="Cash" tone="ring-phosphor">
           <span data-testid="home-cash">{money(team.cash)}</span>
           {team.track === "FINANCE" ? (
-            <span className="mt-1 block font-sans text-xs font-normal text-slate-600">
+            <span className="mt-1 block font-sans text-xs font-normal text-paper">
               Collateral locked: <span className="font-mono">{money(team.collateral)}</span>
             </span>
           ) : null}
         </Tile>
-        <Tile icon="📊" label={holdings.closing ? "Shares (closing prices)" : "Shares worth"} tone="bg-sky-50 ring-sky-200">
+        <Tile icon="📊" label={holdings.closing ? "Shares (closing prices)" : "Shares worth"} tone="ring-line">
           <span data-testid="home-holdings-value">{money(holdings.total)}</span>
           {holdings.unpriced ? (
-            <span className="mt-1 block font-sans text-xs font-normal text-slate-600">
+            <span className="mt-1 block font-sans text-xs font-normal text-paper">
               {`${count(holdings.unpriced)} ${holdings.unpriced === 1 ? "line" : "lines"} without a price until the IPO`}
             </span>
           ) : null}
         </Tile>
-        <Tile icon="👥" label="Your squad" tone="bg-violet-50 ring-violet-200">
+        <Tile icon="👥" label="Your squad" tone="ring-line">
           {squad ? (
             <>
               <span data-testid="home-squad">Squad {String(squad.number).padStart(2, "0")}</span>
-              <span className="mt-1 block font-sans text-sm font-normal text-slate-700" data-testid="home-company">
+              <span className="mt-1 block font-sans text-sm font-normal text-paper" data-testid="home-company">
                 {company?.ticker ? (
                   <>
                     <span className="font-semibold">{company.name ?? company.ticker}</span>{" "}
-                    <span className="font-mono text-slate-600">({company.ticker})</span>
+                    <span className="font-mono text-paper">({company.ticker})</span>
                     {marketOpen ? (
                       <>
                         {" "}
-                        <Link href={`/team/market/${company.ticker}`} className="text-slate-600 underline underline-offset-2">
+                        <Link href={`/team/market/${company.ticker}`} className="text-paper underline underline-offset-2">
                           in the market
                         </Link>
                       </>
                     ) : null}
                   </>
                 ) : (
-                  <span className="text-slate-600">Named, with its ticker, on the pitch card (by the pitch deadline).</span>
+                  <span className="text-paper">Named, with its ticker, on the pitch card (by the pitch deadline).</span>
                 )}
               </span>
             </>
           ) : (
-            <span className="block font-sans text-sm font-normal text-slate-700" data-testid="home-squad">
+            <span className="block font-sans text-sm font-normal text-paper" data-testid="home-squad">
               Not drawn yet.
               {data.facts.phaseStarts.SQUAD_DRAW ? ` Squads are drawn at ${clock(data.facts.phaseStarts.SQUAD_DRAW)}.` : ""}
             </span>
@@ -132,21 +135,21 @@ export default async function TeamHome() {
 
       <Card icon="⏭️" title="Coming up this round">
         {comingUp.length === 0 ? (
-          <p className="text-sm text-slate-500">Nothing else this round.</p>
+          <p className="text-sm text-muted">Nothing else this round.</p>
         ) : (
-          <ul className="divide-y divide-slate-100" aria-label="Coming up">
+          <ul className="divide-y divide-line" aria-label="Coming up">
             {comingUp.map((n) => (
               <li key={n.key} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2 text-sm">
                 <span className="min-w-0">
                   {n.href ? (
-                    <Link href={n.href} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
+                    <Link href={n.href} className="font-semibold text-phosphor underline-offset-2 hover:underline">
                       {n.title}
                     </Link>
                   ) : (
-                    <span className="font-semibold text-slate-900">{n.title}</span>
+                    <span className="font-semibold text-phosphor">{n.title}</span>
                   )}
                 </span>
-                <span className="whitespace-nowrap font-mono tabular-nums text-slate-600">
+                <span className="whitespace-nowrap font-mono tabular-nums text-paper">
                   {clock(n.at)} · in <Countdown to={n.at} passed="now" />
                 </span>
               </li>
@@ -159,13 +162,13 @@ export default async function TeamHome() {
         icon="📣"
         title="Latest news"
         action={
-          <Link href="/team/bulletins" className="text-sm font-semibold text-slate-700 underline underline-offset-2">
+          <Link href="/team/bulletins" className="text-sm font-semibold text-paper underline underline-offset-2">
             All bulletins
           </Link>
         }
       >
         {data.bulletins.length === 0 ? (
-          <p className="text-sm text-slate-500">No bulletins yet.</p>
+          <p className="text-sm text-muted">No bulletins yet.</p>
         ) : (
           <ul className="space-y-3" aria-label="Latest bulletins">
             {data.bulletins.map((b) => (
@@ -179,13 +182,13 @@ export default async function TeamHome() {
 
       <Card icon="🧾" title="Your shares">
         {holdings.lines.length === 0 ? (
-          <p className="text-sm text-slate-500">{squad ? "No shares." : "Shares are issued at the squad draw."}</p>
+          <p className="text-sm text-muted">{squad ? "No shares." : "Shares are issued at the squad draw."}</p>
         ) : (
           <Table head={["Company", "Lot", "Shares", "Price", "Value"]} label="Your holdings">
             {holdings.lines.map((l) => (
               <tr key={l.key}>
                 <Td mono className="font-semibold">
-                  {l.ticker ?? <span className="font-sans font-normal text-slate-600">{l.name}</span>}
+                  {l.ticker ?? <span className="font-sans font-normal text-paper">{l.name}</span>}
                 </Td>
                 <Td>{l.lotLabel}</Td>
                 <Td mono className="text-right">
@@ -194,7 +197,7 @@ export default async function TeamHome() {
                 <Td mono className="text-right">
                   {money(l.price)}
                 </Td>
-                <Td mono className={`text-right ${l.value !== null && l.value < 0 ? "text-red-700" : ""}`}>
+                <Td mono className={`text-right ${l.value !== null && l.value < 0 ? "text-danger-soft" : ""}`}>
                   {money(l.value)}
                 </Td>
               </tr>
@@ -202,7 +205,7 @@ export default async function TeamHome() {
           </Table>
         )}
         {holdings.lines.some((l) => l.lot === "SHORT") ? (
-          <p className="mt-2 text-xs text-slate-500">A short is shares owed: its value is what covering it would cost now.</p>
+          <p className="mt-2 text-xs text-muted">A short is shares owed: its value is what covering it would cost now.</p>
         ) : null}
       </Card>
 
@@ -213,25 +216,27 @@ export default async function TeamHome() {
 
 function Tile({ icon, label, tone, children }: { icon: string; label: string; tone: string; children: ReactNode }) {
   return (
-    <div className={`rounded-2xl p-4 ring-1 ${tone}`}>
-      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-600">
-        <span className="text-base" aria-hidden>
-          {icon}
+    <div className={`rounded-2xl bg-panel p-4 ring-1 ${tone}`}>
+      <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wide text-muted">
+        <span className="text-base text-phosphor" aria-hidden>
+          <Glyph e={icon} />
         </span>
         {label}
       </p>
-      <div className="mt-1 font-mono text-2xl font-extrabold tabular-nums text-slate-900">{children}</div>
+      <div className="mt-1 font-mono text-2xl font-extrabold tabular-nums text-phosphor glow">{children}</div>
     </div>
   );
 }
 
 function Card({ icon, title, action, children }: { icon: string; title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-label={title}>
+    <section className="mx-panel rounded-2xl p-4" aria-label={title}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-lg font-extrabold text-slate-900">
-          <span aria-hidden>{icon}</span>
-          {title}
+        <h2 className="flex items-center gap-2 text-lg font-extrabold text-phosphor glow">
+          <span aria-hidden>
+            <Glyph e={icon} />
+          </span>
+          <CipherText text={title} duration={450} />
         </h2>
         {action}
       </div>
@@ -244,10 +249,10 @@ function Due({ t, big = false }: { t: HomeTask; big?: boolean }) {
   if (!t.due) return null;
   return (
     <p className="whitespace-nowrap text-right">
-      <span className={`block text-xs ${big ? "text-white/80" : "text-slate-500"}`}>
+      <span className={`block font-mono text-xs ${big ? "text-paper" : "text-muted"}`}>
         {t.dueLabel} · {clock(t.due)}
       </span>
-      <Countdown to={t.due} passed="closed" className={big ? "text-3xl font-extrabold" : "font-semibold"} />
+      <Countdown to={t.due} passed="closed" className={big ? "text-3xl font-extrabold text-phosphor glow" : "font-semibold text-phosphor"} />
     </p>
   );
 }
@@ -255,20 +260,28 @@ function Due({ t, big = false }: { t: HomeTask; big?: boolean }) {
 /** The one thing to do now: big, with the time left and a big button. */
 function BigTask({ t }: { t: HomeTask }) {
   return (
-    <li className="mb-3 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-md" data-testid={`task-${t.key}`} data-state={t.state}>
+    <li className="mx-panel glow-box relative mb-3 overflow-hidden rounded-2xl border-phosphor" data-testid={`task-${t.key}`} data-state={t.state}>
+      {/* A dithered strip on the top edge marks the one big card; the text sits below it on plain black. */}
+      <div aria-hidden className="relative h-3 border-b border-phosphor-dim">
+        <DitherLayer from="top" tone="bright" opacity={0.6} />
+      </div>
+      <div className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-widest text-white/80">📝 Do this now</p>
-          <h3 className="mt-1 text-2xl font-extrabold leading-tight">{t.title}</h3>
-          <p className="mt-1 text-white/90">{t.detail}</p>
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-phosphor-mid">
+            <Glyph e="📝" spoken /> Do this now
+          </p>
+          <h3 className="mt-1 text-2xl font-extrabold leading-tight text-phosphor glow">{t.title}</h3>
+          <p className="mt-1 text-base text-paper">{t.detail}</p>
         </div>
         <Due t={t} big />
       </div>
       {t.href ? (
-        <Link href={t.href} className="mt-4 inline-block rounded-xl bg-white px-5 py-3 text-base font-extrabold text-indigo-700 shadow hover:bg-indigo-50">
+        <Link href={t.href} className="mx-key mx-key-solid mt-4 rounded-xl px-5 py-3 text-base font-extrabold">
           {t.linkLabel}
         </Link>
       ) : null}
+      </div>
     </li>
   );
 }
@@ -277,22 +290,22 @@ function BigTask({ t }: { t: HomeTask }) {
 function SmallTask({ t }: { t: HomeTask }) {
   const st = STATE[t.state];
   return (
-    <li className="mb-2 flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 ring-1 ring-slate-200" data-testid={`task-${t.key}`} data-state={t.state}>
-      <span className="text-2xl" aria-hidden>
-        {st?.icon ?? "ℹ️"}
+    <li className="mx-panel mb-2 flex flex-wrap items-center gap-3 rounded-xl p-3" data-testid={`task-${t.key}`} data-state={t.state}>
+      <span className="text-2xl text-phosphor" aria-hidden>
+        <Glyph e={st?.icon ?? "ℹ️"} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-bold text-slate-900">{t.title}</h3>
-          {st ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${st.chip}`}>{st.label}</span> : null}
+          <h3 className="font-bold text-phosphor">{t.title}</h3>
+          {st ? <span className={`mx-tag text-xs ${st.chip}`}>{st.label}</span> : null}
         </div>
-        <p className="text-sm text-slate-600">{t.detail}</p>
+        <p className="text-sm text-paper">{t.detail}</p>
       </div>
       <Due t={t} />
       {t.href ? (
         <Link
           href={t.href}
-          className={`rounded-xl px-3 py-2 text-sm font-bold ${t.state === "todo" ? "bg-slate-900 text-white hover:bg-slate-700" : "bg-slate-100 text-slate-800 hover:bg-slate-200"}`}
+          className={`mx-key rounded-xl px-3 py-2 text-sm ${t.state === "todo" ? "" : "mx-key-quiet"}`}
         >
           {t.linkLabel}
         </Link>

@@ -32,7 +32,7 @@ export function IpoBids({ view, items, deadline }: { view: IpoView; items: IpoRo
   const now = useServerNow(1000);
   const closed = deadline !== null && now > new Date(deadline).getTime();
   return (
-    <ul className="divide-y divide-slate-100" aria-label="IPO bids">
+    <ul className="divide-y divide-line" aria-label="IPO bids">
       {items.map((c) => {
         const saved = view.bids[c.id] ?? 0;
         return <IpoRow key={`${c.id}:${saved}`} view={view} item={c} saved={saved} closed={closed} />;
@@ -60,13 +60,13 @@ function IpoRow({ view, item, saved, closed }: { view: IpoView; item: IpoRowItem
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <span>
           <span className="font-mono font-semibold">{item.ticker}</span>
-          {item.name ? <span className="ml-1 text-sm text-slate-600">{item.name}</span> : null}
+          {item.name ? <span className="ml-1 text-sm text-paper">{item.name}</span> : null}
         </span>
         <span className="text-sm">
           IPO price <span className="font-mono font-semibold tabular-nums">{money(item.ipoPrice)}</span>
         </span>
       </div>
-      <p className="mt-0.5 text-xs text-slate-500" data-testid="ipo-saved">
+      <p className="mt-0.5 text-xs text-muted" data-testid="ipo-saved">
         {saved > 0 ? `Your bid: ${count(saved)} shares (${money(mul(saved, item.ipoPrice))})` : "No bid"}
       </p>
       <form
@@ -103,9 +103,9 @@ function IpoRow({ view, item, saved, closed }: { view: IpoView; item: IpoRowItem
         </div>
         <div aria-live="polite" className="mt-1 text-sm">
           {preview.state === "REFUSED" ? (
-            <p className="text-red-700">The exchange would refuse this bid: {preview.message}</p>
+            <p className="text-danger-soft">The exchange would refuse this bid: {preview.message}</p>
           ) : preview.state === "OK" && !unchanged ? (
-            <p className="text-slate-700">
+            <p className="text-paper">
               {preview.withdraw ? (
                 "Withdraws your bid."
               ) : (

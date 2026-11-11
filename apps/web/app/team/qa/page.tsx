@@ -55,7 +55,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
       {state === "CLOSED" ? (
         <Notice>The Q&A board closed at the close. Every question and answer stays readable.</Notice>
       ) : (
-        <p className="text-sm text-slate-600" data-testid="qa-open">
+        <p className="text-sm text-paper" data-testid="qa-open">
           Open until the close
           {closes ? (
             <>
@@ -76,13 +76,13 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
       {state === "OPEN" && role === "ANSWER" && ownListed ? (
         <Panel title={`Waiting for your answer (${count(waiting.length)})`}>
           {waiting.length === 0 ? (
-            <p className="text-sm text-slate-500">No question to {ownListed.ticker} is waiting for an answer.</p>
+            <p className="text-sm text-muted">No question to {ownListed.ticker} is waiting for an answer.</p>
           ) : (
             <ul className="space-y-4" aria-label="Questions waiting for your answer">
               {waiting.map((w) => (
-                <li key={w.id} className="rounded-md border border-amber-200 bg-amber-50/40 p-3">
+                <li key={w.id} className="rounded-md border border-warn/60 bg-warn/10 p-3">
                   <QuestionHead ticker={ownListed.ticker} at={w.created_at} />
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{w.body}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-phosphor">{w.body}</p>
                   <div className="mt-2">
                     <AnswerForm action={answerQuestion.bind(null, w.id)} label={`Answer the question asked at ${clock(w.created_at, true)}`} />
                   </div>
@@ -96,7 +96,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
       <Panel title="Questions">
         <Form action={PATH} className="flex flex-wrap items-end gap-2">
           <label className="block">
-            <span className="text-xs font-medium text-slate-600">Company</span>
+            <span className="text-xs font-medium text-paper">Company</span>
             <select name="company" defaultValue={q.company ?? ""} className={`${inputClass} w-48`}>
               <option value="">All companies</option>
               {companies.map((c) => (
@@ -125,9 +125,9 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
           <>
             <Pager q={q} page={page.paging.page} pages={page.paging.pages} label={page.paging.label} />
             {page.threads.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">{filtered ? `No questions to ${filtered.ticker} yet.` : "No questions yet."}</p>
+              <p className="mt-3 text-sm text-muted">{filtered ? `No questions to ${filtered.ticker} yet.` : "No questions yet."}</p>
             ) : (
-              <ul className="mt-3 divide-y divide-slate-100" aria-label="Questions and answers">
+              <ul className="mt-3 divide-y divide-line" aria-label="Questions and answers">
                 {page.threads.map((t) => (
                   <ThreadItem
                     key={t.question.id}
@@ -148,8 +148,8 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
 
 function QuestionHead({ ticker, at }: { ticker: string; at: string }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-      <Link href={`/team/market/${ticker}`} className="font-mono text-sm font-semibold text-slate-900 underline underline-offset-2">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+      <Link href={`/team/market/${ticker}`} className="font-mono text-sm font-semibold text-phosphor underline underline-offset-2">
         {ticker}
       </Link>
       <span>A fund asked</span>
@@ -164,30 +164,30 @@ function ThreadItem({ t, ticker, canAnswer }: { t: Thread; ticker: string; canAn
   return (
     <li className="py-3" data-testid="qa-thread">
       <QuestionHead ticker={ticker} at={t.question.created_at} />
-      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{t.question.body}</p>
+      <p className="mt-1 whitespace-pre-wrap text-sm text-phosphor">{t.question.body}</p>
       {t.answers.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted">
           <Badge tone="amber">No answer yet</Badge>
         </p>
       ) : (
-        <ul className="mt-2 space-y-2 border-l-2 border-slate-200 pl-3">
+        <ul className="mt-2 space-y-2 border-l-2 border-line pl-3">
           {t.answers.map((a) => (
             <li key={a.id} className="text-sm">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">{ticker} answered</span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                <span className="font-semibold text-paper">{ticker} answered</span>
                 <time dateTime={a.created_at} className="font-mono tabular-nums">
                   {clock(a.created_at, true)}
                 </time>
                 <span>{count(a.word_count)} words</span>
               </div>
-              <p className="mt-0.5 whitespace-pre-wrap text-slate-800">{a.body}</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-phosphor">{a.body}</p>
             </li>
           ))}
         </ul>
       )}
       {canAnswer ? (
         <details className="mt-2">
-          <summary className="cursor-pointer text-sm font-medium text-slate-700">Add another answer</summary>
+          <summary className="cursor-pointer text-sm font-medium text-paper">Add another answer</summary>
           <div className="mt-2">
             <AnswerForm action={answerQuestion.bind(null, t.question.id)} label={`Add an answer to the question asked at ${clock(t.question.created_at, true)}`} />
           </div>
@@ -198,11 +198,11 @@ function ThreadItem({ t, ticker, canAnswer }: { t: Thread; ticker: string; canAn
 }
 
 function Pager({ q, page, pages, label, bottom = false }: { q: QaQuery; page: number; pages: number; label: string; bottom?: boolean }) {
-  const link = "rounded-md px-2 py-1 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50";
-  const off = "rounded-md px-2 py-1 text-sm text-slate-300 ring-1 ring-inset ring-slate-100";
+  const link = "rounded-md px-2 py-1 text-sm font-medium text-paper ring-1 ring-inset ring-line hover:bg-raised";
+  const off = "rounded-md px-2 py-1 text-sm text-muted ring-1 ring-inset ring-line";
   return (
     <nav className="mt-4 flex flex-wrap items-center justify-between gap-2" aria-label={bottom ? "Question pages (bottom)" : "Question pages"}>
-      <span className="text-sm text-slate-600">
+      <span className="text-sm text-paper">
         {label}
         {pages > 1 ? ` · page ${count(page)} of ${count(pages)}` : ""}
       </span>

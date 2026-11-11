@@ -22,12 +22,12 @@ export default async function PitchPage() {
     <Panel
       title="Pitch card"
       actions={
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-paper">
           Due <Due at={win.deadline} {...pauseOf(ctx)} testId="pitch-due" />
         </span>
       }
     >
-      <p className="mb-4 text-sm text-slate-600">
+      <p className="mb-4 text-sm text-paper">
         Up to {RULES.WORD_LIMIT.PITCH} words in the template&apos;s sections. The judge scores the problem, the solution, the business model and your
         advantage (25 points each); the score sets your IPO price.
       </p>

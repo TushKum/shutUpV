@@ -71,7 +71,7 @@ function AskFields({ companies, initial, pending }: { companies: { id: string; t
   return (
     <div className="grid gap-3">
       <label className="block">
-        <span className="text-xs font-medium text-slate-600">Company</span>
+        <span className="text-xs font-medium text-paper">Company</span>
         <select name="company" required defaultValue={initial ?? ""} className={inputClass}>
           <option value="" disabled>
             Choose a company…
@@ -85,11 +85,11 @@ function AskFields({ companies, initial, pending }: { companies: { id: string; t
         </select>
       </label>
       <label className="block">
-        <span className="text-xs font-medium text-slate-600">Question</span>
+        <span className="text-xs font-medium text-paper">Question</span>
         <textarea name="body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} maxLength={QUESTION_MAX_CHARS * 2} className={inputClass} />
       </label>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className={`text-xs tabular-nums ${check.chars > QUESTION_MAX_CHARS ? "font-semibold text-red-700" : "text-slate-500"}`} aria-live="polite">
+        <span className={`text-xs tabular-nums ${check.chars > QUESTION_MAX_CHARS ? "font-semibold text-danger-soft" : "text-muted"}`} aria-live="polite">
           {count(check.chars)} / {count(QUESTION_MAX_CHARS)} characters
         </span>
         <button type="submit" disabled={pending || !check.ok} className={buttonClass.primary}>
@@ -111,18 +111,18 @@ function AnswerFields({ pending }: { pending: boolean }) {
   return (
     <div className="grid gap-2">
       <label className="block">
-        <span className="text-xs font-medium text-slate-600">Your answer (up to {ANSWER_MAX_WORDS} words, public)</span>
+        <span className="text-xs font-medium text-paper">Your answer (up to {ANSWER_MAX_WORDS} words, public)</span>
         <textarea name="body" rows={3} value={body} onChange={(e) => setBody(e.target.value)} maxLength={ANSWER_MAX_CHARS} className={inputClass} />
       </label>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className={`text-xs tabular-nums ${over ? "font-semibold text-red-700" : "text-slate-500"}`} aria-live="polite" data-testid="answer-words">
+        <span className={`text-xs tabular-nums ${over ? "font-semibold text-danger-soft" : "text-muted"}`} aria-live="polite" data-testid="answer-words">
           {count(check.words)} / {ANSWER_MAX_WORDS} words
         </span>
         <button type="submit" disabled={pending || !check.ok} className={buttonClass.primary}>
           {pending ? "Posting…" : "Post answer"}
         </button>
       </div>
-      {!check.ok && body.trim() !== "" ? <p className="text-xs text-red-700">{check.message}</p> : null}
+      {!check.ok && body.trim() !== "" ? <p className="text-xs text-danger-soft">{check.message}</p> : null}
     </div>
   );
 }

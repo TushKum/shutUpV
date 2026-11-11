@@ -43,7 +43,7 @@ export function AdminNav({ slug, fairness }: { slug: string; fairness: boolean }
             href={href}
             aria-current={active ? "page" : undefined}
             className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              active ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"
+              active ? "border-phosphor text-phosphor" : "border-transparent text-muted hover:text-phosphor"
             } ${s.path === "/fairness" && fairness ? "font-semibold" : ""}`}
           >
             {s.label}

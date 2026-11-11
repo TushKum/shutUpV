@@ -22,6 +22,8 @@ import { alertTasks, nextAction } from "@/lib/team/alerts";
 import { RoundBanner } from "./round-banner";
 import { FocusGate } from "./focus-gate";
 import { focusSections } from "@/lib/team/focus";
+import { BootSequence } from "@/components/ui/matrix/boot-sequence";
+import { Glyph } from "@/components/ui/matrix/glyph";
 
 const TRACK_EMOJI: Record<Track, string> = { PRODUCT: "🏢", CONSULTING: "🧠", FINANCE: "💼" };
 
@@ -60,30 +62,31 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         <SquadChannel squadId={ctx.squad?.id ?? null}>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
-        <div className="min-h-screen bg-slate-50">
-          <header className="border-b border-slate-200 bg-white">
+        <BootSequence who={team.code} />
+        <div className="min-h-screen">
+          <header className="border-b border-line bg-ink">
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="text-2xl" aria-hidden>
-                  {TRACK_EMOJI[team.track]}
+                <span className="text-2xl text-phosphor" aria-hidden>
+                  <Glyph e={TRACK_EMOJI[team.track]} />
                 </span>
-                <h1 className="font-mono text-lg font-extrabold">{team.code}</h1>
+                <h1 className="font-mono text-lg font-extrabold glow">{team.code}</h1>
                 <Badge tone="slate">{TRACK_LABELS[team.track]}</Badge>
-                <span className="hidden truncate text-sm text-slate-600 sm:inline">{team.name}</span>
+                <span className="hidden truncate text-sm text-paper sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="rounded-xl bg-emerald-50 px-3 py-1 ring-1 ring-emerald-200">
+                <span className="rounded-xl bg-ink px-3 py-1 text-phosphor ring-1 ring-phosphor-dim glow-box">
                   <span className="mr-1" aria-hidden>
-                    💵
+                    <Glyph e="💵" />
                   </span>
                   <span className="sr-only">Cash </span>
-                  <span className="font-mono font-extrabold tabular-nums text-emerald-800" data-testid="team-cash">
+                  <span className="font-mono font-extrabold tabular-nums text-phosphor glow" data-testid="team-cash">
                     {money(team.cash)}
                   </span>
                 </span>
                 {finance && team.collateral > 0 ? (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-muted">
                     Locked: <span className="font-mono tabular-nums">{money(team.collateral)}</span>
                   </span>
                 ) : null}
@@ -102,18 +105,18 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             next={status.next_phase}
             openRound={status.trading === "OPEN" ? status.open_round : null}
           />
-          <div className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+          <div className="sticky top-0 z-40 border-b border-line bg-ink">
             <TeamNav sections={sections} />
           </div>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
           <Alerts tasks={plan ? alertTasks(plan) : []} track={team.track} teamId={team.id} />
           {status.paused ? (
-            <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
+            <p className="border-y border-warn/60 bg-ink px-4 py-2 text-center text-sm font-medium text-warn">
               The event is paused. Deadlines move later by the length of the pause.
             </p>
           ) : null}
           {team.disqualified ? (
-            <p className="bg-red-100 px-4 py-2 text-center text-sm font-medium text-red-900">
+            <p className="border-y border-danger/70 bg-ink px-4 py-2 text-center text-sm font-medium text-danger-soft">
               Your team has been disqualified by the fairness officer{team.disqualified_reason ? `: ${team.disqualified_reason}` : "."}
             </p>
           ) : null}
@@ -123,9 +126,9 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
               className="mx-auto block max-w-5xl px-4 pt-3 text-sm [overflow-wrap:anywhere]"
               data-testid="latest-bulletin"
             >
-              <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">{latest.kind}</span>{" "}
-              <span className="font-mono text-xs text-slate-500">{clock(latest.published_at)}</span>{" "}
-              <span className="font-semibold text-slate-900 underline-offset-2 hover:underline">{latest.title}</span>
+              <span className="mx-tag text-xs text-phosphor">{latest.kind}</span>{" "}
+              <span className="font-mono text-xs text-muted">{clock(latest.published_at)}</span>{" "}
+              <span className="font-semibold text-phosphor underline-offset-2 hover:underline">{latest.title}</span>
             </Link>
           ) : null}
           <FeedbackBar className="mx-auto max-w-5xl px-4 pt-3" />

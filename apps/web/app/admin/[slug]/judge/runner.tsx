@@ -179,21 +179,21 @@ export function JudgeRunner({ eventId, fake, canRun }: { eventId: string; fake: 
         )}
         {fake ? <Badge tone="amber">FAKE JUDGE</Badge> : null}
         {on ? (
-          <span className="text-sm text-slate-600" role="status">
+          <span className="text-sm text-paper" role="status">
             {busy ? "Judging…" : "Waiting for runs…"}
           </span>
         ) : null}
       </div>
       {totals && totals.turns > 0 ? (
-        <p className="text-sm text-slate-600" data-testid="judge-runner-totals">
+        <p className="text-sm text-paper" data-testid="judge-runner-totals">
           This console: {totals.done} run{totals.done === 1 ? "" : "s"} done
           {totals.calibration ? `, ${totals.calibration} calibration` : ""}, {totals.sealed} sealed, {totals.retried} sent back to the queue,{" "}
-          <span className={totals.failed ? "font-semibold text-red-700" : ""}>{totals.failed} failed</span>
+          <span className={totals.failed ? "font-semibold text-danger-soft" : ""}>{totals.failed} failed</span>
           {last ? ` · last turn ${Math.round(last.ms / 1000)} s` : ""}
         </p>
       ) : null}
       {problem ? (
-        <p className="text-sm font-semibold text-red-700" role="alert" data-testid="judge-runner-problem">
+        <p className="text-sm font-semibold text-danger-soft" role="alert" data-testid="judge-runner-problem">
           {problem}
         </p>
       ) : null}

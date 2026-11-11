@@ -11,7 +11,7 @@ import { Neutral } from "./parts";
 export async function FlashTakeover({ event, takeover }: TakeoverProps) {
   const bulletin = await loadFlashBulletin(event.id);
   return (
-    <TakeoverFrame title={TAKEOVER_TITLES.FLASH} at={takeover.at} until={takeover.until} tone="bg-amber-400 text-black">
+    <TakeoverFrame title={TAKEOVER_TITLES.FLASH} at={takeover.at} until={takeover.until} tone="bg-warn text-ink">
       {bulletin ? (
         <FlashFit title={bulletin.title} body={bulletin.body} published={clock(bulletin.published_at)} />
       ) : (

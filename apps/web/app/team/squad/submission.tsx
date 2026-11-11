@@ -40,16 +40,16 @@ export function SubmissionEditor({ ctx, ws, type, win }: { ctx: TeamContext; ws:
         submitted={cur ? { content: cur.content, submittedAt: cur.submitted_at } : null}
       />
       <section className="mt-6" aria-label="Submitted versions" data-testid="submitted-versions">
-        <h3 className="text-sm font-semibold text-slate-900">Submitted versions</h3>
+        <h3 className="text-sm font-semibold text-phosphor">Submitted versions</h3>
         {versions.length === 0 ? (
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted">
             No {SUBMISSION_LABELS[type].toLowerCase()} has been submitted yet. A saved draft is not judged until it is submitted.
           </p>
         ) : (
           <ul className="mt-2 space-y-2">
             {versions.map((v) => (
               <li key={v.id}>
-                <details className="rounded-md border border-slate-200 px-3 py-2" open={v.current && versions.length === 1}>
+                <details className="rounded-md border border-line px-3 py-2" open={v.current && versions.length === 1}>
                   <summary className="cursor-pointer text-sm">
                     <span className="font-mono">{clock(v.submittedAt, true)}</span> · by {who(v.by)} · {v.words} words{" "}
                     {v.current ? <Badge tone="green">Current · judged</Badge> : <Badge tone="slate">Superseded</Badge>}{" "}

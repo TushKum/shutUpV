@@ -6,7 +6,7 @@ export function ResultMessage({ result }: { result: ActionResult | null }) {
   if (!result) return null;
   const text = result.message ?? (result.ok ? "Done." : result.code ?? "Refused.");
   return (
-    <p role={result.ok ? "status" : "alert"} className={`mt-2 text-sm ${result.ok ? "text-emerald-700" : "text-red-700"}`}>
+    <p role={result.ok ? "status" : "alert"} className={`mx-sys mt-2 text-sm ${result.ok ? "text-phosphor" : "text-danger-soft"}`}>
       {result.ok ? text : `${result.code && result.code !== "ERROR" && result.code !== "NOT_ALLOWED" ? `${result.code}: ` : ""}${text}`}
     </p>
   );

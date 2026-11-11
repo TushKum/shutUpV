@@ -23,7 +23,7 @@ import { LedgerTabs } from "./tabs";
 export const metadata: Metadata = { title: "Ledger" };
 
 const MAX_PROBLEMS = 20;
-const tone = (sign: number) => (sign > 0 ? "text-emerald-700" : sign < 0 ? "text-red-700" : "");
+const tone = (sign: number) => (sign > 0 ? "text-phosphor" : sign < 0 ? "text-danger-soft" : "");
 
 // Ledger: every row of the event's ledger, newest first, 50 a page, filtered by team (or the exchange), kind and
 // ticker; above it, the books check (every transaction balances; each team's cash and the exchange's equal the sum of
@@ -59,7 +59,7 @@ export default async function LedgerPage({
       <Panel title="Ledger">
         <Form action={path} className="flex flex-wrap items-end gap-2">
           <label className="block">
-            <span className="text-xs font-medium text-slate-600">Team</span>
+            <span className="text-xs font-medium text-paper">Team</span>
             <select name="team" defaultValue={q.team ?? ""} className={`${inputClass} w-36`}>
               <option value="">All</option>
               <option value={EXCHANGE}>Exchange</option>
@@ -71,7 +71,7 @@ export default async function LedgerPage({
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-slate-600">Kind</span>
+            <span className="text-xs font-medium text-paper">Kind</span>
             <select name="kind" defaultValue={q.kind ?? ""} className={`${inputClass} w-44`}>
               <option value="">All</option>
               {LEDGER_KINDS.map((k) => (
@@ -82,7 +82,7 @@ export default async function LedgerPage({
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-slate-600">Ticker</span>
+            <span className="text-xs font-medium text-paper">Ticker</span>
             <select name="ticker" defaultValue={q.ticker ?? ""} className={`${inputClass} w-32`}>
               <option value="">All</option>
               {tickers.map((t) => (
@@ -121,7 +121,7 @@ export default async function LedgerPage({
                     <span title={l.txnId}>{l.txn}</span>
                   </Td>
                   <Td>{l.kindLabel}</Td>
-                  <Td mono className={l.exchange ? "text-slate-500" : "font-semibold"}>
+                  <Td mono className={l.exchange ? "text-muted" : "font-semibold"}>
                     {l.party}
                   </Td>
                   <Td mono>{l.ticker}</Td>
@@ -132,7 +132,7 @@ export default async function LedgerPage({
                   <Td mono>{l.shares}</Td>
                   <Td mono>{l.price}</Td>
                   <Td mono>{l.round}</Td>
-                  <Td className="text-slate-600">
+                  <Td className="text-paper">
                     <span className="block min-w-48 max-w-md whitespace-normal">{l.memo}</span>
                   </Td>
                 </tr>
@@ -188,11 +188,11 @@ function Pager({
   label: string;
   where?: "top" | "bottom";
 }) {
-  const link = "rounded-md px-2 py-1 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50";
-  const off = "rounded-md px-2 py-1 text-sm text-slate-300 ring-1 ring-inset ring-slate-100";
+  const link = "rounded-md px-2 py-1 text-sm font-medium text-paper ring-1 ring-inset ring-line hover:bg-raised";
+  const off = "rounded-md px-2 py-1 text-sm text-muted ring-1 ring-inset ring-line";
   return (
     <nav className="mt-4 flex flex-wrap items-center justify-between gap-2" aria-label={where === "top" ? "Ledger pages" : "Ledger pages (bottom)"}>
-      <span className="text-sm text-slate-600">
+      <span className="text-sm text-paper">
         {label}
         {pages > 1 ? ` · page ${count(page)} of ${count(pages)}` : ""}
       </span>

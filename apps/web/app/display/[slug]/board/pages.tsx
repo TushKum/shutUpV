@@ -20,9 +20,9 @@ import {
   type PriceRowFit,
 } from "@/lib/display/board";
 
-const TEXT = { up: "text-emerald-400", down: "text-red-500", flat: "text-slate-400" } as const;
-const CHANGE = { up: "text-emerald-400", down: "text-red-500", flat: "text-slate-200" } as const;
-const GLOW = { UP: "bg-emerald-500/25 ring-4 ring-emerald-400", DOWN: "bg-red-500/25 ring-4 ring-red-500", FLAT: "" } as const;
+const TEXT = { up: "text-emerald-400", down: "text-red-500", flat: "text-muted" } as const;
+const CHANGE = { up: "text-emerald-400", down: "text-red-500", flat: "text-paper" } as const;
+const GLOW = { UP: "bg-phosphor/25 ring-4 ring-phosphor", DOWN: "bg-danger/25 ring-4 ring-danger/70", FLAT: "" } as const;
 const MOVE_WORDS: Record<Move, string> = { UP: "up", DOWN: "down", FLAT: "unchanged" };
 
 const noSubscription = () => () => {};
@@ -61,13 +61,13 @@ export function BoardPages({
           <Tile key={t.id} tile={t} round={round} glow={glow} size={compact ? SIZES.compact : SIZES.normal} />
         ))}
       </div>
-      <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-white/15 px-8 text-[28px] text-slate-300">
+      <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-line px-8 text-[28px] text-muted">
         <p className="min-w-0 truncate" data-testid="board-legend">
           {pending ? (
             "IPO prices are set when the pitch scores are released."
           ) : (
             <>
-              {closed ? <span className="font-bold text-amber-300">Closing prices · </span> : null}
+              {closed ? <span className="font-bold text-warn">Closing prices · </span> : null}
               % change since the IPO price
               {round !== null ? (
                 <>
@@ -79,7 +79,7 @@ export function BoardPages({
           )}
         </p>
         {pages > 1 ? (
-          <p className="shrink-0 font-mono font-bold text-white tabular-nums" data-testid="board-page" aria-label={`Page ${page + 1} of ${pages}`}>
+          <p className="shrink-0 font-mono font-bold text-phosphor tabular-nums" data-testid="board-page" aria-label={`Page ${page + 1} of ${pages}`}>
             {page + 1} / {pages}
           </p>
         ) : null}
@@ -114,7 +114,7 @@ function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number |
   const lit = glow && t.move !== null ? GLOW[t.move] : "";
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-white/15 bg-white/[0.06] px-4 ${size.pad} transition-[background-color,box-shadow] duration-1000 ${lit}`}
+      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-line bg-phosphor/10 px-4 ${size.pad} transition-[background-color,box-shadow] duration-1000 ${lit}`}
       data-testid={`tile-${t.ticker}`}
       data-lit={lit ? "true" : undefined}
     >
@@ -134,17 +134,17 @@ function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number |
         ) : null}
       </div>
       <div className="flex min-w-0 items-baseline gap-3">
-        <p className={`min-w-0 flex-1 truncate text-slate-300 ${size.name}`} data-testid="tile-name">
+        <p className={`min-w-0 flex-1 truncate text-muted ${size.name}`} data-testid="tile-name">
           {t.name}
         </p>
         {t.closing ? (
-          <span className="shrink-0 text-[24px] font-bold tracking-wide text-amber-300 uppercase" data-testid="tile-closing">
+          <span className="shrink-0 text-[24px] font-bold tracking-wide text-warn uppercase" data-testid="tile-closing">
             Close
           </span>
         ) : null}
       </div>
       {t.price === null ? (
-        <p className={`leading-[1.2] font-semibold text-slate-400 ${size.pending}`} data-testid="tile-pending">
+        <p className={`leading-[1.2] font-semibold text-muted ${size.pending}`} data-testid="tile-pending">
           IPO price pending
         </p>
       ) : (

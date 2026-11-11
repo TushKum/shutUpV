@@ -11,12 +11,12 @@ export function Submission({ type, s }: { type: SubmissionType; s: PublicSubmiss
       <dl className="space-y-3">
         {sections.map((x) => (
           <div key={x.key}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{x.label}</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-slate-800">{x.text || <span className="text-slate-400">(left empty)</span>}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted">{x.label}</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap text-phosphor">{x.text || <span className="text-muted">(left empty)</span>}</dd>
           </div>
         ))}
       </dl>
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted">
         {count(s.word_count)} words · submitted {clock(s.submitted_at)}
       </p>
     </div>

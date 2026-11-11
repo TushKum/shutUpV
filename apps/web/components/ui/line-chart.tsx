@@ -58,13 +58,13 @@ export function LineChart({
           </circle>
         ))}
       </svg>
-      <figcaption className="mt-1 flex flex-wrap gap-x-4 text-xs text-slate-600">
+      <figcaption className="mt-1 flex flex-wrap gap-x-4 text-xs text-paper">
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-0.5 w-5" style={{ background: stroke }} /> {mainName}
         </span>
         {secondName && g.path2 ? (
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block w-5 border-t-2 border-dashed border-violet-600" /> {secondName}
+            <span className="inline-block w-5 border-t-2 border-dashed border-phosphor-dim" /> {secondName}
           </span>
         ) : null}
       </figcaption>
@@ -74,7 +74,7 @@ export function LineChart({
 
 /** A small trend line for a table cell; green if the last value is at least the first, red otherwise. */
 export function Sparkline({ values, label }: { values: readonly number[]; label: string }) {
-  if (values.length < 2) return <span className="text-xs text-slate-400">—</span>;
+  if (values.length < 2) return <span className="text-xs text-muted">—</span>;
   const up = values.at(-1)! >= values[0]!;
   return (
     <svg viewBox="0 0 64 20" width="64" height="20" role="img" aria-label={label} className="overflow-visible">

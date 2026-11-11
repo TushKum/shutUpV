@@ -26,14 +26,14 @@ export default async function PlanPage() {
     <Panel
       title="Rescue plan"
       actions={
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-paper">
           Due <Due at={win.deadline} {...pauseOf(ctx)} testId="plan-due" />
         </span>
       }
     >
       {/* The deal is signed elsewhere (Rescue) and its signatures send no realtime message: re-read at its deadline. */}
       <RefreshAt at={dealDeadline} />
-      <p className="mb-3 text-sm text-slate-600">
+      <p className="mb-3 text-sm text-paper">
         Up to {RULES.WORD_LIMIT.PLAN} words, written together by your squad&apos;s Product and Consulting teams: each save shows here for both. The judge
         also reads your pitch card, your crisis card and a summary of the deal.
       </p>

@@ -56,13 +56,13 @@ export default async function PositionsPage() {
           <Stat label={closed ? "Profit and loss at closing prices" : "Unrealised profit and loss"} value={<span data-testid="portfolio-pnl">{signedMoney(totals.unrealised)}</span>} />
         </div>
         {totals.unpriced > 0 ? (
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-muted">
             {count(totals.unpriced)} {totals.unpriced === 1 ? "line has" : "lines have"} no price until the IPO prices are released and {totals.unpriced === 1 ? "is" : "are"} not counted.
           </p>
         ) : null}
         {series.length >= 2 ? (
           <div className="mt-4">
-            <h3 className="mb-1 text-sm font-semibold text-slate-700">Your fund&apos;s value after each step</h3>
+            <h3 className="mb-1 text-sm font-semibold text-paper">Your fund&apos;s value after each step</h3>
             <LineChart points={series} label="Your fund's value by step" mainName="Portfolio value (cash + long − short)" testId="portfolio-chart" />
           </div>
         ) : null}
@@ -70,7 +70,7 @@ export default async function PositionsPage() {
 
       <Panel title="Positions">
         {lines.length === 0 ? (
-          <p className="text-sm text-slate-500">No shares yet.</p>
+          <p className="text-sm text-muted">No shares yet.</p>
         ) : (
           <Table head={["Company", "Shares", "Value", "Profit and loss", `Price (${priceWord})`, "Avg cost"]} label="Positions">
             {lines.map((l) => (
@@ -79,17 +79,17 @@ export default async function PositionsPage() {
                   <Link href={`/team/market/${l.ticker}`} className="font-mono font-semibold underline-offset-2 hover:underline">
                     {l.ticker}
                   </Link>{" "}
-                  <span className="text-xs text-slate-500" title={FUND_LOT_HINTS[l.lot]}>
+                  <span className="text-xs text-muted" title={FUND_LOT_HINTS[l.lot]}>
                     {FUND_LOT_LABELS[l.lot]}
                   </span>
                 </Td>
                 <Td mono className="text-right">
                   {count(l.qty)}
                 </Td>
-                <Td mono className={`text-right ${l.value !== null && l.value < 0 ? "text-red-700" : ""}`}>
+                <Td mono className={`text-right ${l.value !== null && l.value < 0 ? "text-danger-soft" : ""}`}>
                   {l.value === null ? "—" : money(l.value)}
                 </Td>
-                <Td mono className={`text-right ${l.pnl === null ? "" : l.pnl < 0 ? "text-red-700" : l.pnl > 0 ? "text-emerald-700" : ""}`}>
+                <Td mono className={`text-right ${l.pnl === null ? "" : l.pnl < 0 ? "text-danger-soft" : l.pnl > 0 ? "text-phosphor" : ""}`}>
                   {l.pnl === null ? "—" : signedMoney(l.pnl)}
                 </Td>
                 <Td mono className="text-right">
@@ -102,14 +102,14 @@ export default async function PositionsPage() {
             ))}
           </Table>
         )}
-        <dl className="mt-3 space-y-1 text-xs text-slate-500">
+        <dl className="mt-3 space-y-1 text-xs text-muted">
           {(["EXCHANGE", "SQUAD", "SHORT"] as const).map((lot) => (
             <div key={lot}>
-              <dt className="inline font-semibold text-slate-700">{FUND_LOT_LABELS[lot]}:</dt> <dd className="inline">{FUND_LOT_HINTS[lot]}</dd>
+              <dt className="inline font-semibold text-paper">{FUND_LOT_LABELS[lot]}:</dt> <dd className="inline">{FUND_LOT_HINTS[lot]}</dd>
             </div>
           ))}
           <div>
-            <dt className="inline font-semibold text-slate-700">Profit and loss:</dt>{" "}
+            <dt className="inline font-semibold text-paper">Profit and loss:</dt>{" "}
             <dd className="inline">long lots: value − what they cost; shorts: what the sale brought in − what covering costs now.</dd>
           </div>
         </dl>
@@ -139,27 +139,27 @@ export default async function PositionsPage() {
             <Fact label="Reserved by open orders" value={money(summary.reserved)} />
             <Fact label="Available cash" value={money(summary.available)} />
           </dl>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             Collateral is 150% of each short&apos;s value (shares short × current price), locked out of your cash and recalculated at every price change.
           </p>
           <div>
             <div className="flex flex-wrap justify-between gap-x-3 text-sm">
-              <span className="font-medium text-slate-700">Short exposure</span>
+              <span className="font-medium text-paper">Short exposure</span>
               <span className="font-mono tabular-nums" data-testid="exposure-of-cap">
                 {money(summary.shortExposureWithPending)} of {money(RULES.SHORT_EXPOSURE_LIMIT)}
               </span>
             </div>
             <div
-              className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"
+              className="mt-1 h-2 overflow-hidden rounded-full bg-raised"
               role="meter"
               aria-label="Short exposure of the $250,000 limit"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={meterPct(summary.shortExposureWithPending, RULES.SHORT_EXPOSURE_LIMIT)}
             >
-              <div className="h-full bg-slate-700" style={{ width: `${meterPct(summary.shortExposureWithPending, RULES.SHORT_EXPOSURE_LIMIT)}%` }} />
+              <div className="h-full bg-phosphor-deep" style={{ width: `${meterPct(summary.shortExposureWithPending, RULES.SHORT_EXPOSURE_LIMIT)}%` }} />
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-muted">
               Open shorts {money(summary.shortExposure)}
               {summary.shortExposureWithPending > summary.shortExposure ? ` + pending shorts ${money(summary.shortExposureWithPending - summary.shortExposure)}` : ""}, at
               current prices.
@@ -194,7 +194,7 @@ export default async function PositionsPage() {
 function Fact({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-slate-500">{label}</dt>
+      <dt className="text-xs text-muted">{label}</dt>
       <dd className="font-mono font-semibold tabular-nums" data-testid={testId}>
         {value}
       </dd>

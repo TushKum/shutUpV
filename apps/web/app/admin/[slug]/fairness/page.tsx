@@ -30,7 +30,7 @@ export const metadata: Metadata = { title: "Fairness" };
 
 const STATUS_TONE: Record<FlagStatus, Tone> = { OPEN: "amber", CLEARED: "green", DISQUALIFIED: "red" };
 const reached = (phase: PhaseCode, target: PhaseCode) => PHASE_CODES.indexOf(phase) >= PHASE_CODES.indexOf(target);
-const tone = (sign: number) => (sign > 0 ? "text-emerald-700" : sign < 0 ? "text-red-700" : "");
+const tone = (sign: number) => (sign > 0 ? "text-phosphor" : sign < 0 ? "text-danger-soft" : "");
 
 // Fairness (the fairness officer only): the collusion flags raised at settlement, a decision on each (clear it or
 // disqualify the teams involved, with a logged reason), the log of decisions, and a drill-down into any team.
@@ -68,11 +68,11 @@ export default async function FairnessPage({
   return (
     <div className="space-y-6">
       <Panel title="Collusion flags">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-paper">
           Raised at settlement. Clear a flag, or disqualify the teams involved (they are excluded from the awards); every decision is logged with its
           reason. {locked ? "Decisions were final at the awards." : "A decision can be changed until the awards."}
         </p>
-        <p className="mt-2 text-sm font-medium text-slate-900" data-testid="flag-summary">
+        <p className="mt-2 text-sm font-medium text-phosphor" data-testid="flag-summary">
           {flagSummary(flags)}
           {flags.length === 0 && !reached(phase, "SETTLEMENT") ? ` Flags are generated when the event enters Settlement (it is in ${PHASE_LABELS[phase]}).` : ""}
         </p>
@@ -107,7 +107,7 @@ export default async function FairnessPage({
         <Panel title="Team drill-down">
           <Form action={`/admin/${slug}/fairness`} className="flex flex-wrap items-end gap-2">
             <label className="block">
-              <span className="text-xs font-medium text-slate-600">Team code</span>
+              <span className="text-xs font-medium text-paper">Team code</span>
               <select name="team" defaultValue={team?.code ?? ""} className={`${inputClass} w-36`}>
                 <option value="">Choose…</option>
                 {(["PRODUCT", "CONSULTING", "FINANCE"] as const).map((track) => (
@@ -151,26 +151,26 @@ export default async function FairnessPage({
 function FlagCard({ v, n, slug, locked }: { v: FlagView; n: number; slug: string; locked: boolean }) {
   const codes = v.teams.map((t) => t.code);
   return (
-    <li aria-label={`Flag ${n}`} className={`rounded-md border p-4 ${v.status === "OPEN" ? "border-amber-200 bg-amber-50/40" : "border-slate-200"}`}>
+    <li aria-label={`Flag ${n}`} className={`rounded-md border p-4 ${v.status === "OPEN" ? "border-warn/60 bg-warn/10" : "border-line"}`}>
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone="violet">Flag {v.kind}</Badge>
-        <h3 className="text-sm font-semibold text-slate-900">{v.title}</h3>
+        <h3 className="text-sm font-semibold text-phosphor">{v.title}</h3>
         <Badge tone={STATUS_TONE[v.status]}>{FLAG_STATUS_LABELS[v.status]}</Badge>
       </div>
-      <p className="mt-1 text-sm text-slate-600">{v.rule}</p>
+      <p className="mt-1 text-sm text-paper">{v.rule}</p>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
         {v.ticker ? (
           <>
-            <dt className="text-slate-500">Company</dt>
+            <dt className="text-muted">Company</dt>
             <dd className="font-mono font-semibold">{v.ticker}</dd>
           </>
         ) : null}
-        <dt className="text-slate-500">Teams</dt>
+        <dt className="text-muted">Teams</dt>
         <dd className="flex flex-wrap gap-x-3">
           {v.teams.map((t) => (
             <Link key={t.id} href={`/admin/${slug}/fairness?team=${encodeURIComponent(t.code)}#drill-down`} className="font-mono hover:underline">
               {t.code}
-              {t.track ? <span className="font-sans text-xs text-slate-500"> ({t.track})</span> : null}
+              {t.track ? <span className="font-sans text-xs text-muted"> ({t.track})</span> : null}
             </Link>
           ))}
         </dd>
@@ -179,7 +179,7 @@ function FlagCard({ v, n, slug, locked }: { v: FlagView; n: number; slug: string
         ))}
       </dl>
       {v.status !== "OPEN" ? (
-        <p className="mt-3 text-sm text-slate-700">
+        <p className="mt-3 text-sm text-paper">
           {FLAG_STATUS_LABELS[v.status]} by {v.decidedBy ?? "—"} at {dateTime(v.decidedAt)}: “{v.reason}”
         </p>
       ) : null}
@@ -188,7 +188,7 @@ function FlagCard({ v, n, slug, locked }: { v: FlagView; n: number; slug: string
       ) : (
         // Keyed by the decision, so it closes once a new decision is recorded (the card then shows it).
         <details key={v.decidedAt ?? ""} className="mt-3">
-          <summary className="cursor-pointer text-sm font-medium text-slate-700">Change the decision</summary>
+          <summary className="cursor-pointer text-sm font-medium text-paper">Change the decision</summary>
           <DecisionForm flagId={v.id} codes={codes} label="Change decision" />
         </details>
       )}
@@ -199,7 +199,7 @@ function FlagCard({ v, n, slug, locked }: { v: FlagView; n: number; slug: string
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt className="text-slate-500">{label}</dt>
+      <dt className="text-muted">{label}</dt>
       <dd className="tabular-nums">{value}</dd>
     </>
   );
@@ -212,10 +212,10 @@ function DecisionForm({ flagId, codes, label }: { flagId: string; codes: string[
       submit={label}
       confirm="Click again to {decision}"
       confirmValues={{ decision: { CLEARED: "clear the flag", DISQUALIFIED: `disqualify ${codes.join(", ")}` } }}
-      className="mt-3 border-t border-slate-100 pt-3"
+      className="mt-3 border-t border-line pt-3"
     >
       <fieldset>
-        <legend className="text-xs font-medium text-slate-600">Decision</legend>
+        <legend className="text-xs font-medium text-paper">Decision</legend>
         <div className="mt-1 flex flex-wrap gap-4 text-sm">
           <label className="flex items-center gap-2">
             <input type="radio" name="decision" value="CLEARED" required />
@@ -228,7 +228,7 @@ function DecisionForm({ flagId, codes, label }: { flagId: string; codes: string[
         </div>
       </fieldset>
       <label className="mt-2 block max-w-xl">
-        <span className="text-xs font-medium text-slate-600">Reason (at least 5 characters; logged)</span>
+        <span className="text-xs font-medium text-paper">Reason (at least 5 characters; logged)</span>
         <textarea name="reason" required rows={2} maxLength={1000} className={inputClass} />
       </label>
     </ConfirmForm>
@@ -258,8 +258,8 @@ function TeamDrillDown({
   return (
     <div className="mt-5 space-y-5" data-testid="drill-down">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="font-mono text-lg font-semibold text-slate-900">{team.code}</h3>
-        <span className="text-sm text-slate-600">
+        <h3 className="font-mono text-lg font-semibold text-phosphor">{team.code}</h3>
+        <span className="text-sm text-paper">
           {team.name} · {TRACK_LABELS[team.track]}
         </span>
         {team.disqualified ? <Badge tone="red">Disqualified</Badge> : <Badge tone="green">Not disqualified</Badge>}
@@ -282,7 +282,7 @@ function TeamDrillDown({
 
       {flags.length ? (
         <div>
-          <h4 className="text-sm font-semibold text-slate-900">Flags naming {team.code}</h4>
+          <h4 className="text-sm font-semibold text-phosphor">Flags naming {team.code}</h4>
           <ul className="mt-1 space-y-1 text-sm">
             {flags.map((f) => (
               <li key={f.id} className="flex flex-wrap items-center gap-2">
@@ -295,7 +295,7 @@ function TeamDrillDown({
       ) : null}
 
       <section aria-label="Holdings by lot">
-        <h4 className="text-sm font-semibold text-slate-900">Holdings by lot</h4>
+        <h4 className="text-sm font-semibold text-phosphor">Holdings by lot</h4>
         <Table head={["Ticker", "Lot", "Shares", "Cost"]} empty="No shares held.">
           {holdings.map((h) => (
             <tr key={h.key}>
@@ -312,7 +312,7 @@ function TeamDrillDown({
 
       {team.track === "FINANCE" ? (
         <section aria-label="Orders">
-          <h4 className="text-sm font-semibold text-slate-900">Orders across rounds</h4>
+          <h4 className="text-sm font-semibold text-phosphor">Orders across rounds</h4>
           <div className="max-h-96 overflow-y-auto">
             <Table head={["Round", "Ticker", "Type", "Quantity", "Status", "Entry price", "Fill price", "Placed"]} empty="No orders.">
               {orders.map((o) => (
@@ -334,7 +334,7 @@ function TeamDrillDown({
 
       {team.track === "CONSULTING" ? (
         <section aria-label="Consultant calls">
-          <h4 className="text-sm font-semibold text-slate-900">Consultant calls</h4>
+          <h4 className="text-sm font-semibold text-phosphor">Consultant calls</h4>
           <Table head={["Call", "Ticker", "Direction", "Made", "Baseline", "Judged at", "Outcome", "Earnings"]} empty="No calls.">
             {calls.map((c) => (
               <tr key={c.key}>
@@ -354,8 +354,8 @@ function TeamDrillDown({
 
       <section aria-label="Ledger rows">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-900">Ledger rows</h4>
-          <Link href={`/admin/${slug}/ledger?team=${encodeURIComponent(team.code)}`} className="text-sm text-slate-600 hover:underline">
+          <h4 className="text-sm font-semibold text-phosphor">Ledger rows</h4>
+          <Link href={`/admin/${slug}/ledger?team=${encodeURIComponent(team.code)}`} className="text-sm text-paper hover:underline">
             Open in the ledger
           </Link>
         </div>
@@ -376,7 +376,7 @@ function TeamDrillDown({
                 <Td mono>{l.shares}</Td>
                 <Td mono>{l.price}</Td>
                 <Td mono>{l.round}</Td>
-                <Td className="text-slate-600">
+                <Td className="text-paper">
                   <span className="block min-w-48 max-w-md whitespace-normal">{l.memo}</span>
                 </Td>
               </tr>

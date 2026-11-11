@@ -14,7 +14,7 @@ import { CrisisCard } from "../crisis-card";
 
 export const metadata: Metadata = { title: "Market" };
 
-const TONE = { 1: "text-emerald-700", 0: "text-slate-600", [-1]: "text-red-700" } as const;
+const TONE = { 1: "text-phosphor", 0: "text-paper", [-1]: "text-danger-soft" } as const;
 const TIER_TONE = { 1: "green", 0: "slate", [-1]: "red" } as const;
 
 // One company: its prices, and everything public about it so far: the pitch (from Reading), the verdicts (released
@@ -24,7 +24,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
   const { ticker } = await params;
   const { event, status, company: own } = await loadTeamContext();
   const back = (
-    <Link href="/team/market" className="text-sm font-medium text-slate-700 underline underline-offset-2">
+    <Link href="/team/market" className="text-sm font-medium text-paper underline underline-offset-2">
       ← All companies
     </Link>
   );
@@ -90,7 +90,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
                     <Badge tone={TIER_TONE[v.tierSign]}>{v.tier}</Badge>
                   </div>
                   {v.notes.map((n) => (
-                    <p key={n} className="mt-1 text-slate-600">
+                    <p key={n} className="mt-1 text-paper">
                       {n}
                     </p>
                   ))}
@@ -112,7 +112,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
       {types.includes("PLAN") ? <SubmissionPanel type="PLAN" s={submissions.PLAN} /> : null}
       {types.includes("FLASH") ? <SubmissionPanel type="FLASH" s={submissions.FLASH} /> : null}
       {waiting.length || !phaseReached(status.phase, "CRISIS") ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           {[...(phaseReached(status.phase, "CRISIS") ? [] : [BOOK_PUBLIC_FROM.CRISIS]), ...waiting.map((t) => BOOK_PUBLIC_FROM[t])].join(" ")}
         </p>
       ) : null}
@@ -132,7 +132,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
               <Td mono className="text-right">
                 {money(l.ai)}
               </Td>
-              <Td className="text-slate-600">{l.detail}</Td>
+              <Td className="text-paper">{l.detail}</Td>
             </tr>
           ))}
         </Table>
@@ -144,7 +144,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
 function SubmissionPanel({ type, s }: { type: SubmissionType; s: PublicSubmission | undefined }) {
   return (
     <Panel title={SUBMISSION_TITLES[type]}>
-      {s ? <Submission type={type} s={s} /> : <p className="text-sm text-slate-500">Nothing was submitted on time.</p>}
+      {s ? <Submission type={type} s={s} /> : <p className="text-sm text-muted">Nothing was submitted on time.</p>}
     </Panel>
   );
 }

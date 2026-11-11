@@ -110,7 +110,7 @@ export default async function CalibrationPage({
         actions={
           <>
             {config?.fake && !runner ? <Badge tone="amber">FAKE JUDGE</Badge> : null}
-            <Link href={`/admin/${slug}/judge`} className="text-sm font-semibold text-slate-700 underline hover:text-slate-900">
+            <Link href={`/admin/${slug}/judge`} className="text-sm font-semibold text-paper underline hover:text-phosphor">
               Back to the judge
             </Link>
           </>
@@ -118,8 +118,8 @@ export default async function CalibrationPage({
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Start a batch</h3>
-            <p className="text-sm text-slate-600">
+            <h3 className="text-sm font-semibold text-phosphor">Start a batch</h3>
+            <p className="text-sm text-paper">
               Before the event, the judge scores the {file.ok ? file.value.length : 10} sample pitches below like real pitches: 3 runs each, and 2 more
               where the first 3 spread more than 10 points. Compare each median with the range a sensible judge should give. Each start is a new
               batch, so a batch can be run again after a change to the prompt or the model.
@@ -138,17 +138,17 @@ export default async function CalibrationPage({
                 </ActionButton>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Organisers start calibration and run the judge.</p>
+              <p className="text-sm text-muted">Organisers start calibration and run the judge.</p>
             )}
             {organiser && inFlight ? (
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-paper">
                 Batch {inFlight.batch} still has runs queued or running; a new start queues another batch after it.
               </p>
             ) : null}
           </div>
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Run the judge</h3>
-            <p className="text-sm text-slate-600">
+            <h3 className="text-sm font-semibold text-phosphor">Run the judge</h3>
+            <p className="text-sm text-paper">
               While it is on, this console works the whole judge queue: judge runs first, then calibration runs. It can also run from the Judge page,
               another console, or <code className="font-mono text-xs">pnpm judge-worker --event {slug}</code> on a laptop.
             </p>
@@ -169,9 +169,9 @@ export default async function CalibrationPage({
           title={`Batch ${batch}`}
           actions={
             <>
-              <span className="text-sm text-slate-500">Started {dateTime(summary.startedAt)}</span>
+              <span className="text-sm text-muted">Started {dateTime(summary.startedAt)}</span>
               {batches.length > 1 ? (
-                <a href="#batches" className="text-sm font-semibold text-slate-700 underline hover:text-slate-900">
+                <a href="#batches" className="text-sm font-semibold text-paper underline hover:text-phosphor">
                   Other batches
                 </a>
               ) : null}
@@ -217,7 +217,7 @@ export default async function CalibrationPage({
         </Panel>
       ) : (
         <Panel title="Results">
-          <p className="text-sm text-slate-500" data-testid="calibration-empty">
+          <p className="text-sm text-muted" data-testid="calibration-empty">
             No calibration yet: Start calibration queues 3 runs of each sample pitch, then run the judge.
           </p>
         </Panel>
@@ -247,14 +247,14 @@ function Summary({ s }: { s: BatchSummary }) {
           value={`${r.DONE} of ${s.totalRuns} done`}
           hint={
             <>
-              <span className={r.FAILED ? "font-semibold text-red-700" : ""}>{r.FAILED} failed</span> · {r.RUNNING} running · {r.QUEUED} queued
+              <span className={r.FAILED ? "font-semibold text-danger-soft" : ""}>{r.FAILED} failed</span> · {r.RUNNING} running · {r.QUEUED} queued
             </>
           }
         />
         <Stat label="Judging time" value={duration(s.elapsedMs)} hint={timeHint} />
       </div>
       {s.firstClaimAt ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted">
           First claim about {clock(s.firstClaimAt, true)} (a finished run keeps no claim time: its finish less the model&apos;s answer time)
           {s.settled && s.lastFinishedAt ? ` · last finish ${clock(s.lastFinishedAt, true)}` : ""}.
         </p>
@@ -265,7 +265,7 @@ function Summary({ s }: { s: BatchSummary }) {
 
 function CheckLine({ check, testId }: { check: Check; testId: string }) {
   return check.ok ? (
-    <p className="text-sm text-slate-600" data-testid={testId} data-ok="true">
+    <p className="text-sm text-paper" data-testid={testId} data-ok="true">
       {check.text}
     </p>
   ) : (
@@ -291,11 +291,11 @@ function Versions({
   return (
     <section aria-label="Prompt and model" className="space-y-2">
       <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-3 gap-y-1 text-sm">
-        <dt className="text-slate-500">Models</dt>
+        <dt className="text-muted">Models</dt>
         <dd className="font-mono text-xs [overflow-wrap:anywhere]" data-testid="calibration-models">
           {s.models.length ? s.models.join(", ") : "—"}
         </dd>
-        <dt className="text-slate-500">PITCH prompt</dt>
+        <dt className="text-muted">PITCH prompt</dt>
         <dd className="font-mono text-xs [overflow-wrap:anywhere]" data-testid="calibration-prompt-shas">
           {s.promptShas.length ? s.promptShas.map(shortSha).join(", ") : "—"}
         </dd>
@@ -303,7 +303,7 @@ function Versions({
       {promptError ? <Notice tone="red">The current PITCH prompt cannot be read: {promptError}</Notice> : null}
       {pc ? <CheckLine check={pc} testId="calibration-prompt-check" /> : null}
       {mc ? <CheckLine check={mc} testId="calibration-model-check" /> : null}
-      {!pc && !mc && !promptError ? <p className="text-sm text-slate-500">The prompt and model are checked once a run has reported.</p> : null}
+      {!pc && !mc && !promptError ? <p className="text-sm text-muted">The prompt and model are checked once a run has reported.</p> : null}
     </section>
   );
 }
@@ -311,16 +311,16 @@ function Versions({
 function BatchesPanel({ slug, list, shown }: { slug: string; list: BatchInfo[]; shown: number | null }) {
   return (
     <div id="batches" className="scroll-mt-4">
-      <Panel title="Batches" actions={<span className="text-sm text-slate-500">{`${list.length} ${list.length === 1 ? "batch" : "batches"}`}</span>}>
+      <Panel title="Batches" actions={<span className="text-sm text-muted">{`${list.length} ${list.length === 1 ? "batch" : "batches"}`}</span>}>
         <div data-testid="calibration-batches">
           <Table head={["Batch", "Started", "Result"]} label="Calibration batches">
             {list.map((b) => (
-              <tr key={b.batch} className={b.batch === shown ? "bg-slate-50" : ""}>
+              <tr key={b.batch} className={b.batch === shown ? "bg-raised" : ""}>
                 <Td>
                   <Link
                     href={`/admin/${slug}/judge/calibration?batch=${b.batch}`}
                     aria-current={b.batch === shown ? "page" : undefined}
-                    className="font-semibold text-slate-700 underline hover:text-slate-900"
+                    className="font-semibold text-paper underline hover:text-phosphor"
                   >
                     Batch {b.batch}
                   </Link>
@@ -332,7 +332,7 @@ function BatchesPanel({ slug, list, shown }: { slug: string; list: BatchInfo[]; 
                 </Td>
                 <Td mono>{dateTime(b.startedAt)}</Td>
                 <Td className="tabular-nums">
-                  <span className={b.failed > 0 && b.inFlight === 0 ? "text-red-700" : "text-slate-800"}>{batchResultText(b)}</span>
+                  <span className={b.failed > 0 && b.inFlight === 0 ? "text-danger-soft" : "text-phosphor"}>{batchResultText(b)}</span>
                 </Td>
               </tr>
             ))}
@@ -345,17 +345,17 @@ function BatchesPanel({ slug, list, shown }: { slug: string; list: BatchInfo[]; 
 
 function SamplesPanel({ file }: { file: Read<CalibrationSample[]> }) {
   return (
-    <Panel title="Sample pitches" actions={<span className="font-mono text-xs text-slate-500">prompts/calibration/pitches.json</span>}>
+    <Panel title="Sample pitches" actions={<span className="font-mono text-xs text-muted">prompts/calibration/pitches.json</span>}>
       {!file.ok ? (
         <Notice tone="red">
           <span data-testid="calibration-file-error">{file.error}</span>
         </Notice>
       ) : (
         <>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-paper">
             What the next batch will judge. Each sample comes with the range of scores a sensible judge should give; a batch stores its own copy.
           </p>
-          <ol className="mt-3 divide-y divide-slate-100" data-testid="calibration-file">
+          <ol className="mt-3 divide-y divide-line" data-testid="calibration-file">
             {file.value.map((s) => (
               <FileSampleRow key={s.sample_no} s={s} />
             ))}
@@ -370,16 +370,16 @@ function FileSampleRow({ s }: { s: CalibrationSample }) {
   return (
     <li className="py-2" aria-label={`Sample pitch ${s.sample_no}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <p className="min-w-0 flex-1 text-sm text-slate-900">
+        <p className="min-w-0 flex-1 text-sm text-phosphor">
           <span className="font-mono font-semibold">#{s.sample_no}</span> {s.title}
         </p>
-        <p className="text-xs tabular-nums text-slate-500">
-          Expected <span className="font-semibold text-slate-800">{bandText(s.expected)}</span> · {wordCount(s.text)} words
+        <p className="text-xs tabular-nums text-muted">
+          Expected <span className="font-semibold text-phosphor">{bandText(s.expected)}</span> · {wordCount(s.text)} words
         </p>
       </div>
       <details className="mt-1">
-        <summary className="cursor-pointer text-xs font-semibold text-slate-700 hover:text-slate-900">Text</summary>
-        <pre className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap rounded border border-slate-200 bg-white p-2 font-sans text-xs text-slate-800">{s.text}</pre>
+        <summary className="cursor-pointer text-xs font-semibold text-paper hover:text-phosphor">Text</summary>
+        <pre className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap rounded border border-line bg-panel p-2 font-sans text-xs text-phosphor">{s.text}</pre>
       </details>
     </li>
   );

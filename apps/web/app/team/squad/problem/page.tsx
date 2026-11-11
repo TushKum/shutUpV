@@ -42,7 +42,7 @@ export default async function ProblemCardPage() {
         title={pick.oneCase ? "The case" : "Problem card"}
         actions={
           pick.oneCase ? null : (
-            <span className="text-sm text-slate-600">
+            <span className="text-sm text-paper">
               Pick closes <Due at={deadline} {...pauseOf(ctx)} testId="pick-due" />
             </span>
           )
@@ -50,7 +50,7 @@ export default async function ProblemCardPage() {
       >
         <Notice tone={pick.canPick && !pick.chosenId ? "amber" : "slate"}>{pick.note}</Notice>
         {ws.cards.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-500">No cards have been dealt to your squad.</p>
+          <p className="mt-3 text-sm text-muted">No cards have been dealt to your squad.</p>
         ) : (
           <ol className={`mt-3 grid gap-3 ${pick.oneCase ? "" : "md:grid-cols-3"}`}>
             {ws.cards.map((c, i) => {
@@ -59,16 +59,16 @@ export default async function ProblemCardPage() {
                 <li
                   key={c.id}
                   aria-label={`Card ${i + 1}: ${c.title}`}
-                  className={`flex flex-col rounded-md p-3 ${chosen ? "bg-emerald-50/50 ring-2 ring-emerald-600" : "ring-1 ring-slate-200"}`}
+                  className={`flex flex-col rounded-md p-3 ${chosen ? "bg-phosphor/10 ring-2 ring-phosphor" : "ring-1 ring-line"}`}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
                     <span>
                       {pick.oneCase ? "Same case for every squad" : `Card ${i + 1} of 3`} · No. {c.number} · {c.sector}
                     </span>
                     {pick.oneCase ? null : chosen ? <Badge tone={pick.byDefault ? "amber" : "green"}>{pick.byDefault ? "Chosen by default" : "Picked"}</Badge> : null}
                   </div>
-                  <h3 className="mt-1 font-semibold text-slate-900">{c.title}</h3>
-                  <p className="mt-1 flex-1 whitespace-pre-wrap text-sm text-slate-700">{c.body}</p>
+                  <h3 className="mt-1 font-semibold text-phosphor">{c.title}</h3>
+                  <p className="mt-1 flex-1 whitespace-pre-wrap text-sm text-paper">{c.body}</p>
                   {pick.canPick && !chosen ? (
                     <div className="mt-3">
                       <ActionButton action={pickProblemCard.bind(null, c.id, c.title)} confirm={`Click again to pick “${c.title}”`}>
@@ -81,7 +81,7 @@ export default async function ProblemCardPage() {
             })}
           </ol>
         )}
-        {!pick.mayPick && !pick.oneCase ? <p className="mt-3 text-sm text-slate-500">The Product team picks the card; you see its pick here.</p> : null}
+        {!pick.mayPick && !pick.oneCase ? <p className="mt-3 text-sm text-muted">The Product team picks the card; you see its pick here.</p> : null}
       </Panel>
     </div>
   );

@@ -35,28 +35,28 @@ export function DealPanel({
     <Panel
       title="Rescue deal"
       actions={
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-paper">
           Due <Due at={deadlines.DEAL} pause={pause} testId="deal-due" closed={deal.stage === "SIGNED" ? "signed" : null} />
         </span>
       }
     >
       <div className="space-y-4 text-sm" data-testid="deal" data-stage={deal.stage}>
-        <p className="text-slate-600">
+        <p className="text-paper">
           The Consulting team proposes the price per share, between 50% and 100% of the post-crisis price
           {deal.band ? ` (${money(deal.band.min)} to ${money(deal.band.max)})` : ""}; the fund sets the amount, {money(RULES.DEAL_MIN)} to{" "}
           {money(RULES.DEAL_MAX)}. Shares = amount ÷ price, rounded down, move from the Product team&apos;s retained shares into the fund&apos;s squad lot, and
           the fund pays shares × price to the company. All three teams sign; any change resets every signature.
         </p>
         <dl className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-md bg-slate-50 px-3 py-2">
-            <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Deal bonus</dt>
+          <div className="rounded-md bg-raised px-3 py-2">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Deal bonus</dt>
             <dd>
               Fully signed by <Due at={deadlines.DEAL_BONUS} pause={pause} testId="deal-bonus-due" closed={deal.bonus === "YES" ? "signed" : null} />: the Consulting team earns {money(RULES.DEAL_BONUS)}.{" "}
               <OutcomeBadge testId="deal-bonus" value={deal.bonus} yes="Bonus earned" no="No bonus" />
             </dd>
           </div>
-          <div className="rounded-md bg-slate-50 px-3 py-2">
-            <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">Plan cap</dt>
+          <div className="rounded-md bg-raised px-3 py-2">
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Plan cap</dt>
             <dd>
               Not fully signed at {deadlines.DEAL ? clock(deadlines.DEAL) : "03:00"}: the rescue plan&apos;s score is capped at {RULES.PLAN_CAP_WITHOUT_DEAL}.{" "}
               <OutcomeBadge testId="deal-cap" value={deal.capped} yes="Plan capped at 50" no="No cap" yesTone="red" />
@@ -83,11 +83,11 @@ export function DealPanel({
         ) : null}
 
         {showTerms ? (
-          <div className="rounded-md border border-slate-200 p-3" data-testid="deal-terms">
+          <div className="rounded-md border border-line p-3" data-testid="deal-terms">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold text-slate-900">{deal.stage === "SIGNED" ? "Signed terms" : `Terms: version ${deal.version}`}</h3>
+              <h3 className="font-semibold text-phosphor">{deal.stage === "SIGNED" ? "Signed terms" : `Terms: version ${deal.version}`}</h3>
               {deal.editedBy && deal.editedAt ? (
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-muted">
                   Last changed by {teamLabel(deal.editedBy, track)} at {clock(deal.editedAt, true)}
                 </span>
               ) : null}
@@ -107,19 +107,19 @@ export function DealPanel({
               ))}
             </ul>
             {deal.stage === "OPEN" && !deal.complete ? (
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-paper">
                 The terms can be signed once {deal.price === null ? "the Consulting team has proposed the price" : ""}
                 {deal.price === null && deal.amount === null ? " and " : ""}
                 {deal.amount === null ? "the fund has set the amount" : ""}.
               </p>
             ) : null}
             {deal.stage === "OPEN" && deal.mine ? (
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-paper">
                 You signed version {deal.version}.
                 {deal.unsigned.length > 0 ? ` Waiting for ${deal.unsigned.map((t) => teamLabel(t, track)).join(" and ")}.` : ""}
               </p>
             ) : null}
-            {warning && deal.stage === "OPEN" ? <p className="mt-2 text-amber-800">{warning}</p> : null}
+            {warning && deal.stage === "OPEN" ? <p className="mt-2 text-warn">{warning}</p> : null}
             {/* Mounted for as long as the terms can be signed, so the result of a signature stays on screen. */}
             {deal.stage === "OPEN" && deal.complete ? (
               <div className="mt-3">
@@ -140,7 +140,7 @@ export function DealPanel({
 
         {(deal.canEditPrice || deal.canEditAmount) && postCrisis ? (
           <div>
-            <h3 className="mb-2 font-semibold text-slate-900">{deal.canEditPrice ? "Propose the price" : "Set the amount"}</h3>
+            <h3 className="mb-2 font-semibold text-phosphor">{deal.canEditPrice ? "Propose the price" : "Set the amount"}</h3>
             <DealTermForm
               action={deal.canEditPrice ? setDealPrice : setDealAmount}
               track={deal.canEditPrice ? "CONSULTING" : "FINANCE"}
@@ -151,14 +151,14 @@ export function DealPanel({
               deadline={deadlines.DEAL ?? null}
               pause={pause}
             />
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted">
               Any change resets every signature, including those already given.
               {track === "FINANCE" && fundAvailable !== null ? ` Your available cash: ${money(fundAvailable)}.` : ""}
             </p>
           </div>
         ) : null}
         {deal.stage === "OPEN" && track === "PRODUCT" ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted">
             Your team signs; the Consulting team proposes the price and the fund sets the amount.
             {retained !== null ? ` Your retained shares: ${retained.toLocaleString("en-US")}.` : ""}
           </p>
@@ -171,11 +171,11 @@ export function DealPanel({
 function Term({ label, value, hint, testId }: { label: string; value: string; hint?: string; testId: string }) {
   return (
     <div>
-      <dt className="text-xs text-slate-500">
+      <dt className="text-xs text-muted">
         {label}
-        {hint ? <span className="text-slate-400"> · {hint}</span> : null}
+        {hint ? <span className="text-muted"> · {hint}</span> : null}
       </dt>
-      <dd className="font-mono font-semibold tabular-nums text-slate-900" data-testid={testId}>
+      <dd className="font-mono font-semibold tabular-nums text-phosphor" data-testid={testId}>
         {value}
       </dd>
     </div>

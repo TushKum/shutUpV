@@ -47,16 +47,16 @@ export default async function SquadOverview() {
       <Panel title={`Squad ${String(squad.number).padStart(2, "0")}`}>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Company</h3>
             {ctx.company?.ticker ? (
-              <p className="mt-1 text-lg font-semibold text-slate-900" data-testid="squad-company">
+              <p className="mt-1 text-lg font-semibold text-phosphor" data-testid="squad-company">
                 {ctx.company.name ?? "—"} <span className="font-mono">({ctx.company.ticker})</span>
               </p>
             ) : (
-              <p className="mt-1 text-sm text-slate-700" data-testid="squad-company">
+              <p className="mt-1 text-sm text-paper" data-testid="squad-company">
                 No name or ticker claimed yet: they are claimed when the pitch card is submitted.
                 {draftName || draftTicker ? (
-                  <span className="block text-slate-500">
+                  <span className="block text-muted">
                     In the draft: {draftName || "—"}
                     {draftTicker ? <span className="font-mono"> ({draftTicker})</span> : null}
                   </span>
@@ -65,19 +65,19 @@ export default async function SquadOverview() {
             )}
           </div>
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Teams</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Teams</h3>
             <ul className="mt-1 space-y-2 text-sm" aria-label="Squad teams">
               {TRACKS.map((t) => {
                 const mine = ids[t] === ctx.team.id;
                 return (
-                  <li key={t} className={mine ? "rounded-md bg-sky-50 px-2 py-1 ring-1 ring-inset ring-sky-200" : "px-2 py-1"}>
-                    <span className="font-semibold text-slate-900">{TRACK_LABELS[t]}</span>{" "}
+                  <li key={t} className={mine ? "rounded-md bg-phosphor-deep/40 px-2 py-1 ring-1 ring-inset ring-phosphor-dim" : "px-2 py-1"}>
+                    <span className="font-semibold text-phosphor">{TRACK_LABELS[t]}</span>{" "}
                     {mine ? (
                       <Badge tone="blue">Your team · {ctx.team.code}</Badge>
                     ) : (
-                      <span className="text-slate-500">· partner team</span>
+                      <span className="text-muted">· partner team</span>
                     )}
-                    <span className="block text-xs text-slate-600">{ROLE_WORK[t]}</span>
+                    <span className="block text-xs text-paper">{ROLE_WORK[t]}</span>
                   </li>
                 );
               })}
@@ -97,15 +97,15 @@ export default async function SquadOverview() {
         <div className="space-y-1 text-sm" data-testid="squad-problem">
           {chosen ? (
             <p>
-              <span className="font-semibold text-slate-900">{chosen.title}</span> <span className="text-slate-500">({chosen.sector})</span>{" "}
+              <span className="font-semibold text-phosphor">{chosen.title}</span> <span className="text-muted">({chosen.sector})</span>{" "}
               {pick.oneCase ? <Badge tone="green">Every squad</Badge> : pick.byDefault ? <Badge tone="amber">Chosen by default</Badge> : <Badge tone="green">Picked</Badge>}
             </p>
           ) : (
-            <p className="font-semibold text-slate-900">Not picked yet.</p>
+            <p className="font-semibold text-phosphor">Not picked yet.</p>
           )}
-          <p className="text-slate-600">{pick.note}</p>
+          <p className="text-paper">{pick.note}</p>
           {pick.oneCase ? null : (
-            <p className="text-slate-600">
+            <p className="text-paper">
               Pick closes: <Due at={ws.deadlines.PROBLEM_PICK ?? null} {...pause} />
             </p>
           )}
@@ -120,7 +120,7 @@ export default async function SquadOverview() {
             ) : null,
           )}
         </ul>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted">
           Only the last version submitted on time is judged; a saved draft that is not submitted is not judged.
           {ws.deadlines.DEAL ? ` The deal must be fully signed by ${clock(ws.deadlines.DEAL)}, or the plan score is capped at 50.` : ""}
         </p>
@@ -141,17 +141,17 @@ function StatusCard({
   pause: { paused: boolean; pausedAt: string | null };
 }) {
   return (
-    <li className="rounded-md border border-slate-200 p-3" aria-label={s.label} data-testid={`status-${s.type}`}>
+    <li className="rounded-md border border-line p-3" aria-label={s.label} data-testid={`status-${s.type}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold text-slate-900">{s.label}</h3>
+        <h3 className="font-semibold text-phosphor">{s.label}</h3>
         <Badge tone={s.state.tone}>{s.state.text}</Badge>
       </div>
       <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
-        <dt className="text-slate-500">Due</dt>
+        <dt className="text-muted">Due</dt>
         <dd>
           <Due at={due} {...pause} />
         </dd>
-        <dt className="text-slate-500">Draft</dt>
+        <dt className="text-muted">Draft</dt>
         <dd data-testid={`draft-${s.type}`}>
           {s.draft ? (
             <>
@@ -161,7 +161,7 @@ function StatusCard({
             "Not saved yet"
           )}
         </dd>
-        <dt className="text-slate-500">Submitted</dt>
+        <dt className="text-muted">Submitted</dt>
         <dd data-testid={`submitted-${s.type}`}>
           {s.current ? (
             <>
@@ -174,14 +174,14 @@ function StatusCard({
         </dd>
         {s.superseded > 0 ? (
           <>
-            <dt className="text-slate-500">Earlier</dt>
+            <dt className="text-muted">Earlier</dt>
             <dd>
               {s.superseded} superseded {s.superseded === 1 ? "version" : "versions"}
             </dd>
           </>
         ) : null}
       </dl>
-      {s.changedSinceSubmit ? <p className="mt-2 text-xs text-amber-800">The saved draft differs from the submitted version.</p> : null}
+      {s.changedSinceSubmit ? <p className="mt-2 text-xs text-warn">The saved draft differs from the submitted version.</p> : null}
       <Link href={SUBMISSION_PATHS[s.type]} className="mt-2 inline-block text-sm font-semibold underline">
         Open the {s.label.toLowerCase()}
       </Link>

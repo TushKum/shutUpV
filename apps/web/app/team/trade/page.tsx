@@ -33,7 +33,7 @@ export default async function TradePage() {
   if (!phaseReached(status.phase, "READING")) {
     return (
       <Panel title="Trading">
-        <p className="text-sm text-slate-700" data-testid="trading-notice">
+        <p className="text-sm text-paper" data-testid="trading-notice">
           Trading starts with round 1{at("ROUNDS_1_4") ? ` at ${at("ROUNDS_1_4")}` : ""}. The companies are listed at Reading
           {at("READING") ? ` (${at("READING")})` : ""}, and IPO bids open with the IPO{at("IPO") ? ` at ${at("IPO")}` : ""}.
         </p>
@@ -80,18 +80,18 @@ export default async function TradePage() {
             className="lg:col-span-3 lg:self-start"
             title={`Order ticket · round ${status.open_round!.number}`}
             actions={
-              <span className="text-sm text-slate-600">
-                closes in <Countdown to={status.open_round!.closes_at} passed="now" className="font-semibold text-slate-900" />
+              <span className="text-sm text-paper">
+                closes in <Countdown to={status.open_round!.closes_at} passed="now" className="font-semibold text-phosphor" />
               </span>
             }
           >
             {tradable.length === 0 ? (
-              <p className="text-sm text-slate-500">No company is trading.</p>
+              <p className="text-sm text-muted">No company is trading.</p>
             ) : (
               <OrderTicket ctx={fctx} companies={tradable} round={{ number: status.open_round!.number, closesAt: status.open_round!.closes_at }} action={placeOrder} />
             )}
             {ownTicker ? (
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-muted">
                 Your squad&apos;s company, {ownTicker}, is not listed: a fund never trades its own squad&apos;s company. Your squad lot is under{" "}
                 <Link href="/team/trade/positions" className="underline">
                   Positions
@@ -108,22 +108,22 @@ export default async function TradePage() {
               title={`Open orders · round ${shownRound.number}`}
               actions={
                 ordersState === "EDITABLE" ? (
-                  <span className="text-sm text-slate-600">
-                    editable for <Countdown to={shownRound.closes_at} passed="—" className="font-semibold text-slate-900" />
+                  <span className="text-sm text-paper">
+                    editable for <Countdown to={shownRound.closes_at} passed="—" className="font-semibold text-phosphor" />
                   </span>
                 ) : ordersState === "PAUSED" ? (
-                  <span className="text-sm text-amber-800" data-testid="open-orders-state">
+                  <span className="text-sm text-warn" data-testid="open-orders-state">
                     paused: no changes until the event resumes
                   </span>
                 ) : (
-                  <span className="text-sm text-amber-800" data-testid="open-orders-state">
+                  <span className="text-sm text-warn" data-testid="open-orders-state">
                     closed at {clock(shownRound.closes_at, true)}: clearing
                   </span>
                 )
               }
             >
               {open.length === 0 ? (
-                <p className="text-sm text-slate-500">No open orders in round {shownRound.number}.</p>
+                <p className="text-sm text-muted">No open orders in round {shownRound.number}.</p>
               ) : (
                 <OpenOrders
                   ctx={fctx}
@@ -132,7 +132,7 @@ export default async function TradePage() {
                   items={open.map((line) => ({ line, edit: editOrder.bind(null, line.id), cancel: cancelOrder.bind(null, line.id) }))}
                 />
               )}
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-muted">
                 Every valid order fills at its company&apos;s new price when the round clears. Past rounds and their fill prices are under{" "}
                 <Link href="/team/trade/history" className="underline">
                   History
@@ -155,7 +155,7 @@ export default async function TradePage() {
                 testId="exposure"
               />
             </dl>
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-muted">
               Holdings, profit and loss and the limits per company are under{" "}
               <Link href="/team/trade/positions" className="underline">
                 Positions
@@ -198,11 +198,11 @@ function ClosedNotice({ notice, nowMs, ipo }: { notice: TradingNotice; nowMs: nu
 function Fact({ label, value, hint, testId }: { label: string; value: string; hint?: string; testId?: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="font-mono font-semibold tabular-nums text-slate-900" data-testid={testId}>
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="font-mono font-semibold tabular-nums text-phosphor" data-testid={testId}>
         {value}
       </dd>
-      {hint ? <dd className="text-xs text-slate-500">{hint}</dd> : null}
+      {hint ? <dd className="text-xs text-muted">{hint}</dd> : null}
     </div>
   );
 }

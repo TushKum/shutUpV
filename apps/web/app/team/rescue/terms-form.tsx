@@ -37,14 +37,14 @@ function Check({ preview, children }: { preview: Preview<object>; children: Reac
   return (
     <div aria-live="polite" className="mt-2 text-sm" data-testid="terms-check">
       {preview.state === "INVALID" ? (
-        <p className="text-red-700">
+        <p className="text-danger-soft">
           {preview.message}
-          {preview.value !== null ? <span className="block text-slate-600">Total value: {money(preview.value)}</span> : null}
+          {preview.value !== null ? <span className="block text-paper">Total value: {money(preview.value)}</span> : null}
         </p>
       ) : preview.state === "OK" ? (
         <>
           {children}
-          {preview.warning ? <p className="mt-1 text-amber-800">{preview.warning}</p> : null}
+          {preview.warning ? <p className="mt-1 text-warn">{preview.warning}</p> : null}
         </>
       ) : null}
     </div>
@@ -88,19 +88,19 @@ export function FeeForm({
     >
       <fieldset disabled={!open} className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-medium text-slate-600">Cash (US$)</span>
+          <span className="text-xs font-medium text-paper">Cash (US$)</span>
           <input name="cash" inputMode="decimal" autoComplete="off" placeholder="e.g. 20000" value={cash} onChange={(e) => setCash(e.target.value)} className={inputClass} />
         </label>
         <label className="block">
-          <span className="text-xs font-medium text-slate-600">Retained shares (at most 3,000)</span>
+          <span className="text-xs font-medium text-paper">Retained shares (at most 3,000)</span>
           <input name="shares" inputMode="numeric" autoComplete="off" placeholder="e.g. 1000" value={shares} onChange={(e) => setShares(e.target.value)} className={inputClass} />
         </label>
       </fieldset>
       <Check preview={preview}>
         {preview.state === "OK" ? (
-          <p className="text-slate-800">
+          <p className="text-phosphor">
             Total value: <span className="font-semibold">{money(preview.value)}</span>
-            <span className="text-slate-600">
+            <span className="text-paper">
               {" "}
               = {money(preview.cash)} cash{preview.shares > 0 ? ` + ${preview.shares.toLocaleString("en-US")} shares × IPO price ${money(ipoPrice)}` : ""}
             </span>
@@ -111,7 +111,7 @@ export function FeeForm({
         <button type="submit" disabled={!open || pending || preview.state !== "OK" || unchanged} className={buttonClass.primary}>
           {pending ? "Working…" : open ? "Propose these terms" : "The fee deadline has passed"}
         </button>
-        {unchanged ? <span className="ml-2 text-xs text-slate-500">These are the terms on the table.</span> : null}
+        {unchanged ? <span className="ml-2 text-xs text-muted">These are the terms on the table.</span> : null}
       </div>
       <ResultMessage result={result} />
     </form>
@@ -155,7 +155,7 @@ export function DealTermForm({
     >
       <fieldset disabled={!open}>
         <label className="block sm:max-w-xs">
-          <span className="text-xs font-medium text-slate-600">{consulting ? "Price per share (US$)" : "Amount the fund invests (US$)"}</span>
+          <span className="text-xs font-medium text-paper">{consulting ? "Price per share (US$)" : "Amount the fund invests (US$)"}</span>
           <input
             name={consulting ? "price" : "amount"}
             inputMode="decimal"
@@ -169,20 +169,20 @@ export function DealTermForm({
       </fieldset>
       <Check preview={preview}>
         {preview.state !== "OK" ? null : preview.shares !== null && preview.cashMoved !== null && preview.price !== null ? (
-          <p className="text-slate-800">
+          <p className="text-phosphor">
             <span className="font-semibold">{preview.shares.toLocaleString("en-US")} shares</span> at {money(preview.price)}: cash moved{" "}
             <span className="font-semibold">{money(preview.cashMoved)}</span>
-            <span className="text-slate-600"> (shares = amount ÷ price, rounded down; cash = shares × price)</span>
+            <span className="text-paper"> (shares = amount ÷ price, rounded down; cash = shares × price)</span>
           </p>
         ) : (
-          <p className="text-slate-600">{consulting ? "The shares are known once the fund sets the amount." : "The shares are known once the Consulting team proposes the price."}</p>
+          <p className="text-paper">{consulting ? "The shares are known once the fund sets the amount." : "The shares are known once the Consulting team proposes the price."}</p>
         )}
       </Check>
       <div className="mt-3">
         <button type="submit" disabled={!open || pending || preview.state !== "OK" || unchanged} className={buttonClass.primary}>
           {pending ? "Working…" : !open ? "The deal deadline has passed" : consulting ? "Propose this price" : "Set this amount"}
         </button>
-        {unchanged ? <span className="ml-2 text-xs text-slate-500">These are the terms on the table.</span> : null}
+        {unchanged ? <span className="ml-2 text-xs text-muted">These are the terms on the table.</span> : null}
       </div>
       <ResultMessage result={result} />
     </form>

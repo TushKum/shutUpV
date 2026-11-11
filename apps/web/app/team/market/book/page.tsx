@@ -42,7 +42,7 @@ export default async function BookPage({ searchParams }: PageProps<"/team/market
       <Panel title={`${BOOK_TITLES[kind]} (${entries} of ${companies.length})`}>
         <nav aria-label="Companies" className="flex flex-wrap gap-1.5">
           {companies.map((c) => (
-            <a key={c.id} href={`#${c.ticker}`} className="rounded bg-slate-100 px-2 py-1 font-mono text-xs font-semibold text-slate-700 hover:bg-slate-200">
+            <a key={c.id} href={`#${c.ticker}`} className="rounded bg-raised px-2 py-1 font-mono text-xs font-semibold text-paper hover:bg-phosphor-deep">
               {c.ticker}
             </a>
           ))}
@@ -78,7 +78,7 @@ export default async function BookPage({ searchParams }: PageProps<"/team/market
                 crisis ? (
                   <CrisisCard card={crisis} />
                 ) : (
-                  <p className="text-sm text-slate-500">No crisis card.</p>
+                  <p className="text-sm text-muted">No crisis card.</p>
                 )
               ) : (
                 <>
@@ -87,8 +87,8 @@ export default async function BookPage({ searchParams }: PageProps<"/team/market
                       <CrisisCard card={crisis} compact />
                     </div>
                   ) : null}
-                  {s ? <Submission type={kind} s={s} /> : <p className="text-sm text-slate-500">Nothing was submitted on time.</p>}
-                  {v?.notes.length ? <p className="mt-2 text-xs text-slate-500">{v.notes.join(" ")}</p> : null}
+                  {s ? <Submission type={kind} s={s} /> : <p className="text-sm text-muted">Nothing was submitted on time.</p>}
+                  {v?.notes.length ? <p className="mt-2 text-xs text-muted">{v.notes.join(" ")}</p> : null}
                   {v ? <VerdictDetail v={v} /> : null}
                 </>
               )}

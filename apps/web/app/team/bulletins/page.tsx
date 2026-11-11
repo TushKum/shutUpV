@@ -25,11 +25,11 @@ export default async function TeamBulletinsPage() {
   return (
     <Panel title={`Bulletins (${rows.length})`}>
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No bulletins yet. They appear here, and in the header, the moment the organisers publish them.</p>
+        <p className="text-sm text-muted">No bulletins yet. They appear here, and in the header, the moment the organisers publish them.</p>
       ) : (
         <ul className="space-y-3" aria-label="Bulletins">
           {rows.map((b) => (
-            <li key={b.id} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+            <li key={b.id} className="border-b border-line pb-3 last:border-0 last:pb-0">
               <BulletinItem b={b} />
             </li>
           ))}
