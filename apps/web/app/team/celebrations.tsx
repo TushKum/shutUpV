@@ -108,7 +108,12 @@ export function Celebrations({
             <Glyph e={t.icon} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-xs font-bold uppercase tracking-widest text-muted">{t.title}</p>
+            <p className="font-mono text-xs font-bold uppercase tracking-widest text-muted">
+              <span className="normal-case tracking-normal text-phosphor-dim" aria-hidden>
+                root@primus:~${" "}
+              </span>
+              {t.title}
+            </p>
             <p className="text-lg font-extrabold text-phosphor">{t.line}</p>
           </div>
           <button type="button" className="mx-key mx-key-quiet rounded-lg px-2 py-1 text-sm" onClick={() => {

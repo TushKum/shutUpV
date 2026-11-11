@@ -13,6 +13,8 @@ import { tradeGate } from "./gate";
 import { OrderTicket, type TicketCompany } from "./ticket";
 import { OpenOrders } from "./open-orders";
 import { cancelOrder, editOrder, placeOrder } from "./actions";
+import { loadWire } from "@/lib/team/wire-data";
+import { WireFeed } from "../wire-feed";
 
 export const metadata: Metadata = { title: "Trade" };
 
@@ -57,6 +59,8 @@ export default async function TradePage() {
     .filter((c) => c.market_price !== null && c.id !== own?.id)
     .map((c) => ({ id: c.id, ticker: c.ticker!, name: c.name, price: c.market_price! }));
   const ownTicker = own?.ticker ?? null;
+  // What just became public (released scores, the plans, bulletins): the funds trade on it.
+  const wire = await loadWire(ctx.event.id);
 
   return (
     <div className="space-y-4">
@@ -165,6 +169,7 @@ export default async function TradePage() {
           </Panel>
         </div>
       </div>
+      <WireFeed items={wire} />
     </div>
   );
 }
