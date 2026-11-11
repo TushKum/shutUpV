@@ -34,6 +34,7 @@ export interface FirmProfile {
   headline: string;
   specialities: string[];
   rate_card: string;
+  about: string;
   asking_cents: number;
 }
 
@@ -85,7 +86,7 @@ export async function loadCrisisRoom(ctx: TeamContext): Promise<CrisisRoomData> 
     sb.from("subround_crises").select("k, company_id, crisis_cards(id, category, title, body)").eq("event_id", eventId).order("k"),
     sb.from("companies").select("id, ticker, name, market_price, product_team_id").eq("event_id", eventId).order("ticker"),
     sb.rpc("firm_values", { p_event: eventId }),
-    sb.from("firm_profiles").select("team_id, headline, specialities, rate_card, asking_cents").eq("event_id", eventId),
+    sb.from("firm_profiles").select("team_id, headline, specialities, rate_card, about, asking_cents").eq("event_id", eventId),
     sb.from("offers").select("id, k, company_id, firm_team_id, cash_cents, shares, note, status, turn, company_counters, firm_counters, updated_at").eq("event_id", eventId).order("updated_at", { ascending: false }),
     sb.from("engagements").select("id, k, company_id, firm_team_id, cash_cents, shares, escrow, rating, rating_default, bonus_cents").eq("event_id", eventId).order("k"),
     sb.from("problem_statements").select("id, number, title, body, cap").eq("event_id", eventId).order("number"),

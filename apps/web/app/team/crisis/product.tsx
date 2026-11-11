@@ -1,6 +1,7 @@
 // The Product team's crisis room: its crisis card, hiring a firm (the directory, offers and counters), the response
 // plan (or the Round 3 solution), rating the firm, and the Round 3 draft.
 
+import Link from "next/link";
 import { RULES, planOf, type SubmissionType } from "@msim/engine";
 import { clock, money } from "@/lib/format";
 import type { TeamContext } from "@/lib/team/context";
@@ -108,7 +109,10 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
           {engaged ? (
             <Notice tone="green">
               You hired <strong>{firmById.get(engaged.firm_team_id)?.code ?? "a firm"}</strong> for {termsText(money(engaged.cash_cents), engaged.shares)}. Escrow:{" "}
-              {engaged.escrow.toLowerCase()} (paid to the firm at the due time if it submits its memo, refunded otherwise).
+              {engaged.escrow.toLowerCase()} (paid to the firm at the due time if it submits its memo, refunded otherwise).{" "}
+              <Link href={`/team/messages?c=${engaged.company_id}&f=${engaged.firm_team_id}`} className="font-semibold underline">
+                Chat with your firm →
+              </Link>
             </Notice>
           ) : !hiring ? (
             <Notice>{k === 5 && !draft.done ? "Hiring opens when the draft ends." : "Hiring for this sub-round is closed."}</Notice>
@@ -127,7 +131,9 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
                   return (
                     <li key={f.team_id} className="border border-line bg-panel p-3" data-testid={`firm-${f.code}`}>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-semibold text-[var(--term-amber)]">{f.code}</span>
+                        <Link href={`/team/firms/${encodeURIComponent(f.code)}`} className="font-mono font-semibold text-[var(--term-amber)] hover:underline">
+                          {f.code}
+                        </Link>
                         <span className="text-paper">{f.name}</span>
                         {f.avg_rating !== null ? <Badge tone="slate">★ {f.avg_rating.toFixed(1)}</Badge> : null}
                         {full ? <Badge tone="red">Full</Badge> : null}
@@ -135,7 +141,12 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
                       {p?.headline ? <p className="mt-1 text-sm font-semibold text-paper">{p.headline}</p> : null}
                       {p?.specialities.length ? <p className="mt-1 text-xs text-[var(--term-cyan)]">{p.specialities.join(" · ")}</p> : null}
                       {p?.rate_card ? <p className="mt-1 whitespace-pre-wrap text-xs text-muted">{p.rate_card}</p> : null}
-                      <p className="mt-1 text-xs text-muted">Asking {p && p.asking_cents > 0 ? money(p.asking_cents) : "—"}</p>
+                      <p className="mt-1 text-xs text-muted">
+                        Asking {p && p.asking_cents > 0 ? money(p.asking_cents) : "—"} ·{" "}
+                        <Link href={`/team/firms/${encodeURIComponent(f.code)}`} className="text-[var(--term-amber)] hover:underline">
+                          Full profile
+                        </Link>
+                      </p>
                       {!full && !open ? (
                         <details className="mt-2">
                           <summary className="cursor-pointer text-sm font-semibold text-[var(--term-amber)]">Make an offer</summary>

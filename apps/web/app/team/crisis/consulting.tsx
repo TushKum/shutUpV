@@ -2,6 +2,7 @@
 // each client of the sub-round (the crisis card, the client's response plan as it stands, and the advice memo the firm
 // writes for it, or the Round 3 solution co-written with the client), its engagements and the firm league.
 
+import Link from "next/link";
 import { RULES, adviceOf, planOf, type SubmissionType } from "@msim/engine";
 import { clock, money } from "@/lib/format";
 import type { TeamContext } from "@/lib/team/context";
@@ -42,7 +43,12 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
   return (
     <div className="space-y-6">
       <Panel title="Your firm's profile">
-        <p className="mb-3 text-sm text-paper">Every Product team sees this in the firm directory when it chooses whom to hire.</p>
+        <p className="mb-3 text-sm text-paper">
+          Every Product team sees this in the firm directory when it chooses whom to hire.{" "}
+          <Link href={`/team/firms/${encodeURIComponent(ctx.team.code)}`} className="text-[var(--term-amber)] hover:underline">
+            See your public profile →
+          </Link>
+        </p>
         <ActionForm action={saveFirmProfile} submit="Save profile">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm sm:col-span-2">
@@ -60,6 +66,10 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
             <label className="block text-sm sm:col-span-2">
               <span className="font-semibold text-paper">Rate card</span>
               <textarea name="rate_card" maxLength={600} rows={3} defaultValue={profile?.rate_card ?? ""} className={`${inputClass} mt-1`} />
+            </label>
+            <label className="block text-sm sm:col-span-2">
+              <span className="font-semibold text-paper">About the firm (who you are, how you work, past wins)</span>
+              <textarea name="about" maxLength={1000} rows={4} defaultValue={profile?.about ?? ""} className={`${inputClass} mt-1`} />
             </label>
           </div>
         </ActionForm>
@@ -101,6 +111,11 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
             const cur = data.clientSubmissions.find((s) => s.company_id === e.company_id && s.type === writeType && s.superseded_at === null);
             return (
               <Panel key={e.id} title={`Client ${label} · ${termsText(money(e.cash_cents), e.shares)}`}>
+                <p className="mb-3 text-sm">
+                  <Link href={`/team/messages?c=${e.company_id}&f=${me}`} className="font-semibold text-[var(--term-amber)] hover:underline">
+                    Chat with this client →
+                  </Link>
+                </p>
                 {k < 5 ? <CardsOf data={data} k={k} only={[e.company_id]} /> : null}
                 {k < 5 ? (
                   <details className="mt-3 border border-line p-3" open={!!(planSub ?? planDraft)}>
