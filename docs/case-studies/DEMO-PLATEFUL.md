@@ -6,7 +6,7 @@ was checked by calculation. Use it in the briefing, in training before the event
 
 | Squad 12 | Track | Team | Code | Job tonight |
 |---|---|---|---|---|
-| The company | Product | **Plateful** | P12 | Builds the company, writes the pitch, survives the crisis |
+| The company | Product | **Plateful** | P12 | Builds the company, writes the PRD, survives the crisis |
 | The advisers | Consulting | **Meridian Advisory** | C31 | Earns a fee, writes the rescue plan with Plateful, makes market calls on two *other* companies |
 | The investor | Finance | **Banyan Capital** | F08 | Seeds Plateful, invests in the rescue, trades every other company |
 
@@ -32,25 +32,26 @@ Plateful has 10 minutes to pick one; it takes the canteen-waste card.
 | Meridian | Assigned two *other* companies to cover (not PLTF) | $0 | – |
 | The exchange | 35,000 PLTF shares to sell at the IPO | | |
 
-### 21:10–22:30 Product: the pitch (≤400 words)
+### 21:10–22:30 Product: the PRD (≤800 words, seven sections)
 
-Plateful's pitch (excerpt):
+Plateful's PRD (excerpt from Problem, Solution, Business model and Competitive edge):
 
 > *Every evening, campus canteens bin 20–30% of what they cooked. Plateful sells that surplus as ₹40 "rescue boxes"
 > that students reserve on an app between 8 and 9 pm. The canteen gets ₹25 a box for food it would throw away; we keep
 > ₹15. Three canteens at our college already waste ~350 meals a day: at a 40% sell-through, that is 140 boxes and
-> ₹2,100 a day for us before costs. Our advantage is the canteen contracts and the pickup routine, not the app.*
+> ₹2,100 a day for us before costs. Our edge is the canteen contracts and the pickup routine, not the app.*
 
-**The judge** reads it three times: **81, 83, 86** → the median **83** is in the **80–89** band → pitch tier **+10%**:
+**The judge** reads it three times: **81, 83, 86** → the median **83** is in the **80–89** band → PRD tier **+10%**:
 
 > **IPO price = $10.00 × 1.10 = $11.00.** The AI price also starts at **$11.00**.
 
-*Why 83 and not 90+:* the problem and business model were sharp, but "our advantage is the contracts" is thin: any
+*Why 83 and not 90+:* the problem and business model were sharp and the success metrics measurable (boxes a day,
+waste %), but the Key risks section skipped hygiene and "our edge is the contracts" is thin: any
 rival can sign the next canteen.
 
 ### 22:30–23:15 Reading and Q&A
 
-The pitch book goes public. On the Q&A board a fund asks: *"What stops the canteen keeping the ₹25 by selling boxes
+The PRD book goes public. On the Q&A board a fund asks: *"What stops the canteen keeping the ₹25 by selling boxes
 itself?"* Plateful answers (≤100 words): the app brings the buyers and the payment; the canteen has neither.
 
 **Consulting, call 1** (due 23:15, baseline = IPO price $11.00, judged at the round 4 clearing):
@@ -194,7 +195,7 @@ Plateful's turnaround: $11.45 ÷ $9.87 = **1.16×**. Banyan's full result also c
 ## What each track should take away
 
 **Product.** Every share you hand over is value you lose at the close: Plateful gave 1,500 (fee) + 9,000 (deal) and
-still finished at $673,775 because the plan held the price up. Writing is your only direct lever: the pitch set the
+still finished at $673,775 because the plan held the price up. Writing is your only direct lever: the PRD set the
 IPO price, the plan added 10%, the flash 5%.
 
 **Consulting.** The plan earns you the most ($13,500 here; a 90 would have been $20,000). Get the deal signed by 02:45

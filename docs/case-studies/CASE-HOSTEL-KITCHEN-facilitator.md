@@ -9,21 +9,21 @@
 
 | Round | Product | Consulting | Finance |
 |---|---|---|---|
-| 1 · Build | Turning messy data into a per-box business with a break-even | Improving someone else's pitch; reading other companies for call 1 | Telling strong pitches from weak ones; IPO sizing |
+| 1 · Build | Turning messy data into a per-box business with a break-even | Improving someone else's PRD; reading other companies for call 1 | Telling strong PRDs from weak ones; IPO sizing |
 | 2 · Crisis | Redesigning the operation under a hard rule, keeping shares | Pricing a fair fee and deal; co-writing a costed plan | Investing in a rescue at a fair price; trading the shock |
 | 3 · Close | Answering news with numbers in 100 words | Calls 2 and 3 from the plans and the flash | Anchoring on AI prices; closing out risk |
 
 The trap in the data: **hygiene is students' biggest worry (52%)**, and the crisis turns it into law. Strong teams
-plan for food safety from the pitch on; weak teams discover it at 00:30.
+plan for food safety from the PRD on (its **Key risks** section asks for it); weak teams discover it at 00:30.
 
 ---
 
-## 2. Round 1 model answer (pitch)
+## 2. Round 1 model answer (the PRD, ≤800 words)
 
 A strong company sells **dinner surplus as ₹50 "late boxes" at a counter in each hostel, 9:30–11 pm**, ordered on a
 WhatsApp bot and paid by UPI.
 
-**The numbers a strong pitch shows** (all from the exhibits):
+**The numbers a strong PRD shows** (all from the exhibits):
 
 | Line | Value |
 |---|---|
@@ -38,10 +38,19 @@ WhatsApp bot and paid by UPI.
 **Why Annapurna says yes:** ₹25 × 540 = ₹13,500 a day for food it would bin, ₹364 a day less disposal, and waste falls
 from 23% to (2,900 − 540) ÷ 12,600 = **18.7%**, under the 20% audit line, which saves **₹50,000 a quarter** in penalties.
 
-**Advantage** that convinces: an exclusive deal with Annapurna for the contract year, hostel-council counters, and
-the ordering data (who eats what, when), not "we have an app".
+**Competitive edge** that convinces: an exclusive deal with Annapurna for the contract year, hostel-council
+counters, and the ordering data (who eats what, when), not "we have an app".
 
-**Expected scores:** a pitch with per-box maths, a break-even and an answer to hygiene: **80–89** (+10%). Good idea, no
+**The three PRD sections teams most often leave thin:**
+
+| Section | A strong answer |
+|---|---|
+| Core features and MVP scope | Week 1: one hostel, one counter, WhatsApp orders + UPI, insulated carriers. Left out: an app, delivery to rooms, other meals. |
+| Success metrics | Boxes sold a day (target 540), waste % (23% → under 20%), repeat buyers in week 2 (40%+), hygiene complaints (zero). |
+| Key risks | Hygiene (food kept above 60 °C, served within 90 minutes, a trained counter lead); Annapurna saying no (the ₹50,000 penalty it avoids); low demand (start with one hostel, expand on numbers). |
+
+**Expected scores** (rubric: problem 20, solution and MVP 20, metrics 15, business model 15, feasibility and risks 15,
+clarity 15): a PRD with per-box maths, a break-even, measurable metrics and an answer to hygiene: **80–89** (+10%). Good idea, no
 numbers: **60–69**. "An app to reduce food waste" with no customer or price: **40–55**.
 
 **Q&A questions worth rewarding** (Finance): *Who owns the food at 9:30 pm? What happens on days 300 boxes are left?
@@ -101,7 +110,7 @@ With every squad on the same case, the judge compares like with like: the score 
 
 *On paper, 90 minutes.* Squads of three teams around a table:
 
-- Round 1 (30 min): Product writes the pitch on the template; Finance prepares questions; Consulting coaches. Judges
+- Round 1 (30 min): Product writes the PRD on the seven-section template; Finance prepares questions; Consulting coaches. Judges
   score with the rubric; announce IPO prices with the tier table.
 - Round 2 (35 min): announce the crisis; fee and deal on worksheet B (give each squad a post-crisis price, e.g. IPO
   price × 1.05 × 0.85); plan on the template.
@@ -115,7 +124,7 @@ With every squad on the same case, the judge compares like with like: the score 
 
 **Debrief questions**
 
-- Which number in your pitch did the judge reward most? Which was missing?
+- Which number in your PRD did the judge reward most? Which metric was missing?
 - Was your deal price fair? Who gave up what?
-- If you had planned for hygiene in the pitch, what would the crisis have cost you?
+- If your PRD's Key risks had covered hygiene, what would the crisis have cost you?
 - Funds: which company did the market over-price compared with its AI price, and why?

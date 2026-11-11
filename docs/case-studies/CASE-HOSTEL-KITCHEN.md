@@ -8,8 +8,8 @@ case; the game's share prices and cash are in virtual US dollars ($).
 
 | Your squad | Track | Your job |
 |---|---|---|
-| The company | **Product** | Build the company that fixes this problem, pitch it, survive the crisis, finish with the most value |
-| The advisers | **Consulting** | Shape the pitch, earn a fee, write the rescue plan, make BUY/SELL calls on two other companies |
+| The company | **Product** | Build the company that fixes this problem, write its PRD, survive the crisis, finish with the most value |
+| The advisers | **Consulting** | Shape the PRD, earn a fee, write the rescue plan, make BUY/SELL calls on two other companies |
 | The investor | **Finance** | Seed the company, invest in its rescue, and trade the whole market with $500,000 |
 
 ---
@@ -97,34 +97,39 @@ The platform enforces every limit below; your screen always shows the real deadl
 
 ### Round 1 · Build and IPO (21:00–00:30)
 
-**Product: the pitch** (≤ **400 words**, submitted by Product, hard close **22:30**). Use the six sections:
+**Product: the PRD** (Product Requirements Document, ≤ **800 words**, submitted by Product, hard close **22:30**).
+Use the seven sections:
 
-1. **The problem**: who suffers and how much, with numbers from Exhibits 1–2.
-2. **The solution**: what you sell, when, where and how it stays safe.
-3. **Customers**: who pays (students? Annapurna? the university?) and why they will.
-4. **How we make money**: price, cost and margin **per box**, and how many boxes a day you need to break even.
-5. **Our advantage**: why a copycat cannot simply do this next term.
-6. **Use of seed money**: what the $50,000 seed buys, first.
+1. **Problem and target user**: who suffers and how much, with numbers from Exhibits 1–2.
+2. **Proposed solution**: what you sell, when, where and how it stays safe.
+3. **Core features and MVP scope**: what the first version does in week 1 (and what it leaves out).
+4. **Success metrics**: the 3–4 numbers that prove it works (boxes a day, waste %, repeat buyers, hygiene incidents).
+5. **Business model**: price, cost and margin **per box**, boxes a day to break even, and what the $50,000 seed buys
+   first.
+6. **Competitive edge**: why a copycat cannot simply do this next term.
+7. **Key risks**: what could go wrong (hygiene, Annapurna saying no, low demand) and what you would do about each.
 
 Also choose a **company name** and a unique **3–4 letter ticker**.
 
-**Consulting.** Read and improve the pitch in your squad's workspace (only Product submits). Then study your **two
+**Consulting.** Read and improve the PRD in your squad's workspace (only Product submits). Then study your **two
 assigned companies** (outside your squad) and make **call 1: BUY or SELL** on each by **23:15**: will the price after
 trading round 4 be above its IPO price?
 
-**Finance.** Read the pitch book, then ask sharp questions on the public **Q&A board** (founders answer in ≤100
+**Finance.** Read the PRD book (every company's PRD), then ask sharp questions on the public **Q&A board** (founders answer in ≤100
 words). From **23:15 to 23:30** bid in the **IPO**: 0–4,000 shares per company, never your own squad's company, and
 no more than your cash at IPO prices. A company whose bids exceed its 35,000 shares is scaled down.
 
-*How the pitch sets the IPO price:* the judge's score (median of three readings) → **90–100 or 80–89: +10%**,
+*How the PRD sets the IPO price:* the judge's score (median of three readings) → **90–100 or 80–89: +10%**,
 70–79 or 60–69: +5%, 50–59: 0, 40–49: −5%, below 40: −10% → **IPO price = $10.00 × (1 + tier)**.
 
-| Pitch rubric | Points |
+| PRD rubric | Points |
 |---|---|
-| Problem | 25 |
-| Solution | 25 |
-| Business model | 25 |
-| Advantage | 25 |
+| Problem and target user | 20 |
+| Solution and MVP scope | 20 |
+| Success metrics | 15 |
+| Business model | 15 |
+| Feasibility and risks | 15 |
+| Clarity | 15 |
 
 ### Round 2 · Crisis and rescue (00:30–03:00)
 
@@ -147,7 +152,7 @@ shares counted at the IPO price. Both teams confirm; otherwise a **$22,500 cash*
 
 **Product + Consulting: the rescue plan** (≤ **500 words**, one shared editor, hard deadline **03:00**, late = 0).
 Use the seven sections: **The crisis · The new plan · The money · The rescue deal · Time to recovery · Risks · Next
-three steps.** The judge also reads your pitch, the crisis card and a summary of your deal.
+three steps.** The judge also reads your PRD, the crisis card and a summary of your deal.
 
 | Plan rubric | Points |
 |---|---|
@@ -209,7 +214,7 @@ into a weak company, look-alike order books, sweetheart fees or deals) are revie
 
 **A. Per-box maths (Product, Round 1 and Round 2)**
 
-| Line | Pitch | After the crisis |
+| Line | PRD | After the crisis |
 |---|---|---|
 | Price to the student (₹) | | |
 | Paid to Annapurna per box (₹) | | |

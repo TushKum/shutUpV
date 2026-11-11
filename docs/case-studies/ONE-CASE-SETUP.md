@@ -56,7 +56,7 @@ Setting up a fresh event instead? Seed it with the decks directly:
 |---|---|---|
 | Briefing | Hand **CASE-HOSTEL-KITCHEN.pdf** to every squad | – |
 | 21:00 Draw | Enter the seed and dice as usual | Squad formed; panel **"The case"** with an **Every squad** badge |
-| 21:10 | Nothing to wait for: there is no pick | Product starts the pitch straight away |
+| 21:10 | Nothing to wait for: there is no pick | Product starts the PRD straight away |
 | 00:30 Crisis | Advance as usual | Every company gets **the food-safety rule** |
 | 04:00 Flash | Publish the prepared bulletin | Cooking gas +25% |
 
