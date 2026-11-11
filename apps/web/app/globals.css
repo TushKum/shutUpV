@@ -216,7 +216,8 @@
     box-shadow: 0 0 14px rgb(255 59 59 / 0.5), inset 0 -2px 0 rgb(255 59 59 / 0.5);
   }
 
-  /* A badge as a [ BRACKETED ] tag. The brackets are drawn by CSS, so the text itself is unchanged. */
+  /* A badge as a [ BRACKETED ] tag. The brackets are drawn by CSS, so the text itself is unchanged; the empty alt text
+     ("/ \"\"") keeps them out of the accessible name, so a link or button reads "Corrections 1 pending", not "[ 1 pending ]". */
   .mx-tag {
     display: inline-flex;
     align-items: center;
@@ -227,11 +228,11 @@
     letter-spacing: 0.04em;
   }
   .mx-tag::before {
-    content: "[\00a0";
+    content: "[\00a0" / "";
     opacity: 0.7;
   }
   .mx-tag::after {
-    content: "\00a0]";
+    content: "\00a0]" / "";
     opacity: 0.7;
   }
 
