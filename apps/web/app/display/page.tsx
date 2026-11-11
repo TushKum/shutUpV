@@ -4,6 +4,7 @@ import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 import { dateTime } from "@/lib/format";
+import { BentoGrid, BentoItem } from "@/components/ui/terminal-bento-grid";
 
 // Which event the projector shows. With a single event it goes straight there; otherwise the operator picks (the
 // live night first, then rehearsals).
@@ -16,18 +17,18 @@ export default async function DisplayHome() {
     .order("starts_at");
   if (events?.length === 1) redirect(`/display/${events[0]!.slug}`);
   return (
-    <main className="min-h-dvh bg-ink px-10 py-12 text-phosphor">
+    <main className="terminal-container terminal-theme-scope px-10 py-12 text-phosphor">
       <div className="mx-auto flex max-w-4xl items-center justify-between">
-        <h1 className="mx-cursor text-5xl font-black tracking-tight glow">Big screen</h1>
+        <h1 className="blinking-cursor text-5xl font-black tracking-tight glow">Big screen</h1>
         <SignOutButton />
       </div>
       {!events?.length ? (
         <p className="mx-auto mt-10 max-w-4xl text-2xl text-muted">No event has been seeded yet.</p>
       ) : (
-        <ul className="mx-auto mt-10 max-w-4xl divide-y divide-line">
+        <BentoGrid className="mx-auto mt-10 max-w-4xl">
           {events.map((e) => (
-            <li key={e.slug}>
-              <Link href={`/display/${e.slug}`} className="flex items-center justify-between gap-6 py-6 hover:bg-panel">
+            <BentoItem as="article" key={e.slug} span={3}>
+              <Link href={`/display/${e.slug}`} className="flex items-center justify-between gap-6">
                 <span>
                   <span className="text-3xl font-bold">{e.name}</span>{" "}
                   <span className={`ml-2 rounded px-2 py-0.5 text-lg font-bold ${e.is_rehearsal ? "bg-phosphor-mid text-ink" : "bg-phosphor text-ink"}`}>
@@ -37,9 +38,9 @@ export default async function DisplayHome() {
                 </span>
                 <span className="text-2xl text-paper">{PHASE_LABELS[e.current_phase as PhaseCode]}</span>
               </Link>
-            </li>
+            </BentoItem>
           ))}
-        </ul>
+        </BentoGrid>
       )}
     </main>
   );

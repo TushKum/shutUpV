@@ -63,14 +63,14 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <BootSequence who={team.code} />
-        <div className="min-h-screen">
+        <div className="terminal-theme-scope min-h-screen">
           <header className="border-b border-line bg-ink">
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="text-2xl text-phosphor" aria-hidden>
                   <Glyph e={TRACK_EMOJI[team.track]} />
                 </span>
-                <h1 className="font-mono text-lg font-extrabold glow">{team.code}</h1>
+                <h1 className="blinking-cursor font-mono text-lg font-extrabold glow">{team.code}</h1>
                 <Badge tone="slate">{TRACK_LABELS[team.track]}</Badge>
                 <span className="hidden truncate text-sm text-paper sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}

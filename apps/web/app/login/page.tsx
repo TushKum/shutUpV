@@ -16,7 +16,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   if (viewer) redirect(safeNext(nextPath, viewer.role));
 
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-ink px-4 py-10">
+    <main className="terminal-container terminal-theme-scope flex min-h-dvh items-center justify-center px-4 py-10">
       {/* The rain and the CRT layer are the backdrop; the sign-in card is opaque, so no glyph runs under its text. */}
       <MatrixRain opacity={0.35} />
       <div aria-hidden className="mx-crt" />
