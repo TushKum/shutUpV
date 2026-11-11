@@ -10,7 +10,7 @@ import { Markdown } from "./markdown";
 
 export const metadata: Metadata = { title: "Judging" };
 
-const linkClass = "font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-900";
+const linkClass = "font-semibold text-paper underline underline-offset-2 hover:text-phosphor";
 
 function PromptPanel({ p }: { p: PublishedPrompt }) {
   return (
@@ -18,28 +18,28 @@ function PromptPanel({ p }: { p: PublishedPrompt }) {
       <Panel title={`${p.label} prompt`} actions={<Badge>at most {p.wordLimit} words</Badge>}>
         {p.prompt.ok ? (
           <>
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-paper">
               The judge&apos;s instructions for every {p.label.toLowerCase()}, from <span className="font-mono">prompts/{p.file}</span>. {p.moves}
             </p>
-            <dl className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm">
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">SHA-256</dt>
-              <dd className="mt-0.5 break-all font-mono text-xs text-slate-900" data-testid={`prompt-sha-${p.type}`}>
+            <dl className="mt-3 rounded-md bg-raised px-3 py-2 text-sm">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted">SHA-256</dt>
+              <dd className="mt-0.5 break-all font-mono text-xs text-phosphor" data-testid={`prompt-sha-${p.type}`}>
                 {p.prompt.sha}
               </dd>
             </dl>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted">
               Every judging run stores the SHA-256 of the prompt it used, so each score can be matched to this exact text; a change of even one
               character gives a different SHA-256.{" "}
               <a href={`data:text/markdown;charset=utf-8,${encodeURIComponent(p.prompt.text)}`} download={p.file} className={linkClass}>
                 Download {p.file}
               </a>
             </p>
-            <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="mt-4 border-t border-line pt-4">
               <Markdown blocks={parseMarkdown(p.prompt.text)} label={`${p.label} prompt`} headingBase={2} />
             </div>
-            <details className="mt-4 border-t border-slate-100 pt-3">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-700">The prompt as plain text</summary>
-              <pre className="mt-2 whitespace-pre-wrap rounded-md bg-slate-50 px-3 py-2 font-mono text-xs leading-relaxed text-slate-800 [overflow-wrap:anywhere]">
+            <details className="mt-4 border-t border-line pt-3">
+              <summary className="cursor-pointer text-sm font-semibold text-paper">The prompt as plain text</summary>
+              <pre className="mt-2 whitespace-pre-wrap rounded-md bg-raised px-3 py-2 font-mono text-xs leading-relaxed text-phosphor [overflow-wrap:anywhere]">
                 {p.prompt.text}
               </pre>
             </details>
@@ -72,14 +72,14 @@ export default async function TeamJudgingPage() {
   return (
     <div className="space-y-6">
       <Panel title="How the judge scores">
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-paper">
           An AI judge scores every pitch card, rescue plan and flash answer out of 100 against a published rubric. This is what happens to a
           submission, and below are the three prompts the judge is given, word for word.
         </p>
-        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700 marker:text-slate-500" aria-label="How a submission is judged">
+        <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-paper marker:text-muted" aria-label="How a submission is judged">
           {judgingSteps().map((s) => (
             <li key={s.title} className="pl-1">
-              <span className="font-semibold text-slate-900">{s.title}</span> {s.text}
+              <span className="font-semibold text-phosphor">{s.title}</span> {s.text}
             </li>
           ))}
         </ol>
@@ -100,7 +100,7 @@ export default async function TeamJudgingPage() {
                 <Td mono>{t.band}</Td>
                 <Td mono>
                   {bp(t.bp.PITCH)}
-                  <span className="block text-xs text-slate-500">IPO {money(t.ipoPrice)}</span>
+                  <span className="block text-xs text-muted">IPO {money(t.ipoPrice)}</span>
                 </Td>
                 <Td mono>{bp(t.bp.PLAN)}</Td>
                 <Td mono>{bp(t.bp.FLASH)}</Td>
@@ -108,7 +108,7 @@ export default async function TeamJudgingPage() {
             ))}
           </Table>
         </div>
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-muted">
           The change in price for a released score. The pitch tier sets the IPO price; plan and flash tiers apply to both the market price and the AI
           price.
         </p>

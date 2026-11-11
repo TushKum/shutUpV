@@ -32,13 +32,13 @@ export function FeePanel({
     <Panel
       title="Advisor fee"
       actions={
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-paper">
           Due <Due at={deadline} pause={pause} testId="fee-due" closed={fee.stage === "AGREED" ? "paid" : null} />
         </span>
       }
     >
       <div className="space-y-4 text-sm" data-testid="fee" data-stage={fee.stage}>
-        <p className="text-slate-600">
+        <p className="text-paper">
           The Product and Consulting teams agree a fee worth {money(RULES.FEE_MIN)} to {money(RULES.FEE_MAX)}, paid in cash and/or up to{" "}
           {RULES.FEE_MAX_SHARES.toLocaleString("en-US")} retained shares valued at the IPO price{ipoPrice ? ` (${money(ipoPrice)})` : ""}. Both must confirm the
           same terms by {deadline ? clock(deadline) : "01:05"}; otherwise the default fee of {money(RULES.FEE_DEFAULT)} cash is paid.
@@ -71,16 +71,16 @@ export function FeePanel({
         ) : null}
 
         {fee.stage === "OPEN" ? (
-          <div className="rounded-md border border-slate-200 p-3" data-testid="fee-proposal">
+          <div className="rounded-md border border-line p-3" data-testid="fee-proposal">
             {p ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold text-slate-900">On the table: version {p.version}</h3>
-                  <span className="text-xs text-slate-500">
+                  <h3 className="font-semibold text-phosphor">On the table: version {p.version}</h3>
+                  <span className="text-xs text-muted">
                     Proposed by {teamLabel(p.by, track)} at {clock(p.at, true)}
                   </span>
                 </div>
-                <p className="mt-1 text-base text-slate-900" data-testid="fee-terms">
+                <p className="mt-1 text-base text-phosphor" data-testid="fee-terms">
                   {feeTermsText(p)}
                 </p>
                 <ul className="mt-2 space-y-1" aria-label="Fee confirmations">
@@ -107,20 +107,20 @@ export function FeePanel({
                   </div>
                 ) : null}
                 {fee.party && fee.mine ? (
-                  <p className="mt-2 text-slate-600">
+                  <p className="mt-2 text-paper">
                     You confirmed version {p.version}.{fee.waitingFor ? ` Waiting for ${teamLabel(fee.waitingFor, track)} to confirm it.` : ""}
                   </p>
                 ) : null}
               </>
             ) : (
-              <p className="text-slate-600">No fee has been proposed yet.</p>
+              <p className="text-paper">No fee has been proposed yet.</p>
             )}
           </div>
         ) : null}
 
         {fee.canPropose && ipoPrice ? (
           <div>
-            <h3 className="mb-2 font-semibold text-slate-900">{p ? "Propose different terms" : "Propose a fee"}</h3>
+            <h3 className="mb-2 font-semibold text-phosphor">{p ? "Propose different terms" : "Propose a fee"}</h3>
             <FeeForm
               action={proposeFee}
               ipoPrice={ipoPrice}
@@ -131,7 +131,7 @@ export function FeePanel({
               deadline={deadline}
               pause={pause}
             />
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted">
               A new proposal resets both confirmations: both teams then confirm the new version.
               {companyCash === null
                 ? " The company's cash and retained shares are checked by the server when you propose, and again when the fee is paid."

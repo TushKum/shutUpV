@@ -36,8 +36,8 @@ export function ContentView({ type, content }: { type: SubmissionType; content: 
         const v = typeof content[f.key] === "string" ? (content[f.key] as string) : "";
         return (
           <div key={f.key}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{f.label}</dt>
-            <dd className="mt-0.5 whitespace-pre-wrap text-slate-900">{v.trim() === "" ? <span className="text-slate-400">—</span> : v}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted">{f.label}</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap text-phosphor">{v.trim() === "" ? <span className="text-muted">—</span> : v}</dd>
           </div>
         );
       })}

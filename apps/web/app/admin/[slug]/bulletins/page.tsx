@@ -54,7 +54,7 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
               resetOnSuccess
             >
               <label className="block max-w-xs">
-                <span className="text-xs font-medium text-slate-600">Kind</span>
+                <span className="text-xs font-medium text-paper">Kind</span>
                 <select name="kind" defaultValue="GENERAL" className={inputClass}>
                   {COMPOSER_KINDS.map((k) => (
                     <option key={k} value={k}>
@@ -64,14 +64,14 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
                 </select>
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-slate-600">Title (up to {TITLE_MAX} characters)</span>
+                <span className="text-xs font-medium text-paper">Title (up to {TITLE_MAX} characters)</span>
                 <input name="title" required maxLength={TITLE_MAX} autoComplete="off" className={inputClass} />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-slate-600">Body (up to {BODY_MAX.toLocaleString("en-US")} characters)</span>
+                <span className="text-xs font-medium text-paper">Body (up to {BODY_MAX.toLocaleString("en-US")} characters)</span>
                 <textarea name="body" rows={5} maxLength={BODY_MAX} className={inputClass} />
               </label>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 A bulletin appears at once on every team screen and the big screen, and cannot be withdrawn. The flash bulletin is prepared under{" "}
                 <Link href={`/admin/${slug}/content`} className="underline">
                   Content
@@ -86,23 +86,23 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
 
         <Panel title={`All bulletins (${rows.length})`}>
           {rows.length === 0 ? (
-            <p className="text-sm text-slate-500">No bulletins yet.</p>
+            <p className="text-sm text-muted">No bulletins yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-100" aria-label="Bulletins">
+            <ul className="divide-y divide-line" aria-label="Bulletins">
               {rows.map((b) => (
                 <li key={b.id} className="py-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <Badge tone={KIND_TONES[b.kind]}>{BULLETIN_KIND_LABELS[b.kind]}</Badge>
                     {b.published_at ? (
-                      <span className="font-mono tabular-nums text-slate-600" title={`${dateTime(b.published_at)} IST`}>
+                      <span className="font-mono tabular-nums text-paper" title={`${dateTime(b.published_at)} IST`}>
                         {clock(b.published_at, true)}
                       </span>
                     ) : (
                       <Badge tone="amber">Draft, not published</Badge>
                     )}
-                    <span className="font-semibold text-slate-900">{b.title}</span>
+                    <span className="font-semibold text-phosphor">{b.title}</span>
                   </div>
-                  {b.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{b.body}</p> : null}
+                  {b.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{b.body}</p> : null}
                 </li>
               ))}
             </ul>
@@ -134,7 +134,7 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
                 .
               </Notice>
             ) : (
-              <div className="rounded-md bg-slate-50 px-3 py-2 text-sm">
+              <div className="rounded-md bg-raised px-3 py-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   {flash.published ? (
                     <Badge tone="green">Published {clock(flash.bulletin.published_at, true)}</Badge>
@@ -142,8 +142,8 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
                     <Badge tone="violet">Prepared {clock(flash.bulletin.created_at)}, not published</Badge>
                   )}
                 </div>
-                <p className="mt-1 font-semibold text-slate-900">{flash.bulletin.title}</p>
-                <p className="mt-1 whitespace-pre-wrap text-slate-700">{flash.bulletin.body}</p>
+                <p className="mt-1 font-semibold text-phosphor">{flash.bulletin.title}</p>
+                <p className="mt-1 whitespace-pre-wrap text-paper">{flash.bulletin.body}</p>
               </div>
             )}
           </div>
@@ -160,8 +160,8 @@ export default async function BulletinsPage({ params }: { params: Promise<{ slug
               >
                 Publish the flash bulletin
               </ActionButton>
-              {flash.blocked ? <p className="mt-2 text-xs text-slate-500">{flash.blocked}</p> : null}
-              <p className="mt-2 text-xs text-slate-500">Publishing opens the flash answers; it is done once, at 04:00.</p>
+              {flash.blocked ? <p className="mt-2 text-xs text-muted">{flash.blocked}</p> : null}
+              <p className="mt-2 text-xs text-muted">Publishing opens the flash answers; it is done once, at 04:00.</p>
             </div>
           ) : null}
         </Panel>

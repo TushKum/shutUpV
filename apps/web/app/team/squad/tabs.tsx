@@ -25,7 +25,7 @@ export function SquadTabs({ show, oneCase = false }: { show: readonly string[]; 
             href={t.href}
             aria-current={active ? "page" : undefined}
             className={`rounded-xl px-4 py-2 text-sm font-bold ${
-              active ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
+              active ? "bg-phosphor-deep text-phosphor" : "bg-panel text-paper ring-1 ring-inset ring-line hover:bg-raised"
             }`}
           >
             {oneCase && t.href === "/team/squad/problem" ? "The case" : t.label}

@@ -38,34 +38,34 @@ export default async function LotteryPage({ params }: { params: Promise<{ slug: 
 function CommitmentPanel({ eventId, commitment, setup, organiser }: { eventId: string; commitment: string | null; setup: boolean; organiser: boolean }) {
   return (
     <Panel title="Seed commitment">
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-paper">
         SHA-256 of the secret seed, published the day before the event (<code className="font-mono">pnpm new-seed</code> prints a seed and its
         commitment). The seed itself stays secret until the crisis.
       </p>
       <div className="mt-3">
-        <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Published commitment</div>
+        <div className="text-xs font-medium uppercase tracking-wide text-muted">Published commitment</div>
         {commitment ? (
           <p className="mt-1 break-all font-mono text-sm" data-testid="commitment">
             {commitment}
           </p>
         ) : (
-          <p className="mt-1 text-sm text-amber-800">Not published yet. The event cannot leave Setup without one.</p>
+          <p className="mt-1 text-sm text-warn">Not published yet. The event cannot leave Setup without one.</p>
         )}
       </div>
       {setup ? (
         organiser ? (
           <ActionForm action={setSeedCommitment.bind(null, eventId)} submit={commitment ? "Replace commitment" : "Save commitment"} className="mt-4 max-w-2xl">
             <label className="block">
-              <span className="text-xs font-medium text-slate-600">Commitment (64 hex characters)</span>
+              <span className="text-xs font-medium text-paper">Commitment (64 hex characters)</span>
               <input name="commitment" required minLength={64} maxLength={64} pattern="[0-9a-fA-F]{64}" autoComplete="off" spellCheck={false} className={`${inputClass} font-mono`} />
             </label>
-            <p className="mt-1 text-xs text-slate-500">It can be replaced while the event is in Setup; it is fixed once the event has started.</p>
+            <p className="mt-1 text-xs text-muted">It can be replaced while the event is in Setup; it is fixed once the event has started.</p>
           </ActionForm>
         ) : (
-          <p className="mt-3 text-sm text-slate-500">An organiser enters the commitment while the event is in Setup.</p>
+          <p className="mt-3 text-sm text-muted">An organiser enters the commitment while the event is in Setup.</p>
         )
       ) : (
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-paper">
           <Badge tone="slate">Read-only</Badge> The commitment is fixed once the event has started.
         </p>
       )}
@@ -85,7 +85,7 @@ function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string;
         <Notice tone="red">No seed commitment was published, so the draw cannot be verified.</Notice>
       ) : organiser ? (
         <>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-paper">
             Enter the secret seed and the dice roll. The database checks SHA-256(seed) against the published commitment before anything is drawn;
             a mismatch changes nothing.
           </p>
@@ -96,11 +96,11 @@ function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string;
             className="mt-3 grid max-w-2xl gap-3"
           >
             <label className="block">
-              <span className="text-xs font-medium text-slate-600">Secret seed (64 hex characters)</span>
+              <span className="text-xs font-medium text-paper">Secret seed (64 hex characters)</span>
               <input name="seed" type="password" required autoComplete="off" spellCheck={false} className={`${inputClass} font-mono`} />
             </label>
             <label className="block">
-              <span className="text-xs font-medium text-slate-600">Dice roll</span>
+              <span className="text-xs font-medium text-paper">Dice roll</span>
               <input name="dice" required inputMode="numeric" pattern="[0-9]{1,6}" maxLength={6} autoComplete="off" className={`${inputClass} w-40 font-mono`} />
             </label>
           </ConfirmForm>
@@ -129,11 +129,11 @@ function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: Lo
           />
           <Stat label="Squads" value={squads.length} />
         </div>
-        <div className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">Commitment</div>
+        <div className="mt-3 text-xs font-medium uppercase tracking-wide text-muted">Commitment</div>
         <p className="break-all font-mono text-sm">{rows.commitment}</p>
         {revealed ? (
           <>
-            <div className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">Seed (revealed)</div>
+            <div className="mt-3 text-xs font-medium uppercase tracking-wide text-muted">Seed (revealed)</div>
             <p className="break-all font-mono text-sm">{revealed}</p>
           </>
         ) : null}
@@ -142,12 +142,12 @@ function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: Lo
       <Panel
         title="Independent check"
         actions={
-          <a href={`/admin/${slug}/lottery/record`} download={recordFileName(slug)} className="text-sm font-semibold text-slate-900 underline">
+          <a href={`/admin/${slug}/lottery/record`} download={recordFileName(slug)} className="text-sm font-semibold text-phosphor underline">
             Download the lottery record (JSON)
           </a>
         }
       >
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-paper">
           The engine&apos;s drawLottery re-does the draw here from the stored seed, the dice, the team codes of each track and the problem-card numbers,
           and compares it with what the database stored{record.crises ? ", including each company's crisis card" : ""}.
         </p>
@@ -169,7 +169,7 @@ function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: Lo
             </Notice>
           )}
         </div>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted">
           The record contains the secret seed (staff only until the crisis). Anyone can check it with{" "}
           <code className="font-mono">pnpm verify-lottery --file {recordFileName(slug)} --commitment &lt;published commitment&gt;</code>.
         </p>
@@ -202,11 +202,11 @@ function SquadTable({ squads }: { squads: SquadView[] }) {
             {s.chosen ? (
               <span className="flex items-center gap-2">
                 <span className="font-mono">{card(s.chosen)}</span>
-                <span className="text-slate-600">{s.chosen.title}</span>
+                <span className="text-paper">{s.chosen.title}</span>
                 {s.chosenByDefault ? <Badge tone="amber">Default</Badge> : <Badge tone="green">Picked</Badge>}
               </span>
             ) : (
-              <span className="text-slate-500">Not picked yet</span>
+              <span className="text-muted">Not picked yet</span>
             )}
           </Td>
           <Td mono>{s.covers.map((c) => (c.ticker ? `${c.product} (${c.ticker})` : c.product)).join(", ")}</Td>

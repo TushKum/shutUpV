@@ -35,19 +35,19 @@ export function Due({
   closed?: string | null;
 }) {
   const now = useServerNow(1000);
-  if (!at) return <span className="text-slate-500">—</span>;
+  if (!at) return <span className="text-muted">—</span>;
   const state = dueState(at, now, pause, !!closed);
   return (
     <span data-testid={testId} data-state={state} className="whitespace-nowrap" suppressHydrationWarning>
       <span className="font-mono tabular-nums">{clock(at)}</span>{" "}
       {state === "CLOSED" ? (
-        <span className="text-slate-500">· {closed}</span>
+        <span className="text-muted">· {closed}</span>
       ) : state === "PAUSED" ? (
-        <span className="text-amber-700">· paused</span>
+        <span className="text-warn">· paused</span>
       ) : state === "PASSED" ? (
-        <span className="text-slate-500">· {passed}</span>
+        <span className="text-muted">· {passed}</span>
       ) : (
-        <span className="text-slate-600">
+        <span className="text-paper">
           · <Countdown to={at} passed={passed} /> left
         </span>
       )}

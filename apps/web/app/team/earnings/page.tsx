@@ -81,12 +81,12 @@ export default async function EarningsPage() {
           )}
           {e.final ? null : <Stat label="Not known yet" value={e.pending} hint={e.pending === 1 ? "line" : "lines"} />}
         </div>
-        <p className="mt-3 text-sm text-slate-600">
+        <p className="mt-3 text-sm text-paper">
           Your final value is your cash (the fee&apos;s cash and the bonuses, paid at settlement) plus your fee shares at the closing price. No ranking is shown
           before the awards.
         </p>
         {settled ? (
-          <p className="mt-2 text-sm text-slate-700" data-testid="earnings-paid">
+          <p className="mt-2 text-sm text-paper" data-testid="earnings-paid">
             Settlement paid your bonuses and call earnings into your cash: {signedMoney(paid.total)} (plan bonus {signedMoney(paid.plan)}, deal bonus{" "}
             {signedMoney(paid.deal)}, calls {signedMoney(paid.calls)}).
           </p>
@@ -94,11 +94,11 @@ export default async function EarningsPage() {
       </Panel>
 
       <Panel title="Breakdown">
-        <ul className="divide-y divide-slate-100" aria-label="Earnings breakdown">
+        <ul className="divide-y divide-line" aria-label="Earnings breakdown">
           {e.lines.map((l) => (
             <li key={l.key} className="py-3" data-testid={`earnings-${l.key}`} data-status={l.status}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <span className="font-semibold text-slate-900">{l.label}</span>
+                <span className="font-semibold text-phosphor">{l.label}</span>
                 <span className="flex items-center gap-2">
                   <Badge tone={STATUS[l.status].tone}>{STATUS[l.status].text}</Badge>
                   <span className="font-mono font-semibold tabular-nums" data-testid="amount">
@@ -106,11 +106,11 @@ export default async function EarningsPage() {
                   </span>
                 </span>
               </div>
-              <p className="mt-1 text-sm text-slate-600">{l.note}</p>
+              <p className="mt-1 text-sm text-paper">{l.note}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted">
           The fee and the deal are agreed under{" "}
           <Link href="/team/rescue" className="underline">
             Rescue

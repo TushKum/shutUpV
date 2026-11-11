@@ -18,27 +18,27 @@ export default async function ExportsPage({ params }: { params: Promise<{ slug: 
   return (
     <div className="space-y-6">
       <Panel title="Exports">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-paper">
           CSV files (RFC 4180, UTF-8, one header row) of this event as it stands now. Money and prices are whole cents (12345 = $123.45), tiers and
           returns are basis points (500 = +5%), and times are IST (+05:30). A text cell that starts with = + - @, a tab or a carriage return is
           written with a leading &apos; so a spreadsheet shows it rather than running it as a formula.
         </p>
-        <ul className="mt-4 divide-y divide-slate-100">
+        <ul className="mt-4 divide-y divide-line">
           {EXPORT_KINDS.map((kind) => {
             const n = counts[kind];
             return (
               <li key={kind} className="flex flex-wrap items-start justify-between gap-3 py-3">
                 <div className="max-w-3xl">
-                  <h3 className="text-sm font-semibold text-slate-900">{EXPORTS[kind].title}</h3>
-                  <p className="text-sm text-slate-600">{EXPORTS[kind].description}</p>
-                  <p className="mt-0.5 text-xs text-slate-500" data-testid={`rows-${kind}`}>
+                  <h3 className="text-sm font-semibold text-phosphor">{EXPORTS[kind].title}</h3>
+                  <p className="text-sm text-paper">{EXPORTS[kind].description}</p>
+                  <p className="mt-0.5 text-xs text-muted" data-testid={`rows-${kind}`}>
                     {n === null ? "Row count unavailable." : `${count(n)} row${n === 1 ? "" : "s"} now.`}
                   </p>
                 </div>
                 <a
                   href={`/admin/${slug}/exports/${kind}`}
                   download={exportFileName(slug, kind)}
-                  className="whitespace-nowrap rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50"
+                  className="whitespace-nowrap rounded-md bg-panel px-3 py-2 text-sm font-semibold text-phosphor ring-1 ring-inset ring-line hover:bg-raised"
                 >
                   Download {exportFileName(slug, kind)}
                 </a>

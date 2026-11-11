@@ -36,11 +36,11 @@ export default async function IpoPage() {
   if (win === "NOT_YET") {
     return (
       <Panel title="IPO">
-        <p className="text-sm text-slate-700" data-testid="ipo-state">
+        <p className="text-sm text-paper" data-testid="ipo-state">
           IPO bids open with the IPO{data.phaseStarts.IPO ? ` at ${clock(data.phaseStarts.IPO)}` : ""}
           {deadline ? ` and close at ${clock(deadline)}` : ""}, once the pitch scores have set every company&apos;s IPO price ($10.00 × (1 + pitch tier)).
         </p>
-        <p className="mt-2 text-sm text-slate-600">{RULES_TEXT}</p>
+        <p className="mt-2 text-sm text-paper">{RULES_TEXT}</p>
       </Panel>
     );
   }
@@ -50,11 +50,11 @@ export default async function IpoPage() {
     return (
       <div className="space-y-4">
         <Panel title="IPO allocation">
-          <p className="text-sm text-slate-600" data-testid="ipo-state">
+          <p className="text-sm text-paper" data-testid="ipo-state">
             The IPO was allocated at {clock(data.ipoAllocatedAt)}. Unallocated shares stay with the exchange.
           </p>
           {results.lines.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">You placed no IPO bids.</p>
+            <p className="mt-3 text-sm text-muted">You placed no IPO bids.</p>
           ) : (
             <>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -84,7 +84,7 @@ export default async function IpoPage() {
       <RefreshAt at={win === "OPEN" ? deadline : null} />
       <AutoRefresh everyMs={10_000} active={win === "OPEN"} />
       {win === "OPEN" ? (
-        <p className="text-sm text-slate-700" data-testid="ipo-state">
+        <p className="text-sm text-paper" data-testid="ipo-state">
           IPO bids are open until {clock(deadline)}
           {deadline ? (
             <>
@@ -114,7 +114,7 @@ export default async function IpoPage() {
 
       <Panel title="Companies">
         {items.length === 0 ? (
-          <p className="text-sm text-slate-500">No company has an IPO price yet.</p>
+          <p className="text-sm text-muted">No company has an IPO price yet.</p>
         ) : win === "OPEN" ? (
           <IpoBids view={view} items={items} deadline={deadline} />
         ) : (
@@ -141,9 +141,9 @@ export default async function IpoPage() {
           </Table>
         )}
         {own?.ticker ? (
-          <p className="mt-3 text-xs text-slate-500">Your squad&apos;s company, {own.ticker}, is not offered to you: a fund never bids for or trades its own squad&apos;s company.</p>
+          <p className="mt-3 text-xs text-muted">Your squad&apos;s company, {own.ticker}, is not offered to you: a fund never bids for or trades its own squad&apos;s company.</p>
         ) : null}
-        <p className="mt-2 text-xs text-slate-500">{RULES_TEXT}</p>
+        <p className="mt-2 text-xs text-muted">{RULES_TEXT}</p>
       </Panel>
     </div>
   );
@@ -175,7 +175,7 @@ function AllocationRow({ l, book }: { l: IpoResultLine; book: { requested?: numb
             {requested !== null ? `Scaled down: ${count(requested)} requested for ${count(available)}` : "Scaled down"}
           </Badge>
         ) : (
-          <span className="text-slate-500">In full</span>
+          <span className="text-muted">In full</span>
         )}
       </Td>
     </tr>

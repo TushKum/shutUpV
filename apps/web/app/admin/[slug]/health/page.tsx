@@ -39,21 +39,21 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
             <Stat label="Tick errors, last hour" value={count(health.tickErrorsLastHour)} hint="this event" />
           </div>
           {health.cron?.lastError ? (
-            <p className="mt-3 text-sm text-slate-700">
-              Last failure: <code className="rounded bg-slate-100 px-1 py-0.5 text-xs">{health.cron.lastError}</code>
+            <p className="mt-3 text-sm text-paper">
+              Last failure: <code className="rounded bg-raised px-1 py-0.5 text-xs">{health.cron.lastError}</code>
             </p>
           ) : null}
         </Panel>
 
         <Panel title="Connected screens">
-          <p className="mb-2 text-sm text-slate-600">Browser tabs whose heartbeat was seen in the last 60 seconds, and how many have their realtime channel working.</p>
+          <p className="mb-2 text-sm text-paper">Browser tabs whose heartbeat was seen in the last 60 seconds, and how many have their realtime channel working.</p>
           <Table head={["Area", "Role", "Connected", "Realtime working"]} empty="No screen is connected.">
             {health.screens.map((s) => (
               <tr key={`${s.area}/${s.role}`}>
                 <Td>{AREA_LABELS[s.area] ?? s.area}</Td>
                 <Td>{ROLE_LABELS[s.role] ?? s.role}</Td>
                 <Td mono>{count(s.connected)}</Td>
-                <Td mono className={s.realtimeOk < s.connected ? "text-amber-700" : ""}>
+                <Td mono className={s.realtimeOk < s.connected ? "text-warn" : ""}>
                   {count(s.realtimeOk)} of {count(s.connected)}
                 </Td>
               </tr>
@@ -79,7 +79,7 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
 
         <Panel title={`No screen in the last 60 seconds (${silent.length})`}>
           {silent.length === 0 ? (
-            <p className="text-sm text-slate-500">Every team has a screen connected.</p>
+            <p className="text-sm text-muted">Every team has a screen connected.</p>
           ) : (
             <div className="space-y-3">
               {TRACKS.map((track) => {
@@ -87,12 +87,12 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
                 if (list.length === 0) return null;
                 return (
                   <div key={track}>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
                       {TRACK_LABELS[track]} · {list.length}
                     </h3>
                     <ul className="mt-1 flex flex-wrap gap-1.5" aria-label={`${TRACK_LABELS[track]} teams with no screen`}>
                       {list.map((t) => (
-                        <li key={t.code} className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-700">
+                        <li key={t.code} className="rounded bg-raised px-2 py-0.5 font-mono text-xs text-paper">
                           {t.code} · {t.lastSeen ? `seen ${seenAgo(t.lastSeen, serverMs)}` : "never seen"}
                         </li>
                       ))}
@@ -105,7 +105,7 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
         </Panel>
 
         <Panel title="Error log">
-          <p className="mb-2 text-sm text-slate-600">The latest {ERROR_ROWS} errors recorded for this event, newest first (a failed heartbeat records one here).</p>
+          <p className="mb-2 text-sm text-paper">The latest {ERROR_ROWS} errors recorded for this event, newest first (a failed heartbeat records one here).</p>
           <Table head={["Time", "Source", "Message", "Context"]} empty="No errors recorded.">
             {errors.map((e) => (
               <tr key={e.id} className="align-top">
@@ -114,7 +114,7 @@ export default async function HealthPage({ params }: PageProps<"/admin/[slug]/he
                 <Td className="whitespace-normal break-words">{e.message}</Td>
                 <Td className="whitespace-normal">
                   {e.context && Object.keys(e.context).length > 0 ? (
-                    <code className="break-all text-xs text-slate-600">{truncate(JSON.stringify(e.context), 300)}</code>
+                    <code className="break-all text-xs text-paper">{truncate(JSON.stringify(e.context), 300)}</code>
                   ) : null}
                 </Td>
               </tr>

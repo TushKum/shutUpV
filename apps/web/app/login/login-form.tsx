@@ -12,8 +12,8 @@ export function LoginForm({ next }: { next?: string }) {
       type="button"
       onClick={() => setMode(m)}
       aria-pressed={mode === m}
-      className={`flex-1 rounded-md px-3 py-2 text-sm font-semibold ${
-        mode === m ? "bg-white text-slate-900 shadow" : "text-slate-600 hover:text-slate-900"
+      className={`flex-1 rounded-md px-3 py-2 font-mono text-sm font-bold ${
+        mode === m ? "bg-phosphor text-ink" : "text-muted hover:text-phosphor"
       }`}
     >
       {label}
@@ -22,7 +22,7 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <form action={action} className="space-y-4">
-      <div className="flex gap-1 rounded-lg bg-slate-200 p-1">
+      <div className="flex gap-1 rounded-lg border border-line bg-ink p-1">
         {tab("team", "Team")}
         {tab("staff", "Organiser")}
       </div>
@@ -31,7 +31,7 @@ export function LoginForm({ next }: { next?: string }) {
 
       {mode === "team" ? (
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">Team code</span>
+          <span className="font-mono text-sm font-bold text-phosphor-mid">Team code</span>
           <input
             name="code"
             defaultValue={mode === "team" ? state.login : undefined}
@@ -39,37 +39,37 @@ export function LoginForm({ next }: { next?: string }) {
             autoComplete="username"
             autoCapitalize="characters"
             placeholder="P07"
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-lg uppercase tracking-wider"
+            className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 text-lg uppercase tracking-wider"
           />
         </label>
       ) : (
         <label className="block">
-          <span className="text-sm font-medium text-slate-700">Email</span>
+          <span className="font-mono text-sm font-bold text-phosphor-mid">Email</span>
           <input
             name="email"
             type="email"
             defaultValue={mode === "staff" ? state.login : undefined}
             required
             autoComplete="username"
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-lg"
+            className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 text-lg"
           />
         </label>
       )}
 
       <label className="block">
-        <span className="text-sm font-medium text-slate-700">Password</span>
+        <span className="font-mono text-sm font-bold text-phosphor-mid">Password</span>
         <input
           name="password"
           type="password"
           required
           autoComplete="current-password"
           placeholder={mode === "team" ? "XXXX-XXXX-XXXX" : undefined}
-          className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-lg tracking-wider"
+          className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 font-mono text-lg tracking-wider"
         />
       </label>
 
       {state.error ? (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="mx-sys rounded-md border border-danger/70 bg-danger/10 px-3 py-2 text-sm text-danger-soft">
           {state.error}
         </p>
       ) : null}
@@ -77,7 +77,7 @@ export function LoginForm({ next }: { next?: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-slate-900 px-4 py-3 text-base font-semibold text-white disabled:opacity-60"
+        className="mx-key mx-key-solid w-full rounded-md px-4 py-3 text-base"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>

@@ -31,10 +31,10 @@ const num = `${cell} font-mono tabular-nums`;
 const runTitle = (r: JudgeRunRow) =>
   [`Run ${r.run_no}`, r.model, r.attempts > 0 ? `${r.attempts} attempt${r.attempts === 1 ? "" : "s"}` : null, r.error].filter(Boolean).join(" · ");
 
-const ISSUE_TONE = { red: "text-red-700", amber: "text-amber-700", slate: "text-slate-500" } as const;
+const ISSUE_TONE = { red: "text-danger-soft", amber: "text-warn", slate: "text-muted" } as const;
 
 function RunTotals({ runs }: { runs: readonly JudgeRunRow[] }) {
-  if (runs.length === 0) return <span className="text-slate-500">—</span>;
+  if (runs.length === 0) return <span className="text-muted">—</span>;
   return (
     <span>
       {runs.map((r, i) => (
@@ -45,7 +45,7 @@ function RunTotals({ runs }: { runs: readonly JudgeRunRow[] }) {
               {r.total}
             </span>
           ) : (
-            <span className={`text-xs ${r.status === "FAILED" ? "text-red-700" : "text-slate-500"}`} title={runTitle(r)}>
+            <span className={`text-xs ${r.status === "FAILED" ? "text-danger-soft" : "text-muted"}`} title={runTitle(r)}>
               {r.status.toLowerCase()}
             </span>
           )}
@@ -62,7 +62,7 @@ function RunNotes({ runs }: { runs: readonly JudgeRunRow[] }) {
   if (models.length === 0 && issues.length === 0) return null;
   return (
     <>
-      {models.length ? <div className="font-mono text-xs text-slate-500">{models.join(", ")}</div> : null}
+      {models.length ? <div className="font-mono text-xs text-muted">{models.join(", ")}</div> : null}
       {issues.map((x) => (
         <div key={x.runNo} className={`max-w-[18rem] truncate text-xs ${ISSUE_TONE[x.tone]}`} title={x.text}>
           {x.text}
@@ -74,12 +74,12 @@ function RunNotes({ runs }: { runs: readonly JudgeRunRow[] }) {
 
 function Breakdown({ type, breakdown }: { type: SubmissionType; breakdown: Record<string, unknown> | null }) {
   const lines = breakdownLines(type, breakdown);
-  if (lines.length === 0) return <span className="text-slate-500">—</span>;
+  if (lines.length === 0) return <span className="text-muted">—</span>;
   return (
     <ul className="space-y-0.5 text-xs">
       {lines.map((l) => (
         <li key={l.key} className="flex justify-between gap-3">
-          <span className="text-slate-600">{l.label}</span>
+          <span className="text-paper">{l.label}</span>
           <span className="shrink-0 whitespace-nowrap font-mono tabular-nums">
             {l.value ?? "—"}
             {l.max !== null ? `/${l.max}` : ""}
@@ -107,13 +107,13 @@ export function CompanyRow({
   const s = v.score;
   return (
     <>
-      <tr className={open ? "bg-slate-50" : ""}>
+      <tr className={open ? "bg-raised" : ""}>
         <td className={cell}>
           <span className="font-mono font-semibold">{label}</span>
           {v.company.name ? (
             <>
               {" "}
-              <span className="ml-1 text-xs text-slate-500">{v.company.name}</span>
+              <span className="ml-1 text-xs text-muted">{v.company.name}</span>
             </>
           ) : null}
           {/* In the first column, so it is in view on a phone without scrolling the table. */}
@@ -123,7 +123,7 @@ export function CompanyRow({
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-label={`${open ? "Hide" : "Show"} runs of ${label}`}
-              className="text-xs font-semibold text-slate-700 underline hover:text-slate-900"
+              className="text-xs font-semibold text-paper underline hover:text-phosphor"
             >
               {open ? "Hide runs" : `Runs (${v.allRuns.length})`}
             </button>
@@ -135,20 +135,20 @@ export function CompanyRow({
               {clock(v.submission.submitted_at)} · <span className="tabular-nums">{v.submission.word_count}</span> words
             </span>
           ) : (
-            <span className="text-slate-500">None</span>
+            <span className="text-muted">None</span>
           )}
         </td>
         <td className={cell}>
           <RunTotals runs={v.runs} />
-          {v.generation !== null && v.generation > 1 ? <span className="text-xs text-slate-500"> (re-run {v.generation})</span> : null}
+          {v.generation !== null && v.generation > 1 ? <span className="text-xs text-muted"> (re-run {v.generation})</span> : null}
           <RunNotes runs={v.runs} />
         </td>
-        <td className={`${num} ${v.spread !== null && v.spread > 10 ? "font-semibold text-amber-700" : ""}`}>{v.spread ?? "—"}</td>
+        <td className={`${num} ${v.spread !== null && v.spread > 10 ? "font-semibold text-warn" : ""}`}>{v.spread ?? "—"}</td>
         <td className={num}>
           {v.median ? (
             <>
               {v.median.value}
-              {v.median.sealed ? null : <span className="font-sans text-xs text-slate-500"> (unsealed)</span>}
+              {v.median.sealed ? null : <span className="font-sans text-xs text-muted"> (unsealed)</span>}
             </>
           ) : (
             "—"
@@ -178,7 +178,7 @@ export function CompanyRow({
       </tr>
       {open ? (
         <tr>
-          <td colSpan={JUDGE_COLUMNS.length} className="bg-slate-50 px-3 pb-4 pt-1">
+          <td colSpan={JUDGE_COLUMNS.length} className="bg-raised px-3 pb-4 pt-1">
             {/* Pinned to the left edge of the table's scroller and as wide as the screen, so on a phone the detail is
                 in view however far the table was scrolled. */}
             <div className="sticky left-0 w-[calc(100vw-4.5rem)] lg:w-auto">
@@ -211,30 +211,30 @@ function Detail({
     <div className="space-y-4" role="region" aria-label={`Runs of ${label}`}>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Judged submission</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Judged submission</h4>
           {v.submission ? (
             <>
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-paper">
                 Submitted {dateTime(v.submission.submitted_at)} · {v.submission.word_count} of {RULES.WORD_LIMIT[type]} words
               </p>
-              <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-slate-200 bg-white p-2 font-sans text-xs text-slate-800">
+              <pre className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-line bg-panel p-2 font-sans text-xs text-phosphor">
                 {v.submission.body_text}
               </pre>
             </>
           ) : (
-            <p className="text-sm text-slate-600">No on-time submission: it scores 0 once sealed.</p>
+            <p className="text-sm text-paper">No on-time submission: it scores 0 once sealed.</p>
           )}
         </div>
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Published breakdown and rationale</h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Published breakdown and rationale</h4>
           {s && s.breakdown ? (
             <div className="mt-1 max-w-md">
               <Breakdown type={type} breakdown={s.breakdown} />
-              <p className="mt-2 text-sm text-slate-700">{s.rationale}</p>
-              <p className="mt-1 text-xs text-slate-500">From the first run whose total equals the median ({s.median}).</p>
+              <p className="mt-2 text-sm text-paper">{s.rationale}</p>
+              <p className="mt-1 text-xs text-muted">From the first run whose total equals the median ({s.median}).</p>
             </div>
           ) : (
-            <p className="text-sm text-slate-600">{s?.rationale ?? "Shown once the score is sealed."}</p>
+            <p className="text-sm text-paper">{s?.rationale ?? "Shown once the score is sealed."}</p>
           )}
         </div>
       </div>
@@ -242,7 +242,7 @@ function Detail({
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
               {head.map((h) => (
                 <th key={h} className="whitespace-nowrap px-2 py-2 font-semibold">
                   {h}
@@ -250,9 +250,9 @@ function Detail({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 align-top">
+          <tbody className="divide-y divide-line align-top">
             {v.allRuns.map((r) => (
-              <tr key={r.id} className={r.current && !r.dismissed ? "" : "text-slate-500"}>
+              <tr key={r.id} className={r.current && !r.dismissed ? "" : "text-muted"}>
                 <td className={num}>{r.run_no}</td>
                 {generations ? (
                   <td className={cell}>
@@ -264,20 +264,20 @@ function Detail({
                 <td className={`${cell} font-mono text-xs`}>{r.model ?? "—"}</td>
                 <td className={cell}>
                   <Badge tone={RUN_TONE[r.status]}>{r.status}</Badge>
-                  {r.attempts > 1 ? <span className="text-xs text-slate-500"> {r.attempts} attempts</span> : null}
+                  {r.attempts > 1 ? <span className="text-xs text-muted"> {r.attempts} attempts</span> : null}
                 </td>
                 <td className={`${num} font-semibold`}>{r.total ?? "—"}</td>
                 <td className="min-w-56 px-2 py-1.5">
                   <Breakdown type={type} breakdown={r.breakdown} />
                 </td>
-                <td className="min-w-64 max-w-md px-2 py-1.5 text-xs text-slate-700">{r.rationale ?? "—"}</td>
+                <td className="min-w-64 max-w-md px-2 py-1.5 text-xs text-paper">{r.rationale ?? "—"}</td>
                 <td className={num}>{latency(r.latency_ms)}</td>
-                <td className="min-w-40 max-w-xs px-2 py-1.5 text-xs text-red-700">{r.error ?? ""}</td>
+                <td className="min-w-40 max-w-xs px-2 py-1.5 text-xs text-danger-soft">{r.error ?? ""}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {v.allRuns.length === 0 ? <p className="px-2 py-3 text-sm text-slate-500">No judge runs yet.</p> : null}
+        {v.allRuns.length === 0 ? <p className="px-2 py-3 text-sm text-muted">No judge runs yet.</p> : null}
       </div>
 
       <Rerun type={type} view={v} label={label} organiser={organiser} blocked={rerunBlocked} />
@@ -290,12 +290,12 @@ function Rerun({ type, view: v, label, organiser, blocked }: { type: SubmissionT
   const afterRelease = v.score?.status === "RELEASED";
   const name = TYPE_NAMES[type];
   return (
-    <div className="border-t border-slate-200 pt-3" data-testid="rerun">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Re-run for a technical appeal</h4>
+    <div className="border-t border-line pt-3" data-testid="rerun">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Re-run for a technical appeal</h4>
       {!organiser ? (
-        <p className="mt-1 text-sm text-slate-600">Organisers re-run a submission.</p>
+        <p className="mt-1 text-sm text-paper">Organisers re-run a submission.</p>
       ) : blocked ? (
-        <p className="mt-1 text-sm text-slate-600" data-testid="rerun-blocked">
+        <p className="mt-1 text-sm text-paper" data-testid="rerun-blocked">
           {blocked}
         </p>
       ) : (
@@ -306,13 +306,13 @@ function Rerun({ type, view: v, label, organiser, blocked }: { type: SubmissionT
           className="mt-1 max-w-xl"
           resetOnSuccess
         >
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-paper">
             {afterRelease
               ? "The score has been released, so this is an appeal: 3 new runs are judged, and the new score waits under Appeals and re-runs until an organiser applies or dismisses it."
               : "3 new runs are judged. The score goes back to judging and is sealed again from the new runs."}
           </p>
           <label className="mt-2 block">
-            <span className="text-xs font-medium text-slate-600">Reason (at least 5 characters; logged)</span>
+            <span className="text-xs font-medium text-paper">Reason (at least 5 characters; logged)</span>
             <textarea name="reason" required minLength={5} maxLength={1000} rows={2} className={inputClass} />
           </label>
         </ConfirmForm>

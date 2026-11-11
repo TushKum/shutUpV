@@ -53,7 +53,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
               <Td mono>{c.number}</Td>
               <Td>{c.sector}</Td>
               <Td>{c.title}</Td>
-              <Td className="text-slate-600">
+              <Td className="text-paper">
                 <span title={c.body}>{short(c.body)}</span>
               </Td>
             </tr>
@@ -73,7 +73,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
               <Td>{c.category}</Td>
               <Td mono>{c.number}</Td>
               <Td>{c.title}</Td>
-              <Td className="text-slate-600">
+              <Td className="text-paper">
                 <span title={c.body}>{short(c.body)}</span>
               </Td>
             </tr>
@@ -92,17 +92,17 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
         <Upload kind="flash" lock={locks.flash} organiser={organiser} action={prepareFlashBulletin.bind(null, event.id)} label="Upload the flash bulletin" />
         <div className="mt-4" data-testid="flash-bulletin">
           {flash ? (
-            <div className="rounded-md bg-slate-50 px-3 py-2 text-sm">
+            <div className="rounded-md bg-raised px-3 py-2 text-sm">
               {flash.published_at ? (
                 <Badge tone="green">Published {clock(flash.published_at, true)}</Badge>
               ) : (
                 <Badge tone="violet">Prepared {clock(flash.created_at)}, not published</Badge>
               )}
-              <p className="mt-1 font-semibold text-slate-900">{flash.title}</p>
-              <p className="mt-1 whitespace-pre-wrap text-slate-700">{flash.body}</p>
+              <p className="mt-1 font-semibold text-phosphor">{flash.title}</p>
+              <p className="mt-1 whitespace-pre-wrap text-paper">{flash.body}</p>
             </div>
           ) : (
-            <p className="text-sm text-slate-500">No flash bulletin prepared yet.</p>
+            <p className="text-sm text-muted">No flash bulletin prepared yet.</p>
           )}
         </div>
       </Panel>
@@ -111,7 +111,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
 }
 
 function Summary({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-slate-600">{children}</p>;
+  return <p className="text-sm text-paper">{children}</p>;
 }
 
 function LockBadge({ lock }: { lock: string | null }) {
@@ -133,22 +133,22 @@ function Upload({
 }) {
   const format = CSV_FORMATS[kind];
   return (
-    <div className="mt-3 rounded-md border border-slate-100 p-3">
+    <div className="mt-3 rounded-md border border-line p-3">
       <p className="text-sm">
-        <span className="font-medium text-slate-700">Expected columns: </span>
+        <span className="font-medium text-paper">Expected columns: </span>
         <code className="font-mono">{format.columns.join(",")}</code>
-        <span className="text-slate-500">
+        <span className="text-muted">
           {" "}
           (a header row, then {kind === "flash" ? "exactly one row" : "one row per card"}; {format.optional.length ? `${format.optional.join(", ")} may be left out; ` : ""}
           quote a field that contains a comma or a line break)
         </span>
       </p>
       {lock ? (
-        <p className="mt-2 text-sm text-slate-600">{lock}</p>
+        <p className="mt-2 text-sm text-paper">{lock}</p>
       ) : organiser ? (
         <ActionForm action={action} submit={label} className="mt-2" maxFileBytes={MAX_CSV_BYTES} resetOnSuccess>
           <label className="block max-w-md">
-            <span className="text-xs font-medium text-slate-600">CSV file (up to {MAX_CSV_BYTES / 1024} KB)</span>
+            <span className="text-xs font-medium text-paper">CSV file (up to {MAX_CSV_BYTES / 1024} KB)</span>
             <input name="file" type="file" accept=".csv,text/csv" required className={inputClass} />
           </label>
         </ActionForm>

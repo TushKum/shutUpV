@@ -9,10 +9,10 @@ import { clock } from "@/lib/format";
 import { supabaseServer } from "@/lib/supabase/server";
 
 const TONE: Record<TickerItem["tone"], string> = {
-  up: "bg-emerald-500 text-black",
-  down: "bg-red-500 text-white",
-  news: "bg-amber-400 text-black",
-  info: "bg-white/20 text-white",
+  up: "bg-phosphor text-ink",
+  down: "bg-danger text-ink",
+  news: "bg-warn text-ink",
+  info: "border-2 border-phosphor-dim text-phosphor",
 };
 
 export async function NewsTicker({ event, status }: { event: DisplayEvent; status: EventStatus }) {
@@ -60,7 +60,7 @@ export async function NewsTicker({ event, status }: { event: DisplayEvent; statu
   ));
   const seconds = Math.max(30, Math.round(items.reduce((n, it) => n + it.tag.length + it.text.length, 0) / 6));
   return (
-    <div className="h-[72px] shrink-0 overflow-hidden border-t-4 border-white/20 bg-black/60" role="marquee" aria-label="News ticker" data-testid="news-ticker">
+    <div className="h-[72px] shrink-0 overflow-hidden border-t-4 border-phosphor-dim bg-ink" role="marquee" aria-label="News ticker" data-testid="news-ticker">
       <div className="msim-ticker-track flex h-full w-max items-center text-[32px] font-semibold" style={{ ["--ticker-seconds" as string]: `${seconds}s` }}>
         <div className="flex min-w-[1920px] items-center pl-12">{strip}</div>
         <div className="flex min-w-[1920px] items-center pl-12" aria-hidden>

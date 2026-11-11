@@ -70,7 +70,7 @@ export function ChatForm({ action }: { action: Action }) {
           {pending ? "Sending…" : "Send"}
         </button>
       </div>
-      <p className={`mt-1 text-xs ${check.chars > CHAT_MAX_CHARS ? "text-red-700" : "text-slate-500"}`}>
+      <p className={`mt-1 text-xs ${check.chars > CHAT_MAX_CHARS ? "text-danger-soft" : "text-muted"}`}>
         {count(check.chars)} / {count(CHAT_MAX_CHARS)} characters · Enter sends, Shift+Enter for a new line
       </p>
       <ResultMessage result={result} />

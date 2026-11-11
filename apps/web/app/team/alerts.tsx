@@ -79,9 +79,9 @@ function remember(key: string, thresholds: number[]) {
 }
 
 const TONE = {
-  info: "border-slate-300 bg-white text-slate-900",
-  good: "border-emerald-300 bg-emerald-50 text-emerald-950",
-  warn: "border-amber-400 bg-amber-50 text-amber-950",
+  info: "border-line bg-panel text-phosphor",
+  good: "border-phosphor-dim bg-phosphor/10 text-phosphor",
+  warn: "border-warn/60 bg-warn/10 text-warn",
 } as const;
 
 export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Track; teamId: string }) {
@@ -145,7 +145,7 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
               Open
             </Link>
           ) : null}
-          <button type="button" aria-label="Dismiss" className="text-slate-500 hover:text-slate-900" onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))}>
+          <button type="button" aria-label="Dismiss" className="text-muted hover:text-phosphor" onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))}>
             ×
           </button>
         </div>
@@ -188,7 +188,7 @@ export function SoundToggle() {
       onClick={toggle}
       aria-pressed={on}
       title={on ? "Alert sound and vibration on" : "Alert sound and vibration off"}
-      className="rounded px-1.5 py-0.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+      className="rounded px-1.5 py-0.5 text-xs font-medium text-paper hover:bg-raised"
       data-testid="sound-toggle"
     >
       {on ? "🔔 Sound on" : "🔕 Sound off"}

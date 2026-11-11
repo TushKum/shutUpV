@@ -40,12 +40,12 @@ export default async function PublicLedgerPage({ searchParams }: PageProps<"/tea
     <div className="space-y-6">
       <AutoRefresh everyMs={30_000} active={rescue} />
       <Panel title="Public ledger">
-        <p className="mb-3 text-sm text-slate-600">
+        <p className="mb-3 text-sm text-paper">
           Every transfer that is not a trade, labelled by squad and role, and each round&apos;s totals per company. Individual funds&apos; trades stay private.
         </p>
         <Form action={PATH} className="flex flex-wrap items-end gap-2">
           <label className="block">
-            <span className="text-xs font-medium text-slate-600">Company</span>
+            <span className="text-xs font-medium text-paper">Company</span>
             <select name="company" defaultValue={q.company ?? ""} className={`${inputClass} w-36`}>
               <option value="">All</option>
               {tickers.map((t) => (
@@ -56,7 +56,7 @@ export default async function PublicLedgerPage({ searchParams }: PageProps<"/tea
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-slate-600">Kind</span>
+            <span className="text-xs font-medium text-paper">Kind</span>
             <select name="kind" defaultValue={q.kind ?? ""} className={`${inputClass} w-44`}>
               <option value="">All</option>
               {PUBLIC_KINDS.map((k) => (
@@ -106,7 +106,7 @@ export default async function PublicLedgerPage({ searchParams }: PageProps<"/tea
                   <Td mono className="text-right">
                     {l.price}
                   </Td>
-                  <Td className="text-slate-600">
+                  <Td className="text-paper">
                     <span className="block min-w-48 max-w-md whitespace-normal">{l.details}</span>
                   </Td>
                 </tr>
@@ -121,11 +121,11 @@ export default async function PublicLedgerPage({ searchParams }: PageProps<"/tea
 }
 
 function Pager({ q, page, pages, label, bottom = false }: { q: PublicLedgerQuery; page: number; pages: number; label: string; bottom?: boolean }) {
-  const link = "rounded-md px-2 py-1 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50";
-  const off = "rounded-md px-2 py-1 text-sm text-slate-300 ring-1 ring-inset ring-slate-100";
+  const link = "rounded-md px-2 py-1 text-sm font-medium text-paper ring-1 ring-inset ring-line hover:bg-raised";
+  const off = "rounded-md px-2 py-1 text-sm text-muted ring-1 ring-inset ring-line";
   return (
     <nav className="mt-4 flex flex-wrap items-center justify-between gap-2" aria-label={bottom ? "Ledger pages (bottom)" : "Ledger pages"}>
-      <span className="text-sm text-slate-600">
+      <span className="text-sm text-paper">
         {label}
         {pages > 1 ? ` · page ${count(page)} of ${count(pages)}` : ""}
       </span>

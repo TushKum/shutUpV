@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { DitherDefs } from "@/components/ui/matrix/dither-layer";
 
 export const metadata: Metadata = {
   title: "Market Simulation",
@@ -11,7 +12,10 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <DitherDefs />
+        {children}
+      </body>
     </html>
   );
 }

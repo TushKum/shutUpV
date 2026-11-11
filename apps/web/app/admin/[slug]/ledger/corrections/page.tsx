@@ -13,7 +13,7 @@ import { RequestCorrectionForm } from "./request-form";
 
 export const metadata: Metadata = { title: "Corrections" };
 
-const tone = (sign: number) => (sign > 0 ? "text-emerald-700" : sign < 0 ? "text-red-700" : "");
+const tone = (sign: number) => (sign > 0 ? "text-phosphor" : sign < 0 ? "text-danger-soft" : "");
 
 // Ledger corrections need two people: an organiser requests one with a reason; a different organiser or the fairness
 // officer approves it (then it is applied to the ledger and published) or rejects it.
@@ -36,17 +36,17 @@ export default async function CorrectionsPage({ params }: { params: Promise<{ sl
 
       <Panel title="Pending corrections">
         {pending.length === 0 ? (
-          <p className="text-sm text-slate-500">No correction is waiting for a decision.</p>
+          <p className="text-sm text-muted">No correction is waiting for a decision.</p>
         ) : (
           <ol className="space-y-4">
             {pending.map((c, i) => (
-              <li key={c.id} className="rounded-md border border-amber-200 bg-amber-50/40 p-3" aria-label={`Pending correction ${i + 1}`}>
+              <li key={c.id} className="rounded-md border border-warn/60 bg-warn/10 p-3" aria-label={`Pending correction ${i + 1}`}>
                 <CorrectionHead c={c} />
                 <Entries entries={c.entries} />
                 {c.canDecide ? (
                   <DecideCorrection decide={decideCorrection.bind(null, c.id)} label={`correction ${i + 1}`} />
                 ) : (
-                  <p className="mt-3 border-t border-slate-100 pt-3 text-sm text-slate-700">{c.whyNot}</p>
+                  <p className="mt-3 border-t border-line pt-3 text-sm text-paper">{c.whyNot}</p>
                 )}
               </li>
             ))}
@@ -98,11 +98,11 @@ export default async function CorrectionsPage({ params }: { params: Promise<{ sl
 function CorrectionHead({ c }: { c: CorrectionView }) {
   return (
     <div>
-      <p className="text-sm text-slate-600">
-        Requested by <strong className="text-slate-900">{c.requestedBy}</strong> at {clock(c.requestedAt, true)} · {c.entries.length}{" "}
+      <p className="text-sm text-paper">
+        Requested by <strong className="text-phosphor">{c.requestedBy}</strong> at {clock(c.requestedAt, true)} · {c.entries.length}{" "}
         {c.entries.length === 1 ? "entry" : "entries"}
       </p>
-      <p className="mt-1 text-sm text-slate-900">“{c.reason}”</p>
+      <p className="mt-1 text-sm text-phosphor">“{c.reason}”</p>
     </div>
   );
 }

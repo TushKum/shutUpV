@@ -25,15 +25,15 @@ export function PhaseTimer({
   const over = now >= new Date(endsAt).getTime();
   const text = phaseOverText(phase, gate, next);
   return over ? (
-    <p className="text-[44px] font-bold text-slate-200 first-letter:uppercase" suppressHydrationWarning>
+    <p className="text-[44px] font-bold text-paper first-letter:uppercase" suppressHydrationWarning>
       {text}
     </p>
   ) : (
     <>
-      <p className="text-[32px] font-semibold text-slate-300" suppressHydrationWarning>
+      <p className="text-[32px] font-semibold text-muted" suppressHydrationWarning>
         {paused ? "Phase is paused with" : "Phase ends in"}
       </p>
-      <p className={`text-[76px] leading-none font-black ${paused ? "text-amber-300" : ""}`}>
+      <p className={`text-[76px] leading-none font-black ${paused ? "text-warn" : ""}`}>
         <Countdown to={endsAt} passed="now" />
       </p>
     </>

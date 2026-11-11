@@ -162,7 +162,7 @@ export function DraftEditor(props: DraftEditorProps) {
   const confirm = `Click again to ${dirty ? "save and " : ""}submit ${words(stats.total)}${type === "PITCH" && ticker ? ` as ${ticker}` : ""}`;
   const who = (teamId: string | null) => whoLabel(squad, me, teamId);
   const fieldClass = (readOnly: boolean, conflict = false) =>
-    `${inputClass} ${readOnly ? "bg-slate-50 text-slate-700" : ""} ${conflict ? "border-amber-400 ring-2 ring-amber-200" : ""}`;
+    `${inputClass} ${readOnly ? "bg-raised text-paper" : ""} ${conflict ? "border-warn/60 ring-2 ring-warn/60" : ""}`;
   const inConflict = (key: string) => live && state.conflicts.includes(key);
   const describedBy = (key: string, ...ids: string[]) => [...ids, inConflict(key) ? `${uid}-${key}-conflict` : ""].filter(Boolean).join(" ") || undefined;
   const conflictFor = (key: string, label: string) =>
@@ -209,10 +209,10 @@ export function DraftEditor(props: DraftEditorProps) {
         save();
       }}
     >
-      <p className="flex flex-wrap items-center gap-2 text-sm text-slate-600" data-testid="draft-version">
+      <p className="flex flex-wrap items-center gap-2 text-sm text-paper" data-testid="draft-version">
         {version.version > 0 ? (
           <span>
-            Version {version.version} · saved by <strong className="text-slate-900">{who(version.updatedBy)}</strong> at{" "}
+            Version {version.version} · saved by <strong className="text-phosphor">{who(version.updatedBy)}</strong> at{" "}
             <span className="font-mono">{clock(version.updatedAt, true)}</span>
           </span>
         ) : (
@@ -228,7 +228,7 @@ export function DraftEditor(props: DraftEditorProps) {
       ) : null}
 
       {closed?.unsaved ? (
-        <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-inset ring-amber-200" data-testid="draft-unsaved">
+        <div className="rounded-md bg-warn/10 p-3 text-sm text-warn ring-1 ring-inset ring-warn/60" data-testid="draft-unsaved">
           <p className="font-semibold">Not saved: the text below was typed on this screen but never saved, so it is not part of the draft.</p>
           <details className="mt-2">
             <summary className="cursor-pointer font-medium">See the unsaved text</summary>
@@ -238,7 +238,7 @@ export function DraftEditor(props: DraftEditorProps) {
       ) : null}
 
       {live && choosing ? (
-        <div role="alert" className="rounded-md bg-amber-50 p-3 text-sm text-amber-950 ring-1 ring-inset ring-amber-200" data-testid="draft-conflict">
+        <div role="alert" className="rounded-md bg-warn/10 p-3 text-sm text-warn ring-1 ring-inset ring-warn/60" data-testid="draft-conflict">
           <p className="font-semibold">
             {otherSaver(squad, me, state.base.updatedBy)} saved version {state.base.version} at {clock(state.base.updatedAt, true)} while you were
             editing.
@@ -261,8 +261,8 @@ export function DraftEditor(props: DraftEditorProps) {
       ) : null}
 
       {state.stash ? (
-        <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-inset ring-slate-200" data-testid="draft-stash">
-          <p className="font-semibold text-slate-900">
+        <div className="rounded-md bg-raised p-3 text-sm ring-1 ring-inset ring-line" data-testid="draft-stash">
+          <p className="font-semibold text-phosphor">
             {state.stash.why === "loaded"
               ? `You chose their text in ${sectionNames(type, Object.keys(state.stash.fields))}. Your text there is set aside here.`
               : `Unsaved text from this device was found. It was based on version ${state.stash.basedOn}; the saved draft is now version ${state.base.version}.`}
@@ -285,7 +285,7 @@ export function DraftEditor(props: DraftEditorProps) {
       ) : null}
 
       {state.notice && (live || state.notice.kind === "updated") ? (
-        <div role="status" className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-900 ring-1 ring-inset ring-sky-200">
+        <div role="status" className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-phosphor-deep/40 px-3 py-2 text-sm text-phosphor-mid ring-1 ring-inset ring-phosphor-dim">
           <span>{noticeText(state.notice)}</span>
           <button type="button" className="text-xs font-semibold underline" onClick={() => dispatch({ type: "dismissNotice" })}>
             Dismiss
@@ -296,7 +296,7 @@ export function DraftEditor(props: DraftEditorProps) {
       {type === "PITCH" ? (
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
           <div>
-            <label htmlFor={`${uid}-company_name`} className="text-sm font-semibold text-slate-800">
+            <label htmlFor={`${uid}-company_name`} className="text-sm font-semibold text-phosphor">
               Company name
             </label>
             <input
@@ -311,7 +311,7 @@ export function DraftEditor(props: DraftEditorProps) {
             />
           </div>
           <div>
-            <label htmlFor={`${uid}-ticker`} className="text-sm font-semibold text-slate-800">
+            <label htmlFor={`${uid}-ticker`} className="text-sm font-semibold text-phosphor">
               Ticker
             </label>
             <input
@@ -327,7 +327,7 @@ export function DraftEditor(props: DraftEditorProps) {
               className={`${fieldClass(!live, inConflict("ticker"))} font-mono uppercase`}
             />
           </div>
-          <p id={`${uid}-ticker-hint`} className="text-xs text-slate-500 sm:col-span-2">
+          <p id={`${uid}-ticker-hint`} className="text-xs text-muted sm:col-span-2">
             The ticker is 3 or 4 capital letters and must be unique; it is claimed when you submit. The name and ticker are not counted in the word limit.
           </p>
           {conflictFor("company_name", "Company name")}
@@ -342,10 +342,10 @@ export function DraftEditor(props: DraftEditorProps) {
         return (
           <div key={f.key}>
             <div className="flex items-baseline justify-between gap-2">
-              <label htmlFor={id} className="text-sm font-semibold text-slate-800">
+              <label htmlFor={id} className="text-sm font-semibold text-phosphor">
                 {f.label}
               </label>
-              <span id={`${id}-words`} className="text-xs tabular-nums text-slate-500" data-testid={`words-${f.key}`}>
+              <span id={`${id}-words`} className="text-xs tabular-nums text-muted" data-testid={`words-${f.key}`}>
                 {words(n)}
               </span>
             </div>
@@ -363,15 +363,15 @@ export function DraftEditor(props: DraftEditorProps) {
         );
       })}
 
-      <div className="rounded-md bg-slate-50 px-3 py-2 text-sm">
+      <div className="rounded-md bg-raised px-3 py-2 text-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span data-testid="word-total" className={`font-semibold tabular-nums ${stats.over > 0 ? "text-red-700" : "text-slate-900"}`}>
+          <span data-testid="word-total" className={`font-semibold tabular-nums ${stats.over > 0 ? "text-danger-soft" : "text-phosphor"}`}>
             {stats.total.toLocaleString("en-US")} / {stats.limit.toLocaleString("en-US")} words
           </span>
-          {stats.over > 0 ? <span className="font-medium text-red-700">{words(stats.over)} over the limit</span> : null}
+          {stats.over > 0 ? <span className="font-medium text-danger-soft">{words(stats.over)} over the limit</span> : null}
         </div>
-        <div className="mt-1 h-1.5 overflow-hidden rounded bg-slate-200" aria-hidden>
-          <div className={`h-full ${stats.over > 0 ? "bg-red-600" : "bg-slate-700"}`} style={{ width: `${Math.min(100, (stats.total / stats.limit) * 100)}%` }} />
+        <div className="mt-1 h-1.5 overflow-hidden rounded bg-phosphor-deep" aria-hidden>
+          <div className={`h-full ${stats.over > 0 ? "bg-danger" : "bg-phosphor-deep"}`} style={{ width: `${Math.min(100, (stats.total / stats.limit) * 100)}%` }} />
         </div>
       </div>
 
@@ -379,17 +379,17 @@ export function DraftEditor(props: DraftEditorProps) {
 
       {props.submitted ? (
         isSubmitted ? (
-          <p className="text-sm text-emerald-800" data-testid="submitted-state">
+          <p className="text-sm text-phosphor" data-testid="submitted-state">
             This text is the submitted version (submitted at {clock(props.submitted.submittedAt, true)}).
           </p>
         ) : (
-          <p className="text-sm text-amber-800" data-testid="submitted-state">
+          <p className="text-sm text-warn" data-testid="submitted-state">
             This text differs from the version submitted at {clock(props.submitted.submittedAt, true)}. Only the submitted version is judged
             {live ? ": submit again to replace it." : "."}
           </p>
         )
       ) : live ? (
-        <p className="text-sm text-slate-600" data-testid="submitted-state">
+        <p className="text-sm text-paper" data-testid="submitted-state">
           Not submitted yet. Only a submitted version is judged; you can submit again until the deadline.
         </p>
       ) : null}
@@ -397,7 +397,7 @@ export function DraftEditor(props: DraftEditorProps) {
       {live ? (
         <div>
           {problem ? (
-            <p className="mb-2 text-sm text-slate-700" data-testid="submit-problem">
+            <p className="mb-2 text-sm text-paper" data-testid="submit-problem">
               Cannot submit yet: {problem.message}
             </p>
           ) : null}
@@ -429,9 +429,9 @@ function FieldsText({ type, fields, only }: { type: SubmissionType; fields: Fiel
         .filter((f) => !only || only.includes(f.key))
         .map((f) => (
           <div key={f.key}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{f.label}</dt>
-            <dd className="whitespace-pre-wrap break-words text-slate-900">
-              {(fields[f.key] ?? "").trim() === "" ? <span className="text-slate-400">—</span> : fields[f.key]}
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted">{f.label}</dt>
+            <dd className="whitespace-pre-wrap break-words text-phosphor">
+              {(fields[f.key] ?? "").trim() === "" ? <span className="text-muted">—</span> : fields[f.key]}
             </dd>
           </div>
         ))}
@@ -454,20 +454,20 @@ function ConflictChoice(props: {
   onKeep: () => void;
   onUseTheirs: () => void;
 }) {
-  const text = (t: string) => (t.trim() === "" ? <span className="text-slate-400">— (empty)</span> : t);
+  const text = (t: string) => (t.trim() === "" ? <span className="text-muted">— (empty)</span> : t);
   return (
-    <div id={props.id} className="mt-2 rounded-md bg-amber-50 p-3 sm:col-span-2 text-sm text-amber-950 ring-1 ring-inset ring-amber-200" data-testid={props.testId}>
+    <div id={props.id} className="mt-2 rounded-md bg-warn/10 p-3 sm:col-span-2 text-sm text-warn ring-1 ring-inset ring-warn/60" data-testid={props.testId}>
       <p className="font-semibold">{props.label} was changed here and in version {props.version}: which text do you keep?</p>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <div className="min-w-0 rounded bg-white p-2 ring-1 ring-inset ring-amber-200" data-testid="conflict-mine">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your text (not saved)</p>
-          <p className="mt-1 whitespace-pre-wrap break-words text-slate-900">{text(props.mine)}</p>
+        <div className="min-w-0 rounded bg-panel p-2 ring-1 ring-inset ring-warn/60" data-testid="conflict-mine">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Your text (not saved)</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-phosphor">{text(props.mine)}</p>
         </div>
-        <div className="min-w-0 rounded bg-white p-2 ring-1 ring-inset ring-amber-200" data-testid="conflict-theirs">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div className="min-w-0 rounded bg-panel p-2 ring-1 ring-inset ring-warn/60" data-testid="conflict-theirs">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
             Their text (version {props.version}, saved by {props.savedBy})
           </p>
-          <p className="mt-1 whitespace-pre-wrap break-words text-slate-900">{text(props.theirs)}</p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-phosphor">{text(props.theirs)}</p>
         </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">

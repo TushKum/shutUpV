@@ -9,8 +9,8 @@ import { inlineText, type Align, type Block, type Inline } from "@/lib/team/mark
 const HEADINGS = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
 
 const HEADING_CLASS: Record<number, string> = {
-  1: "mt-6 text-lg font-semibold text-slate-900",
-  2: "mt-6 text-base font-semibold text-slate-900",
+  1: "mt-6 text-lg font-semibold text-phosphor",
+  2: "mt-6 text-base font-semibold text-phosphor",
 };
 
 const ALIGN: Record<Exclude<Align, null>, string> = { left: "text-left", center: "text-center", right: "text-right" };
@@ -21,6 +21,7 @@ function InlineView({ content }: { content: readonly Inline[] }): ReactNode {
       case "text":
         return n.text;
       case "code":
+        // These two palette names are checked by markdown.test.ts; globals.css points them at the theme.
         return (
           <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800">
             {n.text}
@@ -28,7 +29,7 @@ function InlineView({ content }: { content: readonly Inline[] }): ReactNode {
         );
       case "strong":
         return (
-          <strong key={i} className="font-semibold text-slate-900">
+          <strong key={i} className="font-semibold text-phosphor">
             <InlineView content={n.children} />
           </strong>
         );
@@ -47,7 +48,7 @@ function BlockView({ block, base, label }: { block: Block; base: number; label: 
     case "heading": {
       const Tag = HEADINGS[Math.min(block.level + base, 6) - 1]!;
       return (
-        <Tag className={`${HEADING_CLASS[block.level] ?? "mt-4 text-sm font-semibold text-slate-900"} first:mt-0`}>
+        <Tag className={`${HEADING_CLASS[block.level] ?? "mt-4 text-sm font-semibold text-phosphor"} first:mt-0`}>
           <InlineView content={block.content} />
         </Tag>
       );
@@ -65,11 +66,11 @@ function BlockView({ block, base, label }: { block: Block; base: number; label: 
         </li>
       ));
       return block.ordered ? (
-        <ol start={block.start === 1 ? undefined : block.start} className="mt-3 list-decimal space-y-1 pl-5 marker:text-slate-500 first:mt-0 [li_&]:mt-1">
+        <ol start={block.start === 1 ? undefined : block.start} className="mt-3 list-decimal space-y-1 pl-5 marker:text-muted first:mt-0 [li_&]:mt-1">
           {items}
         </ol>
       ) : (
-        <ul className="mt-3 list-disc space-y-1 pl-5 marker:text-slate-400 first:mt-0 [li_&]:mt-1">{items}</ul>
+        <ul className="mt-3 list-disc space-y-1 pl-5 marker:text-muted first:mt-0 [li_&]:mt-1">{items}</ul>
       );
     }
     case "table": {
@@ -82,11 +83,11 @@ function BlockView({ block, base, label }: { block: Block; base: number; label: 
           role="region"
           aria-label={`${label}: table of ${block.head.map((h) => inlineText(h)).join(", ")}`}
           tabIndex={0}
-          className="mt-3 overflow-x-auto rounded-md border border-slate-200 first:mt-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+          className="mt-3 overflow-x-auto rounded-md border border-line first:mt-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-phosphor"
         >
           <table className="w-full min-w-[36rem] text-sm [overflow-wrap:normal]">
-            <thead className="bg-slate-50">
-              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-raised">
+              <tr className="border-b border-line text-xs uppercase tracking-wide text-muted">
                 {block.head.map((h, k) => (
                   <th key={k} scope="col" className={`px-3 py-2 font-semibold ${align(k)}`}>
                     <InlineView content={h} />
@@ -94,7 +95,7 @@ function BlockView({ block, base, label }: { block: Block; base: number; label: 
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line">
               {block.rows.map((row, r) => (
                 <tr key={r}>
                   {row.map((cell, k) => (
@@ -111,7 +112,7 @@ function BlockView({ block, base, label }: { block: Block; base: number; label: 
     }
     case "code":
       return (
-        <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-900 px-3 py-2 font-mono text-xs leading-relaxed text-slate-100 [overflow-wrap:anywhere] first:mt-0">
+        <pre className="mt-3 whitespace-pre-wrap rounded-md bg-phosphor-deep px-3 py-2 font-mono text-xs leading-relaxed text-paper [overflow-wrap:anywhere] first:mt-0">
           <code>{block.text}</code>
         </pre>
       );
@@ -125,7 +126,7 @@ function Blocks({ blocks, base, label }: { blocks: readonly Block[]; base: numbe
 /** A Markdown document (parsed with lib/team/markdown's parseMarkdown). `label` names its tables for screen readers. */
 export function Markdown({ blocks, label, headingBase = 0 }: { blocks: readonly Block[]; label: string; headingBase?: number }) {
   return (
-    <div className="text-sm leading-relaxed text-slate-700">
+    <div className="text-sm leading-relaxed text-paper">
       <Blocks blocks={blocks} base={headingBase} label={label} />
     </div>
   );

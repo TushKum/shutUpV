@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { TeamSection } from "@/lib/team/sections";
 import { SECTION_ICONS } from "@/lib/team/focus";
+import { Glyph } from "@/components/ui/matrix/glyph";
 
 // This round's sections only (focus mode), as big buttons with an icon. On a phone the row scrolls sideways and keeps
 // the current button in view (only the row scrolls, never the page).
@@ -29,11 +30,11 @@ export function TeamNav({ sections }: { sections: readonly TeamSection[] }) {
             key={s.path}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition ${
-              active ? "bg-slate-900 text-white shadow" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-            }`}
+            className={`mx-key flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm ${active ? "mx-key-solid" : "mx-key-quiet"}`}
           >
-            <span aria-hidden>{SECTION_ICONS[s.path] ?? "•"}</span>
+            <span aria-hidden>
+              <Glyph e={SECTION_ICONS[s.path] ?? "•"} />
+            </span>
             <span>{s.label}</span>
           </Link>
         );

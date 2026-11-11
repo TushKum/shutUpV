@@ -25,16 +25,16 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
     ticker: r.ticker,
     name: r.name,
     middle: <PriceMove before={r.ipoPrice} after={r.closingPrice} tone={tone} className="text-[34px]" />,
-    right: <span className={`text-[44px] font-black tabular-nums ${tone === "up" ? "text-emerald-400" : "text-red-400"}`}>{bp(r.changeBp)}</span>,
+    right: <span className={`text-[44px] font-black tabular-nums ${tone === "up" ? "text-phosphor" : "text-danger"}`}>{bp(r.changeBp)}</span>,
   });
   return (
-    <TakeoverFrame title={TAKEOVER_TITLES.CLOSING_BELL} at={takeover.at} until={takeover.until} tone="bg-white text-black">
+    <TakeoverFrame title={TAKEOVER_TITLES.CLOSING_BELL} at={takeover.at} until={takeover.until} tone="bg-phosphor text-ink">
       <div className="flex h-full flex-col gap-6">
         <div className="flex shrink-0 items-end justify-between gap-10">
           <p className="text-[80px] leading-none font-black" data-testid="closing-headline">
             The market is closed
           </p>
-          <p className="text-right text-[32px] leading-snug text-slate-300">
+          <p className="text-right text-[32px] leading-snug text-muted">
             Closing prices are final.
             <br />
             Change from the IPO price to the closing price.
@@ -58,7 +58,7 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
             testId="closing-losers"
           />
         </div>
-        <p className="shrink-0 text-[40px] leading-tight font-black text-amber-300" data-testid="closing-awards">
+        <p className="shrink-0 text-[40px] leading-tight font-black text-warn" data-testid="closing-awards">
           Final results are announced at the awards.
         </p>
       </div>

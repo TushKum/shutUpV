@@ -15,7 +15,7 @@ export default function SectionError({ error, reset }: { error: Error & { digest
         {error.message || "Something went wrong."}
         {error.digest ? <span className="ml-1 font-mono text-xs">({error.digest})</span> : null}
       </Notice>
-      <p className="mt-3 text-sm text-slate-600">The night goes on in the database; nothing was changed by this error. Try again, or open another section.</p>
+      <p className="mt-3 text-sm text-paper">The night goes on in the database; nothing was changed by this error. Try again, or open another section.</p>
       <button
         type="button"
         className={`${buttonClass.primary} mt-3`}

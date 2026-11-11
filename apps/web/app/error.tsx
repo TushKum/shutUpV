@@ -13,8 +13,8 @@ export default function AppError({ error, retry }: { error: Error & { digest?: s
   return (
     <main className="mx-auto max-w-xl px-4 py-16">
       <h1 className="text-2xl font-bold">This page could not load</h1>
-      <p className="mt-2 text-slate-600">Nothing was changed. Try again in a moment.</p>
-      {error.digest ? <p className="mt-2 font-mono text-xs text-slate-500">{error.digest}</p> : null}
+      <p className="mt-2 text-paper">Nothing was changed. Try again in a moment.</p>
+      {error.digest ? <p className="mt-2 font-mono text-xs text-muted">{error.digest}</p> : null}
       <button type="button" onClick={() => retry()} className={`${buttonClass.primary} mt-4`}>
         Try again
       </button>

@@ -22,19 +22,19 @@ export function ConsoleStatus() {
     <div className="space-y-3 text-sm">
       <dl className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <dt className="text-slate-600">Realtime</dt>
+        <dt className="text-paper">Realtime</dt>
         <dd data-console-realtime={status}>
           <Badge tone={status === "SUBSCRIBED" ? "green" : status === "CONNECTING" ? "amber" : "red"}>{status}</Badge>
         </dd>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <dt className="text-slate-600">Last message</dt>
+        <dt className="text-paper">Last message</dt>
         <dd className="font-mono tabular-nums">
           {last ? `${last.event} · ${ago(browserNow - last.receivedAt)} ago` : "none since this page opened"}
         </dd>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <dt className="text-slate-600">Clock offset</dt>
+        <dt className="text-paper">Clock offset</dt>
         <dd className="font-mono tabular-nums" data-testid="clock-offset">
           {inBrowser ? `${offset >= 0 ? "+" : "−"}${Math.abs(Math.round(offset))} ms` : "…"}
         </dd>

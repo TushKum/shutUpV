@@ -12,7 +12,7 @@ import { BookTabs } from "./tabs";
 
 export const metadata: Metadata = { title: "Market" };
 
-const TONE = { 1: "text-emerald-700", 0: "text-slate-500", [-1]: "text-red-700" } as const;
+const TONE = { 1: "text-phosphor", 0: "text-muted", [-1]: "text-danger-soft" } as const;
 const ARROW = { 1: "▲", 0: "■", [-1]: "▼" } as const;
 
 // Market: every listed company with its ticker, name, IPO price, market price and the last cleared round's move,
@@ -38,7 +38,7 @@ export default async function MarketPage() {
       <BookTabs open={openBooks(status.phase, released)} current="PRICES" />
       <Panel title={`Listed companies (${lines.length})`}>
         {!released.PITCH ? (
-          <p className="mb-3 text-sm text-slate-600">IPO prices are released at the IPO, with the pitch scores. Until then, read the pitch book.</p>
+          <p className="mb-3 text-sm text-paper">IPO prices are released at the IPO, with the pitch scores. Until then, read the pitch book.</p>
         ) : null}
         <Table
           head={["Ticker", "Company", "IPO price", "Market price", list.lastRound ? `Round ${list.lastRound.number}` : "Last round", "Trend"]}
@@ -84,7 +84,7 @@ export default async function MarketPage() {
             );
           })}
         </Table>
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-3 text-xs text-muted">
           In ticker order. {list.lastRound ? `The last column is the move in round ${list.lastRound.number}, the last round cleared. ` : ""}Open a company for
           everything public about it and its price history, round by round.
         </p>

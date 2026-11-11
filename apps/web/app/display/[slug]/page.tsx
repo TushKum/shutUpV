@@ -59,7 +59,7 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
 /** The pause strip: under the banner (36 px), or thinner over a takeover, inside the frame's bottom padding. */
 function PauseStrip({ className = "py-2 text-[36px] leading-tight" }: { className?: string }) {
   return (
-    <p className={`bg-amber-400 text-center font-black text-black ${className}`} data-testid="display-paused">
+    <p className={`bg-warn text-center font-black text-ink ${className}`} data-testid="display-paused">
       The event is paused. Deadlines move later by the length of the pause.
     </p>
   );
