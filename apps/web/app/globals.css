@@ -40,8 +40,10 @@
   --color-warn: var(--mx-amber);
   --color-danger: var(--mx-red);
   --color-danger-soft: var(--mx-red-soft);
-  /* Four palette classes are test hooks (the Playwright specs look for them by name), so they stay in the markup and
+  /* Six palette classes are test hooks (the Playwright specs and one unit test look for them by name), so they stay in the markup and
      are pointed at the theme here instead. */
+  --color-slate-100: var(--mx-raised);
+  --color-slate-800: var(--mx-green);
   --color-red-50: color-mix(in srgb, var(--mx-red) 14%, var(--mx-black));
   --color-red-500: var(--mx-red);
   --color-emerald-400: var(--mx-green);

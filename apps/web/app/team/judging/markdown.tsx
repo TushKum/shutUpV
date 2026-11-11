@@ -21,8 +21,9 @@ function InlineView({ content }: { content: readonly Inline[] }): ReactNode {
       case "text":
         return n.text;
       case "code":
+        // These two palette names are checked by markdown.test.ts; globals.css points them at the theme.
         return (
-          <code key={i} className="rounded bg-raised px-1 py-0.5 font-mono text-[0.85em] text-phosphor">
+          <code key={i} className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800">
             {n.text}
           </code>
         );
