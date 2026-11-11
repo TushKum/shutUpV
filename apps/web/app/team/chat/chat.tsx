@@ -14,7 +14,7 @@ import { buttonClass, inputClass } from "@/components/ui/ui";
 
 type Action = (prev: ActionResult | null, form: FormData) => Promise<ActionResult>;
 
-export function ChatForm({ action }: { action: Action }) {
+export function ChatForm({ action, placeholder = "Write to your squad…" }: { action: Action; placeholder?: string }) {
   const router = useRouter();
   const [{ result, sent }, dispatch, pending] = useActionState<{ result: ActionResult | null; sent: number }, FormData>(
     async (prev, form) => {
@@ -62,7 +62,7 @@ export function ChatForm({ action }: { action: Action }) {
                 send(e.currentTarget.form!);
               }
             }}
-            placeholder="Write to your squad…"
+            placeholder={placeholder}
             className={`${inputClass} resize-none`}
           />
         </label>

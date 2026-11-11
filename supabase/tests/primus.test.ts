@@ -99,6 +99,24 @@ describe("PRIMUS rounds 2 and 3", () => {
     expect(await n.call(n.team(c.p_code), "make_offer", firm, 30000, 0, "")).toMatchObject({ ok: false, code: "FIRM_FULL" });
     expect(await n.call(n.team(a.p_code), "make_offer", n.teamId(c.c_code), 30000, 0, "")).toMatchObject({ ok: false, code: "ALREADY_HIRED" });
 
+    // ── The firm's profile carries an "about" text; the hire chat is one on one per company–firm pair: A and X read
+    // their thread, B (X's other client) reads only its own, and teams that hired no one cannot post or read.
+    await n.ok(firmCaller, "save_firm_profile", "Supply chains", ["operations"], "From $500", 0, "We fixed ten supply chains.");
+    expect(await n.one("select about from firm_profiles where team_id = $1", [firm])).toEqual({ about: "We fixed ten supply chains." });
+    expect(await n.call(n.team(c.p_code), "post_hire_message", c.company_id, firm, "hi")).toMatchObject({ ok: false, code: "NOT_HIRED" });
+    expect(await n.call(n.team(b.p_code), "post_hire_message", a.company_id, firm, "hi")).toMatchObject({ ok: false, code: "NOT_HIRED" });
+    expect(await n.call(n.team(a.p_code), "post_hire_message", a.company_id, firm, "   ")).toMatchObject({ ok: false, code: "BAD_LENGTH" });
+    await n.ok(n.team(a.p_code), "post_hire_message", a.company_id, firm, "  Can you start now?  ");
+    await n.ok(firmCaller, "post_hire_message", a.company_id, firm, "Yes, send us the numbers.");
+    await n.ok(firmCaller, "post_hire_message", b.company_id, firm, "Hello B.");
+    const hireLog = async (caller: ReturnType<typeof n.team>) =>
+      as(db.pool, caller, async (cl) => (await cl.query("select body from hire_messages order by id")).rows.map((r) => r.body));
+    expect(await hireLog(n.team(a.p_code))).toEqual(["Can you start now?", "Yes, send us the numbers."]);
+    expect(await hireLog(firmCaller)).toEqual(["Can you start now?", "Yes, send us the numbers.", "Hello B."]);
+    expect(await hireLog(n.team(b.p_code))).toEqual(["Hello B."]);
+    expect(await hireLog(n.team(c.c_code))).toEqual([]);
+    expect(await hireLog(n.team(a.f_code))).toEqual([]);
+
     // ── Work: A's plan and X's memo for A; nothing for B (its escrow is refunded); C writes a plan with no firm.
     await n.ok(n.team(a.p_code), "save_draft", "CRISIS_1", crisisPlan, 0);
     await n.ok(n.team(a.p_code), "submit_submission", "CRISIS_1");

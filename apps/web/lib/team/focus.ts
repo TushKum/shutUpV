@@ -127,8 +127,8 @@ const ROUND_PATHS: Record<Track, Record<Stage, readonly string[]>> = {
 
 /** A PRIMUS event's Round 2 (PRESSURE) and Round 3 (SATURATION): the crisis room replaces the classic rescue. */
 const PRIMUS_PATHS: Record<Track, readonly string[]> = {
-  PRODUCT: ["", "/crisis", "/squad", "/chat", "/qa", "/market", "/bulletins"],
-  CONSULTING: ["", "/crisis", "/squad", "/earnings", "/chat", "/qa", "/market", "/bulletins"],
+  PRODUCT: ["", "/crisis", "/firms", "/messages", "/squad", "/chat", "/qa", "/market", "/bulletins"],
+  CONSULTING: ["", "/crisis", "/firms", "/messages", "/squad", "/earnings", "/chat", "/qa", "/market", "/bulletins"],
   FINANCE: ["", "/trade", "/crisis", "/chat", "/qa", "/market", "/bulletins"],
 };
 
@@ -230,6 +230,8 @@ export const SECTION_ICONS: Record<string, string> = {
   "": "🏠",
   "/squad": "🧩",
   "/crisis": "🚨",
+  "/firms": "💼",
+  "/messages": "✉",
   "/rescue": "🛟",
   "/chat": "💬",
   "/calls": "📞",

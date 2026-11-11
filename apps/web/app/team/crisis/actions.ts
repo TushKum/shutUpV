@@ -15,6 +15,7 @@ const bad = (message: string): ActionResult => ({ ok: false, code: "BAD_INPUT", 
 export async function saveFirmProfile(_prev: ActionResult | null, form: FormData): Promise<ActionResult> {
   const headline = String(form.get("headline") ?? "").trim();
   const rateCard = String(form.get("rate_card") ?? "").trim();
+  const about = String(form.get("about") ?? "").trim();
   const specialities = String(form.get("specialities") ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -22,9 +23,10 @@ export async function saveFirmProfile(_prev: ActionResult | null, form: FormData
   const asking = parseDollars(form.get("asking"));
   if (headline.length > 140) return bad("The headline is at most 140 characters.");
   if (rateCard.length > 600) return bad("The rate card is at most 600 characters.");
+  if (about.length > 1000) return bad("The about text is at most 1,000 characters.");
   if (specialities.length > 8 || specialities.some((s) => s.length > 40)) return bad("At most 8 specialities, 40 characters each.");
   if (asking === null) return bad("Write the asking fee as an amount in dollars, e.g. 750 or 750.50.");
-  const r = await rpc("save_firm_profile", { p_headline: headline, p_specialities: specialities, p_rate_card: rateCard, p_asking_cents: asking });
+  const r = await rpc("save_firm_profile", { p_headline: headline, p_specialities: specialities, p_rate_card: rateCard, p_asking_cents: asking, p_about: about });
   return r.ok ? { ...r, message: "Your firm's profile is saved: every Product team sees it in the firm directory." } : r;
 }
 

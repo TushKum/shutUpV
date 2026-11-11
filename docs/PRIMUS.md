@@ -103,3 +103,13 @@ team size and prizes are not modelled by the platform.
   the rating). Escrow moves through the ledger (`ESCROW_HOLD`, `ESCROW_RELEASE`, `ESCROW_REFUND`).
 - **Firm value** = the firm's cash (fees and bonuses) + fee shares × current price; reputation bonuses are paid when
   the scores are released (`BONUS_ADVICE`, and `BONUS_MEMO` for Round 1).
+
+## Hiring a firm: the directory, profiles and the hire chat
+
+- **Firms** (`/team/firms`, Product and Consulting portals): every Consulting firm with its headline, specialities,
+  value, asking fee, clients and rating; search by any word and sort by value, rating or asking fee.
+- **Firm profile** (`/team/firms/<code>`): the firm's about text, rate card, value breakdown, star distribution and
+  track record (every engagement). A Product team sends its offer from here and follows the counters.
+- **Hire chat** (`/team/messages`): once an engagement exists (an offer or counter accepted), the company's Product
+  team and the firm get a private one-on-one thread (`hire_messages`, written only through `post_hire_message`). Only the
+  two teams and the staff read it; it closes at the awards. A firm has one thread per client.
