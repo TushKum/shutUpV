@@ -7,6 +7,8 @@ import type { JudgeEffort, JudgeSlot } from "./types";
 
 export interface JudgeConfig {
   models: Record<JudgeSlot, string>;
+  /** JUDGE_PROVIDER=ollama: a local model through Ollama at this URL (OLLAMA_URL), instead of Claude. */
+  ollama?: { url: string };
   /** Sent to the API only when set (current Claude models reject temperature: PLAN Q3). */
   temperature?: number;
   effort: JudgeEffort;
@@ -92,7 +94,12 @@ export function judgeConfig(env: Env = process.env): JudgeConfig {
     PRIMARY: read(env, "JUDGE_MODEL") ?? JUDGE_DEFAULTS.model,
     BACKUP: read(env, "JUDGE_BACKUP_MODEL") ?? JUDGE_DEFAULTS.backupModel,
   };
-  if (temperature !== undefined) {
+  const provider = (read(env, "JUDGE_PROVIDER") ?? "anthropic").toLowerCase();
+  if (provider !== "anthropic" && provider !== "ollama") {
+    throw new Error(`JUDGE_PROVIDER must be anthropic or ollama, got "${provider}"`);
+  }
+  const ollama = provider === "ollama";
+  if (temperature !== undefined && !ollama) {
     // Both slots: an organiser can switch to the backup in the middle of the night.
     for (const [slot, variable] of [["PRIMARY", "JUDGE_MODEL"], ["BACKUP", "JUDGE_BACKUP_MODEL"]] as const) {
       if (rejectsSampling(models[slot])) {
@@ -106,10 +113,11 @@ export function judgeConfig(env: Env = process.env): JudgeConfig {
 
   return {
     models,
+    ...(ollama ? { ollama: { url: read(env, "OLLAMA_URL") ?? "http://127.0.0.1:11434" } } : {}),
     ...(temperature !== undefined ? { temperature } : {}),
     effort,
     // claim_judge_runs hands out at most 50 runs per claim.
-    concurrency: integer(env, "JUDGE_CONCURRENCY", JUDGE_DEFAULTS.concurrency, 1, 50),
+    concurrency: integer(env, "JUDGE_CONCURRENCY", ollama ? 1 : JUDGE_DEFAULTS.concurrency, 1, 50),
     budgetMs: integer(env, "JUDGE_WORK_BUDGET_MS", JUDGE_DEFAULTS.budgetMs, 1_000, 15 * 60_000),
     fake: fakeFlag === "1" || fakeFlag === "true" || fakeFlag === "yes" || fakeFlag === "on",
     fakeLatencyMs: integer(env, "JUDGE_FAKE_LATENCY_MS", JUDGE_DEFAULTS.fakeLatencyMs, 0, 120_000),

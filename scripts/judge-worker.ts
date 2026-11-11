@@ -4,7 +4,8 @@
 //   pnpm judge-worker --event <slug> [--once]
 //
 // Reads .env: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY and the
-// JUDGE_* settings. It claims runs until neither the judge queue nor the calibration queue has anything queued or
+// JUDGE_* settings. With JUDGE_PROVIDER=ollama it judges with a local model through Ollama (OLLAMA_URL, default
+// http://127.0.0.1:11434; JUDGE_MODEL e.g. qwen2.5:7b) and needs no API key. It claims runs until neither the judge queue nor the calibration queue has anything queued or
 // running, waiting for runs that are backing off or that another worker holds, then exits. --once does one turn of
 // JUDGE_WORK_BUDGET_MS instead. Before each turn with the real model it checks the API with the model of the event's
 // current slot (no run used), and stops if that fails. Ctrl-C once stops claiming and lets the calls in flight
@@ -87,13 +88,13 @@ async function main(): Promise<number> {
 
   const refusal = fakeJudgeRefusal(config, event);
   if (refusal) throw new Error(refusal);
-  if (!config.fake && !hasApiCredential()) throw new Error("ANTHROPIC_API_KEY is not set");
+  if (!config.fake && !config.ollama && !hasApiCredential()) throw new Error("ANTHROPIC_API_KEY is not set (or set JUDGE_PROVIDER=ollama)");
   const prompts = promptLoader();
   for (const t of ["PITCH", "PLAN", "FLASH"] as const) prompts(t);
 
   const judgeName = config.fake
     ? `the FAKE judge (${config.fakeLatencyMs} ms a call)`
-    : `${config.models.PRIMARY} (backup ${config.models.BACKUP}; this event uses the ${event.judge_model_slot} slot), effort ${config.effort}` +
+    : `${config.ollama ? `Ollama at ${config.ollama.url}: ` : ""}${config.models.PRIMARY} (backup ${config.models.BACKUP}; this event uses the ${event.judge_model_slot} slot)${config.ollama ? "" : `, effort ${config.effort}`}` +
       (config.temperature !== undefined ? `, temperature ${config.temperature}` : "");
   console.log(`Judging ${event.name} (${event.slug}${event.is_rehearsal ? ", rehearsal" : ""}) with ${judgeName}, ${config.concurrency} calls at a time.`);
 
@@ -122,7 +123,7 @@ async function main(): Promise<number> {
         .single<{ judge_model_slot: JudgeSlot }>();
       if (slotError) throw new Error(`could not read the event: ${slotError.message}`);
       const slot: JudgeSlot = current.judge_model_slot === "BACKUP" ? "BACKUP" : "PRIMARY";
-      const check = await checkJudgeModel(config.models[slot]);
+      const check = await checkJudgeModel(config.models[slot], config);
       if (!check.ok) {
         console.error(`Stopped before claiming: the API check of ${config.models[slot]} (the ${slot} model) failed: ${check.error}`);
         return 1;
