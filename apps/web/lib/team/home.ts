@@ -112,6 +112,7 @@ const PROBLEM = "/team/squad/problem";
 const PITCH = "/team/squad/pitch";
 const PLAN = "/team/squad/plan";
 const FLASH = "/team/squad/flash";
+const MEMO = "/team/squad/memo";
 const RESCUE = "/team/rescue";
 const CALLS = "/team/calls";
 const TRADE = "/team/trade";
@@ -261,6 +262,7 @@ const LINK_LABELS: Record<string, string> = {
   [SQUAD]: "Open Squad",
   [PROBLEM]: "Open the problem cards",
   [PITCH]: "Open the PRD",
+  [MEMO]: "Open the crisis memo",
   [PLAN]: "Open the rescue plan",
   [FLASH]: "Open the flash answer",
   [IPO]: "Open IPO bids",
@@ -349,6 +351,21 @@ function submissionTask(f: HomeFacts, type: "PITCH" | "PLAN" | "FLASH"): HomeTas
   return task(f, type, { key: type, title: titles[type], detail, href: FORM[type], state });
 }
 
+/** Round 1 Consultancy: the crisis memo, written by the Consulting team alone and due with the PRD. */
+function memoTask(f: HomeFacts): HomeTask {
+  const at = clock(deadlineAt(f, "PITCH"));
+  const submitted = f.progress.submitted.MEMO;
+  return task(f, "PITCH", {
+    key: "MEMO",
+    title: "Write and submit your crisis memo",
+    detail: submitted
+      ? `Submitted. You can resubmit until ${at}; the last version on time is judged.`
+      : `Read the case and recommend one way out, in six sections and up to 500 words. Its score sets your firm's reputation bonus. Due ${at}.`,
+    href: MEMO,
+    state: submitted ? "done" : "todo",
+  });
+}
+
 function callTask(f: HomeFacts, n: 1 | 2 | 3): HomeTask {
   const code = `CALL_${n}` as const;
   const { made, total } = f.progress.calls[n];
@@ -393,7 +410,10 @@ export function homePlan(f: HomeFacts): HomePlan {
         }),
       );
     }
-    if (windowOpen(f, "PITCH")) add("PITCH", submissionTask(f, "PITCH"));
+    if (windowOpen(f, "PITCH")) {
+      if (f.track === "CONSULTING") now.push(memoTask(f));
+      add("PITCH", submissionTask(f, "PITCH"));
+    }
   }
 
   if (f.track === "CONSULTING") {

@@ -6,7 +6,7 @@ Tie-break: higher plan score of your squad's company. You can never trade.
 | When | Do | Rule |
 |---|---|---|
 | 21:00 | See your squad and your **2 assigned companies** (outside your squad) | |
-| 21:10–22:30 | Help your Product team on the pitch (you can read it in the squad workspace) | Only Product submits the pitch. |
+| 21:10–22:30 | **Write and submit the crisis memo** (Squad → Crisis memo): the same case for every firm | ≤500 words, six sections. Its score pays your firm $500 × (score − 50) at settlement (−$10,000 to +$25,000). You can also read your Product team's PRD. |
 | draw → **23:15** | **Call 1**: BUY or SELL on each assigned company | Baseline IPO price, judged at round 4. |
 | 00:30–**01:05** | **Propose and confirm the fee** | $10,000–$35,000; cash and/or ≤3,000 shares at the IPO price. Both confirm. Else $22,500 cash at 01:05. |
 | 00:30–02:45 | **Broker the deal: you set the price** | 50–100% of the post-crisis price. Fund sets the amount ($40k–$80k). All three sign. **Signed by 02:45 = +$5,000.** |

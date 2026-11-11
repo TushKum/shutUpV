@@ -4,7 +4,7 @@ import { CALL_WINDOWS, callCell, callSentText, callsSummary, coveredLabels, find
 const T = (iso: string) => Date.parse(iso);
 // 23:15 IST = 17:45Z; 03:40 IST = 22:10Z; 04:30 IST = 23:00Z.
 const deadlines = { CALL_1: "2026-10-10T17:45:00.000Z", CALL_2: "2026-10-10T22:10:00.000Z", CALL_3: "2026-10-10T23:00:00.000Z" };
-const none = { PITCH: false, PLAN: false, FLASH: false };
+const none = { PITCH: false, PLAN: false, FLASH: false, MEMO: false };
 const input = (o: Partial<CallsInput> = {}): CallsInput => ({
   paused: false,
   pausedAt: null,
@@ -37,17 +37,17 @@ describe("call windows (make_call)", () => {
   test("call 2: from the plan release until 03:40, closed by the flash release", () => {
     const at = T("2026-10-10T22:05:00.000Z");
     expect(windowStage(2, input({ nowMs: at }))).toBe("NOT_OPEN");
-    expect(windowStage(2, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: false } }))).toBe("OPEN");
-    expect(windowStage(2, input({ nowMs: T(deadlines.CALL_2) + 1, released: { PITCH: true, PLAN: true, FLASH: false } }))).toBe("CLOSED");
-    expect(windowStage(2, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: true } }))).toBe("CLOSED");
+    expect(windowStage(2, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: false, MEMO: false } }))).toBe("OPEN");
+    expect(windowStage(2, input({ nowMs: T(deadlines.CALL_2) + 1, released: { PITCH: true, PLAN: true, FLASH: false, MEMO: false } }))).toBe("CLOSED");
+    expect(windowStage(2, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: true, MEMO: false } }))).toBe("CLOSED");
   });
 
   test("call 3: from the flash release until 04:30, closed by the close", () => {
     const at = T("2026-10-10T22:55:00.000Z");
-    expect(windowStage(3, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: false } }))).toBe("NOT_OPEN");
-    expect(windowStage(3, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: true } }))).toBe("OPEN");
-    expect(windowStage(3, input({ nowMs: T(deadlines.CALL_3) + 1, released: { PITCH: true, PLAN: true, FLASH: true } }))).toBe("CLOSED");
-    expect(windowStage(3, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: true }, marketClosed: true }))).toBe("CLOSED");
+    expect(windowStage(3, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: false, MEMO: false } }))).toBe("NOT_OPEN");
+    expect(windowStage(3, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: true, MEMO: false } }))).toBe("OPEN");
+    expect(windowStage(3, input({ nowMs: T(deadlines.CALL_3) + 1, released: { PITCH: true, PLAN: true, FLASH: true, MEMO: false } }))).toBe("CLOSED");
+    expect(windowStage(3, input({ nowMs: at, released: { PITCH: true, PLAN: true, FLASH: true, MEMO: false }, marketClosed: true }))).toBe("CLOSED");
   });
 });
 

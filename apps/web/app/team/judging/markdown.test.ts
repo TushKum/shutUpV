@@ -49,7 +49,7 @@ describe("Markdown", () => {
     expect(html.match(/<table/g)).toHaveLength(1);
     expect(html.match(/<pre/g)).toHaveLength(1);
     expect(html.match(/<h3/g)).toHaveLength(1);
-    expect(html.match(/<h4/g)).toHaveLength(5);
+    expect(html.match(/<h4/g)).toHaveLength(type === "MEMO" ? 6 : 5); // MEMO.md also holds the case
     expect(html).toContain(`<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800">&lt;submission type=&quot;${type}&quot; ticker=&quot;…&quot;&gt;</code>`);
     expect(html).not.toMatch(/<(submission|context|pitch_card|crisis_card|deal|bulletin)[\s>]/);
   });

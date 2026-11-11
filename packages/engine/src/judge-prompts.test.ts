@@ -1,4 +1,4 @@
-// Keeps the published judge prompts (prompts/PITCH.md, PLAN.md, FLASH.md) and the calibration pitches
+// Keeps the published judge prompts (prompts/PITCH.md, PLAN.md, FLASH.md, MEMO.md) and the calibration pitches
 // (prompts/calibration/pitches.json) in step with the engine: rubric keys and maxima, word limits, the stored
 // submission format and the injection stripper.
 
@@ -19,14 +19,15 @@ const TAGS: Record<SubmissionType, readonly string[]> = {
   PITCH: ["submission"],
   PLAN: ["context", "pitch_card", "crisis_card", "deal", "submission"],
   FLASH: ["context", "bulletin", "submission"],
+  MEMO: ["submission"],
 };
 
 /**
  * Word caps, to keep the prompts plain. PLAN may run to 950: it describes three context blocks, and the deal summary
  * carries numbers the judge needs explained (the price against the post-crisis price, and the stake). PITCH (the PRD)
- * may run to 1,050: it has six rubric lines, each with its anchors.
+ * may run to 1,050: it has six rubric lines, each with its anchors. MEMO may run to 1,150: it carries the case itself.
  */
-const WORD_CAP: Record<SubmissionType, number> = { PITCH: 1050, PLAN: 950, FLASH: 900 };
+const WORD_CAP: Record<SubmissionType, number> = { PITCH: 1050, PLAN: 950, FLASH: 900, MEMO: 1150 };
 
 /** Rubric table rows: | `key` | what earns points | max | */
 function rubricRows(markdown: string): { key: string; max: number }[] {

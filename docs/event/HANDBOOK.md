@@ -59,7 +59,7 @@ were dealt.
 | 20:00 | Check-in | Collect your card, sign in, find your seats. |
 | 20:30 | Briefing | The rules, on the projector. |
 | 21:00 | Squad draw | Squads, problem cards and consultant assignments. |
-| 21:10–22:30 | Build | Product writes the PRD (≤800 words). **Hard close 22:30.** |
+| 21:10–22:30 | Build | Product writes the PRD (≤800 words); Consulting writes the crisis memo (≤500 words). **Hard close 22:30.** |
 | 22:30–23:15 | Reading | The pitch book and Q&A board go public. Pitches are scored (sealed). **Consultant call 1 due 23:15.** |
 | 23:15–23:30 | IPO | Pitch scores and IPO prices released. Funds place IPO bids. |
 | 23:30–00:30 | Rounds 1–4 | 15-minute trading rounds. |
@@ -123,8 +123,8 @@ the market price and the AI price.
 
 ## 6. The AI judge
 
-- Three written pieces are judged: the **PRD** (Product Requirements Document, ≤800 words), the **rescue plan** (≤500 words) and the **flash
-  answer** (≤100 words). The full judging instructions are published on the team portal under **Judging**; read them.
+- Four written pieces are judged: the **PRD** (Product Requirements Document, ≤800 words), the Consulting team's **crisis
+  memo** (≤500 words), the **rescue plan** (≤500 words) and the **flash answer** (≤100 words). The full judging instructions are published on the team portal under **Judging**; read them.
   They are the exact text the judge gets.
 - Rubrics:
   - Pitch: problem 25, solution 25, business model 25, advantage 25.

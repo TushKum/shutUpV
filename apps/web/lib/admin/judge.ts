@@ -20,8 +20,8 @@ import { bp, clock, money } from "@/lib/format";
 export const JUDGE_TYPES = SUBMISSION_TYPES;
 
 /** Used in sentences and button labels ("Release pitch scores"). */
-export const TYPE_NAMES: Record<SubmissionType, string> = { PITCH: "pitch", PLAN: "plan", FLASH: "flash" };
-export const TYPE_TITLES: Record<SubmissionType, string> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash" };
+export const TYPE_NAMES: Record<SubmissionType, string> = { PITCH: "pitch", PLAN: "plan", FLASH: "flash", MEMO: "crisis memo" };
+export const TYPE_TITLES: Record<SubmissionType, string> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash", MEMO: "Crisis memo" };
 
 export type RunStatus = "QUEUED" | "RUNNING" | "DONE" | "FAILED";
 export const RUN_STATUSES: readonly RunStatus[] = ["QUEUED", "RUNNING", "DONE", "FAILED"];
@@ -489,6 +489,7 @@ export const TARGET_TONE: Record<TargetState, StatusTone> = { MET: "green", ON_P
 
 /** The deadline after which a type is judged and sealed: plans after both the plan and the deal deadline. */
 export function scoringClosesAt(type: SubmissionType, deadlines: Partial<Record<DeadlineCode, string>>): string | null {
+  if (type === "MEMO") return deadlines.PITCH ?? null; // the memo closes with the PRD
   if (type !== "PLAN") return deadlines[type] ?? null;
   const plan = deadlines.PLAN;
   const deal = deadlines.DEAL;
@@ -504,10 +505,10 @@ function deadlinePassed(at: string | undefined, now: number, pausedAt: string | 
 
 /** As app.scoring_closed: the type's deadline has passed (plans: the plan and the deal deadlines). */
 export function scoringClosed(type: SubmissionType, deadlines: Partial<Record<DeadlineCode, string>>, now: number, pausedAt: string | null): boolean {
-  return deadlinePassed(deadlines[type], now, pausedAt) && (type !== "PLAN" || deadlinePassed(deadlines.DEAL, now, pausedAt));
+  return deadlinePassed(deadlines[type === "MEMO" ? "PITCH" : type], now, pausedAt) && (type !== "PLAN" || deadlinePassed(deadlines.DEAL, now, pausedAt));
 }
 
-const DEADLINE_NAMES: Record<SubmissionType, string> = { PITCH: "pitch deadline", PLAN: "plan and deal deadlines", FLASH: "flash deadline" };
+const DEADLINE_NAMES: Record<SubmissionType, string> = { PITCH: "PRD deadline", PLAN: "plan and deal deadlines", FLASH: "flash deadline", MEMO: "PRD deadline" };
 
 /** Why Start judging is off for a type (null when it is on): before its deadline, and once its scores are released. */
 export function startBlock(type: SubmissionType, s: { closed: boolean; released: boolean; closesAt: string | null }): string | null {
@@ -526,6 +527,7 @@ export function rerunBlock(type: SubmissionType, v: CompanyJudgeView, s: { phase
   if (phaseReached(s.phase, "AWARDS")) return "Appeals are decided before the awards.";
   if (!s.closed) return "A submission is judged after its deadline.";
   if (!v.submission) return "No on-time submission to judge again.";
+  if (v.score?.status === "RELEASED" && type === "MEMO") return "A released crisis memo score is final: it cannot be re-run.";
   if (v.score?.status === "RELEASED" && type === "PITCH") {
     return "A released pitch score cannot be re-run: it has set the IPO price and the IPO is allocated.";
   }

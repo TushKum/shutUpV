@@ -194,16 +194,16 @@ export function inThisRound(phase: PhaseCode, key: string): boolean {
 export function squadTabsFor(phase: PhaseCode): readonly string[] {
   const stage = stageOf(phase);
   const base = ["/team/squad", "/team/squad/problem"];
-  if (stage === "ROUND_1") return [...base, "/team/squad/pitch"];
+  if (stage === "ROUND_1") return [...base, "/team/squad/pitch", "/team/squad/memo"];
   if (stage === "ROUND_2") return [...base, "/team/squad/plan"];
   if (stage === "ROUND_3") return [...base, "/team/squad/plan", "/team/squad/flash"];
-  return [...base, "/team/squad/pitch", "/team/squad/plan", "/team/squad/flash"];
+  return [...base, "/team/squad/pitch", "/team/squad/memo", "/team/squad/plan", "/team/squad/flash"];
 }
 
 /** The submissions (pitch, plan, flash) that belong to this round, for the squad overview. */
-export function submissionsFor(phase: PhaseCode): ("PITCH" | "PLAN" | "FLASH")[] {
+export function submissionsFor(phase: PhaseCode): ("PITCH" | "MEMO" | "PLAN" | "FLASH")[] {
   const tabs = squadTabsFor(phase);
-  return (["PITCH", "PLAN", "FLASH"] as const).filter((t) => tabs.includes(`/team/squad/${t.toLowerCase()}`));
+  return (["PITCH", "MEMO", "PLAN", "FLASH"] as const).filter((t) => tabs.includes(`/team/squad/${t.toLowerCase()}`));
 }
 
 /** Icons for the section buttons. */

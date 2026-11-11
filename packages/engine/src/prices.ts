@@ -11,6 +11,7 @@ const TIER_TABLE: Record<SubmissionType, readonly (readonly [minScore: number, b
   PITCH: [[90, 1000], [80, 1000], [70, 500], [60, 500], [50, 0], [40, -500], [0, -1000]],
   PLAN: [[90, 2500], [80, 2000], [70, 1000], [60, 500], [50, 0], [40, -1000], [0, -2000]],
   FLASH: [[90, 500], [80, 500], [70, 500], [60, 0], [50, 0], [40, -500], [0, -500]],
+  MEMO: [[0, 0]], // the Consulting memo moves no price: it sets the firm's reputation bonus
 };
 
 export function assertScore(score: number): void {

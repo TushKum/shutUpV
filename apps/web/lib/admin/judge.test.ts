@@ -619,6 +619,7 @@ describe("re-runs and appeals", () => {
     expect(rerunBlock("PITCH", judged({ status: "RELEASED" }), open)).toBe(
       "A released pitch score cannot be re-run: it has set the IPO price and the IPO is allocated.",
     );
+    expect(rerunBlock("MEMO", judged({ status: "RELEASED" }), open)).toBe("A released crisis memo score is final: it cannot be re-run.");
     expect(rerunBlock("PITCH", judged(), { phase: "AWARDS", closed: true })).toBe("Appeals are decided before the awards.");
     expect(rerunBlock("PITCH", judged(), { phase: "BUILD", closed: false })).toBe("A submission is judged after its deadline.");
     expect(rerunBlock("PITCH", judged({}, [run("s-a", "a", 1, 60), run("s-a", "a", 2, null, { status: "RUNNING" })]), open)).toBe(

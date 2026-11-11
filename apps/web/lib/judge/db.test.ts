@@ -66,8 +66,8 @@ describe("supabaseJudgeDb", () => {
   });
 
   test("judge_input is checked", async () => {
-    const { client } = fakeRpc({ [RPC.input]: { data: { type: "MEMO", ticker: "AQS" } } });
-    await expect(supabaseJudgeDb(client, EVENT).input("r1")).rejects.toThrow(/unknown type MEMO/);
+    const { client } = fakeRpc({ [RPC.input]: { data: { type: "ESSAY", ticker: "AQS" } } });
+    await expect(supabaseJudgeDb(client, EVENT).input("r1")).rejects.toThrow(/unknown type ESSAY/);
   });
 
   test("a calibration run without text reads the sample from the file by sample_no", async () => {

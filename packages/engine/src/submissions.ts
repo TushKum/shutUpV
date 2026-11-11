@@ -30,6 +30,15 @@ export const TEMPLATES: Record<SubmissionType, readonly TemplateField[]> = {
     { key: "next_steps", label: "Next three steps" },
   ],
   FLASH: [{ key: "answer", label: "Our answer" }],
+  // Round 1 Consultancy: the recommendation memo on the standalone opening crisis (PRIMUS event guide).
+  MEMO: [
+    { key: "diagnosis", label: "Diagnosis" },
+    { key: "options", label: "Options and trade-offs" },
+    { key: "recommendation", label: "Recommendation" },
+    { key: "numbers", label: "The numbers" },
+    { key: "risks", label: "Risks" },
+    { key: "next_steps", label: "Next steps" },
+  ],
 };
 
 /** 3–4 capital letters (the brief says 4; its acceptance tests use AQS — see PLAN.md Q2). */

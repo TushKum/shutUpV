@@ -48,7 +48,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
   }
   const { company: c, history, submissions, scores, crisis, types } = view;
   const lines = historyLines(history);
-  const waiting = (["PITCH", "PLAN", "FLASH"] as SubmissionType[]).filter((t) => !types.includes(t));
+  const waiting = (["PITCH", "PLAN", "FLASH"] as const).filter((t) => !types.includes(t));
 
   return (
     <div className="space-y-6">

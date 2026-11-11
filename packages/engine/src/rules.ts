@@ -44,7 +44,7 @@ export const RULES = {
 
   INJECTION_PENALTY: 10,
 
-  WORD_LIMIT: { PITCH: 800, PLAN: 500, FLASH: 100, QA_ANSWER: 100 },
+  WORD_LIMIT: { PITCH: 800, PLAN: 500, FLASH: 100, MEMO: 500, QA_ANSWER: 100 },
 
   FLAG_CAP_FUNDS: 3, // flag 1: ≥3 funds at the long cap
   FLAG_COSINE: { NUM: 9, DEN: 10 }, // flag 2: cosine ≥ 0.9

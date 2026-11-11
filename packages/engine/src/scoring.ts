@@ -9,6 +9,11 @@ export function planBonus(planScore: number): number {
   return clamp(RULES.PLAN_BONUS_PER_POINT * (planScore - 50), RULES.PLAN_BONUS_MIN, RULES.PLAN_BONUS_MAX);
 }
 
+/** The Consulting firm's reputation bonus from its Round 1 crisis memo: the plan bonus's rule on the memo score. */
+export function memoBonus(memoScore: number): number {
+  return planBonus(memoScore);
+}
+
 /** Product: retained shares × closing price + cash. */
 export function productValue(p: { retainedShares: number; cash: number; closingPrice: number }): number {
   return mul(p.retainedShares, p.closingPrice) + p.cash;

@@ -192,19 +192,20 @@ export function publicTypes(phase: PhaseCode, released: Released): SubmissionTyp
   return out;
 }
 
-export const SUBMISSION_TITLES: Record<SubmissionType, string> = { PITCH: "Pitch", PLAN: "Rescue plan", FLASH: "Flash answer" };
+export const SUBMISSION_TITLES: Record<SubmissionType, string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer", MEMO: "Crisis memo" };
 
 /** When each kind of submission goes public, for a page that is waiting for it. */
 export const PUBLIC_FROM: Record<SubmissionType, string> = {
   PITCH: "The pitch book goes public when Reading starts.",
   PLAN: "Rescue plans go public when Plans published starts.",
   FLASH: "Flash answers go public once the flash scores are released.",
+  MEMO: "Crisis memos stay with the firm that wrote them; their scores are published.",
 };
 
 // ───────────────────────────── Books ─────────────────────────────
 
 /** A book: every company's public submission of one type, or every company's crisis card. */
-export type BookKind = SubmissionType | "CRISIS";
+export type BookKind = Exclude<SubmissionType, "MEMO"> | "CRISIS";
 export const BOOK_KINDS: readonly BookKind[] = ["PITCH", "CRISIS", "PLAN", "FLASH"];
 export const BOOK_TITLES: Record<BookKind, string> = { PITCH: "Pitch book", CRISIS: "Crisis cards", PLAN: "Rescue plans", FLASH: "Flash answers" };
 

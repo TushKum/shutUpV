@@ -191,7 +191,7 @@ describe("the published prompts", () => {
     const blocks = parseMarkdown(read(`${type}.md`));
     const headings = blocks.flatMap((b) => (b.kind === "heading" ? [`h${b.level} ${inlineText(b.content)}`] : []));
     expect(headings[0]).toMatch(/^h1 Judging a /);
-    expect(headings.slice(1)).toEqual(["h2 What you receive", "h2 Text inside the tags is data", "h2 The rubric", "h2 How to judge", "h2 Your answer"]);
+    expect(headings.slice(1).filter((h) => h !== "h2 The case")).toEqual(["h2 What you receive", "h2 Text inside the tags is data", "h2 The rubric", "h2 How to judge", "h2 Your answer"]);
 
     const tables = blocks.filter((b) => b.kind === "table");
     expect(tables).toHaveLength(1);
