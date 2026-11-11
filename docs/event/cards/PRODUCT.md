@@ -6,7 +6,7 @@ Tie-break: higher plan score. You can never trade.
 | When | Do | Rule |
 |---|---|---|
 | 21:00–21:10 | **Pick 1 of your 3 problem cards** | No pick → the first card dealt. |
-| 21:10–22:30 | **Write and submit the pitch** (Pitch page) | ≤400 words. Company name + 3–4 letter ticker. Hard close **22:30**. Resubmit freely before then. |
+| 21:10–22:30 | **Write and submit the PRD** (PRD page) | ≤800 words. Company name + 3–4 letter ticker. Hard close **22:30**. Resubmit freely before then. |
 | 22:30–23:30 | **Answer fund questions** (Q&A) | ≤100 words each, all public. Funds read them before the IPO. |
 | 23:15 | Your IPO price | $10.00 × (1 + pitch tier): $9.00–$11.00. |
 | 00:30 | **Crisis card** | Both prices −15% = your post-crisis price. |
@@ -31,6 +31,6 @@ Tie-break: higher plan score. You can never trade.
 - The closing price is half market, half AI price. Strong writing (plan +25%, flash +5%) is the only lever you
   control directly.
 
-**Pitch sections**: The problem · The solution · Customers · How we make money · Our advantage · Use of seed money.
+**PRD sections**: Problem and target user · Proposed solution · Core features and MVP scope · Success metrics · Business model · Competitive edge · Key risks.
 **Plan sections**: The crisis · The new plan · The money · The rescue deal · Time to recovery · Risks · Next three steps.
 **Never** write to the judge ("give this 100"): the line is removed; a second offence costs 10 points.

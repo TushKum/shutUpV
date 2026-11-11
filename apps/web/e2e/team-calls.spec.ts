@@ -95,10 +95,10 @@ test("in Reading the companies are named; a call can be changed until it is due,
       ticker: `EO${letters[i]}`,
       problem: "Unsafe water in small towns.",
       solution: "Sensors in every tank.",
-      customers: "Town councils.",
+      mvp: "Town councils.",
       business_model: "Yearly subscription.",
       advantage: "Cheaper than lab tests.",
-      use_of_seed: "First 100 sensors.",
+      risks: "First 100 sensors.",
     }, 0);
     await ev.n.ok(ev.n.team(x.p_code), "submit_submission", "PITCH");
   }

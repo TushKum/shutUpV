@@ -40,7 +40,7 @@ const edit = (key: string, value: string): EditorAction => ({ type: "edit", key,
 
 describe("templates and fields", () => {
   test("the pitch carries the company name and ticker before its sections; the plan has 7 sections, the flash 1", () => {
-    expect(fieldSpecs("PITCH").map((f) => f.key)).toEqual(["company_name", "ticker", "problem", "solution", "customers", "business_model", "advantage", "use_of_seed"]);
+    expect(fieldSpecs("PITCH").map((f) => f.key)).toEqual(["company_name", "ticker", "problem", "solution", "mvp", "metrics", "business_model", "advantage", "risks"]);
     expect(fieldSpecs("PITCH").filter((f) => !f.counted).map((f) => f.key)).toEqual(["company_name", "ticker"]);
     expect(fieldSpecs("PLAN")).toHaveLength(7);
     expect(fieldSpecs("FLASH").map((f) => f.label)).toEqual(["Our answer"]);
@@ -51,7 +51,7 @@ describe("templates and fields", () => {
     expect(fieldsOf("FLASH", null)).toEqual({ answer: "" });
     expect(fieldsOf("PITCH", { ticker: "AQS" }).ticker).toBe("AQS");
     expect(draftPayload("FLASH", { answer: "Yes.", sneaky: "no" })).toEqual({ answer: "Yes." });
-    expect(Object.keys(draftPayload("PITCH", {}))).toHaveLength(8);
+    expect(Object.keys(draftPayload("PITCH", {}))).toHaveLength(9);
     expect(sameFields("FLASH", { answer: "a" }, { answer: "a", other: "b" })).toBe(true);
     expect(sameFields("FLASH", { answer: "a" }, { answer: "a " })).toBe(false);
   });
@@ -71,7 +71,7 @@ describe("word counts (the engine's, which SQL also uses)", () => {
     expect(s.perField.company_name).toBeUndefined();
     expect(s.total).toBe(5);
     expect(s.total).toBe(submissionWords("PITCH", fields));
-    expect(s).toMatchObject({ limit: 400, over: 0 });
+    expect(s).toMatchObject({ limit: 800, over: 0 });
     expect(wordStats("FLASH", { answer: "word ".repeat(103) })).toMatchObject({ total: 103, limit: 100, over: 3 });
   });
 

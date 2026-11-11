@@ -6,7 +6,7 @@ import { loginAsTeam } from "./support/login";
 
 test.describe.configure({ mode: "serial" });
 
-// The squad workspace: the overview, the problem card pick and the pitch card, through the Product and Consulting
+// The squad workspace: the overview, the problem card pick and the PRD, through the Product and Consulting
 // teams' screens (a phone for the pitch). The state is moved with the real game functions.
 //
 // Both squad specs (this one and team-plan) use the team-code prefix I, and team codes are unique across events: the
@@ -131,20 +131,20 @@ test("no pick by the deadline: the open page closes the pick and shows the first
   await expect(page.getByTestId("squad-problem")).toContainText("Chosen by default");
 });
 
-test("the pitch card on a phone: template fields, live word counts, save, a save from another device, submit with two clicks", async ({ page }) => {
+test("the PRD on a phone: template fields, live word counts, save, a save from another device, submit with two clicks", async ({ page }) => {
   await ev.n.advanceTo("BUILD");
   const x = s[0]!;
   await page.setViewportSize({ width: 390, height: 844 });
   await loginAsTeam(page, ev, x.p_code);
   await page.goto("/team/squad/pitch");
   await expect(page).toHaveTitle(/Pitch/);
-  const editor = page.getByRole("form", { name: "Pitch card editor" });
+  const editor = page.getByRole("form", { name: "PRD editor" });
   await expect(editor.getByTestId("draft-version")).toContainText("Not saved yet.");
   await expect(editor.getByTestId("submit-problem")).toHaveText("Cannot submit yet: Write something before submitting.");
 
-  await editor.getByLabel("The problem").fill("Unsafe water in small towns.");
+  await editor.getByLabel("Problem and target user").fill("Unsafe water in small towns.");
   await expect(editor.getByTestId("words-problem")).toHaveText("5 words");
-  await expect(editor.getByTestId("word-total")).toHaveText("5 / 400 words");
+  await expect(editor.getByTestId("word-total")).toHaveText("5 / 800 words");
   await expect(editor.getByTestId("submit-problem")).toHaveText("Cannot submit yet: Enter the company name (up to 60 characters).");
   await editor.getByLabel("Company name").fill("Aqua Sense");
   // The ticker field keeps capital letters only; 3 or 4 of them.
@@ -155,8 +155,8 @@ test("the pitch card on a phone: template fields, live word counts, save, a save
   await editor.getByLabel("Ticker").fill("aqs");
   await expect(editor.getByLabel("Ticker")).toHaveValue("AQS");
   await expect(editor.getByTestId("submit-problem")).toHaveCount(0);
-  await editor.getByLabel("The solution").fill("Cheap sensors in every tank, read by phone.");
-  await expect(editor.getByTestId("word-total")).toHaveText("13 / 400 words");
+  await editor.getByLabel("Proposed solution").fill("Cheap sensors in every tank, read by phone.");
+  await expect(editor.getByTestId("word-total")).toHaveText("13 / 800 words");
   await expect(editor.getByText("Unsaved changes")).toBeVisible();
   await noSideScroll(page);
 
@@ -167,36 +167,36 @@ test("the pitch card on a phone: template fields, live word counts, save, a save
 
   // This screen types more while the same team saves from another device (another problem text, other customers);
   // then it saves: refused, and the two are merged section by section. The other device's problem is taken, as
-  // nothing was typed there here; Customers was changed on both, so the screen asks which text to keep.
-  await editor.getByLabel("Customers").fill("Small-town water boards.");
+  // nothing was typed there here; the MVP section was changed on both, so the screen asks which text to keep.
+  await editor.getByLabel("Core features and MVP scope").fill("Small-town water boards.");
   await ev.n.ok(ev.n.team(x.p_code), "save_draft", "PITCH", {
     company_name: "Aqua Sense",
     ticker: "AQS",
     problem: "Unsafe water in small villages.",
     solution: "Cheap sensors in every tank, read by phone.",
-    customers: "Town councils.",
+    mvp: "Town councils.",
   }, 1);
   // (The page may also have re-read the newer version on its own, which merges the same way and disables Save.)
   await editor.getByRole("button", { name: "Save draft" }).click({ timeout: 3000 }).catch(() => {});
   const conflict = editor.getByTestId("draft-conflict");
   await expect(conflict).toContainText(/Your team \(on another device\) saved version 2 at \d\d:\d\d:\d\d while you were editing\./);
-  await expect(conflict).toContainText("You both changed Customers");
-  await expect(editor.getByLabel("Customers")).toHaveValue("Small-town water boards.");
-  await expect(editor.getByLabel("The problem")).toHaveValue("Unsafe water in small villages.");
+  await expect(conflict).toContainText("You both changed Core features and MVP scope");
+  await expect(editor.getByLabel("Core features and MVP scope")).toHaveValue("Small-town water boards.");
+  await expect(editor.getByLabel("Problem and target user")).toHaveValue("Unsafe water in small villages.");
   await expect(editor.getByRole("button", { name: "Save draft" })).toBeDisabled();
-  const customers = editor.getByTestId("conflict-customers");
+  const customers = editor.getByTestId("conflict-mvp");
   await expect(customers.getByTestId("conflict-mine")).toContainText("Small-town water boards.");
   await expect(customers.getByTestId("conflict-theirs")).toContainText("Town councils.");
   await noSideScroll(page);
   await customers.getByRole("button", { name: "Use their text" }).click();
-  await expect(editor.getByLabel("Customers")).toHaveValue("Town councils.");
+  await expect(editor.getByLabel("Core features and MVP scope")).toHaveValue("Town councils.");
   await expect(editor.getByTestId("draft-version")).toContainText("Version 2 · saved by your team");
   const stash = editor.getByTestId("draft-stash");
-  await expect(stash).toContainText("You chose their text in Customers. Your text there is set aside here.");
+  await expect(stash).toContainText("You chose their text in Core features and MVP scope. Your text there is set aside here.");
   await expect(stash).toContainText("Small-town water boards.");
   await stash.getByRole("button", { name: "Put my text back" }).click();
-  await expect(editor.getByLabel("Customers")).toHaveValue("Small-town water boards.");
-  await expect(editor.getByLabel("The problem")).toHaveValue("Unsafe water in small villages.");
+  await expect(editor.getByLabel("Core features and MVP scope")).toHaveValue("Small-town water boards.");
+  await expect(editor.getByLabel("Problem and target user")).toHaveValue("Unsafe water in small villages.");
   await editor.getByRole("button", { name: "Save draft" }).click();
   await expect(editor.getByRole("status").filter({ hasText: /^Saved version 3 at/ })).toBeVisible();
 
@@ -215,7 +215,7 @@ test("the pitch card on a phone: template fields, live word counts, save, a save
   await noSideScroll(page);
 
   // A change after submitting is a draft until it is submitted again.
-  await editor.getByLabel("Our advantage").fill("Ten times cheaper than lab tests.");
+  await editor.getByLabel("Competitive edge").fill("Ten times cheaper than lab tests.");
   await expect(editor.getByTestId("submitted-state")).toContainText("This text differs from the version submitted at");
   await editor.getByRole("button", { name: "Save and submit" }).click();
   await editor.getByRole("button", { name: "Click again to save and submit 22 words as AQS" }).click();
@@ -239,10 +239,10 @@ test("Consulting reads the pitch as it is written; a ticker another company clai
   const [x, y] = s;
   const consulting = await screen(browser, x!.c_code, 390);
   await consulting.goto("/team/squad/pitch");
-  const read = consulting.getByRole("form", { name: "Pitch card editor" });
-  await expect(read.getByTestId("draft-closed")).toHaveText("The Product team writes the pitch card; you can read it here.");
+  const read = consulting.getByRole("form", { name: "PRD editor" });
+  await expect(read.getByTestId("draft-closed")).toHaveText("The Product team writes the PRD; you can read it here.");
   await expect(read.getByLabel("Company name")).toHaveValue("Aqua Sense");
-  await expect(read.getByLabel("Our advantage")).toHaveAttribute("readonly", "");
+  await expect(read.getByLabel("Competitive edge")).toHaveAttribute("readonly", "");
   await expect(read.getByRole("button", { name: /Save|Submit/ })).toHaveCount(0);
   await expect(read.getByTestId("draft-version")).toContainText("Version 4 · saved by Product at");
   await consulting.goto("/team/squad");
@@ -251,14 +251,14 @@ test("Consulting reads the pitch as it is written; a ticker another company clai
 
   await loginAsTeam(page, ev, y!.p_code);
   await page.goto("/team/squad/pitch");
-  const editor = page.getByRole("form", { name: "Pitch card editor" });
+  const editor = page.getByRole("form", { name: "PRD editor" });
   await editor.getByLabel("Company name").fill("Blue Cart");
   await editor.getByLabel("Ticker").fill("AQS");
-  await editor.getByLabel("The problem").fill("Students waste time queueing for food.");
+  await editor.getByLabel("Problem and target user").fill("Students waste time queueing for food.");
   await editor.getByRole("button", { name: "Save and submit" }).click();
   await editor.getByRole("button", { name: "Click again to save and submit 6 words as AQS" }).click();
   await expect(editor.getByRole("alert").filter({ hasText: "TICKER_TAKEN: Another company already uses that ticker." })).toBeVisible();
-  await expect(editor.getByLabel("The problem")).toHaveValue("Students waste time queueing for food.");
+  await expect(editor.getByLabel("Problem and target user")).toHaveValue("Students waste time queueing for food.");
   // The text was saved before the refusal: version 1 is this screen's own save, not someone else's.
   await expect(editor.getByTestId("draft-version")).toContainText("Version 1 · saved by your team");
   await expect(editor.getByTestId("draft-conflict")).toHaveCount(0);
@@ -274,13 +274,13 @@ test("the pitch hard-closes at its deadline on an open page: read-only, unsaved 
   await loginAsTeam(page, ev, z.p_code);
   await ev.n.q("update deadlines set at = now() + interval '15 seconds' where event_id = $1 and code = 'PITCH'", [ev.n.eventId]);
   await page.goto("/team/squad/pitch");
-  const editor = page.getByRole("form", { name: "Pitch card editor" });
+  const editor = page.getByRole("form", { name: "PRD editor" });
   await expect(page.getByTestId("pitch-due")).toHaveAttribute("data-state", "open");
-  await editor.getByLabel("The problem").fill("Typed but never saved.");
-  await expect(editor.getByTestId("draft-closed")).toHaveText(/^The pitch card closed at \d\d:\d\d(:\d\d)?\.$/, { timeout: 30_000 });
+  await editor.getByLabel("Problem and target user").fill("Typed but never saved.");
+  await expect(editor.getByTestId("draft-closed")).toHaveText(/^The PRD closed at \d\d:\d\d(:\d\d)?\.$/, { timeout: 30_000 });
   await expect(page.getByTestId("pitch-due")).toHaveAttribute("data-state", "passed");
-  await expect(editor.getByLabel("The problem")).toHaveValue("");
-  await expect(editor.getByLabel("The problem")).toHaveAttribute("readonly", "");
+  await expect(editor.getByLabel("Problem and target user")).toHaveValue("");
+  await expect(editor.getByLabel("Problem and target user")).toHaveAttribute("readonly", "");
   await expect(editor.getByRole("button", { name: /Save|Submit/ })).toHaveCount(0);
   const unsaved = editor.getByTestId("draft-unsaved");
   await expect(unsaved).toContainText("Not saved: the text below was typed on this screen but never saved");

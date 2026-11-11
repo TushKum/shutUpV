@@ -5,7 +5,7 @@ can read how its pitch, rescue plan and flash answer will be scored.
 
 | File | What it is |
 | --- | --- |
-| `PITCH.md` | The system prompt for judging a pitch card (at most 400 words). Its score sets the IPO price. |
+| `PITCH.md` | The system prompt for judging a PRD (Product Requirements Document, at most 800 words). Its score sets the IPO price. |
 | `PLAN.md` | The system prompt for judging a rescue plan (at most 500 words). |
 | `FLASH.md` | The system prompt for judging a flash news answer (at most 100 words). |
 | `calibration/pitches.json` | Ten sample pitches, from very weak to excellent, scored on the calibration page before the event. |

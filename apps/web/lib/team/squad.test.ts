@@ -84,7 +84,7 @@ describe("submission windows (app.submission_window)", () => {
     expect(submissionWindow("PITCH", "PRODUCT", { ...base, phase: "BRIEFING", drawn: false })).toMatchObject({
       stage: "BEFORE",
       editable: false,
-      note: "The pitch card opens at the squad draw.",
+      note: "The PRD opens at the squad draw.",
     });
     expect(submissionWindow("PITCH", "PRODUCT", { ...base, phase: "SQUAD_DRAW" })).toMatchObject({ stage: "OPEN", editable: true, note: "" });
     expect(submissionWindow("PITCH", "PRODUCT", base)).toMatchObject({ stage: "OPEN", editable: true, deadline: NOW });
@@ -92,12 +92,12 @@ describe("submission windows (app.submission_window)", () => {
       stage: "OPEN",
       mayWrite: false,
       editable: false,
-      note: "The Product team writes the pitch card; you can read it here.",
+      note: "The Product team writes the PRD; you can read it here.",
     });
     expect(submissionWindow("PITCH", "PRODUCT", { ...base, nowMs: T(NOW) + 1 })).toMatchObject({
       stage: "CLOSED",
       editable: false,
-      note: "The pitch card closed at 22:30.",
+      note: "The PRD closed at 22:30.",
     });
     // Reading publishes the pitches: closed whatever the clock says.
     expect(submissionWindow("PITCH", "PRODUCT", { ...base, phase: "READING" })).toMatchObject({ stage: "CLOSED", editable: false });

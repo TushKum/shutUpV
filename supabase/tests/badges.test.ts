@@ -36,7 +36,7 @@ describe("badge facts", () => {
     const draft = await n.one("select version from submission_drafts where squad_id = $1 and type = 'PITCH'", [a.id]);
     await n.ok(p, "save_draft", "PITCH", {
       company_name: "Late Boxes", ticker: "LBOX", problem: "Hostels bin 23% of what they cook.", solution: "Rs 50 late boxes.",
-      customers: "Students.", business_model: "Rs 18 a box.", advantage: "Annapurna deal.", use_of_seed: "Carriers.",
+      mvp: "Boxes and an order page.", metrics: "500 boxes a day.", business_model: "Rs 18 a box.", advantage: "Annapurna deal.", risks: "Spoilage: same-hour pickup.",
     }, draft.version);
     await n.ok(p, "submit_submission", "PITCH");
 

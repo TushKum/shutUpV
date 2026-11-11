@@ -37,14 +37,14 @@ function pgRpc(pool: pg.Pool): RpcClient {
   };
 }
 
-const HEADER = "ticker,judge,problem,solution,business_model,advantage,rationale";
+const HEADER = "ticker,judge,problem,solution,metrics,business_model,feasibility,clarity,rationale";
 
 describe("the panel's CSV", () => {
   test("rows are checked like model output: each line within its maximum, judges 1–5, once each", () => {
-    const bad = parseHumanScores("PITCH", `${HEADER}\nAQS,1,26,10,10,10,x\nAQS,6,1,1,1,1,\nAQS,2,1,1,1,1,\nAQS,2,1,1,1,1,\nA1,1,1,1,1,1,`);
+    const bad = parseHumanScores("PITCH", `${HEADER}\nAQS,1,21,10,10,10,10,10,x\nAQS,6,1,1,1,1,1,1,\nAQS,2,1,1,1,1,1,1,\nAQS,2,1,1,1,1,1,1,\nA1,1,1,1,1,1,1,1,`);
     expect(bad.ok).toBe(false);
     expect(!bad.ok && bad.errors).toEqual([
-      expect.stringContaining("problem must be 0–25, got 26"),
+      expect.stringContaining("problem must be 0–20, got 21"),
       expect.stringContaining("judge must be 1–5"),
       expect.stringContaining("AQS has judge 2 twice"),
       expect.stringContaining("is not 3–4 letters"),
@@ -53,7 +53,7 @@ describe("the panel's CSV", () => {
   });
 
   test("missing rows: the queued runs without a row, and panels that spread more than 10 points", () => {
-    const p = parseHumanScores("PITCH", `${HEADER}\nAQS,1,20,20,10,10,\nAQS,2,20,20,10,12,\nAQS,3,25,25,10,15,`);
+    const p = parseHumanScores("PITCH", `${HEADER}\nAQS,1,15,15,10,10,5,5,\nAQS,2,15,15,10,10,6,6,\nAQS,3,18,17,10,10,10,10,`);
     if (!p.ok) throw new Error(p.errors.join());
     expect(p.scores.get("AQS")!.get(1)).toMatchObject({ total: 60, rationale: expect.stringContaining("human judge 1") });
     expect(missingRows(p.scores, [{ ticker: "AQS", runNo: 3 }, { ticker: "CCRT", runNo: 1 }])).toEqual({
@@ -83,8 +83,8 @@ describe("judging with the panel's scores", () => {
     // PNA: 64, 66, 68 → 66. PNB: 50, 70, 72 spread 22 → judges 4–5 (60, 61) → median 61. PNC: no rows.
     const csv = [
       HEADER,
-      "PNA,1,16,16,16,16,", "PNA,2,17,17,16,16,", "PNA,3,17,17,17,17,",
-      "PNB,1,15,15,10,10,", "PNB,2,20,20,15,15,", "PNB,3,20,20,16,16,", "PNB,4,15,15,15,15,", "PNB,5,16,15,15,15,",
+      "PNA,1,14,14,9,9,9,9,", "PNA,2,14,14,10,10,9,9,", "PNA,3,14,14,10,10,10,10,",
+      "PNB,1,10,10,8,8,7,7,", "PNB,2,15,15,10,10,10,10,", "PNB,3,16,16,10,10,10,10,", "PNB,4,15,15,8,8,7,7,", "PNB,5,15,15,8,8,8,7,",
     ].join("\n");
     const parsed = parseHumanScores("PITCH", csv);
     if (!parsed.ok) throw new Error(parsed.errors.join());

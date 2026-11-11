@@ -13,10 +13,12 @@ export interface RubricLine {
 
 export const RUBRICS: Record<SubmissionType, readonly RubricLine[]> = {
   PITCH: [
-    { key: "problem", label: "Problem and how many people have it", max: 25 },
-    { key: "solution", label: "Solution and whether it can be built", max: 25 },
-    { key: "business_model", label: "How the company makes money", max: 25 },
-    { key: "advantage", label: "Advantage over other options", max: 25 },
+    { key: "problem", label: "Problem and target user", max: 20 },
+    { key: "solution", label: "Solution and MVP scope", max: 20 },
+    { key: "metrics", label: "Success metrics", max: 15 },
+    { key: "business_model", label: "Business model", max: 15 },
+    { key: "feasibility", label: "Feasibility and risks", max: 15 },
+    { key: "clarity", label: "Clarity", max: 15 },
   ],
   PLAN: [
     { key: "solves_crisis", label: "Solves the crisis", max: 25 },

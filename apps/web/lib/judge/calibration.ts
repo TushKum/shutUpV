@@ -38,7 +38,7 @@ export function parseCalibrationSamples(json: unknown): CalibrationSample[] {
     if (typeof s.title !== "string" || s.title.trim() === "") errors.push(`${where}: title is missing`);
     if (typeof s.text !== "string" || s.text.trim() === "") errors.push(`${where}: text is missing`);
     else if (wordCount(s.text) > RULES.WORD_LIMIT.PITCH) {
-      errors.push(`${where}: text has ${wordCount(s.text)} words, over the pitch limit of ${RULES.WORD_LIMIT.PITCH}`);
+      errors.push(`${where}: text has ${wordCount(s.text)} words, over the PRD limit of ${RULES.WORD_LIMIT.PITCH}`);
     }
     if (
       typeof exp !== "object" ||

@@ -61,10 +61,10 @@ test("Reading: a fund asks (the length is checked as it types); the question is 
       ticker: ticker(i),
       problem: "Unsafe water.",
       solution: "Sensors.",
-      customers: "Councils.",
+      mvp: "Councils.",
       business_model: "Subscription.",
       advantage: "Cheaper.",
-      use_of_seed: "Sensors.",
+      risks: "Sensors.",
     }, 0);
     await ev.n.ok(ev.n.team(x.p_code), "submit_submission", "PITCH");
   }

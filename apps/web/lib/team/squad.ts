@@ -8,7 +8,7 @@ import { phaseIndex, phaseReached, submissionWords, type DeadlineCode, type Phas
 import type { Tone } from "@/components/ui/ui";
 import { clock } from "@/lib/format";
 
-export const SUBMISSION_LABELS: Record<SubmissionType, string> = { PITCH: "Pitch card", PLAN: "Rescue plan", FLASH: "Flash answer" };
+export const SUBMISSION_LABELS: Record<SubmissionType, string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer" };
 
 /** The deadline that closes each submission. */
 export const SUBMISSION_DEADLINE: Record<SubmissionType, DeadlineCode> = { PITCH: "PITCH", PLAN: "PLAN", FLASH: "FLASH" };
@@ -126,15 +126,15 @@ export function submissionWindow(type: SubmissionType, track: Track, w: WindowIn
   if (stage === "BEFORE") {
     const bulletin = w.deadlines.FLASH_BULLETIN;
     note = {
-      PITCH: "The pitch card opens at the squad draw.",
+      PITCH: "The PRD opens at the squad draw.",
       PLAN: "The rescue plan opens when the crisis is published.",
       FLASH: `The flash answer opens when the flash bulletin is published${bulletin ? ` (planned for ${clock(bulletin)})` : ""}.`,
     }[type];
   } else if (stage === "CLOSED") {
     const at = deadline ? ` at ${clock(deadline)}` : "";
-    note = { PITCH: `The pitch card closed${at}.`, PLAN: `The rescue plan closed${at}.`, FLASH: `The flash answer closed${at}.` }[type];
+    note = { PITCH: `The PRD closed${at}.`, PLAN: `The rescue plan closed${at}.`, FLASH: `The flash answer closed${at}.` }[type];
   } else if (!may) {
-    note = "The Product team writes the pitch card; you can read it here.";
+    note = "The Product team writes the PRD; you can read it here.";
   }
   return { type, stage, mayWrite: may, editable, deadline, note };
 }

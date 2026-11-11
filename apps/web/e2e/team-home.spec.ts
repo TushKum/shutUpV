@@ -88,9 +88,9 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(page).toHaveURL(/\/team\/squad\/problem$/);
   await expect(bar).toContainText("You're on it");
   await page.goto("/team");
-  await expect(task(page, "PITCH").getByRole("heading")).toHaveText("Write and submit your pitch card");
+  await expect(task(page, "PITCH").getByRole("heading")).toHaveText("Write and submit your PRD");
   await expect(page.getByTestId("home-squad")).toHaveText("Squad 01");
-  await expect(page.getByTestId("home-company")).toHaveText("Named, with its ticker, on the pitch card (by the pitch deadline).");
+  await expect(page.getByTestId("home-company")).toHaveText("Named, with its ticker, on the PRD (by the pitch deadline).");
   await expect(page.getByTestId("home-cash")).toHaveText("$50,000.00");
   await expect(holdingRows(page)).toHaveCount(1);
   await expect(holdingRows(page).first().getByRole("cell")).toHaveText(["Your squad's company", "Retained (locked)", "60,000", "—", "—"]);
@@ -104,7 +104,7 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(pickTask).toContainText(`Picked. You can change it until ${pick}.`);
   // Done: the bar moves on to the pitch.
   await page.goto("/team/market");
-  await expect(page.getByTestId("action-bar")).toContainText("Write and submit your pitch card");
+  await expect(page.getByTestId("action-bar")).toContainText("Write and submit your PRD");
   await page.goto("/team");
 
   await home(page, a.c_code);
@@ -113,7 +113,7 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(call).toContainText("BUY or SELL against the IPO price: 0 of 2 made.");
   await expect(call.getByRole("link", { name: "Open Calls" })).toHaveAttribute("href", "/team/calls");
   await expect(task(page, "PROBLEM_PICK").getByRole("heading")).toHaveText("Your Product partner picks the problem card");
-  await expect(task(page, "PITCH").getByRole("heading")).toHaveText("Help with the pitch card");
+  await expect(task(page, "PITCH").getByRole("heading")).toHaveText("Help with the PRD");
   await expect(page.getByText("No shares.")).toBeVisible();
 
   await home(page, a.f_code);
@@ -136,10 +136,10 @@ test("Reading and the IPO: read the book, a question waits for its answer, then 
       ticker: `EC${letters[i]}`,
       problem: "Unsafe water in small towns.",
       solution: "Sensors in every tank.",
-      customers: "Town councils.",
+      mvp: "Town councils.",
       business_model: "Yearly subscription.",
       advantage: "Cheaper than lab tests.",
-      use_of_seed: "First 100 sensors.",
+      risks: "First 100 sensors.",
     }, 0);
     await ev.n.ok(p, "submit_submission", "PITCH");
   }

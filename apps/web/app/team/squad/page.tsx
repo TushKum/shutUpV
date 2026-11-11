@@ -14,7 +14,7 @@ import { squadGate } from "./parts";
 export const metadata: Metadata = { title: "Squad" };
 
 const ROLE_WORK: Record<Track, string> = {
-  PRODUCT: "Picks the problem card, writes the pitch card, co-writes the rescue plan and the flash answer, agrees the fee and signs the deal.",
+  PRODUCT: "Picks the problem card, writes the PRD, co-writes the rescue plan and the flash answer, agrees the fee and signs the deal.",
   CONSULTING: "Co-writes the rescue plan and the flash answer, agrees the fee, proposes the deal price and signs the deal.",
   FINANCE: "Sets the deal amount and signs the deal.",
 };
@@ -54,7 +54,7 @@ export default async function SquadOverview() {
               </p>
             ) : (
               <p className="mt-1 text-sm text-paper" data-testid="squad-company">
-                No name or ticker claimed yet: they are claimed when the pitch card is submitted.
+                No name or ticker claimed yet: they are claimed when the PRD is submitted.
                 {draftName || draftTicker ? (
                   <span className="block text-muted">
                     In the draft: {draftName || "—"}

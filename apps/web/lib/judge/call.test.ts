@@ -16,9 +16,9 @@ import {
 import { outputSchema } from "./schema";
 
 const VALID = JSON.stringify({
-  breakdown: { problem: 20, solution: 18, business_model: 15, advantage: 12 },
+  breakdown: { problem: 20, solution: 18, metrics: 10, business_model: 9, feasibility: 4, clarity: 4 },
   total: 65,
-  rationale: "Clear problem. Workable solution. Thin advantage.",
+  rationale: "Clear problem. Workable solution. Thin feasibility.",
 });
 
 function message(text: string, stop_reason: Anthropic.StopReason = "end_turn", extra: Partial<Anthropic.Message> = {}): Anthropic.Message {
@@ -73,9 +73,9 @@ describe("judgeOnce", () => {
     const r = await judgeOnce(client, OPTS);
     expect(r).toMatchObject({
       ok: true,
-      breakdown: { problem: 20, solution: 18, business_model: 15, advantage: 12 },
+      breakdown: { problem: 20, solution: 18, metrics: 10, business_model: 9, feasibility: 4, clarity: 4 },
       total: 65,
-      rationale: "Clear problem. Workable solution. Thin advantage.",
+      rationale: "Clear problem. Workable solution. Thin feasibility.",
       raw: VALID,
       model: "claude-opus-5-5",
       attempts: 1,
@@ -93,8 +93,8 @@ describe("judgeOnce", () => {
   });
 
   test("three invalid answers fail the run, not retryable", async () => {
-    const wrongSum = JSON.stringify({ breakdown: { problem: 20, solution: 18, business_model: 15, advantage: 12 }, total: 99, rationale: "x" });
-    const overMax = JSON.stringify({ breakdown: { problem: 26, solution: 0, business_model: 0, advantage: 0 }, total: 26, rationale: "x" });
+    const wrongSum = JSON.stringify({ breakdown: { problem: 20, solution: 18, metrics: 10, business_model: 9, feasibility: 4, clarity: 4 }, total: 99, rationale: "x" });
+    const overMax = JSON.stringify({ breakdown: { problem: 21, solution: 0, metrics: 0, business_model: 0, feasibility: 0, clarity: 0 }, total: 21, rationale: "x" });
     const { client, calls } = fakeClient([message("not json"), message(overMax), message(wrongSum)]);
     const r = await judgeOnce(client, OPTS);
     expect(r.ok).toBe(false);

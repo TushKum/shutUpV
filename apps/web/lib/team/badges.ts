@@ -51,7 +51,7 @@ const score = (f: BadgeFacts, t: SubmissionType) => f.scores[t] ?? -1;
 const RULES_LIST: readonly Rule[] = [
   { key: "TEAM_TALK", icon: "💬", name: "Team talker", how: "Send 5 messages in your squad chat.", tracks: ALL, test: (f) => f.messages >= 5 },
   // Product and Consulting: the squad's writing.
-  { key: "LAUNCH", icon: "🚀", name: "Launch day", how: "Submit the pitch card on time.", tracks: SQUAD, test: (f) => f.submitted.includes("PITCH") },
+  { key: "LAUNCH", icon: "🚀", name: "Launch day", how: "Submit the PRD on time.", tracks: SQUAD, test: (f) => f.submitted.includes("PITCH") },
   { key: "STAR_PITCH", icon: "⭐", name: "Star pitch", how: "Score 80 or more on the pitch.", tracks: SQUAD, test: (f) => score(f, "PITCH") >= 80 },
   { key: "RESCUE_HERO", icon: "🛟", name: "Rescue hero", how: "Score 80 or more on the rescue plan.", tracks: SQUAD, test: (f) => score(f, "PLAN") >= 80 },
   { key: "QUICK_THINKER", icon: "⚡", name: "Quick thinker", how: "Score 70 or more on the flash answer.", tracks: SQUAD, test: (f) => score(f, "FLASH") >= 70 },

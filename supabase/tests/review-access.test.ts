@@ -358,7 +358,7 @@ describe("SEC-3: scores are sealed only by the judge worker, from complete and v
     // Three runs that spread 20 points need two more.
     await addRuns(n, c, "PITCH", [{ run_no: 3, total: 62 }], gen);
     expect(await seal(n, c)).toMatchObject({ ok: false, code: "RUNS_INCOMPLETE", runs: 3 });
-    const run4 = { problem: 16, solution: 16, business_model: 16, advantage: 16 };
+    const run4 = { problem: 14, solution: 14, metrics: 9, business_model: 9, feasibility: 9, clarity: 9 };
     await addRuns(n, c, "PITCH", [{ run_no: 4, total: 64, breakdown: run4, rationale: "Fourth run: the median." }], gen);
     expect(await seal(n, c)).toMatchObject({ ok: false, code: "RUNS_INCOMPLETE", runs: 4 });
     // A failed fifth run does not count.
@@ -380,16 +380,16 @@ describe("SEC-3: scores are sealed only by the judge worker, from complete and v
   test("SEC-3: a stored run that does not fit the rubric makes sealing raise", async () => {
     const { n, s } = await inReading();
     const c = s[1]!.company_id;
-    const ok60 = { problem: 25, solution: 25, business_model: 10, advantage: 0 };
+    const ok60 = { problem: 20, solution: 20, metrics: 15, business_model: 5, feasibility: 0, clarity: 0 };
     const bad: [string, Run][] = [
-      ["lines sum to 59, total 60", { total: 60, breakdown: { problem: 25, solution: 25, business_model: 9, advantage: 0 } }],
+      ["lines sum to 59, total 60", { total: 60, breakdown: { ...ok60, business_model: 4 } }],
       ["a line the rubric does not have", { total: 60, breakdown: { ...ok60, bonus: 0 } }],
-      ["a line over its maximum", { total: 60, breakdown: { problem: 26, solution: 24, business_model: 10, advantage: 0 } }],
-      ["a fractional line", { total: 60, breakdown: { problem: 12.5, solution: 12.5, business_model: 25, advantage: 10 } }],
-      ["a line missing", { total: 60, breakdown: { problem: 25, solution: 25, business_model: 10 } }],
-      ["a line given as a string", { total: 60, breakdown: { ...ok60, advantage: "0" } }],
-      ["a breakdown that is not an object", { total: 60, breakdown: [25, 25, 10, 0] }],
-      ["a negative line", { total: 60, breakdown: { problem: 25, solution: 25, business_model: 15, advantage: -5 } }],
+      ["a line over its maximum", { total: 60, breakdown: { ...ok60, problem: 21, solution: 19 } }],
+      ["a fractional line", { total: 60, breakdown: { ...ok60, problem: 19.5, solution: 20.5 } }],
+      ["a line missing", { total: 60, breakdown: { problem: 20, solution: 20, metrics: 15, business_model: 5, feasibility: 0 } }],
+      ["a line given as a string", { total: 60, breakdown: { ...ok60, clarity: "0" } }],
+      ["a breakdown that is not an object", { total: 60, breakdown: [20, 20, 15, 5, 0, 0] }],
+      ["a negative line", { total: 60, breakdown: { ...ok60, business_model: 10, clarity: -5 } }],
       ["a blank rationale", { total: 60, breakdown: ok60, rationale: "   " }],
     ];
     for (const [what, run] of bad) {
@@ -407,8 +407,8 @@ describe("SEC-3: scores are sealed only by the judge worker, from complete and v
   test("SEC-3: the published breakdown and rationale are the first run whose total is the median, of the latest generation", async () => {
     const { n, s } = await inReading();
     const c = s[2]!.company_id;
-    const first = { problem: 25, solution: 25, business_model: 14, advantage: 0 };
-    const third = { problem: 16, solution: 16, business_model: 16, advantage: 16 };
+    const first = { problem: 20, solution: 20, metrics: 15, business_model: 9, feasibility: 0, clarity: 0 };
+    const third = { problem: 14, solution: 14, metrics: 9, business_model: 9, feasibility: 9, clarity: 9 };
     await addRuns(n, c, "PITCH", [
       { total: 64, breakdown: first, rationale: "First run: strong problem." },
       { total: 60, rationale: "Second run." },
@@ -421,11 +421,11 @@ describe("SEC-3: scores are sealed only by the judge worker, from complete and v
     const gen2 = await addRuns(n, c, "PITCH", [
       { total: 70, rationale: "Re-run 1." },
       { total: 72, rationale: "Re-run 2." },
-      { total: 71, breakdown: { problem: 25, solution: 25, business_model: 21, advantage: 0 }, rationale: "Re-run 3." },
+      { total: 71, breakdown: { problem: 20, solution: 20, metrics: 15, business_model: 15, feasibility: 1, clarity: 0 }, rationale: "Re-run 3." },
     ]);
     expect(await seal(n, c)).toMatchObject({ ok: true, median: 71, final: 71 });
     expect((await scoreOf(n, c))[0]).toMatchObject({
-      generation: gen2, run_totals: [70, 72, 71], breakdown: { problem: 25, solution: 25, business_model: 21, advantage: 0 }, rationale: "Re-run 3.",
+      generation: gen2, run_totals: [70, 72, 71], breakdown: { problem: 20, solution: 20, metrics: 15, business_model: 15, feasibility: 1, clarity: 0 }, rationale: "Re-run 3.",
     });
   });
 });

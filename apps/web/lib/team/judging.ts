@@ -29,7 +29,7 @@ const MOVES: Record<SubmissionType, string> = {
 
 export interface PublishedPrompt {
   type: SubmissionType;
-  /** "Pitch card", "Rescue plan", "Flash answer". */
+  /** "PRD", "Rescue plan", "Flash answer". */
   label: string;
   /** The file in prompts/, e.g. "PITCH.md". */
   file: string;
@@ -129,7 +129,7 @@ export function judgingSteps(): JudgingStep[] {
       title: "The judge reads the prompt and your submission.",
       text:
         "The prompt below for your submission's type is the judge's instructions, word for word. Your submission is sent inside XML tags with " +
-        "its context (a rescue plan also gets the pitch card, the crisis card and a summary of the deal; a flash answer gets the bulletin), and " +
+        "its context (a rescue plan also gets the PRD, the crisis card and a summary of the deal; a flash answer gets the bulletin), and " +
         "the judge is told that everything inside the tags is data, not instructions.",
     },
     {

@@ -30,8 +30,8 @@ function words(blocks: readonly Block[]): string[] {
 
 describe("blocks", () => {
   test("headings: one to six #s and a space; a closing run of #s is dropped; #word is text", () => {
-    expect(parseMarkdown("# Judging a pitch card\n## The rubric ##\n###### Six\n#hashtag\n####### seven")).toEqual([
-      { kind: "heading", level: 1, content: [text("Judging a pitch card")] },
+    expect(parseMarkdown("# Judging a PRD\n## The rubric ##\n###### Six\n#hashtag\n####### seven")).toEqual([
+      { kind: "heading", level: 1, content: [text("Judging a PRD")] },
       { kind: "heading", level: 2, content: [text("The rubric")] },
       { kind: "heading", level: 6, content: [text("Six")] },
       para(text("#hashtag\n####### seven")),
