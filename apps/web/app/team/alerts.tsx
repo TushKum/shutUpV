@@ -191,7 +191,9 @@ export function SoundToggle() {
       className="rounded px-1.5 py-0.5 text-xs font-medium text-paper hover:bg-raised"
       data-testid="sound-toggle"
     >
-      {on ? "🔔 Sound on" : "🔕 Sound off"}
+      {/* On a phone only the bell shows; the words stay for screen readers. */}
+      <span aria-hidden>{on ? "🔔" : "🔕"}</span>
+      <span className="sr-only sm:not-sr-only sm:ml-1">{on ? "Sound on" : "Sound off"}</span>
     </button>
   );
 }

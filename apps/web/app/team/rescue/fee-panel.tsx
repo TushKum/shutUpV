@@ -6,6 +6,7 @@ import { RULES, type Track } from "@msim/engine";
 import { clock, money } from "@/lib/format";
 import { dollarsText, feeTermsText, teamLabel, upperFirst, type FeeView, type PauseState } from "@/lib/team/rescue";
 import { Badge, Notice, Panel } from "@/components/ui/ui";
+import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 import { confirmFee, proposeFee } from "./actions";
 import { ClosingActionButton, Due } from "./parts";
 import { FeeForm } from "./terms-form";
@@ -38,12 +39,22 @@ export function FeePanel({
       }
     >
       <div className="space-y-4 text-sm" data-testid="fee" data-stage={fee.stage}>
-        <p className="text-paper">
-          The Product and Consulting teams agree a fee worth {money(RULES.FEE_MIN)} to {money(RULES.FEE_MAX)}, paid in cash and/or up to{" "}
-          {RULES.FEE_MAX_SHARES.toLocaleString("en-US")} retained shares valued at the IPO price{ipoPrice ? ` (${money(ipoPrice)})` : ""}. Both must confirm the
-          same terms by {deadline ? clock(deadline) : "01:05"}; otherwise the default fee of {money(RULES.FEE_DEFAULT)} cash is paid.
-          {fee.party ? null : " The fund follows it here; it does not take part."}
-        </p>
+        <DoThis testId="fee-todo">
+          {fee.party
+            ? `Agree a fee of ${money(RULES.FEE_MIN)}–${money(RULES.FEE_MAX)} with your ${track === "PRODUCT" ? "Consulting" : "Product"} partner by ${deadline ? clock(deadline) : "01:05"}. If you don't, ${money(RULES.FEE_DEFAULT)} cash is paid automatically.`
+            : "Your Product and Consulting partners agree this fee; you just watch."}
+        </DoThis>
+        <HowItWorks testId="fee-rules">
+          <p>
+            The fee is worth {money(RULES.FEE_MIN)} to {money(RULES.FEE_MAX)}, paid in cash and/or up to {RULES.FEE_MAX_SHARES.toLocaleString("en-US")} of the
+            Product team&apos;s retained shares, valued at the IPO price{ipoPrice ? ` (${money(ipoPrice)})` : ""}.
+          </p>
+          <p>
+            Either team proposes terms; both must confirm the same version by {deadline ? clock(deadline) : "01:05"}. A new proposal resets both
+            confirmations. Without an agreed fee, the default {money(RULES.FEE_DEFAULT)} cash is paid.
+          </p>
+          {fee.party ? null : <p>The fund follows the fee here; it does not take part.</p>}
+        </HowItWorks>
 
         {fee.stage === "BEFORE_CRISIS" ? <Notice>The fee can be proposed from the crisis.</Notice> : null}
 
@@ -132,10 +143,9 @@ export function FeePanel({
               pause={pause}
             />
             <p className="mt-2 text-xs text-muted">
-              A new proposal resets both confirmations: both teams then confirm the new version.
               {companyCash === null
-                ? " The company's cash and retained shares are checked by the server when you propose, and again when the fee is paid."
-                : ` Your company has ${money(companyCash)} cash${retained !== null ? ` and ${retained.toLocaleString("en-US")} retained shares` : ""}.`}
+                ? "The company's cash and retained shares are checked when you propose, and again when the fee is paid."
+                : `Your company has ${money(companyCash)} cash${retained !== null ? ` and ${retained.toLocaleString("en-US")} retained shares` : ""}.`}
             </p>
           </div>
         ) : null}

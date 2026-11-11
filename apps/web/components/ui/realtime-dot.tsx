@@ -11,7 +11,7 @@ export function RealtimeDot() {
   return (
     <span className="flex items-center gap-1 text-xs text-muted" title={`Realtime: ${status}`} data-realtime={status}>
       <span className={`h-2 w-2 rounded-full ${ok ? "bg-phosphor" : status === "CONNECTING" ? "bg-warn" : "bg-danger"}`} />
-      {ok ? "Live" : status === "CONNECTING" ? "Connecting" : "Offline"}
+      <span className={ok ? "sr-only sm:not-sr-only" : ""}>{ok ? "Live" : status === "CONNECTING" ? "Connecting" : "Offline"}</span>
     </span>
   );
 }

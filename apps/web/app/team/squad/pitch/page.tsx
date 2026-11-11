@@ -7,6 +7,7 @@ import { Panel } from "@/components/ui/ui";
 import { Due } from "../due";
 import { squadGate } from "../parts";
 import { SubmissionEditor } from "../submission";
+import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 
 export const metadata: Metadata = { title: "Pitch" };
 
@@ -27,10 +28,16 @@ export default async function PitchPage() {
         </span>
       }
     >
-      <p className="mb-4 text-sm text-paper">
-        Your Product Requirements Document: up to {RULES.WORD_LIMIT.PITCH} words across the seven sections. The AI judge scores the problem (20), the
-        solution and MVP (20), success metrics (15), business model (15), feasibility and risks (15) and clarity (15); the score sets your IPO price.
-      </p>
+      <div className="mb-4">
+        <DoThis testId="pitch-todo">Write your company&apos;s plan in seven short parts (up to {RULES.WORD_LIMIT.PITCH} words), then press Submit.</DoThis>
+        <HowItWorks label="How it is scored" testId="pitch-rules">
+          <p>
+            This is your Product Requirements Document (PRD). The AI judge scores the problem (20), the solution and MVP (20), success metrics (15), business
+            model (15), feasibility and risks (15) and clarity (15).
+          </p>
+          <p>The score sets your company&apos;s IPO price: a better PRD means a higher starting share price.</p>
+        </HowItWorks>
+      </div>
       <SubmissionEditor ctx={ctx} ws={ws} type="PITCH" win={win} />
     </Panel>
   );

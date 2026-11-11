@@ -10,6 +10,7 @@ import { loadSquadWorkspace, pauseOf, windowInput } from "@/lib/team/squad-data"
 import { Badge, Panel } from "@/components/ui/ui";
 import { Due } from "./due";
 import { squadGate } from "./parts";
+import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 
 export const metadata: Metadata = { title: "Squad" };
 
@@ -120,10 +121,10 @@ export default async function SquadOverview() {
             ) : null,
           )}
         </ul>
-        <p className="mt-3 text-xs text-muted">
-          Only the last version submitted on time is judged; a saved draft that is not submitted is not judged.
-          {ws.deadlines.DEAL ? ` The deal must be fully signed by ${clock(ws.deadlines.DEAL)}, or the plan score is capped at 50.` : ""}
-        </p>
+        <HowItWorks testId="squad-rules">
+          <p>Only the last version submitted on time is judged; a saved draft that is not submitted is not judged.</p>
+          {ws.deadlines.DEAL ? <p>The deal must be fully signed by {clock(ws.deadlines.DEAL)}, or the plan score is capped at 50.</p> : null}
+        </HowItWorks>
       </Panel>
     </div>
   );

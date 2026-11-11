@@ -8,6 +8,7 @@ import { callsInput, loadCalls } from "@/lib/team/calls-data";
 import { CALL_WINDOWS, callCell, callsSummary, coveredLabels, findCall, windowStage, type CallCell } from "@/lib/team/calls";
 import { pauseOf } from "@/lib/team/rescue-data";
 import { clock, money } from "@/lib/format";
+import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 import { RefreshAt } from "@/lib/live/refresh-at";
 import { Badge, Notice, Panel, Stat } from "@/components/ui/ui";
 import { Due } from "../rescue/parts";
@@ -68,15 +69,19 @@ export default async function CallsPage() {
           <Stat label="Correct" value={summary.correct} />
           <Stat label="Earned" value={money(summary.earnings)} hint={`${money(RULES.CALL_EARNING)} per correct call`} />
         </div>
-        <p className="mt-3 text-sm text-paper">
-          In each window, call BUY or SELL on each covered company. A BUY is correct if the judged price is above the baseline, a SELL if it is below; an
-          equal price or a missing call is wrong. You can change a call until it is due. Your calls are private: no other team sees them.
-        </p>
-        {unnamed ? (
-          <p className="mt-2 text-sm text-paper">
-            Your covered companies&apos; names and pitches are public from the Reading phase; until then they are numbered.
+        <div className="mt-3">
+          <DoThis testId="calls-todo">
+            For each company, guess: will its price go up (BUY) or down (SELL)? Every right guess earns {money(RULES.CALL_EARNING)}.
+          </DoThis>
+        </div>
+        <HowItWorks testId="calls-rules">
+          <p>
+            In each window, call BUY or SELL on each covered company. A BUY is correct if the judged price is above the baseline, a SELL if it is below; an
+            equal price or a missing call is wrong. You can change a call until it is due.
           </p>
-        ) : null}
+          <p>Your calls are private: no other team sees them.</p>
+          {unnamed ? <p>Your covered companies&apos; names and pitches are public from the Reading phase; until then they are numbered.</p> : null}
+        </HowItWorks>
       </Panel>
 
       {windows.map((w) => {
@@ -97,11 +102,15 @@ export default async function CallsPage() {
             }
           >
             <section aria-label={`Call ${w.no}`} data-testid={`call-${w.no}`} data-stage={judged ? "JUDGED" : w.stage}>
-              <p className="text-sm text-paper">
-                Baseline: the {w.baseline}. Judged at the {w.judgedAt}, {w.judged}.
-                {w.stage === "NOT_OPEN" ? ` Opens ${w.opens}.` : ""}
-              </p>
-              <ul className="mt-3 divide-y divide-line">
+              {w.stage === "NOT_OPEN" ? (
+                // Not open yet: one line, and nothing to press.
+                <p className="text-sm text-muted">Opens {w.opens}.</p>
+              ) : (
+                <p className="text-sm text-paper">
+                  Baseline: the {w.baseline}. Judged at the {w.judgedAt}, {w.judged}.
+                </p>
+              )}
+              <ul className={`mt-3 divide-y divide-line ${w.stage === "NOT_OPEN" ? "hidden" : ""}`}>
                 {w.cells.map(({ company, cell }) => (
                   <li key={company.id} className="flex flex-wrap items-start justify-between gap-3 py-3" data-testid={`call-${w.no}-${company.label}`}>
                     <div className="min-w-0">

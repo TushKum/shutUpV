@@ -9,6 +9,7 @@ import { Due } from "../due";
 import { squadGate } from "../parts";
 import { SubmissionEditor } from "../submission";
 import { PlanRules } from "./plan-rules";
+import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -33,10 +34,15 @@ export default async function PlanPage() {
     >
       {/* The deal is signed elsewhere (Rescue) and its signatures send no realtime message: re-read at its deadline. */}
       <RefreshAt at={dealDeadline} />
-      <p className="mb-3 text-sm text-paper">
-        Up to {RULES.WORD_LIMIT.PLAN} words, written together by your squad&apos;s Product and Consulting teams: each save shows here for both. The judge
-        also reads your PRD, your crisis card and a summary of the deal.
-      </p>
+      <div className="mb-3">
+        <DoThis testId="plan-todo">Write how your company survives the crisis (up to {RULES.WORD_LIMIT.PLAN} words), together with your partner, then press Submit.</DoThis>
+        <HowItWorks testId="plan-howto">
+          <p>
+            Your squad&apos;s Product and Consulting teams write the plan together: each save shows here for both. The judge also reads your PRD, your crisis
+            card and a summary of the deal.
+          </p>
+        </HowItWorks>
+      </div>
       <div className="mb-4">
         <PlanRules
           deadline={win.deadline}

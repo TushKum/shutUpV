@@ -148,10 +148,11 @@ export default async function TradePage() {
 
           <Panel title="Cash and limits">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              {/* What a fund can spend now comes first. */}
+              <Fact label="Available to spend" value={money(summary.available)} hint="Cash − collateral − reserves" testId="available" />
               <Fact label="Cash" value={money(summary.cash)} />
-              <Fact label="Collateral locked" value={money(summary.collateral)} hint="150% of your shorts' value" />
               <Fact label="Reserved by open orders" value={money(summary.reserved)} testId="reserved" />
-              <Fact label="Available cash" value={money(summary.available)} hint="Cash − collateral − reserves" testId="available" />
+              <Fact label="Collateral locked" value={money(summary.collateral)} hint="150% of your shorts' value" />
               <Fact
                 label="Short exposure"
                 value={money(summary.shortExposureWithPending)}

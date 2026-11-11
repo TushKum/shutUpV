@@ -8,6 +8,7 @@ import { RULES, TRACKS, type Track } from "@msim/engine";
 import { clock, money } from "@/lib/format";
 import { dealBalanceWarning, dealTermsText, teamLabel, upperFirst, type DealView, type Deadlines, type PauseState } from "@/lib/team/rescue";
 import { Badge, Notice, Panel } from "@/components/ui/ui";
+import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 import { setDealAmount, setDealPrice, signDeal } from "./actions";
 import { ClosingActionButton, Due } from "./parts";
 import { DealTermForm } from "./terms-form";
@@ -41,12 +42,25 @@ export function DealPanel({
       }
     >
       <div className="space-y-4 text-sm" data-testid="deal" data-stage={deal.stage}>
-        <p className="text-paper">
-          The Consulting team proposes the price per share, between 50% and 100% of the post-crisis price
-          {deal.band ? ` (${money(deal.band.min)} to ${money(deal.band.max)})` : ""}; the fund sets the amount, {money(RULES.DEAL_MIN)} to{" "}
-          {money(RULES.DEAL_MAX)}. Shares = amount ÷ price, rounded down, move from the Product team&apos;s retained shares into the fund&apos;s squad lot, and
-          the fund pays shares × price to the company. All three teams sign; any change resets every signature.
-        </p>
+        <DoThis testId="deal-todo">
+          {track === "CONSULTING"
+            ? `Set the price per share${deal.band ? ` (${money(deal.band.min)}–${money(deal.band.max)})` : ""}, then sign.`
+            : track === "FINANCE"
+              ? `Set how much your fund invests (${money(RULES.DEAL_MIN)}–${money(RULES.DEAL_MAX)}), then sign.`
+              : "Check the price and the amount, then sign. All three teams must sign."}
+        </DoThis>
+        <HowItWorks testId="deal-rules">
+          <p>
+            The Consulting team proposes the price per share, between 50% and 100% of the post-crisis price
+            {deal.band ? ` (${money(deal.band.min)} to ${money(deal.band.max)})` : ""}. The fund sets the amount, {money(RULES.DEAL_MIN)} to{" "}
+            {money(RULES.DEAL_MAX)}.
+          </p>
+          <p>
+            Shares = amount ÷ price, rounded down. They move from the Product team&apos;s retained shares to the fund, and the fund pays shares × price to the
+            company.
+          </p>
+          <p>All three teams sign the same version; any change resets every signature. The third signature completes the deal.</p>
+        </HowItWorks>
         <dl className="grid gap-2 sm:grid-cols-2">
           <div className="rounded-md bg-raised px-3 py-2">
             <dt className="text-xs font-medium uppercase tracking-wide text-muted">Deal bonus</dt>

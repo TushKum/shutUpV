@@ -142,7 +142,7 @@ test("the fee: a live check, a proposal, confirmations reset by a new proposal, 
   const fund = await screen(browser, x.f_code);
   await fund.goto("/team/rescue");
   await expect(fund.getByTestId("fee-outcome")).toContainText("$22,000.00 cash + 1,000 shares (value $32,500.00)");
-  await expect(fund.getByTestId("fee")).toContainText("The fund follows it here; it does not take part.");
+  await expect(fund.getByTestId("fee-todo")).toHaveText("Your Product and Consulting partners agree this fee; you just watch.");
   await product.context().close();
   await fund.context().close();
 });
