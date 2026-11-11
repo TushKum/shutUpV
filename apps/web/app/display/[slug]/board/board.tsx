@@ -10,6 +10,9 @@ import { boardTiles, highlightUntil } from "@/lib/display/board";
 import { clock } from "@/lib/format";
 import { loadBoard, loadReadingStart } from "./data";
 import { BoardPages } from "./pages";
+import { marketPulse, MOODS } from "@/lib/team/pulse";
+import { count } from "@/lib/format";
+import { Glyph } from "@/components/ui/matrix";
 
 export async function Board({ event, status, compact = false }: { event: DisplayEvent; status: EventStatus; compact?: boolean }) {
   if (!phaseReached(status.phase, "READING")) {
@@ -39,8 +42,46 @@ export async function Board({ event, status, compact = false }: { event: Display
       </div>
     );
   }
+  // The last round's headline for the room: the biggest riser and faller and the most-traded company.
+  const byId = new Map(companies.map((c) => [c.id, c]));
+  const pulse = round
+    ? marketPulse(
+        round.number,
+        round.round_prices.map((p) => ({
+          ticker: byId.get(p.company_id)?.ticker ?? null,
+          name: byId.get(p.company_id)?.name ?? null,
+          before: p.market_before === null ? null : Number(p.market_before),
+          after: Number(p.market_after),
+          volume: Number(p.buy_qty ?? 0) + Number(p.sell_qty ?? 0) + Number(p.short_qty ?? 0) + Number(p.cover_qty ?? 0),
+        })),
+      )
+    : null;
+  const pct = (bp: number) => `${bp > 0 ? "+" : "−"}${(Math.abs(bp) / 100).toFixed(2)}%`;
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="board">
+      {pulse && !event.market_closed_at && (pulse.riser || pulse.faller || pulse.busiest) ? (
+        <p className="mx-6 mt-3 flex shrink-0 flex-wrap items-center gap-x-10 gap-y-1 rounded-xl border border-phosphor-dim px-6 py-2 font-mono text-[28px] leading-tight" data-testid="board-pulse">
+          <span className="font-bold text-muted">ROUND {pulse.round} PULSE</span>
+          {pulse.riser ? (
+            <span>
+              <Glyph e="📈" /> <span className="font-bold text-phosphor">{pulse.riser.ticker}</span> <span className="text-phosphor glow">{pct(pulse.riser.changeBp)}</span>
+            </span>
+          ) : null}
+          {pulse.faller ? (
+            <span>
+              <Glyph e="📉" /> <span className="font-bold text-phosphor">{pulse.faller.ticker}</span> <span className="text-danger-soft">{pct(pulse.faller.changeBp)}</span>
+            </span>
+          ) : null}
+          {pulse.busiest ? (
+            <span>
+              <Glyph e="🔥" /> <span className="font-bold text-phosphor">{pulse.busiest.ticker}</span> {count(pulse.busiest.volume)} shares
+            </span>
+          ) : null}
+          <span className="text-paper">
+            <Glyph e={MOODS[pulse.mood].icon} /> {MOODS[pulse.mood].label}
+          </span>
+        </p>
+      ) : null}
       <BoardPages
         tiles={tiles}
         round={round?.number ?? null}

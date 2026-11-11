@@ -20,6 +20,8 @@ import { loadBadges } from "@/lib/team/badges-data";
 import { BadgesCard } from "./badges-card";
 import { loadPulse } from "@/lib/team/pulse-data";
 import { PulseCard } from "./pulse-card";
+import { Celebrations } from "./celebrations";
+import { BIG_MOVE_BP } from "@/lib/team/pulse";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -145,7 +147,15 @@ export default async function TeamHome() {
         </Tile>
       </div>
 
-      {pulse ? <PulseCard pulse={pulse} /> : null}
+      {pulse ? <PulseCard pulse={pulse} mine={company?.ticker ?? null} /> : null}
+      <Celebrations
+        teamId={team.id}
+        badges={(badges ?? []).filter((b) => b.earned).map((b) => ({ key: b.key, icon: b.icon, name: b.name }))}
+        move={(() => {
+          const own = pulse && company?.ticker ? pulse.moves.find((m) => m.ticker === company.ticker) : null;
+          return own && Math.abs(own.changeBp) >= BIG_MOVE_BP ? { round: pulse!.round, ticker: own.ticker, changeBp: own.changeBp } : null;
+        })()}
+      />
 
       {badges ? <BadgesCard badges={badges} /> : null}
 

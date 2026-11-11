@@ -25,6 +25,11 @@ export interface BoardMoveRow {
   company_id: string;
   market_before: number | null;
   market_after: number;
+  /** The round's volumes, for the market pulse. */
+  buy_qty?: number;
+  sell_qty?: number;
+  short_qty?: number;
+  cover_qty?: number;
 }
 
 export type Move = "UP" | "DOWN" | "FLAT";

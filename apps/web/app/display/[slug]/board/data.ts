@@ -23,7 +23,7 @@ export async function loadBoard(eventId: string): Promise<BoardData> {
     sb.from("companies").select("id, ticker, name, ipo_price, market_price, closing_price").eq("event_id", eventId).not("ticker", "is", null),
     sb
       .from("rounds")
-      .select("number, cleared_at, round_prices(company_id, market_before, market_after)")
+      .select("number, cleared_at, round_prices(company_id, market_before, market_after, buy_qty, sell_qty, short_qty, cover_qty)")
       .eq("event_id", eventId)
       .eq("status", "CLEARED")
       .eq("round_prices.kind", "CLEARING")

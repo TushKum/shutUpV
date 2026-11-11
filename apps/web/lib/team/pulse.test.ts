@@ -10,6 +10,7 @@ describe("market pulse", () => {
     expect(p.riser).toMatchObject({ ticker: "AAA", changeBp: 420, price: 1042 });
     expect(p.faller).toMatchObject({ ticker: "BBB", changeBp: -182 });
     expect(p.busiest).toMatchObject({ ticker: "BBB", volume: 9000 });
+    expect(p.moves.map((m) => [m.ticker, m.changeBp])).toEqual([["AAA", 420], ["BBB", -182], ["CCC", 0], ["DDD", 100]]);
   });
 
   test("a quiet round has no headline; ties go to the first ticker; unnamed or unpriced rows are skipped", () => {

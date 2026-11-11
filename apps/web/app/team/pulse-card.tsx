@@ -7,8 +7,9 @@ const pct = (bp: number) => `${bp > 0 ? "+" : bp < 0 ? "−" : ""}${(Math.abs(bp
 
 // The headline of the last trading round on every team's Home: the biggest riser and faller, the most-traded
 // company, and the round's mood. Public market numbers only.
-export function PulseCard({ pulse }: { pulse: Pulse }) {
+export function PulseCard({ pulse, mine = null }: { pulse: Pulse; mine?: string | null }) {
   const mood = MOODS[pulse.mood];
+  const own = mine ? (pulse.moves.find((m) => m.ticker === mine) ?? null) : null;
   return (
     <section className="mx-panel rounded-2xl p-4" aria-label="Market pulse" data-testid="pulse">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -25,6 +26,13 @@ export function PulseCard({ pulse }: { pulse: Pulse }) {
           <span className="font-bold text-phosphor">{mood.label}</span> · {pulse.up} up · {pulse.down} down · {count(pulse.totalVolume)} shares traded
         </p>
       </div>
+      {own ? (
+        <p className="mb-3 rounded-xl bg-panel px-3 py-2 text-sm ring-1 ring-phosphor-dim" data-testid="pulse-mine">
+          Your squad&apos;s company <span className="font-mono font-bold text-phosphor">{own.ticker}</span>:{" "}
+          <span className={`font-mono font-extrabold ${own.changeBp < 0 ? "text-danger-soft" : "text-phosphor glow"}`}>{pct(own.changeBp)}</span> this round, now{" "}
+          <span className="font-mono">{money(own.price)}</span>.
+        </p>
+      ) : null}
       {pulse.riser || pulse.faller || pulse.busiest ? (
         <ul className="grid gap-2 sm:grid-cols-3" aria-label="Round headlines">
           <Headline label="Biggest riser" icon="📈" item={pulse.riser} tone="up" testId="pulse-riser" />

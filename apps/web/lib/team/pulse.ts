@@ -31,7 +31,12 @@ export interface Pulse {
   flat: number;
   totalVolume: number;
   mood: "BULL" | "BEAR" | "CALM";
+  /** Every priced company's move this round, by ticker. */
+  moves: PulseItem[];
 }
+
+/** A move this big (5%, either way) earns a price alert for the company's own teams. */
+export const BIG_MOVE_BP = 500;
 
 /** Ties go to the ticker that comes first in the alphabet, so every screen shows the same headline. */
 export function marketPulse(round: number, rows: readonly PulseRow[]): Pulse {
@@ -53,6 +58,7 @@ export function marketPulse(round: number, rows: readonly PulseRow[]): Pulse {
     flat: items.length - up - down,
     totalVolume: items.reduce((n, i) => n + i.volume, 0),
     mood: up > down ? "BULL" : down > up ? "BEAR" : "CALM",
+    moves: items,
   };
 }
 
