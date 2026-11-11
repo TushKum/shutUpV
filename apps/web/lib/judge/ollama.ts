@@ -7,11 +7,13 @@
 // run goes back to the queue; a slow answer or a 5xx goes back to the queue to be tried again.
 
 import { validateJudgeOutput } from "@msim/engine";
-import { MAX_TOKENS, OUTPUT_ATTEMPTS, type ModelCheck } from "./call";
+import { OUTPUT_ATTEMPTS, type ModelCheck } from "./call";
 import { outputSchema } from "./schema";
 import { EMPTY_USAGE, type JudgeCallResult, type JudgeFn, type JudgeUsage } from "./types";
 
 export const OLLAMA_DEFAULT_URL = "http://127.0.0.1:11434";
+/** The longest answer asked of a local model (Claude gets 8,000 because it thinks first; a local model does not). */
+export const OLLAMA_MAX_TOKENS = 1_200;
 
 /** The part of fetch the Ollama judge uses (a fake in the tests). */
 export type FetchFn = (url: string, init: { method: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal }) => Promise<{
@@ -40,9 +42,12 @@ export function ollamaParams(o: { model: string; system: string; userText: strin
       { role: "system", content: o.system },
       { role: "user", content: o.userText },
     ],
-    // Low temperature: a judge should give the same answer to the same text. A context large enough for the prompt,
-    // the submission and the answer.
-    options: { temperature: o.temperature ?? 0.2, num_ctx: 16_384, num_predict: MAX_TOKENS },
+    // Speed on a laptop: a context just large enough for the prompt (~2,500 tokens), an 800-word PRD and the answer
+    // (a larger one is slower and needs more memory), an answer of at most 1,200 tokens (a score and a short
+    // rationale; a runaway answer is cut off and asked again), and the model kept loaded between runs.
+    // Low temperature: a judge should give the same answer to the same text.
+    options: { temperature: o.temperature ?? 0.2, num_ctx: 8_192, num_predict: OLLAMA_MAX_TOKENS },
+    keep_alive: "60m",
   };
 }
 
