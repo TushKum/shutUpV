@@ -34,7 +34,7 @@ export const TEAM_SECTIONS: Record<Track, readonly TeamSection[]> = {
     { path: "/earnings", label: "Earnings" },
     ...COMMON,
   ],
-  FINANCE: [HOME, { path: "/trade", label: "Trade" }, RESCUE, CHAT, ...COMMON],
+  FINANCE: [HOME, { path: "/trade", label: "Trade" }, CRISIS_ROOM, RESCUE, CHAT, ...COMMON],
 };
 
 /** May this track open this section? (Pages also check, so a typed address shows a clear notice.) */

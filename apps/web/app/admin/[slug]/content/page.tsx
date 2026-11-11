@@ -8,7 +8,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { clock } from "@/lib/format";
 import { Badge, Notice, Panel, Table, Td, inputClass } from "@/components/ui/ui";
 import { ActionForm } from "@/components/ui/action";
-import { prepareFlashBulletin, uploadCrisisDeck, uploadProblemDeck } from "./actions";
+import { prepareFlashBulletin, uploadCrisisDeck, uploadProblemDeck, uploadStatements } from "./actions";
 import type { ActionResult } from "@/lib/rpc";
 
 export const metadata: Metadata = { title: "Content" };
@@ -22,19 +22,22 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
   const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
-  const [problems, crises, flashes, products] = await Promise.all([
+  const [problems, crises, flashes, products, statements, picks] = await Promise.all([
     sb.from("problem_cards").select("number, sector, title, body").eq("event_id", event.id).order("number").limit(1000),
     sb.from("crisis_cards").select("category, number, title, body").eq("event_id", event.id).order("category").order("number").limit(1000),
     sb.from("bulletins").select("title, body, published_at, created_at").eq("event_id", event.id).eq("kind", "FLASH").order("created_at", { ascending: false }),
     sb.from("teams").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("track", "PRODUCT"),
+    sb.from("problem_statements").select("number, title, body, cap").eq("event_id", event.id).order("number"),
+    sb.from("draft_picks").select("company_id", { count: "exact", head: true }).eq("event_id", event.id),
   ]);
-  for (const r of [problems, crises, flashes, products]) if (r.error) throw new Error(`Could not read the content: ${r.error.message}`);
+  for (const r of [problems, crises, flashes, products, statements, picks]) if (r.error) throw new Error(`Could not read the content: ${r.error.message}`);
   const flash = (flashes.data ?? []).find((b) => b.published_at) ?? flashes.data?.[0] ?? null;
   const locks = contentLocks({ drawnAt: event.drawn_at, flashPublishedAt: flash?.published_at ?? null });
   const needed = minProblemCards(products.count ?? 0);
   const problemRows = problems.data ?? [];
   const crisisRows = crises.data ?? [];
   const categories = new Set(crisisRows.map((c) => c.category)).size;
+  const statementLock = (picks.count ?? 0) > 0 ? "The Round 3 draft has started: the statements can no longer change." : null;
 
   return (
     <div className="space-y-6">
@@ -80,6 +83,28 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
           ))}
         </Table>
       </Panel>
+
+      {event.format === "PRIMUS" ? (
+        <Panel title="Round 3 problem statements" actions={<LockBadge lock={statementLock} />}>
+          <Summary>
+            {(statements.data ?? []).length} statements. At the start of Round 3 the Product teams pick one each, lowest score so far first, 20 seconds a
+            pick; each statement takes at most its cap of companies (5 if left empty). The statements lock when the draft starts.
+          </Summary>
+          <Upload kind="statements" lock={statementLock} organiser={organiser} action={uploadStatements.bind(null, event.id)} label="Upload the statements" />
+          <Table head={["#", "Title", "Cap", "Body"]} empty="No problem statements yet." className="mt-4">
+            {(statements.data ?? []).map((st) => (
+              <tr key={st.number}>
+                <Td mono>{st.number}</Td>
+                <Td>{st.title}</Td>
+                <Td mono>{st.cap}</Td>
+                <Td className="text-paper">
+                  <span title={st.body}>{short(st.body)}</span>
+                </Td>
+              </tr>
+            ))}
+          </Table>
+        </Panel>
+      ) : null}
 
       <Panel title="Flash bulletin" actions={<LockBadge lock={locks.flash} />}>
         <Summary>
@@ -139,7 +164,7 @@ function Upload({
         <code className="font-mono">{format.columns.join(",")}</code>
         <span className="text-muted">
           {" "}
-          (a header row, then {kind === "flash" ? "exactly one row" : "one row per card"}; {format.optional.length ? `${format.optional.join(", ")} may be left out; ` : ""}
+          (a header row, then {kind === "flash" ? "exactly one row" : kind === "statements" ? "one row per statement" : "one row per card"}; {format.optional.length ? `${format.optional.join(", ")} may be left out; ` : ""}
           quote a field that contains a comma or a line break)
         </span>
       </p>

@@ -19,6 +19,7 @@ export const CSV_FORMATS = {
   problem: { required: ["number", "title", "body"], optional: ["sector"], columns: ["number", "sector", "title", "body"] },
   crisis: { required: ["category", "title", "body"], optional: ["number"], columns: ["category", "number", "title", "body"] },
   flash: { required: ["title", "body"], optional: [], columns: ["title", "body"] },
+  statements: { required: ["number", "title", "body"], optional: ["cap"], columns: ["number", "title", "body", "cap"] },
 } as const;
 export type CsvKind = keyof typeof CSV_FORMATS;
 
@@ -66,7 +67,7 @@ export function checkHeader(text: string, kind: CsvKind): string | null {
   if (dup) return `The column “${dup}” appears twice. ${expected(kind)}`;
   const missing = CSV_FORMATS[kind].required.filter((c) => !keys.includes(c));
   if (missing.length) return `Missing column${missing.length === 1 ? "" : "s"}: ${missing.join(", ")}. ${expected(kind)}`;
-  if (rows.length < 2) return `The file has a header row but no ${kind === "flash" ? "bulletin" : "cards"}.`;
+  if (rows.length < 2) return `The file has a header row but no ${kind === "flash" ? "bulletin" : kind === "statements" ? "statements" : "cards"}.`;
   return null;
 }
 
@@ -133,6 +134,42 @@ export function parseFlashBulletin(text: string): Parsed<FlashBulletin> {
   }
   if (tooLong(bulletin.body, LIMITS.body)) return { ok: false, message: `The body is longer than ${LIMITS.body} characters.` };
   return { ok: true, value: bulletin };
+}
+
+/** A PRIMUS Round 3 problem statement; `cap` is how many companies may pick it (5 by default). */
+export interface ProblemStatement {
+  number: number;
+  title: string;
+  body: string;
+  cap: number;
+}
+
+export function parseStatements(text: string): Parsed<ProblemStatement[]> {
+  const header = checkHeader(text, "statements");
+  if (header) return { ok: false, message: header };
+  const [head, ...rows] = parseCsv(text);
+  const col = (name: string) => head!.findIndex((h) => h.trim().toLowerCase() === name);
+  const [iNum, iTitle, iBody, iCap] = ["number", "title", "body", "cap"].map(col);
+  const out: ProblemStatement[] = [];
+  const seen = new Set<number>();
+  for (const [i, r] of rows.entries()) {
+    if (r.every((c) => c.trim() === "")) continue;
+    const row = `Row ${i + 2}`;
+    const number = Number(r[iNum!]?.trim());
+    const title = (r[iTitle!] ?? "").trim();
+    const body = (r[iBody!] ?? "").trim();
+    const capText = iCap! >= 0 ? (r[iCap!] ?? "").trim() : "";
+    const cap = capText === "" ? 5 : Number(capText);
+    if (!Number.isInteger(number) || number < 1 || number > 99) return { ok: false, message: `${row}: the number must be a whole number from 1 to 99.` };
+    if (seen.has(number)) return { ok: false, message: `${row}: statement ${number} appears twice.` };
+    if (!title || tooLong(title, 140)) return { ok: false, message: `${row}: the title must be 1 to 140 characters.` };
+    if (!body || tooLong(body, LIMITS.body)) return { ok: false, message: `${row}: the body must be 1 to ${LIMITS.body} characters.` };
+    if (!Number.isInteger(cap) || cap < 1 || cap > 50) return { ok: false, message: `${row}: the cap must be a whole number from 1 to 50 (or empty for 5).` };
+    seen.add(number);
+    out.push({ number, title, body, cap });
+  }
+  if (out.length === 0) return { ok: false, message: "The file has no statements." };
+  return { ok: true, value: out };
 }
 
 /**

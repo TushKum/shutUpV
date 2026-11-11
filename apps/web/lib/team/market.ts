@@ -3,7 +3,7 @@
 // card, the flash answer). Pure. Prices are integer cents; changes are computed exactly (basis points, rounded
 // half-up) and never through floating point.
 
-import type { ChartPoint } from "@/lib/chart";
+import type { Candle, ChartPoint } from "@/lib/chart";
 import {
   RUBRICS,
   perType,
@@ -176,6 +176,17 @@ export function chartPoints(lines: readonly HistoryLine[]): ChartPoint[] {
     if (l.ai !== null) ai = l.ai;
     return { label: l.label, value: l.price, second: ai, marker: MARKERS[l.kind] ?? null };
   });
+}
+
+/** The same steps as candles (each step opens at the price before it), with the AI price as the dashed second line. */
+export function chartCandles(lines: readonly HistoryLine[]): Candle[] {
+  return chartPoints(lines).map((p, i, all) => ({
+    label: p.label,
+    open: i === 0 ? p.value : all[i - 1]!.value,
+    close: p.value,
+    second: p.second ?? null,
+    marker: p.marker ?? null,
+  }));
 }
 
 // ───────────────────────────── What is public ─────────────────────────────

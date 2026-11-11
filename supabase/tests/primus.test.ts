@@ -7,6 +7,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { planBonus, sha256Hex } from "@msim/engine";
 import { Night } from "./night";
+import { as } from "./helpers";
 import { createTestDb } from "./pg";
 
 let db: Awaited<ReturnType<typeof createTestDb>>;
@@ -74,6 +75,10 @@ describe("PRIMUS rounds 2 and 3", () => {
     const after = await n.prices();
     for (const id of Object.keys(before)) expect(after[id]).toBe(Math.round(before[id]! * 0.95));
     await n.ok(n.lead, "tick", n.eventId); // once only
+    // The dealt cards are public in Round 2 (the event never reaches the classic CRISIS phase).
+    const cardsSeen = await as(db.pool, n.team(b.f_code), async (cl) =>
+      (await cl.query("select x.k, c.title from subround_crises x join crisis_cards c on c.id = x.crisis_card_id")).rows);
+    expect(cardsSeen).toHaveLength(3);
     expect(await n.prices()).toEqual(after);
 
     // ── Hiring: A offers firm X (squad a's consulting team); X counters; A accepts. B also hires X; C cannot (full).
@@ -103,6 +108,13 @@ describe("PRIMUS rounds 2 and 3", () => {
     expect(await n.call(n.team(a.p_code), "save_draft", "ADVICE_1", advice, 0)).toMatchObject({ ok: false, code: "NOT_ALLOWED" });
     await n.ok(firmCaller, "save_draft_for", a.company_id, "ADVICE_1", advice, 0);
     await n.ok(firmCaller, "submit_for", a.company_id, "ADVICE_1");
+
+    // ── A hired firm reads its client's drafts for the sub-round (B is in another squad); a firm not hired does not.
+    await n.ok(n.team(b.p_code), "save_draft", "CRISIS_1", crisisPlan, 0);
+    const draftsOfB = (caller: ReturnType<typeof n.team>) =>
+      as(db.pool, caller, async (cl) => (await cl.query("select type from submission_drafts where company_id = $1", [b.company_id])).rows);
+    expect(await draftsOfB(firmCaller)).toEqual(expect.arrayContaining([{ type: "CRISIS_1" }]));
+    expect(await draftsOfB(n.team(c.c_code))).toEqual([]);
 
     // ── Due: escrow paid to the firm for A (cash and shares), refunded to B.
     const firmCash = BigInt((await n.one("select cash_cents::bigint as c from teams where id = $1", [firm])).c);

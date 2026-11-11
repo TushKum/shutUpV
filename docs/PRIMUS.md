@@ -54,6 +54,28 @@ Trading rounds run all through `PRESSURE` and `SATURATION` (15-minute windows, �
 | Consultancy | Firm value: cash (fees and bonuses) + fee shares × closing price | Higher average client rating |
 | Finance | Final value ÷ all capital received − 1 | Smaller largest single position |
 
+## Three team portals
+
+One app, deployed three times. Each deployment sets `TEAM_PORTAL` to `PRODUCT`, `CONSULTING` or `FINANCE`: its sign-in
+page names the portal, it admits only that track's teams (a team at the wrong portal is signed out and told where to
+go; set `PORTAL_URL_PRODUCT`, `PORTAL_URL_CONSULTING` and `PORTAL_URL_FINANCE` to name the addresses), and its pages are
+that track's only. A deployment without `TEAM_PORTAL` admits every team (the organisers' console and rehearsals).
+Organisers can sign in on any portal.
+
+| Portal | Everything the track does in the crisis room (`/team/crisis`) and its other pages |
+| --- | --- |
+| Product | Crisis card per sub-round; the firm directory (profiles, ratings, asking fees); make, counter, accept, withdraw and decline offers; the response plan (`CRISIS_k`) and the Round 3 solution; rating the firm 1–5; the Round 3 draft (pick a statement on your turn); history of cards and firms. Plus Squad, Market, Q&A, Bulletins. |
+| Consulting | The firm profile (headline, specialities, rate card, asking fee); offers made to the firm (accept, counter, decline); per client: its crisis card, its response plan as it stands, the advice memo (`ADVICE_k`, via `save_draft_for` / `submit_for`) or the solution co-written with the client; engagements with escrow, ratings and bonuses; the firm-value league. Plus Earnings. |
+| Finance | The trading desk; the Round 3 injection; every company's crisis card; who hired whom and on what terms; the draft board; the firm league. |
+
+The team portal uses the Bloomberg-terminal look of the PRIMUS app: amber and green on black, monospace, square
+corners, a header data strip (phase and time left, trading round, cash, company), a scrolling price strip, function-key
+section keys (F1, F2…) and candlestick price charts.
+
+Organisers upload the Round 3 statements as CSV (`number,title,body,cap`) under Content; the overview shows each
+sub-round's progress; Judge lists the event format's types (the crisis plans, advice memos and the solution for PRIMUS).
+`pnpm seed` creates a PRIMUS event by default (`--format CLASSIC` for the classic night).
+
 ## Defaults used for the guide's open questions
 
 Round 2 lasts 6 hours (four 90-minute sub-rounds); Round 3 lasts 90 minutes; consultants are paid in cash, shares or

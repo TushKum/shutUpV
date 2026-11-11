@@ -7,7 +7,7 @@ import { loadJudgeData } from "@/lib/admin/judge-data";
 import {
   APPEAL_STATUS_LABELS,
   JUDGE_COLUMNS,
-  JUDGE_TYPES,
+  judgeTypesFor,
   TARGET_TONE,
   TYPE_NAMES,
   TYPE_TITLES,
@@ -89,6 +89,7 @@ export default async function JudgePage({
   const now = Date.parse(status.server_time);
   const pausedAt = status.paused ? status.paused_at : null;
   const settings = readSettings();
+  const JUDGE_TYPES = judgeTypesFor(event.format);
   const type = parseJudgeType(query.type) ?? defaultJudgeType(status.phase);
   const views = Object.fromEntries(JUDGE_TYPES.map((t) => [t, companyViews(t, data)])) as Record<SubmissionType, CompanyJudgeView[]>;
   const summaries = Object.fromEntries(JUDGE_TYPES.map((t) => [t, summarise(t, views[t])])) as Record<SubmissionType, TypeSummary>;

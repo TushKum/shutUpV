@@ -6,6 +6,7 @@ import { teamEmailDomain } from "@/lib/env";
 import { supabaseServer } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth/viewer";
 import { safeNext } from "@/lib/auth/routes";
+import { portalAdmits, portalUrl, teamPortal, wrongPortalMessage } from "@/lib/portal/portal";
 
 export interface LoginState {
   error?: string;
@@ -52,6 +53,12 @@ export async function signIn(_prev: LoginState, form: FormData): Promise<LoginSt
   if (!viewer) {
     await sb.auth.signOut();
     return { error: "This login is not set up for the event. Please go to the technical support desk.", login };
+  }
+  // A track's portal admits only that track's teams (organisers can sign in everywhere).
+  const portal = teamPortal();
+  if (portal && viewer.team && !portalAdmits(portal, viewer.team.track)) {
+    await sb.auth.signOut();
+    return { error: wrongPortalMessage(portal, viewer.team.track, portalUrl(viewer.team.track)), login };
   }
   redirect(safeNext(form.get("next"), viewer.role));
 }

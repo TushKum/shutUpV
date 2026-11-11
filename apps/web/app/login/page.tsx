@@ -6,6 +6,8 @@ import { LoginForm } from "./login-form";
 import { MatrixRain } from "@/components/ui/matrix/matrix-rain";
 import { CipherText } from "@/components/ui/matrix/cipher-text";
 import { DitherLayer } from "@/components/ui/matrix/dither-layer";
+import { PORTAL_TITLES, teamPortal } from "@/lib/portal/portal";
+import { TRACK_LABELS } from "@msim/engine";
 
 export const metadata: Metadata = { title: "Sign in · Market Simulation" };
 
@@ -13,6 +15,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const viewer = await getViewer();
+  const portal = teamPortal();
   if (viewer) redirect(safeNext(nextPath, viewer.role));
 
   return (
@@ -29,9 +32,13 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             &gt; wake up, trader…
           </p>
           <h1 className="mx-cursor mt-1 text-2xl font-bold text-phosphor glow">
-            <CipherText text="Market Simulation" duration={900} />
+            <CipherText text={portal ? `PRIMUS · ${PORTAL_TITLES[portal]}` : "Market Simulation"} duration={900} />
           </h1>
-          <p className="mb-6 mt-2 text-base text-paper">Sign in with the team code and password on your card.</p>
+          <p className="mb-6 mt-2 text-base text-paper">
+            {portal
+              ? `For ${TRACK_LABELS[portal]} teams. Sign in with the team code and password on your card.`
+              : "Sign in with the team code and password on your card."}
+          </p>
           <LoginForm next={nextPath} />
         </div>
       </div>

@@ -23,6 +23,14 @@ import { bp, clock, money } from "@/lib/format";
 
 export const JUDGE_TYPES = SUBMISSION_TYPES;
 
+/** The types an event judges: the classic night's four, or PRIMUS's PRD and memo, crisis plans, advice memos and solution. */
+export function judgeTypesFor(format: string | null | undefined): SubmissionType[] {
+  const primus = format === "PRIMUS";
+  return SUBMISSION_TYPES.filter((t) =>
+    primus ? !["PLAN", "FLASH"].includes(t) : ["PITCH", "MEMO", "PLAN", "FLASH"].includes(t),
+  );
+}
+
 /** Used in sentences and button labels ("Release pitch scores"). */
 const CLASSIC_TITLES: Partial<Record<SubmissionType, string>> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash", MEMO: "Crisis memo" };
 export const TYPE_TITLES: Record<SubmissionType, string> = perType((t) => CLASSIC_TITLES[t] ?? SUBMISSION_LABELS[t]);
@@ -129,6 +137,8 @@ export function parseJudgeType(v: string | string[] | undefined): SubmissionType
 
 /** The type the night is working on: pitches until the plans are published, plans until rounds 13–21, then flash. */
 export function defaultJudgeType(phase: PhaseCode): SubmissionType {
+  if (phase === "SATURATION") return "SOLUTION";
+  if (phase === "PRESSURE") return "CRISIS_1";
   if (phaseReached(phase, "ROUNDS_13_21")) return "FLASH";
   if (phaseReached(phase, "PLANS_PUBLISHED")) return "PLAN";
   return "PITCH";

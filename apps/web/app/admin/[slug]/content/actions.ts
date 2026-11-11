@@ -5,7 +5,7 @@
 // refuses one that is locked.
 
 import { rpc, type ActionResult } from "@/lib/rpc";
-import { parseCrisisDeck, parseFlashBulletin, parseProblemDeck, readCsvUpload, type Parsed } from "@/lib/admin/content";
+import { parseCrisisDeck, parseFlashBulletin, parseProblemDeck, parseStatements, readCsvUpload, type Parsed } from "@/lib/admin/content";
 
 async function parseUpload<T>(form: FormData, parse: (text: string) => Parsed<T>): Promise<Parsed<T> & { code?: string }> {
   const file = await readCsvUpload(form.get("file"));
@@ -37,4 +37,11 @@ export async function prepareFlashBulletin(eventId: string, _prev: ActionResult 
   if (!flash.ok) return { ok: false, code: flash.code, message: flash.message };
   const r = await rpc("prepare_flash_bulletin", { p_event: eventId, p_title: flash.value.title, p_body: flash.value.body });
   return r.ok ? { ...r, message: `Flash bulletin prepared: “${flash.value.title}”. Publish it under Bulletins at 04:00.` } : r;
+}
+
+export async function uploadStatements(eventId: string, _prev: ActionResult | null, form: FormData): Promise<ActionResult> {
+  const rows = await parseUpload(form, parseStatements);
+  if (!rows.ok) return { ok: false, code: rows.code, message: rows.message };
+  const r = await rpc("set_problem_statements", { p_event: eventId, p_rows: rows.value });
+  return r.ok ? { ...r, message: `Uploaded ${plural(rows.value.length, "problem statement")}; the previous ones were replaced.` } : r;
 }

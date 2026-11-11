@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { TRACK_LABELS, type Track } from "@msim/engine";
+import { PHASE_LABELS, TRACK_LABELS, type Track } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, money } from "@/lib/format";
@@ -11,7 +11,9 @@ import { Heartbeat } from "@/lib/live/heartbeat";
 import { FeedbackBar, FeedbackProvider } from "@/lib/live/feedback";
 import { SignOutButton } from "@/components/sign-out-button";
 import { Badge } from "@/components/ui/ui";
-import { ServerClock } from "@/components/ui/countdown";
+import { Countdown, ServerClock } from "@/components/ui/countdown";
+import { PORTAL_TITLES, portalAdmits, portalUrl, teamPortal, wrongPortalMessage } from "@/lib/portal/portal";
+import { MarketStrip } from "./market-strip";
 import { RealtimeDot } from "@/components/ui/realtime-dot";
 import { TeamNav } from "./nav";
 import { ActionBar } from "./action-bar";
@@ -37,6 +39,19 @@ export const metadata: Metadata = { title: { template: "%s · Team", default: "T
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
   const { team, event, status } = ctx;
+  // A track's portal shows only that track's pages: a team of another track (an old session) is sent to its own.
+  const portal = teamPortal();
+  if (portal && !portalAdmits(portal, team.track)) {
+    return (
+      <main className="term flex min-h-dvh items-center justify-center px-4">
+        <div className="max-w-md space-y-4 border border-line bg-panel p-6" data-testid="wrong-portal">
+          <p className="bg-[var(--term-amber)] px-1.5 text-xs font-black tracking-widest text-black">PRIMUS</p>
+          <p className="text-paper">{wrongPortalMessage(portal, team.track, portalUrl(team.track))}</p>
+          <SignOutButton />
+        </div>
+      </main>
+    );
+  }
   // The bar and the alerts are guidance: if the plan cannot be read (say, the database is older than the app), every
   // page still works, without them.
   const plan = await loadPlanFacts(ctx).then(homePlan, (err: unknown) => {
@@ -63,39 +78,76 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <BootSequence who={team.code} />
-        <div className="terminal-theme-scope min-h-screen">
+        <div className="terminal-theme-scope term min-h-screen">
           <header className="border-b border-line bg-ink">
-            <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-[var(--term-amber-dim)] px-4 py-1.5">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="text-2xl text-phosphor" aria-hidden>
+                <span className="bg-[var(--term-amber)] px-1.5 text-xs font-black tracking-widest text-black">PRIMUS</span>
+                <span className="text-lg text-[var(--term-amber)]" aria-hidden>
                   <Glyph e={TRACK_EMOJI[team.track]} />
                 </span>
-                <h1 className="blinking-cursor font-mono text-lg font-extrabold glow">{team.code}</h1>
-                <Badge tone="slate">{TRACK_LABELS[team.track]}</Badge>
-                <span className="hidden truncate text-sm text-paper sm:inline">{team.name}</span>
+                <h1 className="text-lg font-bold text-[var(--term-amber)]">
+                  {team.code}
+                  <span className="term-cursor ml-0.5" aria-hidden>
+                    ▮
+                  </span>
+                </h1>
+                <Badge tone="slate">{portal ? PORTAL_TITLES[portal] : TRACK_LABELS[team.track]}</Badge>
+                <span className="hidden truncate text-sm uppercase text-muted sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="rounded-xl bg-ink px-3 py-1 text-phosphor ring-1 ring-phosphor-dim glow-box">
-                  <span className="mr-1" aria-hidden>
-                    <Glyph e="💵" />
-                  </span>
-                  <span className="sr-only">Cash </span>
-                  <span className="font-mono font-extrabold tabular-nums text-phosphor glow" data-testid="team-cash">
-                    {money(team.cash)}
-                  </span>
-                </span>
-                {finance && team.collateral > 0 ? (
-                  <span className="text-xs text-muted">
-                    Locked: <span className="font-mono tabular-nums">{money(team.collateral)}</span>
-                  </span>
-                ) : null}
                 <RealtimeDot />
                 <SoundToggle />
-                <ServerClock className="hidden font-semibold sm:inline" />
+                <ServerClock className="font-semibold text-[var(--term-amber)]" />
+                <span className="text-xs text-muted">IST</span>
                 <SignOutButton />
               </div>
             </div>
+            <dl className="grid grid-cols-2 gap-px bg-line text-sm sm:grid-cols-4">
+              <div className="bg-ink px-4 py-1.5">
+                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Phase</dt>
+                <dd className="font-semibold text-paper" data-testid="team-phase">
+                  {PHASE_LABELS[status.phase]}
+                  {status.phase_ends_at ? (
+                    <span className="ml-1 text-muted">
+                      · <Countdown to={status.phase_ends_at} passed="ending" className="text-[var(--term-amber)]" />
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+              <div className="bg-ink px-4 py-1.5">
+                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Trading</dt>
+                <dd>
+                  <Badge tone={status.trading === "OPEN" ? "green" : status.trading === "PAUSED" ? "amber" : "slate"}>{status.trading}</Badge>
+                  {status.trading === "OPEN" && status.open_round ? (
+                    <span className="ml-1 text-muted">
+                      R{status.open_round.number} · <Countdown to={status.open_round.closes_at} passed="clearing" className="text-[var(--term-amber)]" />
+                    </span>
+                  ) : status.next_round ? (
+                    <span className="ml-1 text-muted">
+                      R{status.next_round.number} at {clock(status.next_round.opens_at)}
+                    </span>
+                  ) : null}
+                </dd>
+              </div>
+              <div className="bg-ink px-4 py-1.5">
+                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Cash</dt>
+                <dd className="font-mono font-semibold tabular-nums text-[var(--term-green)]" data-testid="team-cash">
+                  {money(team.cash)}
+                  {finance && team.collateral > 0 ? (
+                    <span className="ml-1 text-xs font-normal text-muted">locked {money(team.collateral)}</span>
+                  ) : null}
+                </dd>
+              </div>
+              <div className="bg-ink px-4 py-1.5">
+                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">{finance ? "Desk" : "Company"}</dt>
+                <dd className="font-mono text-[var(--term-cyan)]" data-testid="team-company">
+                  {finance ? TRACK_LABELS[team.track] : ctx.company ? `${ctx.company.ticker ?? "—"} · ${money(ctx.company.market_price)}` : "—"}
+                </dd>
+              </div>
+            </dl>
+            <MarketStrip eventId={event.id} />
           </header>
           <RoundBanner
             track={team.track}

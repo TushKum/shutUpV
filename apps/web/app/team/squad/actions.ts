@@ -24,11 +24,21 @@ export async function pickProblemCard(cardId: string, title: string): Promise<Ac
   return r.ok ? { ...r, message: `You picked “${title}”.` } : r;
 }
 
-export async function saveDraft(type: SubmissionType, fields: Fields, expectedVersion: number): Promise<DraftResult> {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Saves the squad's draft, or, with `companyId`, a client's draft that this team (a hired firm) writes for it
+ * (save_draft_for: the advice memo, or the Round 3 solution with the client).
+ */
+export async function saveDraft(type: SubmissionType, fields: Fields, expectedVersion: number, companyId?: string): Promise<DraftResult> {
   const bad = badType(type);
   if (bad) return bad;
   if (!Number.isSafeInteger(expectedVersion)) return { ok: false, code: "BAD_VERSION", message: "Reload the page and try again." };
-  const r = await rpc("save_draft", { p_type: type, p_content: draftPayload(type, fields ?? {}), p_expected_version: expectedVersion });
+  if (companyId !== undefined && !UUID_RE.test(companyId)) return { ok: false, code: "BAD_COMPANY", message: "Unknown client." };
+  const content = draftPayload(type, fields ?? {});
+  const r = companyId
+    ? await rpc("save_draft_for", { p_company: companyId, p_type: type, p_content: content, p_expected_version: expectedVersion })
+    : await rpc("save_draft", { p_type: type, p_content: content, p_expected_version: expectedVersion });
   const draft = toSnapshot(r.data?.draft) ?? undefined;
   if (r.ok && draft) return { ...r, draft, message: `Saved version ${draft.version} at ${clock(draft.updatedAt, true)}.` };
   if (r.code === "VERSION_CONFLICT") return { ...r, draft, message: "Not saved: a newer version was saved meanwhile. Your text is still here." };
@@ -39,24 +49,27 @@ export async function saveDraft(type: SubmissionType, fields: Fields, expectedVe
  * Submits the squad's draft. With `fields` (text not saved yet), saves it first; without, checks that the saved
  * version is still the one on screen. submit_submission submits the saved draft.
  */
-export async function submitDraft(type: SubmissionType, fields: Fields | null, expectedVersion: number): Promise<DraftResult> {
+export async function submitDraft(type: SubmissionType, fields: Fields | null, expectedVersion: number, companyId?: string): Promise<DraftResult> {
   const bad = badType(type);
   if (bad) return bad;
+  if (companyId !== undefined && !UUID_RE.test(companyId)) return { ok: false, code: "BAD_COMPANY", message: "Unknown client." };
   let draft: DraftSnapshot | undefined;
   if (fields) {
-    const saved = await saveDraft(type, fields, expectedVersion);
+    const saved = await saveDraft(type, fields, expectedVersion, companyId);
     if (!saved.ok) return saved.code === "VERSION_CONFLICT" ? { ...saved, message: "Not submitted: a newer version was saved meanwhile. Your text is still here." } : saved;
     draft = saved.draft;
   } else {
     const sb = await supabaseServer();
-    const { data, error } = await sb.from("submission_drafts").select("version, content, updated_at, updated_by_team").eq("type", type).maybeSingle();
+    let q = sb.from("submission_drafts").select("version, content, updated_at, updated_by_team").eq("type", type);
+    if (companyId) q = q.eq("company_id", companyId);
+    const { data, error } = await q.maybeSingle();
     if (error || !data) return { ok: false, code: "NOT_ALLOWED", message: "Your team cannot submit this." };
     draft = toSnapshot(data) ?? undefined;
     if (draft && draft.version !== expectedVersion) {
       return { ok: false, code: "VERSION_CONFLICT", message: "Not submitted: a newer version was saved meanwhile. Check it, then submit.", draft };
     }
   }
-  const r = await rpc("submit_submission", { p_type: type });
+  const r = companyId ? await rpc("submit_for", { p_company: companyId, p_type: type }) : await rpc("submit_submission", { p_type: type });
   if (!r.ok) return { ...r, draft };
   const sub = toSubmitted(r.data?.submission);
   if (!sub) return { ok: true, message: "Submitted.", draft };

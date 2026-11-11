@@ -129,7 +129,7 @@ const ROUND_PATHS: Record<Track, Record<Stage, readonly string[]>> = {
 const PRIMUS_PATHS: Record<Track, readonly string[]> = {
   PRODUCT: ["", "/crisis", "/squad", "/chat", "/qa", "/market", "/bulletins"],
   CONSULTING: ["", "/crisis", "/squad", "/earnings", "/chat", "/qa", "/market", "/bulletins"],
-  FINANCE: ["", "/trade", "/chat", "/qa", "/market", "/bulletins"],
+  FINANCE: ["", "/trade", "/crisis", "/chat", "/qa", "/market", "/bulletins"],
 };
 
 const pathsFor = (track: Track, phase: PhaseCode): readonly string[] =>
@@ -229,6 +229,7 @@ export function submissionsFor(phase: PhaseCode): ("PITCH" | "MEMO" | "PLAN" | "
 export const SECTION_ICONS: Record<string, string> = {
   "": "🏠",
   "/squad": "🧩",
+  "/crisis": "🚨",
   "/rescue": "🛟",
   "/chat": "💬",
   "/calls": "📞",
