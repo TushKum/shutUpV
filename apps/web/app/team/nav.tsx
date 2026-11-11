@@ -3,12 +3,12 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Track } from "@msim/engine";
-import { TEAM_SECTIONS } from "@/lib/team/sections";
+import type { TeamSection } from "@/lib/team/sections";
+import { SECTION_ICONS } from "@/lib/team/focus";
 
-// The sections of this team's track. On a phone the row scrolls sideways and keeps the current tab in view (only the
-// row scrolls, never the page).
-export function TeamNav({ track }: { track: Track }) {
+// This round's sections only (focus mode), as big buttons with an icon. On a phone the row scrolls sideways and keeps
+// the current button in view (only the row scrolls, never the page).
+export function TeamNav({ sections }: { sections: readonly TeamSection[] }) {
   const pathname = usePathname();
   const nav = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -20,8 +20,8 @@ export function TeamNav({ track }: { track: Track }) {
     if (t.left < r.left || t.right > r.right) row.scrollLeft += t.left - r.left - (r.width - t.width) / 2;
   }, [pathname]);
   return (
-    <nav ref={nav} className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4" aria-label="Sections">
-      {TEAM_SECTIONS[track].map((s) => {
+    <nav ref={nav} className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 py-2" aria-label="Sections">
+      {sections.map((s) => {
         const href = `/team${s.path}`;
         const active = s.path === "" ? pathname === "/team" : pathname.startsWith(href);
         return (
@@ -29,11 +29,12 @@ export function TeamNav({ track }: { track: Track }) {
             key={s.path}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              active ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition ${
+              active ? "bg-slate-900 text-white shadow" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
-            {s.label}
+            <span aria-hidden>{SECTION_ICONS[s.path] ?? "•"}</span>
+            <span>{s.label}</span>
           </Link>
         );
       })}

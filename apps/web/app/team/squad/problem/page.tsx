@@ -41,9 +41,11 @@ export default async function ProblemCardPage() {
       <Panel
         title={pick.oneCase ? "The case" : "Problem card"}
         actions={
-          <span className="text-sm text-slate-600">
-            Pick closes <Due at={deadline} {...pauseOf(ctx)} testId="pick-due" />
-          </span>
+          pick.oneCase ? null : (
+            <span className="text-sm text-slate-600">
+              Pick closes <Due at={deadline} {...pauseOf(ctx)} testId="pick-due" />
+            </span>
+          )
         }
       >
         <Notice tone={pick.canPick && !pick.chosenId ? "amber" : "slate"}>{pick.note}</Notice>
@@ -79,7 +81,7 @@ export default async function ProblemCardPage() {
             })}
           </ol>
         )}
-        {!pick.mayPick ? <p className="mt-3 text-sm text-slate-500">The Product team picks the card; you see its pick here.</p> : null}
+        {!pick.mayPick && !pick.oneCase ? <p className="mt-3 text-sm text-slate-500">The Product team picks the card; you see its pick here.</p> : null}
       </Panel>
     </div>
   );

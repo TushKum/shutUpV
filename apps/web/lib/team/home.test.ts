@@ -92,6 +92,14 @@ describe("what to do now, per track and phase", () => {
     expect(later.now[0]).toMatchObject({ title: "Write and submit your pitch card", due: at("22:30"), state: "todo" });
   });
 
+  test("one case for every squad: no pick task, straight to the pitch", () => {
+    for (const track of ["PRODUCT", "CONSULTING"] as const) {
+      const plan = homePlan({ ...facts(track, "SQUAD_DRAW", "21:02"), progress: progress({ problemPicked: true, oneCase: true }) });
+      expect(plan.now.map((t) => t.key)).not.toContain("PROBLEM_PICK");
+      expect(plan.next.map((t) => t.key)).not.toContain("PROBLEM_PICK");
+    }
+  });
+
   test("Consulting sees the pitch as its partner's, and call 1 is open from the draw until 23:15 or the pitch release", () => {
     const f = facts("CONSULTING", "BUILD", "21:30");
     const plan = homePlan(f);

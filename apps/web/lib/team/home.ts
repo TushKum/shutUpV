@@ -40,6 +40,8 @@ export interface DealProgress {
 
 export interface HomeProgress {
   problemPicked: boolean;
+  /** One case for every squad: a single card was dealt and chosen at the draw, so there is no pick. */
+  oneCase?: boolean;
   /** The squad has a current (on-time) submission of this type. */
   submitted: Record<SubmissionType, boolean>;
   fee: FeeProgress | null;
@@ -375,7 +377,7 @@ export function homePlan(f: HomeFacts): HomePlan {
   const p = f.progress;
 
   if (f.track === "PRODUCT" || f.track === "CONSULTING") {
-    if (windowOpen(f, "PROBLEM_PICK")) {
+    if (windowOpen(f, "PROBLEM_PICK") && !p.oneCase) {
       add(
         "PROBLEM_PICK",
         task(f, "PROBLEM_PICK", {
@@ -489,6 +491,7 @@ export function homePlan(f: HomeFacts): HomePlan {
   for (const code of TRACK_DEADLINES[f.track]) {
     const at = deadlineAt(f, code);
     if (!at || shown.has(code) || deadlinePassed(f, code) || closedEarly(f, code)) continue;
+    if (code === "PROBLEM_PICK" && f.progress.oneCase) continue; // one case for every squad: no pick
     next.push({ key: code, title: UPCOMING_TITLES[code], at, href: hrefFor(f.track, code) });
   }
   if (f.track === "FINANCE" && f.nextRound && !f.openRound) {

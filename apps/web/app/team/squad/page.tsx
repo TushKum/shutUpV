@@ -1,3 +1,4 @@
+import { submissionsFor } from "@/lib/team/focus";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SUBMISSION_TYPES, TRACKS, TRACK_LABELS, type Track } from "@msim/engine";
@@ -28,6 +29,7 @@ export default async function SquadOverview() {
   const ws = await loadSquadWorkspace(ctx);
   const w = windowInput(ctx, ws);
   const pause = pauseOf(ctx);
+  const thisRound: string[] = submissionsFor(ctx.status.phase);
   const pick = pickState({ ...pause, track: ctx.team.track, nowMs: w.nowMs, deadline: ws.deadlines.PROBLEM_PICK ?? null, dealt: squad.dealt_card_ids, chosenId: squad.chosen_card_id, byDefault: squad.chosen_by_default });
   const windows = SUBMISSION_TYPES.map((t) => submissionWindow(t, ctx.team.track, w));
   const statuses = SUBMISSION_TYPES.map((t, i) => submissionStatus(t, ws.drafts[t], ws.submissions, windows[i]!, pause));
@@ -110,11 +112,13 @@ export default async function SquadOverview() {
         </div>
       </Panel>
 
-      <Panel title="Submissions">
+      <Panel title={thisRound.length < 3 ? "This round" : "Submissions"}>
         <ul className="grid gap-3 lg:grid-cols-3">
-          {statuses.map((s, i) => (
-            <StatusCard key={s.type} s={s} who={(id) => whoLabel(squad, ctx.team.id, id)} due={windows[i]!.deadline} pause={pause} />
-          ))}
+          {statuses.map((s, i) =>
+            thisRound.includes(s.type) ? (
+              <StatusCard key={s.type} s={s} who={(id) => whoLabel(squad, ctx.team.id, id)} due={windows[i]!.deadline} pause={pause} />
+            ) : null,
+          )}
         </ul>
         <p className="mt-3 text-xs text-slate-500">
           Only the last version submitted on time is judged; a saved draft that is not submitted is not judged.

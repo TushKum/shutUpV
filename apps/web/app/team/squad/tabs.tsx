@@ -11,23 +11,24 @@ const TABS = [
   { href: "/team/squad/flash", label: "Flash" },
 ] as const;
 
-// The views of the squad workspace. On a phone the pills wrap onto a second line (never wider than the screen).
-export function SquadTabs() {
+// The views of the squad workspace: this round's only (the layout passes which). On a phone the pills wrap onto a
+// second line (never wider than the screen).
+export function SquadTabs({ show, oneCase = false }: { show: readonly string[]; oneCase?: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="flex flex-wrap gap-2" aria-label="Squad workspace">
-      {TABS.map((t) => {
+      {TABS.filter((t) => show.includes(t.href)).map((t) => {
         const active = pathname === t.href;
         return (
           <Link
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+            className={`rounded-xl px-4 py-2 text-sm font-bold ${
               active ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-inset ring-slate-200 hover:bg-slate-50"
             }`}
           >
-            {t.label}
+            {oneCase && t.href === "/team/squad/problem" ? "The case" : t.label}
           </Link>
         );
       })}

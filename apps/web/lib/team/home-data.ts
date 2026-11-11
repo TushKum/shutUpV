@@ -77,6 +77,7 @@ export function planFacts(ctx: Pick<TeamContext, "team" | "event" | "status" | "
 
   const progress: HomeProgress = {
     problemPicked: !!squad?.chosen_card_id,
+    oneCase: squad?.dealt_card_ids.length === 1,
     submitted,
     fee: fee
       ? {
