@@ -18,6 +18,8 @@ import { DitherLayer } from "@/components/ui/matrix/dither-layer";
 import { scoreNow } from "@/lib/team/badges";
 import { loadBadges } from "@/lib/team/badges-data";
 import { BadgesCard } from "./badges-card";
+import { loadPulse } from "@/lib/team/pulse-data";
+import { PulseCard } from "./pulse-card";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -47,6 +49,8 @@ export default async function TeamHome() {
     .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
   const squadWork = plan.now.some((t) => ["PROBLEM_PICK", "PITCH", "FEE", "DEAL", "PLAN", "FLASH"].includes(t.key) && t.state !== "done");
   const marketOpen = phaseReached(status.phase, "READING");
+  // The last trading round's headline (public prices only), once the market is open.
+  const pulse = marketOpen ? await loadPulse(ctx.event.id) : null;
   // The big card: the first task still to do (they come in the order they close); the rest form the checklist.
   const main = plan.now.find((t) => t.state === "todo") ?? null;
   // Coming up: only this round's deadlines (later rounds stay out of sight until they start).
@@ -140,6 +144,8 @@ export default async function TeamHome() {
           )}
         </Tile>
       </div>
+
+      {pulse ? <PulseCard pulse={pulse} /> : null}
 
       {badges ? <BadgesCard badges={badges} /> : null}
 
