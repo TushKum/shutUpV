@@ -243,7 +243,7 @@ function Card({ icon, title, action, children }: { icon: string; title: string; 
 function Due({ t, big = false }: { t: HomeTask; big?: boolean }) {
   if (!t.due) return null;
   return (
-    <p className="whitespace-nowrap text-right">
+    <p className={`whitespace-nowrap ${big ? "sm:text-right" : "text-right"}`}>
       <span className={`block text-xs ${big ? "text-white/80" : "text-slate-500"}`}>
         {t.dueLabel} · {clock(t.due)}
       </span>
@@ -256,7 +256,8 @@ function Due({ t, big = false }: { t: HomeTask; big?: boolean }) {
 function BigTask({ t }: { t: HomeTask }) {
   return (
     <li className="mb-3 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 p-5 text-white shadow-md" data-testid={`task-${t.key}`} data-state={t.state}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* On a phone the countdown sits under the text, so the text keeps the full width. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-widest text-white/80">📝 Do this now</p>
           <h3 className="mt-1 text-2xl font-extrabold leading-tight">{t.title}</h3>
@@ -281,22 +282,25 @@ function SmallTask({ t }: { t: HomeTask }) {
       <span className="text-2xl" aria-hidden>
         {st?.icon ?? "ℹ️"}
       </span>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[12rem] flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-bold text-slate-900">{t.title}</h3>
           {st ? <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${st.chip}`}>{st.label}</span> : null}
         </div>
         <p className="text-sm text-slate-600">{t.detail}</p>
       </div>
-      <Due t={t} />
-      {t.href ? (
-        <Link
-          href={t.href}
-          className={`rounded-xl px-3 py-2 text-sm font-bold ${t.state === "todo" ? "bg-slate-900 text-white hover:bg-slate-700" : "bg-slate-100 text-slate-800 hover:bg-slate-200"}`}
-        >
-          {t.linkLabel}
-        </Link>
-      ) : null}
+      {/* On a phone the countdown and the button go on their own row, under the text. */}
+      <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
+        <Due t={t} />
+        {t.href ? (
+          <Link
+            href={t.href}
+            className={`rounded-xl px-3 py-2 text-sm font-bold ${t.state === "todo" ? "bg-slate-900 text-white hover:bg-slate-700" : "bg-slate-100 text-slate-800 hover:bg-slate-200"}`}
+          >
+            {t.linkLabel}
+          </Link>
+        ) : null}
+      </div>
     </li>
   );
 }
