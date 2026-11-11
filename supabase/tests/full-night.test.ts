@@ -154,10 +154,11 @@ describe("a full night with 150 teams", { timeout: 600_000 }, () => {
         ticker: `Q${letters[Math.floor(i / 25)]}${letters[i % 25]}`,
         problem: "Unsafe water in small towns.",
         solution: "Sensors in every tank.",
-        customers: "Town councils.",
+        mvp: "Sensor, SMS alert and a web page.",
+        metrics: "100 tanks live in six months.",
         business_model: "Yearly subscription.",
         advantage: "Cheaper than lab tests.",
-        use_of_seed: "First 100 sensors.",
+        risks: "Sensors drift: monthly recalibration.",
       }, 0);
       // Two squads never submit (their companies get a default ticker and the missing score).
       if (i >= 48) return;

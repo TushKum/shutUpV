@@ -73,7 +73,7 @@ export default async function TeamJudgingPage() {
     <div className="space-y-6">
       <Panel title="How the judge scores">
         <p className="text-sm text-paper">
-          An AI judge scores every pitch card, rescue plan and flash answer out of 100 against a published rubric. This is what happens to a
+          An AI judge scores every PRD, rescue plan and flash answer out of 100 against a published rubric. This is what happens to a
           submission, and below are the three prompts the judge is given, word for word.
         </p>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-paper marker:text-muted" aria-label="How a submission is judged">

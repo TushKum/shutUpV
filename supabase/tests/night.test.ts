@@ -43,10 +43,11 @@ async function pitch(s: number, t: string, words = "Unsafe water in small towns.
     ticker: t,
     problem: words,
     solution: "Sensors in every tank.",
-    customers: "Town councils.",
+    mvp: "Sensor, SMS alert and a web page.",
+    metrics: "100 tanks live in six months.",
     business_model: "Yearly subscription per tank.",
     advantage: "Cheaper than lab tests.",
-    use_of_seed: "First 100 sensors.",
+    risks: "Sensors drift: monthly recalibration.",
   }, draft.version);
   return n.call(p, "submit_submission", "PITCH");
 }
@@ -173,7 +174,7 @@ describe("a scripted night", () => {
     await n.ok(n.team(m.p_code), "save_draft", "PITCH", { company_name: "Copycat", ticker: "AQS", problem: "x y z" }, 0);
     expect(await n.call(n.team(m.p_code), "submit_submission", "PITCH")).toMatchObject({ ok: false, code: "TICKER_TAKEN" });
     expect(await n.call(n.team(m.p_code), "save_draft", "PITCH", { problem: "stale" }, 0)).toMatchObject({ ok: false, code: "VERSION_CONFLICT" });
-    const words = Array.from({ length: 401 }, () => "word").join(" ");
+    const words = Array.from({ length: 801 }, () => "word").join(" ");
     await n.ok(n.team(m.p_code), "save_draft", "PITCH", { company_name: "Long", ticker: "LONG", problem: words }, 1);
     expect(await n.call(n.team(m.p_code), "submit_submission", "PITCH")).toMatchObject({ ok: false, code: "TOO_LONG" });
 

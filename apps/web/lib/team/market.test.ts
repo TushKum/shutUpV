@@ -146,7 +146,7 @@ describe("what is public", () => {
   });
   test("template sections in order; a missing or non-text section is empty", () => {
     const s = submissionSections("PITCH", { problem: "  Dirty water.  ", solution: 42, company_name: "AquaSense" });
-    expect(s.map((x) => x.label)).toEqual(["The problem", "The solution", "Customers", "How we make money", "Our advantage", "Use of seed money"]);
+    expect(s.map((x) => x.label)).toEqual(["Problem and target user", "Proposed solution", "Core features and MVP scope", "Success metrics", "Business model", "Competitive edge", "Key risks"]);
     expect(s[0]!.text).toBe("Dirty water.");
     expect(s[1]!.text).toBe("");
   });

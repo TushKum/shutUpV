@@ -67,10 +67,10 @@ test("Reading: the listing (no prices yet), the pitch book with every company's 
       ticker: ticker(i),
       problem: `Problem of company ${i + 1}.`,
       solution: "Sensors in every tank.",
-      customers: "Town councils.",
+      mvp: "Town councils.",
       business_model: "Yearly subscription.",
       advantage: "Cheaper than lab tests.",
-      use_of_seed: "",
+      risks: "",
     }, 0);
     await ev.n.ok(ev.n.team(x.p_code), "submit_submission", "PITCH");
   }
@@ -93,12 +93,13 @@ test("Reading: the listing (no prices yet), the pitch book with every company's 
   await expect(page.getByRole("heading", { name: "Pitch book (3 of 3)" })).toBeVisible();
   const eca = page.getByRole("region", { name: `${ticker(0)} pitch book` });
   await expect(eca.getByTestId("submission-PITCH").locator("dt")).toHaveText([
-    "The problem",
-    "The solution",
-    "Customers",
-    "How we make money",
-    "Our advantage",
-    "Use of seed money",
+    "Problem and target user",
+    "Proposed solution",
+    "Core features and MVP scope",
+    "Success metrics",
+    "Business model",
+    "Competitive edge",
+    "Key risks",
   ]);
   await expect(eca.getByTestId("submission-PITCH").locator("dd").first()).toHaveText("Problem of company 1.");
   await expect(eca.getByTestId("submission-PITCH").locator("dd").last()).toHaveText("(left empty)");
@@ -146,7 +147,7 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
   await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^Pitch66\/100\+5% on the IPO price/);
   // Why: the published judge run's points per rubric line and its rationale.
   await page.getByTestId("verdict-PITCH").getByText("Why this score").click();
-  await expect(page.getByTestId("verdict-PITCH")).toContainText("Problem and how many people have it25/25");
+  await expect(page.getByTestId("verdict-PITCH")).toContainText("Problem and target user20/20");
   await expect(page.getByTestId("verdict-PITCH")).toContainText("One. Two. Three.");
   await expect(history(page)).toHaveCount(2);
   // The chart draws the same two steps, the IPO tagged.

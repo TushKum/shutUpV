@@ -1,6 +1,6 @@
 "use client";
 
-// The squad's draft of one submission (pitch card, rescue plan or flash answer), edited from several screens: the
+// The squad's draft of one submission (PRD, rescue plan or flash answer), edited from several screens: the
 // template's fields with a word counter per field and in total, Save (one click: a draft can be changed until the
 // deadline) and Submit (two clicks: it replaces the version that will be judged). Every save names the version it
 // was based on. A version saved elsewhere meanwhile is merged section by section with what was typed here: the other

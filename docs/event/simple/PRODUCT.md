@@ -22,11 +22,12 @@ At 21:00 the computer puts you in a team of three, called a **squad**:
 
 1. **Pick your idea (21:00–21:10).** You get 3 problem cards, like "Unsafe water in small towns". Pick one. Your stand
    will fix that problem.
-2. **Write your story (by 22:30).** This is the **pitch**: up to 400 words. Say:
-   - what the problem is and who has it,
-   - how you fix it,
+2. **Write your story (by 22:30).** This is the **PRD** (Product Requirements Document): up to 800 words. Say:
+   - what the problem is, who has it and what it costs them,
+   - how you fix it, and the small first version you will build,
+   - how you will know it works (numbers and dates),
    - who pays you and how much,
-   - why people will pick you.
+   - why people will pick you, and what could go wrong.
    A robot teacher (the AI judge) gives it marks out of 100. **Good marks = a higher starting price.**
 3. **Answer questions (22:30 onwards).** Investors ask you questions. Answer them nicely, in up to 100 words.
 4. **Oh no! (00:30).** Something bad happens to your stand, like your supplier disappearing. You get a **crisis card**.

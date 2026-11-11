@@ -132,10 +132,11 @@ export function pitchContent(squadNumber: number, r: () => number): Record<strin
     ticker: tickerFor(squadNumber),
     problem: `Small towns lack reliable ${sector} services and lose money every month.`,
     solution: `A low-cost ${sector} service run from a phone app with local partners.`,
-    customers: "Town councils and small businesses.",
+    mvp: "First version: the phone app, partner sign-up and a monthly report; no hardware yet.",
+    metrics: "Ten towns paying within six months.",
     business_model: "A monthly subscription per site, plus a set-up fee.",
     advantage: "Half the price of today's options and ready in a week.",
-    use_of_seed: "Hire two engineers and sign the first ten towns.",
+    risks: "Towns pay late: we bill quarterly in advance.",
   };
 }
 

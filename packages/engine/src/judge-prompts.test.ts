@@ -23,9 +23,10 @@ const TAGS: Record<SubmissionType, readonly string[]> = {
 
 /**
  * Word caps, to keep the prompts plain. PLAN may run to 950: it describes three context blocks, and the deal summary
- * carries numbers the judge needs explained (the price against the post-crisis price, and the stake).
+ * carries numbers the judge needs explained (the price against the post-crisis price, and the stake). PITCH (the PRD)
+ * may run to 1,050: it has six rubric lines, each with its anchors.
  */
-const WORD_CAP: Record<SubmissionType, number> = { PITCH: 900, PLAN: 950, FLASH: 900 };
+const WORD_CAP: Record<SubmissionType, number> = { PITCH: 1050, PLAN: 950, FLASH: 900 };
 
 /** Rubric table rows: | `key` | what earns points | max | */
 function rubricRows(markdown: string): { key: string; max: number }[] {
@@ -156,7 +157,7 @@ describe("calibration pitches", () => {
     expect(max - min).toBeLessThanOrEqual(20);
   });
 
-  test.each(samples)("sample $sample_no: stored pitch format, all six labels in order, at most 400 words", (s) => {
+  test.each(samples)("sample $sample_no: stored PRD format, all seven labels in order, at most 800 words", (s) => {
     expect(wordCount(s.text)).toBeLessThanOrEqual(RULES.WORD_LIMIT.PITCH);
     const content = parsePitch(s.text);
     expect(content, s.text).not.toBeNull();

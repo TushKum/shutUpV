@@ -89,7 +89,7 @@ describe("what to do now, per track and phase", () => {
     // Past the pick deadline only the pitch is left; it is due 22:30.
     const later = homePlan(facts("PRODUCT", "BUILD", "21:30"));
     expect(later.now.map((t) => t.key)).toEqual(["PITCH"]);
-    expect(later.now[0]).toMatchObject({ title: "Write and submit your pitch card", due: at("22:30"), state: "todo" });
+    expect(later.now[0]).toMatchObject({ title: "Write and submit your PRD", due: at("22:30"), state: "todo" });
   });
 
   test("one case for every squad: no pick task, straight to the pitch", () => {
@@ -104,7 +104,7 @@ describe("what to do now, per track and phase", () => {
     const f = facts("CONSULTING", "BUILD", "21:30");
     const plan = homePlan(f);
     expect(plan.now.map((t) => t.key)).toEqual(["PITCH", "CALL_1"]);
-    expect(plan.now[0]).toMatchObject({ title: "Help with the pitch card", state: "info" });
+    expect(plan.now[0]).toMatchObject({ title: "Help with the PRD", state: "info" });
     expect(plan.now[1]).toMatchObject({ href: "/team/calls", state: "todo" });
     expect(keys(facts("CONSULTING", "READING", "23:00", { progress: progress({ calls: { 1: { made: 2, total: 2 }, 2: { made: 0, total: 2 }, 3: { made: 0, total: 2 } } }) }))).toEqual(["CALL_1"]);
     expect(homePlan(facts("CONSULTING", "READING", "23:00", { progress: progress({ calls: { 1: { made: 2, total: 2 }, 2: { made: 0, total: 2 }, 3: { made: 0, total: 2 } } }) })).now[0]!.state).toBe("done");

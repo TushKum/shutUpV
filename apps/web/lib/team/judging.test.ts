@@ -12,7 +12,7 @@ describe("publishedPrompts", () => {
   test("the three prompts of the repository, in the order of the night, read with the judge's own loader", () => {
     const prompts = publishedPrompts();
     expect(prompts.map((p) => [p.type, p.label, p.file, p.wordLimit])).toEqual([
-      ["PITCH", "Pitch card", "PITCH.md", 400],
+      ["PITCH", "PRD", "PITCH.md", 800],
       ["PLAN", "Rescue plan", "PLAN.md", 500],
       ["FLASH", "Flash answer", "FLASH.md", 100],
     ]);

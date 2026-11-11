@@ -148,7 +148,7 @@ export const TRACK_DEADLINES: Record<Track, readonly DeadlineCode[]> = {
 
 const UPCOMING_TITLES: Record<DeadlineCode, string> = {
   PROBLEM_PICK: "Problem card pick closes",
-  PITCH: "Pitch card due",
+  PITCH: "PRD due",
   CALL_1: "Call 1 due",
   IPO_BIDS: "IPO bids close",
   FEE: "Advisor fee due (otherwise $22,500 cash is paid by default)",
@@ -260,7 +260,7 @@ function task(f: HomeFacts, code: DeadlineCode | null, t: Omit<HomeTask, "due" |
 const LINK_LABELS: Record<string, string> = {
   [SQUAD]: "Open Squad",
   [PROBLEM]: "Open the problem cards",
-  [PITCH]: "Open the pitch card",
+  [PITCH]: "Open the PRD",
   [PLAN]: "Open the rescue plan",
   [FLASH]: "Open the flash answer",
   [IPO]: "Open IPO bids",
@@ -325,12 +325,12 @@ function submissionTask(f: HomeFacts, type: "PITCH" | "PLAN" | "FLASH"): HomeTas
   const at = clock(deadlineAt(f, type));
   const writes = f.track === "PRODUCT" || type !== "PITCH";
   const titles = {
-    PITCH: writes ? "Write and submit your pitch card" : "Help with the pitch card",
+    PITCH: writes ? "Write and submit your PRD" : "Help with the PRD",
     PLAN: "Write and submit the rescue plan",
     FLASH: "Answer the flash news",
   };
   const about = {
-    PITCH: "Company name, a 3–4 letter ticker and the six template sections, up to 400 words.",
+    PITCH: "Company name, a 3–4 letter ticker and the seven PRD sections, up to 800 words.",
     PLAN: `Up to 500 words, written by your Product and Consulting teams together. A late plan scores 0; without a fully signed deal at ${clock(deadlineAt(f, "DEAL"))} the score is capped at 50.`,
     FLASH: "Up to 100 words, answering the bulletin.",
   };
@@ -408,7 +408,7 @@ export function homePlan(f: HomeFacts): HomePlan {
         task(f, null, {
           key: "READ",
           title: "Read the pitch book",
-          detail: "Every company's pitch card is public now. IPO prices are released at the IPO.",
+          detail: "Every company's PRD is public now. IPO prices are released at the IPO.",
           href: BOOK,
           state: "info",
         }),
@@ -544,7 +544,7 @@ export interface PricedCompany {
 export interface HoldingLine {
   key: string;
   companyId: string;
-  /** Null before the company has a ticker (the squad's own company before its pitch card). */
+  /** Null before the company has a ticker (the squad's own company before its PRD). */
   ticker: string | null;
   name: string;
   lot: LotType;

@@ -10,13 +10,15 @@ export interface TemplateField {
 }
 
 export const TEMPLATES: Record<SubmissionType, readonly TemplateField[]> = {
+  // The PRD (PRIMUS event guide, Round 1). The submission type keeps its code, PITCH.
   PITCH: [
-    { key: "problem", label: "The problem" },
-    { key: "solution", label: "The solution" },
-    { key: "customers", label: "Customers" },
-    { key: "business_model", label: "How we make money" },
-    { key: "advantage", label: "Our advantage" },
-    { key: "use_of_seed", label: "Use of seed money" },
+    { key: "problem", label: "Problem and target user" },
+    { key: "solution", label: "Proposed solution" },
+    { key: "mvp", label: "Core features and MVP scope" },
+    { key: "metrics", label: "Success metrics" },
+    { key: "business_model", label: "Business model" },
+    { key: "advantage", label: "Competitive edge" },
+    { key: "risks", label: "Key risks" },
   ],
   PLAN: [
     { key: "crisis", label: "The crisis" },

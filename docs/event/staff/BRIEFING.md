@@ -30,7 +30,7 @@ Show the timetable (Handbook §4). Stress the hard deadlines, in red:
 
 ## Slide 4: The judge (4 min)
 
-- Pitch ≤400 words, plan ≤500, flash ≤100. Rubrics on the Judging page of your portal: it is the exact text the judge
+- PRD ≤800 words, plan ≤500, flash ≤100. Rubrics on the Judging page of your portal: it is the exact text the judge
   receives. Read it during Build.
 - Anonymous: your names become your ticker.
 - Scored three times; the median counts.

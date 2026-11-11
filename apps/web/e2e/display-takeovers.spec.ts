@@ -44,10 +44,10 @@ async function pitchesReleased() {
       ticker: `EU${"ABC"[i]}`,
       problem: "Unsafe water in small towns.",
       solution: "Sensors in every tank.",
-      customers: "Town councils.",
+      mvp: "Town councils.",
       business_model: "Yearly subscription.",
       advantage: "Cheaper than lab tests.",
-      use_of_seed: "First 100 sensors.",
+      risks: "First 100 sensors.",
     }, 0);
     await ev.n.ok(p, "submit_submission", "PITCH");
   }

@@ -35,7 +35,7 @@ export default async function PlanPage() {
       <RefreshAt at={dealDeadline} />
       <p className="mb-3 text-sm text-paper">
         Up to {RULES.WORD_LIMIT.PLAN} words, written together by your squad&apos;s Product and Consulting teams: each save shows here for both. The judge
-        also reads your pitch card, your crisis card and a summary of the deal.
+        also reads your PRD, your crisis card and a summary of the deal.
       </p>
       <div className="mb-4">
         <PlanRules

@@ -136,7 +136,7 @@ export default async function TeamHome() {
                     ) : null}
                   </>
                 ) : (
-                  <span className="text-paper">Named, with its ticker, on the pitch card (by the pitch deadline).</span>
+                  <span className="text-paper">Named, with its ticker, on the PRD (by the pitch deadline).</span>
                 )}
               </span>
             </>

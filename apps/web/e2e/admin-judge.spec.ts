@@ -83,10 +83,10 @@ test.describe("judging the pitches", () => {
           ticker,
           problem: "Unsafe water in small towns.",
           solution: "Sensors in every tank.",
-          customers: "Town councils.",
+          mvp: "Town councils.",
           business_model: "Yearly subscription.",
           advantage: "Cheaper than lab tests.",
-          use_of_seed: "First 100 sensors.",
+          risks: "First 100 sensors.",
         },
         0,
       );
@@ -160,15 +160,15 @@ test.describe("judging the pitches", () => {
     // The detail of every run: model, status, total, breakdown, rationale; the published (median) run; the re-run.
     await page.getByRole("button", { name: "Show runs of KAQ" }).click();
     const detail = page.getByRole("region", { name: "Runs of KAQ" });
-    await expect(detail.getByText("Problem: Unsafe water in small towns.", { exact: false })).toBeVisible();
+    await expect(detail.getByText("Problem and target user: Unsafe water in small towns.", { exact: false })).toBeVisible();
     await expect(detail.getByText("One. Two. Three. (run 2)").first()).toBeVisible(); // the published rationale: the first run at the median
     await expect(detail.getByText("From the first run whose total equals the median (66).")).toBeVisible();
     await expect(detail.locator("thead")).not.toContainText("Generation"); // one generation only
     const run1 = detail.getByRole("row").filter({ hasText: "One. Two. Three. (run 1)" });
     await expect(run1).toContainText("test-model");
     await expect(run1).toContainText("DONE");
-    await expect(run1).toContainText("How the company makes money14/25");
-    await expect(run1).toContainText("Advantage over other options0/25");
+    await expect(run1).toContainText("Business model9/15");
+    await expect(run1).toContainText("Clarity0/15");
     await expect(detail.getByRole("button", { name: "Re-run KAQ's pitch" })).toBeVisible();
     await page.getByRole("button", { name: "Hide runs of KAQ" }).click();
     await expect(detail).toHaveCount(0);
