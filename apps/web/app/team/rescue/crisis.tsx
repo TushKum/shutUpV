@@ -6,6 +6,8 @@ import { clock, money } from "@/lib/format";
 import { rescueTimeline, type CrisisMove, type Deadlines, type PauseState } from "@/lib/team/rescue";
 import type { CrisisCardRow } from "@/lib/team/rescue-data";
 import type { SquadCompany } from "@/lib/team/context";
+import { ThermalBeam } from "@/components/ui/matrix/thermal-scan";
+import { CipherText } from "@/components/ui/matrix/cipher-text";
 import { Panel, Stat } from "@/components/ui/ui";
 import { Due } from "./parts";
 
@@ -56,9 +58,12 @@ export function CrisisPanel({
     <Panel title="The crisis">
       <div className="grid gap-4 md:grid-cols-2">
         {card ? (
-          <div className="border-l-4 border-danger/70 bg-danger/10 py-2 pl-3 pr-2" data-testid="crisis-card">
-            <p className="text-xs font-semibold uppercase tracking-wide text-danger-soft">Crisis · {card.category}</p>
-            <h3 className="mt-1 font-semibold text-phosphor">{card.title}</h3>
+          <div className="mx-thermal border-l-4 border-danger bg-danger/10 py-2 pl-3 pr-2" data-testid="crisis-card">
+            <ThermalBeam />
+            <p className="font-mono text-xs font-semibold uppercase tracking-wide text-danger-soft">Crisis · {card.category}</p>
+            <h3 className="mt-1 font-semibold text-danger [--mx-cipher-color:var(--mx-red)]">
+              <CipherText text={card.title} />
+            </h3>
             {card.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{card.body}</p> : null}
           </div>
         ) : (

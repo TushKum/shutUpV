@@ -59,9 +59,9 @@ export function CallChoice({
               className={`min-w-20 rounded-md px-3 py-2 text-sm font-semibold ring-1 ring-inset disabled:cursor-not-allowed disabled:opacity-50 ${
                 chosen
                   ? d === "BUY"
-                    ? "bg-phosphor text-phosphor ring-phosphor"
-                    : "bg-danger text-phosphor ring-danger/70"
-                  : "bg-panel text-phosphor ring-line hover:bg-raised"
+                    ? "bg-phosphor text-ink ring-phosphor"
+                    : "bg-danger text-ink ring-danger"
+                  : "bg-ink text-phosphor ring-phosphor-dim hover:bg-phosphor-deep"
               }`}
             >
               {d}

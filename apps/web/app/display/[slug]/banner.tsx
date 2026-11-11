@@ -6,17 +6,17 @@ import type { DisplayBulletin } from "@/lib/display/frame";
 import { clock } from "@/lib/format";
 
 const KIND: Record<string, string> = {
-  CRISIS: "bg-danger text-phosphor",
+  CRISIS: "bg-danger text-ink",
   FLASH: "bg-warn text-ink",
   FAIRNESS: "bg-phosphor-mid text-ink",
-  SYSTEM: "bg-phosphor-deep text-ink",
-  GENERAL: "bg-panel text-ink",
+  SYSTEM: "bg-phosphor-deep text-phosphor",
+  GENERAL: "border-2 border-phosphor-dim text-phosphor",
 };
 
 export function BulletinBanner({ bulletin }: { bulletin: DisplayBulletin | null }) {
   if (!bulletin) return null;
   return (
-    <div className="flex max-h-[200px] min-h-[110px] shrink-0 items-center gap-6 border-b-4 border-line bg-phosphor/10 px-12 py-3" data-testid="display-bulletin">
+    <div className="flex max-h-[200px] min-h-[110px] shrink-0 items-center gap-6 border-b-4 border-phosphor-dim bg-ink px-12 py-3" data-testid="display-bulletin">
       <span className={`shrink-0 rounded-lg px-4 py-1 text-[26px] font-black tracking-wide ${KIND[bulletin.kind] ?? KIND.GENERAL}`}>{bulletin.kind}</span>
       <span className="shrink-0 font-mono text-[30px] text-muted tabular-nums">{clock(bulletin.published_at)}</span>
       <div className="min-w-0">

@@ -8,6 +8,7 @@ import { competitionRanks, pitchSummary, verdictMovers, type PitchRow, type Verd
 import { bp, count, money } from "@/lib/format";
 import type { TakeoverProps } from "./index";
 import { TakeoverFrame } from "./frame";
+import { ThermalBeam } from "@/components/ui/matrix/thermal-scan";
 import { loadCompanies, loadPriceMoves, loadReleasedScores } from "./data";
 import { MoverColumn, Neutral, PriceMove, type MoverRowData } from "./parts";
 
@@ -32,13 +33,15 @@ async function PitchVerdicts({ eventId }: { eventId: string }) {
   const ranks = competitionRanks(s.top.map((r) => r.score));
   if (s.listed === 0) return <Neutral>The IPO prices will appear here.</Neutral>;
   return (
-    <div className="flex h-full flex-col gap-8">
+    <div className="relative flex h-full flex-col gap-8">
+      {/* The verdict reveal: one thermal scan. */}
+      <ThermalBeam />
       <div className="grid shrink-0 grid-cols-2 gap-8">
-        <div className="rounded-2xl bg-phosphor/10 px-8 py-5" data-testid="verdicts-listed">
+        <div className="rounded-2xl bg-panel px-8 py-5" data-testid="verdicts-listed">
           <p className="text-[30px] font-semibold tracking-wide text-muted uppercase">Companies listed</p>
           <p className="text-[72px] leading-tight font-black tabular-nums">{count(s.listed)}</p>
         </div>
-        <div className="rounded-2xl bg-phosphor/10 px-8 py-5" data-testid="verdicts-range">
+        <div className="rounded-2xl bg-panel px-8 py-5" data-testid="verdicts-range">
           <p className="text-[30px] font-semibold tracking-wide text-muted uppercase">IPO prices</p>
           <p className="text-[72px] leading-tight font-black tabular-nums">
             {s.low === s.high ? money(s.low) : `${money(s.low)} – ${money(s.high)}`}
@@ -58,7 +61,7 @@ async function PitchVerdicts({ eventId }: { eventId: string }) {
           {s.top.map((r, i) => (
             <li
               key={r.id}
-              className="grid grid-cols-[4rem_minmax(0,1fr)_12rem_16rem] items-center gap-6 rounded-xl bg-phosphor/10 px-5 py-1.5"
+              className="grid grid-cols-[4rem_minmax(0,1fr)_12rem_16rem] items-center gap-6 rounded-xl bg-panel px-5 py-1.5"
               data-testid={`verdicts-top-${r.ticker}`}
             >
               <span className="text-[40px] font-black text-muted tabular-nums">{ranks[i]}</span>
@@ -108,7 +111,8 @@ async function TierVerdicts({ eventId, type }: { eventId: string; type: "PLAN" |
     ),
   });
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="relative flex h-full flex-col gap-6">
+      <ThermalBeam />
       <p className="shrink-0 text-[36px] text-paper" data-testid="verdicts-summary">
         Every price moved by the company&apos;s tier: <b className="text-phosphor">{count(m.up)} up</b> ·{" "}
         <b className="text-phosphor">{count(m.unchanged)} unchanged</b> · <b className="text-danger">{count(m.down)} down</b>

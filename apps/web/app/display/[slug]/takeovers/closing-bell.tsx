@@ -28,7 +28,7 @@ export async function ClosingBellTakeover({ event, takeover }: TakeoverProps) {
     right: <span className={`text-[44px] font-black tabular-nums ${tone === "up" ? "text-phosphor" : "text-danger"}`}>{bp(r.changeBp)}</span>,
   });
   return (
-    <TakeoverFrame title={TAKEOVER_TITLES.CLOSING_BELL} at={takeover.at} until={takeover.until} tone="bg-panel text-ink">
+    <TakeoverFrame title={TAKEOVER_TITLES.CLOSING_BELL} at={takeover.at} until={takeover.until} tone="bg-phosphor text-ink">
       <div className="flex h-full flex-col gap-6">
         <div className="flex shrink-0 items-end justify-between gap-10">
           <p className="text-[80px] leading-none font-black" data-testid="closing-headline">

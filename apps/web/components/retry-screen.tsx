@@ -5,6 +5,7 @@
 // reloading it. `retry()` re-fetches and re-renders the failed part of the page.
 
 import { useEffect } from "react";
+import { ThermalSkeleton } from "@/components/ui/matrix/thermal-scan";
 
 export const RETRY_MS = 5_000;
 
@@ -16,7 +17,8 @@ export function RetryScreen({ error, retry }: { error: Error & { digest?: string
   }, [error, retry]);
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-ink px-8 text-center text-phosphor" data-testid="display-retry">
-      <p className="text-5xl font-black tracking-tight">Reconnecting…</p>
+      <p className="text-5xl font-black tracking-tight glow">Reconnecting…</p>
+      <ThermalSkeleton label="Reconnecting" className="h-16 w-full max-w-xl rounded-md" />
       <p className="text-2xl text-muted">The screen could not be read just now. It tries again every {RETRY_MS / 1000} seconds.</p>
       {error.digest ? <p className="font-mono text-base text-muted">{error.digest}</p> : null}
     </main>

@@ -18,7 +18,7 @@ export default async function AdminHome() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Control panel</h1>
+        <h1 className="mx-cursor text-2xl font-bold glow">Control panel</h1>
         <SignOutButton />
       </div>
       <p className="mt-1 text-paper">

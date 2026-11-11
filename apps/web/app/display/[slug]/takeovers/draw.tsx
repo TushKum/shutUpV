@@ -14,7 +14,7 @@ export async function DrawTakeover({ event, takeover }: TakeoverProps) {
   const [summary, crisisAt, record] = await Promise.all([loadDrawSummary(event.id), loadPhaseStart(event.id, "CRISIS"), lotteryRecordAddress(event.slug)]);
   const commitment = summary?.commitment ?? event.seed_commitment;
   return (
-    <TakeoverFrame title={TAKEOVER_TITLES.DRAW} at={takeover.at} until={takeover.until} tone="bg-panel text-ink">
+    <TakeoverFrame title={TAKEOVER_TITLES.DRAW} at={takeover.at} until={takeover.until} tone="bg-phosphor text-ink">
       {!summary ? (
         <Neutral>The squad draw will appear here.</Neutral>
       ) : (
@@ -39,7 +39,7 @@ export async function DrawTakeover({ event, takeover }: TakeoverProps) {
             <p className="text-[32px] font-semibold tracking-wide text-muted uppercase">Published commitment · SHA-256 of the secret seed</p>
             <div className="mt-4 grid grid-cols-2 gap-x-10 gap-y-4" data-testid="draw-commitment">
               {hexGroups(commitment).map((g, i) => (
-                <span key={i} className="rounded-xl bg-phosphor/10 px-6 py-2 text-center font-mono text-[72px] font-bold tracking-wider" data-testid="draw-commitment-group">
+                <span key={i} className="rounded-xl bg-panel px-6 py-2 text-center font-mono text-[72px] font-bold tracking-wider" data-testid="draw-commitment-group">
                   {g}
                 </span>
               ))}

@@ -74,7 +74,7 @@ export function MoverColumn({
           {rows.map((r) => (
             <div
               key={r.key}
-              className="col-span-3 grid grid-cols-subgrid items-center rounded-xl bg-phosphor/10 px-5 py-1.5"
+              className="col-span-3 grid grid-cols-subgrid items-center rounded-xl bg-panel px-5 py-1.5"
               data-testid={`${testId}-${r.ticker}`}
             >
               <div className="min-w-0">

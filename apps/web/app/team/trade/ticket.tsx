@@ -225,10 +225,10 @@ export function OrderTicket({
 
 /** Each order type's colour when chosen: buying green, selling red, shorting orange, covering blue. */
 const TYPE_ON: Record<OrderType, string> = {
-  BUY: "bg-emerald-600 text-phosphor ring-phosphor",
-  SELL: "bg-danger text-phosphor ring-danger/70",
-  SHORT: "bg-warn text-phosphor ring-warn/60",
-  COVER: "bg-phosphor-mid text-phosphor ring-phosphor-dim",
+  BUY: "bg-emerald-600 text-ink ring-phosphor",
+  SELL: "bg-danger text-ink ring-danger",
+  SHORT: "bg-warn text-ink ring-warn",
+  COVER: "bg-paper text-ink ring-paper",
 };
 
 function roomLabel(type: OrderType): string {

@@ -12,19 +12,19 @@ import { PhaseTimer } from "./phase-timer";
 
 const BADGE: Record<EventStatus["trading"], string> = {
   OPEN: "bg-phosphor text-ink",
-  HALTED: "bg-phosphor-deep text-ink",
+  HALTED: "bg-phosphor-deep text-phosphor",
   PAUSED: "bg-warn text-ink",
 };
 
 export function DisplayHeader({ event, status }: { event: DisplayEvent; status: EventStatus }) {
   return (
-    <header className="flex h-[150px] shrink-0 items-center justify-between gap-10 border-b-4 border-line px-12" data-testid="display-header">
+    <header className="flex h-[150px] shrink-0 items-center justify-between gap-10 border-b-4 border-phosphor-dim bg-ink px-12" data-testid="display-header">
       <div className="min-w-0">
         <p className="truncate text-[28px] font-medium text-muted">
           {event.name}
-          {event.is_rehearsal ? <span className="ml-4 rounded bg-phosphor-mid px-3 py-0.5 text-[22px] font-bold text-phosphor">Rehearsal ×{event.clock_speed}</span> : null}
+          {event.is_rehearsal ? <span className="ml-4 rounded border-2 border-phosphor-dim px-3 py-0.5 font-mono text-[22px] font-bold text-phosphor-mid">Rehearsal ×{event.clock_speed}</span> : null}
         </p>
-        <p className="text-[60px] leading-tight font-black tracking-tight" data-testid="display-phase">
+        <p className="text-[60px] leading-tight font-black tracking-tight glow" data-testid="display-phase">
           {PHASE_LABELS[status.phase]}
         </p>
       </div>

@@ -13,7 +13,7 @@ export function TakeoverFrame({
   title,
   at,
   until,
-  tone = "bg-panel text-ink",
+  tone = "bg-phosphor text-ink",
   children,
 }: {
   title: string;
@@ -28,7 +28,7 @@ export function TakeoverFrame({
   const end = until ? Date.parse(until) : null;
   const left = end === null ? null : Math.max(0, Math.min(1, (end - now) / (end - start)));
   return (
-    <section className="flex h-full flex-col" data-testid="takeover" aria-label={title}>
+    <section className="flex h-full flex-col bg-ink" data-testid="takeover" aria-label={title}>
       <div className={`relative flex h-[110px] shrink-0 items-center justify-between gap-10 px-12 ${tone}`}>
         <h1 className="min-w-0 truncate text-[56px] font-black tracking-wide uppercase">{title}</h1>
         <div className="shrink-0 text-right">
@@ -42,7 +42,7 @@ export function TakeoverFrame({
           <div className="absolute bottom-0 left-0 h-2 bg-ink/40" style={{ width: `${left * 100}%` }} suppressHydrationWarning />
         ) : null}
       </div>
-      <div className="min-h-0 flex-1 px-12 py-10">{children}</div>
+      <div className="min-h-0 flex-1 bg-ink px-12 py-10">{children}</div>
     </section>
   );
 }

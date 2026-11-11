@@ -15,7 +15,8 @@ export async function Board({ event, status, compact = false }: { event: Display
   if (!phaseReached(status.phase, "READING")) {
     const reading = await loadReadingStart(event.id);
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-24 text-center" data-testid="board">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-24 text-center" data-testid="board">
+        <div className="mx-panel glow-box flex flex-col gap-8 rounded-2xl px-16 py-12">
         <p className="text-[56px] leading-tight font-bold" data-testid="board-waiting">
           Companies are listed here from the Reading phase.
         </p>
@@ -24,6 +25,7 @@ export async function Board({ event, status, compact = false }: { event: Display
             Reading is planned to start at <span className="font-mono font-bold text-phosphor tabular-nums">{clock(reading)}</span>
           </p>
         ) : null}
+        </div>
       </div>
     );
   }
@@ -33,7 +35,7 @@ export async function Board({ event, status, compact = false }: { event: Display
   if (tiles.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center" data-testid="board">
-        <p className="text-[48px] font-bold text-muted">No companies are listed.</p>
+        <p className="mx-panel rounded-2xl px-16 py-10 text-[48px] font-bold text-muted">No companies are listed.</p>
       </div>
     );
   }

@@ -19,10 +19,15 @@ import {
   type Move,
   type PriceRowFit,
 } from "@/lib/display/board";
+import { CipherText } from "@/components/ui/matrix/cipher-text";
+import { ThermalBeam } from "@/components/ui/matrix/thermal-scan";
+
+/** A tile that moved in the round just cleared and stands 10% or more from its IPO price gets a thermal scan. */
+const BIG_MOVE_BP = 1000;
 
 const TEXT = { up: "text-emerald-400", down: "text-red-500", flat: "text-muted" } as const;
 const CHANGE = { up: "text-emerald-400", down: "text-red-500", flat: "text-paper" } as const;
-const GLOW = { UP: "bg-phosphor/25 ring-4 ring-phosphor", DOWN: "bg-danger/25 ring-4 ring-danger/70", FLAT: "" } as const;
+const GLOW = { UP: "bg-phosphor-deep ring-4 ring-phosphor", DOWN: "bg-red-50 ring-4 ring-danger", FLAT: "" } as const;
 const MOVE_WORDS: Record<Move, string> = { UP: "up", DOWN: "down", FLAT: "unchanged" };
 
 const noSubscription = () => () => {};
@@ -61,7 +66,7 @@ export function BoardPages({
           <Tile key={t.id} tile={t} round={round} glow={glow} size={compact ? SIZES.compact : SIZES.normal} />
         ))}
       </div>
-      <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-line px-8 text-[28px] text-muted">
+      <footer className="flex h-[44px] shrink-0 items-center justify-between gap-8 border-t-2 border-phosphor-dim bg-ink px-8 text-[28px] text-muted">
         <p className="min-w-0 truncate" data-testid="board-legend">
           {pending ? (
             "IPO prices are set when the pitch scores are released."
@@ -112,9 +117,10 @@ type Size = (typeof SIZES)[keyof typeof SIZES];
 function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number | null; glow: boolean; size: Size }) {
   const tone = toneOf(t.changeBp);
   const lit = glow && t.move !== null ? GLOW[t.move] : "";
+  const big = lit !== "" && t.changeBp !== null && Math.abs(t.changeBp) >= BIG_MOVE_BP;
   return (
     <div
-      className={`flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-line bg-phosphor/10 px-4 ${size.pad} transition-[background-color,box-shadow] duration-1000 ${lit}`}
+      className={`relative flex min-h-0 min-w-0 flex-col justify-between overflow-hidden rounded-xl border-2 border-line px-4 ${size.pad} transition-[background-color,box-shadow] duration-1000 ${lit || "bg-panel"}`}
       data-testid={`tile-${t.ticker}`}
       data-lit={lit ? "true" : undefined}
     >
@@ -150,6 +156,7 @@ function Tile({ tile: t, round, glow, size }: { tile: BoardTile; round: number |
       ) : (
         <PriceRow price={money(t.price)} change={bp(t.changeBp)} tone={tone} fit={size.fit} />
       )}
+      {big ? <ThermalBeam /> : null}
     </div>
   );
 }
@@ -169,7 +176,7 @@ function PriceRow({
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className={`shrink-0 leading-none font-bold tabular-nums ${fit.price}`} data-testid="tile-price">
-        {price}
+        <CipherText text={price} duration={600} />
       </span>
       <span className={`min-w-0 leading-none font-bold tabular-nums ${fit.change} ${CHANGE[tone]}`} data-testid="tile-change">
         {change}

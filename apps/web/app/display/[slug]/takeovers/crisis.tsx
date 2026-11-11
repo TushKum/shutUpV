@@ -11,6 +11,7 @@ import { TakeoverFrame } from "./frame";
 import { loadCompanies, loadCrisisCards, loadPriceMoves, lotteryRecordAddress } from "./data";
 import { HexGroups, PriceMove } from "./parts";
 import { Pager } from "./pager";
+import { ThermalBeam } from "@/components/ui/matrix/thermal-scan";
 
 /** 5 columns × 4 rows; with 50 companies, three pages (17, 17, 16). */
 const PER_PAGE = 20;
@@ -50,7 +51,9 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
 
   return (
     <TakeoverFrame title={TAKEOVER_TITLES.CRISIS} at={takeover.at} until={takeover.until} tone="bg-danger text-ink">
-      <div className="flex h-full flex-col gap-5">
+      <div className="relative flex h-full flex-col gap-5">
+        {/* The crisis reveal: one thermal scan down the whole screen. */}
+        <ThermalBeam />
         <div className="min-h-0 flex-1">
           <Pager
             pages={pages.map((page, i) => (
@@ -69,7 +72,7 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
                   {page.map((c) => (
                     <li
                       key={c.id}
-                      className="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden rounded-xl border-2 border-danger/50 bg-danger/10 px-4"
+                      className="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden rounded-xl border-2 border-danger bg-panel px-4"
                       data-testid={`crisis-${c.ticker}`}
                     >
                       {/* The price move sits under the ticker on every card, so a wide ticker with long prices fits too. */}
@@ -89,7 +92,7 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
           />
         </div>
 
-        <section aria-label="Seed reveal" className="shrink-0 rounded-2xl border-2 border-line bg-phosphor/10 px-7 py-4" data-testid="crisis-seed">
+        <section aria-label="Seed reveal" className="shrink-0 rounded-2xl border-2 border-phosphor-dim bg-panel px-7 py-4" data-testid="crisis-seed">
           {seed ? (
             <dl className="grid grid-cols-[15rem_minmax(0,1fr)] items-baseline gap-x-6 gap-y-1">
               <dt className="text-[28px] font-semibold text-muted">Seed (revealed)</dt>

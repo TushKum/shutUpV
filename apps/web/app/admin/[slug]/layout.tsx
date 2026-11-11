@@ -28,15 +28,15 @@ export default async function EventAdminLayout({ children, params }: LayoutProps
       <EventChannel eventId={event.id} staff>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="admin" tick={organiser} />
-        <div className="min-h-screen bg-raised">
-          <header className="border-b border-line bg-panel">
+        <div className="min-h-screen">
+          <header className="border-b border-line bg-ink">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Link href="/admin" className="text-sm text-muted hover:text-phosphor">
                   Events
                 </Link>
                 <span className="text-muted">/</span>
-                <h1 className="text-base font-semibold">{event.name}</h1>
+                <h1 className="text-base font-semibold glow">{event.name}</h1>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : <Badge tone="blue">Live</Badge>}
                 <Badge tone="slate">{PHASE_LABELS[status.phase]}</Badge>
                 <Badge tone={status.trading === "OPEN" ? "green" : status.trading === "PAUSED" ? "amber" : "slate"}>{status.trading}</Badge>
