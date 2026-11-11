@@ -121,7 +121,7 @@ describe("the independent check", () => {
   test("a draw the engine cannot redo is reported, not thrown", () => {
     const record = buildLotteryRecord(storedDraw());
     const check = checkDraw({ ...record, problemCards: ["1", "2"] });
-    expect(check.problems).toEqual(["the engine could not redo the draw: the deck needs at least 2 more cards than there are squads"]);
+    expect(check.problems).toEqual(["the engine could not redo the draw: the deck needs exactly 1 card, or at least 2 more cards than there are squads"]);
   });
 });
 

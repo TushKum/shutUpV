@@ -56,7 +56,7 @@ test("the problem deck: expected columns, parse errors by row, the database's re
 
   // Parses, but 4 cards are too few for 3 squads: the game function refuses it.
   await upload(page, "Problem deck", "Upload the problem deck", csvFile("deck.csv", PROBLEMS.split("\n").slice(0, 5).join("\n")));
-  await expect(problems.getByRole("alert")).toHaveText("BAD_DECK: The deck needs at least 5 cards (squads + 2) and at most 999.");
+  await expect(problems.getByRole("alert")).toHaveText("BAD_DECK: The deck needs exactly 1 card (every squad plays the same case) or at least 5 cards (squads + 2), and at most 999.");
   expect(await ev.n.q("select number, title from problem_cards where event_id = $1 order by number", [ev.n.eventId])).toEqual(before);
 
   await upload(page, "Problem deck", "Upload the problem deck", csvFile("problem-cards.csv", `﻿${PROBLEMS}\r\n`));

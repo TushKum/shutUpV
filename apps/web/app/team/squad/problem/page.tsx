@@ -39,7 +39,7 @@ export default async function ProblemCardPage() {
       <AutoRefresh everyMs={10_000} active={pick.open || pick.defaultPending} />
       <RefreshAt at={deadline} />
       <Panel
-        title="Problem card"
+        title={pick.oneCase ? "The case" : "Problem card"}
         actions={
           <span className="text-sm text-slate-600">
             Pick closes <Due at={deadline} {...pauseOf(ctx)} testId="pick-due" />
@@ -50,7 +50,7 @@ export default async function ProblemCardPage() {
         {ws.cards.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500">No cards have been dealt to your squad.</p>
         ) : (
-          <ol className="mt-3 grid gap-3 md:grid-cols-3">
+          <ol className={`mt-3 grid gap-3 ${pick.oneCase ? "" : "md:grid-cols-3"}`}>
             {ws.cards.map((c, i) => {
               const chosen = c.id === pick.chosenId;
               return (
@@ -61,9 +61,9 @@ export default async function ProblemCardPage() {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <span>
-                      Card {i + 1} of 3 · No. {c.number} · {c.sector}
+                      {pick.oneCase ? "Same case for every squad" : `Card ${i + 1} of 3`} · No. {c.number} · {c.sector}
                     </span>
-                    {chosen ? <Badge tone={pick.byDefault ? "amber" : "green"}>{pick.byDefault ? "Chosen by default" : "Picked"}</Badge> : null}
+                    {pick.oneCase ? null : chosen ? <Badge tone={pick.byDefault ? "amber" : "green"}>{pick.byDefault ? "Chosen by default" : "Picked"}</Badge> : null}
                   </div>
                   <h3 className="mt-1 font-semibold text-slate-900">{c.title}</h3>
                   <p className="mt-1 flex-1 whitespace-pre-wrap text-sm text-slate-700">{c.body}</p>

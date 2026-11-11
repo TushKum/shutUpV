@@ -90,13 +90,16 @@ export function formSquads(
 
 /**
  * Deals 3 distinct cards to each squad (in squad-number order). No card is used more than 3 times.
+ * One-case mode: a deck of exactly one card gives every squad that card (and the draw uses no randomness for it),
+ * so every squad plays the same case.
  * @param cards card ids in deck order (by card number)
  */
 export function dealProblemCards(root: string, squadCount: number, cards: readonly string[]): string[][] {
   if (new Set(cards).size !== cards.length) throw new Error("duplicate card ids");
+  if (cards.length === 1) return Array.from({ length: squadCount }, () => [cards[0]!]);
   // With at least squads + 2 cards, every hand (including the last) still has 3 distinct cards to choose from:
   // before the last hand 3 × (cards − squads + 1) uses remain, spread over at least cards − squads + 1 ≥ 3 cards.
-  if (cards.length < squadCount + 2) throw new Error("the deck needs at least 2 more cards than there are squads");
+  if (cards.length < squadCount + 2) throw new Error("the deck needs exactly 1 card, or at least 2 more cards than there are squads");
   const rng = new Rng(root, "problems");
   const left = new Map(cards.map((c) => [c, 3]));
   const hands: string[][] = [];

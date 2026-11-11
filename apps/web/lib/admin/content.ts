@@ -147,5 +147,6 @@ export function contentLocks(state: { drawnAt: string | null; flashPublishedAt: 
   };
 }
 
-/** The deck size the draw needs: two more cards than there are squads (one squad per Product team). */
+/** The deck size the draw needs for 3 cards per squad: two more cards than there are squads (one squad per Product
+ * team). A deck of exactly one card is also accepted: every squad then plays that same case. */
 export const minProblemCards = (productTeams: number) => productTeams + 2;

@@ -2,7 +2,7 @@
 
 **Market Simulation · case pack for contestants** · Product · Consulting · Finance
 
-Every squad plays this case from the draw to the close. Read the whole pack with your squad before Round 1; the data
+**Every squad plays this same case** from the draw to the close: the lottery deals it to all 50 squads, so there is no card to pick, and every company gets the same crisis. Read the whole pack with your squad before Round 1; the data
 in the exhibits is all you need (and all the judges will expect you to use). Numbers are in rupees (₹) inside the
 case; the game's share prices and cash are in virtual US dollars ($).
 

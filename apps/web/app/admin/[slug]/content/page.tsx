@@ -42,8 +42,9 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
 
       <Panel title="Problem deck" actions={<LockBadge lock={locks.problem} />}>
         <Summary>
-          {problemRows.length} cards. The draw deals 3 distinct cards to each squad and uses no card more than 3 times, so the deck needs at least{" "}
-          {needed} (squads + 2).
+          {problemRows.length} {problemRows.length === 1 ? "card: every squad plays this same case (nothing to pick)." : "cards."} Upload exactly
+          one card to give every squad the same case. Otherwise the draw deals 3 distinct cards to each squad and uses no card more
+          than 3 times, so the deck needs at least {needed} (squads + 2).
         </Summary>
         <Upload kind="problem" lock={locks.problem} organiser={organiser} action={uploadProblemDeck.bind(null, event.id)} label="Upload the problem deck" />
         <Table head={["#", "Sector", "Title", "Body"]} empty="No problem cards yet." className="mt-4">

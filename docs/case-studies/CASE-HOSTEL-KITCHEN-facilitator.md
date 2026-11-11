@@ -88,20 +88,30 @@ Ignoring the news: **below 50** (−5%).
 
 ## 5. Running the case
 
-**On the night**, every squad is dealt its own problem cards by the lottery; this pack is for the **practice round**
-and the **briefing**. Two ways to play it:
+**On the night, every squad plays this case.** Upload the one-case decks from `seed/one-case/` (Admin → Content,
+before the draw): a problem deck of **one card** gives every squad this case at the draw, already chosen (there is
+nothing to pick), and a crisis deck of **one card** hits every company with the food-safety rule at 00:30. Prepare
+`seed/flash-bulletins/07-cooking-gas.csv` as the flash bulletin. Squads, coverage and the seed check work as usual.
+Hand the contestant pack to every squad at the briefing.
 
-1. **On paper, 90 minutes** (recommended a week before the event). Squads of three teams around a table:
-   - Round 1 (30 min): Product writes the pitch on the template; Finance prepares questions; Consulting coaches.
-     Judges score with the rubric; announce IPO prices with the tier table.
+With every squad on the same case, the judge compares like with like: the score bands in sections 2–4 apply to all
+50 companies, and the market sorts them by execution (numbers, the hygiene answer, the deal) rather than by problem.
 
-   - Round 2 (35 min): announce the crisis; fee and deal on worksheet B (give each squad a post-crisis price, e.g.
-     IPO price × 1.05 × 0.85); plan on the template.
+**A practice round** a week before, two ways.
 
-   - Round 3 (15 min): read the flash; 100-word answers in 10 minutes; score.
-   - Debrief (10 min): compare the strongest and weakest plans; show how the tiers moved the price.
-2. **On the platform**, in a rehearsal event: everything runs as on the night, with its own decks. Upload this
-   case's flash bulletin (seed/flash-bulletins/07-cooking-gas.csv) to practise Round 3 on real screens.
+*On paper, 90 minutes.* Squads of three teams around a table:
+
+- Round 1 (30 min): Product writes the pitch on the template; Finance prepares questions; Consulting coaches. Judges
+  score with the rubric; announce IPO prices with the tier table.
+- Round 2 (35 min): announce the crisis; fee and deal on worksheet B (give each squad a post-crisis price, e.g. IPO
+  price × 1.05 × 0.85); plan on the template.
+- Round 3 (15 min): read the flash; 100-word answers in 10 minutes; score.
+- Debrief (10 min): compare the strongest and weakest plans; show how the tiers moved the price.
+
+*On the platform*, in a rehearsal event seeded with the one-case decks:
+
+    pnpm seed --slug rehearsal-1 --rehearsal --starts-at <time> --teams-per-track 3 \
+      --problems seed/one-case/problem-cards.csv --crises seed/one-case/crisis-cards.csv
 
 **Debrief questions**
 

@@ -161,6 +161,8 @@ export interface PickState {
   byDefault: boolean;
   /** The pick has closed with nothing picked and the heartbeat has not applied the default yet. */
   defaultPending: boolean;
+  /** One-case mode: a single card was dealt, the same case for every squad, chosen at the draw. */
+  oneCase: boolean;
   note: string;
 }
 
@@ -170,8 +172,11 @@ export function pickState(p: PickInput): PickState {
   const by = p.deadline ? ` by ${clock(p.deadline)}` : "";
   const first = p.dealt[0] ?? null;
   const defaultPending = !open && p.chosenId === null && first !== null;
+  const oneCase = p.dealt.length === 1;
   let note: string;
-  if (open) {
+  if (oneCase) {
+    note = "Every squad plays this same case tonight. There is nothing to pick.";
+  } else if (open) {
     if (mayPick) {
       note = p.chosenId
         ? `You can change your pick until the pick closes${p.deadline ? ` at ${clock(p.deadline)}` : ""}.`
@@ -189,10 +194,11 @@ export function pickState(p: PickInput): PickState {
   return {
     open,
     mayPick,
-    canPick: open && mayPick,
-    chosenId: p.chosenId ?? (defaultPending ? first : null),
-    byDefault: p.byDefault || defaultPending,
-    defaultPending,
+    canPick: open && mayPick && !oneCase,
+    chosenId: p.chosenId ?? (defaultPending || oneCase ? first : null),
+    byDefault: !oneCase && (p.byDefault || defaultPending),
+    defaultPending: defaultPending && !oneCase,
+    oneCase,
     note,
   };
 }

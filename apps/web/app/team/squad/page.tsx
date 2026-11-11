@@ -85,10 +85,10 @@ export default async function SquadOverview() {
       </Panel>
 
       <Panel
-        title="Problem card"
+        title={pick.oneCase ? "The case" : "Problem card"}
         actions={
           <Link href="/team/squad/problem" className="text-sm font-semibold underline">
-            {pick.canPick ? (pick.chosenId ? "Change the pick" : "Pick a card") : "See the cards"}
+            {pick.oneCase ? "Read the case" : pick.canPick ? (pick.chosenId ? "Change the pick" : "Pick a card") : "See the cards"}
           </Link>
         }
       >
@@ -96,15 +96,17 @@ export default async function SquadOverview() {
           {chosen ? (
             <p>
               <span className="font-semibold text-slate-900">{chosen.title}</span> <span className="text-slate-500">({chosen.sector})</span>{" "}
-              {pick.byDefault ? <Badge tone="amber">Chosen by default</Badge> : <Badge tone="green">Picked</Badge>}
+              {pick.oneCase ? <Badge tone="green">Every squad</Badge> : pick.byDefault ? <Badge tone="amber">Chosen by default</Badge> : <Badge tone="green">Picked</Badge>}
             </p>
           ) : (
             <p className="font-semibold text-slate-900">Not picked yet.</p>
           )}
           <p className="text-slate-600">{pick.note}</p>
-          <p className="text-slate-600">
-            Pick closes: <Due at={ws.deadlines.PROBLEM_PICK ?? null} {...pause} />
-          </p>
+          {pick.oneCase ? null : (
+            <p className="text-slate-600">
+              Pick closes: <Due at={ws.deadlines.PROBLEM_PICK ?? null} {...pause} />
+            </p>
+          )}
         </div>
       </Panel>
 

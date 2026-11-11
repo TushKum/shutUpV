@@ -142,6 +142,20 @@ describe("submission windows (app.submission_window)", () => {
 describe("the problem card pick", () => {
   const pick = { ...running, nowMs: T(NOW) - 1000, deadline: NOW, dealt: ["a", "b", "c"], chosenId: null, byDefault: false };
 
+  test("one case for every squad: nothing to pick, the card is already chosen", () => {
+    for (const track of ["PRODUCT", "CONSULTING"] as const) {
+      expect(pickState({ ...pick, track, dealt: ["a"], chosenId: "a" })).toMatchObject({
+        oneCase: true,
+        canPick: false,
+        chosenId: "a",
+        byDefault: false,
+        defaultPending: false,
+        note: "Every squad plays this same case tonight. There is nothing to pick.",
+      });
+    }
+    expect(pickState({ ...pick, track: "PRODUCT", dealt: ["a"], nowMs: T(NOW) + 1000 })).toMatchObject({ chosenId: "a", byDefault: false });
+  });
+
   test("Product picks until the deadline (and may change its pick); Consulting sees it", () => {
     expect(pickState({ ...pick, track: "PRODUCT" })).toMatchObject({
       open: true,

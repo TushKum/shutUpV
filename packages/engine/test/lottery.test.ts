@@ -104,9 +104,26 @@ describe("the 21:00 draw", () => {
     for (const s of d.squads) expect(s.covers).not.toContain(s.product);
   });
 
+  test("one-case mode: a one-card deck gives every squad the same case, and the rest of the draw is unchanged", () => {
+    const one = drawLottery("market-night", "4", teams, ["case-1"]);
+    const full = drawLottery("market-night", "4", teams, cards);
+    expect(one.squads).toHaveLength(50);
+    for (const s of one.squads) expect(s.cards).toEqual(["case-1"]);
+    // Squads and coverage come from their own streams, so they match the draw with a full deck.
+    expect(one.squads.map(({ cards: _c, ...rest }) => rest)).toEqual(full.squads.map(({ cards: _c, ...rest }) => rest));
+    expect(dealProblemCards("r", 3, ["only"])).toEqual([["only"], ["only"], ["only"]]);
+  });
+
+  test("one-case mode: a one-card crisis deck hits every company with the same crisis", () => {
+    const crises = assignCrises(rootSeed("market-night", "4"), 50, [{ id: "rule", category: "Regulation", number: 1 }]);
+    expect(new Set(crises)).toEqual(new Set(["rule"]));
+    expect(crises).toHaveLength(50);
+  });
+
   test("refuses impossible inputs", () => {
     expect(() => assignCoverage("r", 2)).toThrow();
     expect(() => dealProblemCards("r", 3, ["a", "b", "c", "d"])).toThrow(/2 more cards/);
+    expect(() => dealProblemCards("r", 3, ["a", "b"])).toThrow(/exactly 1 card/);
     expect(() => formSquads("r", { product: ["a"], consulting: [], finance: ["c"] })).toThrow();
   });
 });

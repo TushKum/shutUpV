@@ -481,6 +481,8 @@ describe("lottery", () => {
     ["another seed", "12", 50, 60],
     ["rehearsal", "3", 4, 12],
     ["tiny", "1", 3, 5],
+    ["one case", "4", 50, 1],
+    ["one case, rehearsal", "2", 3, 1],
   ])("lottery_draw(%s, %s) with %i squads and %i cards matches drawLottery", async (seed, dice, n, nCards) => {
     const code = (p: string, i: number) => `${p}${String(i + 1).padStart(2, "0")}`;
     const teams = {
@@ -505,6 +507,7 @@ describe("lottery", () => {
     const decks = [
       ["Supply", "Regulation", "Legal", "Partner", "Breach", "Funding", "Competitor", "Recall", "Demand", "Outage"].map((category, i) => ({ id: `c${i}`, category, number: 1 })),
       [{ id: "a1", category: "A", number: 1 }, { id: "a2", category: "A", number: 2 }, { id: "b1", category: "B", number: 1 }, { id: "b3", category: "B", number: 3 }],
+      [{ id: "rule", category: "Regulation", number: 1 }], // one case: the same crisis for every company
     ];
     for (const deck of decks) {
       const { rows } = await db.pool.query("select app.lottery_crises($1, 50, $2) as r", [root, JSON.stringify(deck)]);
