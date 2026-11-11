@@ -31,12 +31,13 @@ export interface E2eEvent {
   password(login: string): string;
 }
 
-export async function seedE2eEvent({ slug, prefix, squads = 3 }: { slug: string; prefix: string; squads?: number }): Promise<E2eEvent> {
+export async function seedE2eEvent({ slug, prefix, squads = 3, format = "CLASSIC" }: { slug: string; prefix: string; squads?: number; format?: "CLASSIC" | "PRIMUS" }): Promise<E2eEvent> {
   const env = e2eEnv();
   const plan = buildSeedPlan({
     slug,
     name: `E2E ${slug}`,
     rehearsal: true,
+    format,
     clockSpeed: 1,
     startsAt: new Date(Date.now() + 3_600_000),
     teamsPerTrack: squads,
