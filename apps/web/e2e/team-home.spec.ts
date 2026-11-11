@@ -74,8 +74,11 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(pickTask).toContainText(`Problem card pick · ${pick}`);
   await expect(pickTask.locator(".font-mono").last()).toHaveText(/^\d+:\d\d(:\d\d)?$/); // the live countdown
   await expect(pickTask.getByRole("link", { name: "Open the problem cards" })).toHaveAttribute("href", "/team/squad/problem");
-  // The bar on every page: the task that closes first, its countdown, a button to it.
+  // The bar on every page but Home (whose big card is the same task): the task that closes first, its countdown, a
+  // button to it.
   const bar = page.getByTestId("action-bar");
+  await expect(bar).toHaveCount(0);
+  await page.goto("/team/market");
   await expect(bar).toContainText("Do this now");
   await expect(bar).toContainText("Pick your problem card");
   await expect(bar.getByRole("link", { name: "Open the problem cards →" })).toHaveAttribute("href", "/team/squad/problem");
@@ -100,7 +103,9 @@ test("after the draw: each track's tasks with countdowns and links, its squad an
   await expect(pickTask).toHaveAttribute("data-state", "done");
   await expect(pickTask).toContainText(`Picked. You can change it until ${pick}.`);
   // Done: the bar moves on to the pitch.
+  await page.goto("/team/market");
   await expect(page.getByTestId("action-bar")).toContainText("Write and submit your pitch card");
+  await page.goto("/team");
 
   await home(page, a.c_code);
   const call = task(page, "CALL_1");

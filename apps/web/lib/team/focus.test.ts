@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { PHASE_CODES } from "@msim/engine";
-import { focusSections, inFocus, opensIn, sectionOf, squadTabsFor, stageOf, STEPS, submissionsFor } from "./focus";
+import { focusSections, inFocus, inThisRound, opensIn, sectionOf, squadTabsFor, stageOf, STEPS, submissionsFor } from "./focus";
 import { TEAM_SECTIONS } from "./sections";
 
 const labels = (s: { label: string }[]) => s.map((x) => x.label);
@@ -38,6 +38,22 @@ describe("focus mode", () => {
     expect(opensIn("FINANCE", "ROUNDS_1_4", "/team/rescue")).toBe("ROUND_2");
     expect(opensIn("FINANCE", "ROUNDS_1_4", "/team/ledger")).toBe("RESULTS");
     expect(opensIn("PRODUCT", "RESCUE_1", "/team/judging")).toBe("RESULTS");
+    // Before the game every page shows its own notice; another track's section keeps its own explanation.
+    expect(inFocus("FINANCE", "SETUP", "/team/rescue")).toBe(true);
+    expect(inFocus("PRODUCT", "BUILD", "/team/trade")).toBe(true);
+    expect(inFocus("FINANCE", "BUILD", "/team/squad")).toBe(true);
+  });
+
+  test("coming up: only this round's deadlines", () => {
+    expect(inThisRound("SETUP", "SQUAD_DRAW")).toBe(true);
+    expect(inThisRound("SETUP", "PROBLEM_PICK")).toBe(true);
+    expect(inThisRound("SQUAD_DRAW", "IPO_BIDS")).toBe(true);
+    expect(inThisRound("SQUAD_DRAW", "DEAL")).toBe(false);
+    expect(inThisRound("SQUAD_DRAW", "FLASH")).toBe(false);
+    expect(inThisRound("RESCUE_1", "PLAN")).toBe(true);
+    expect(inThisRound("ROUNDS_13_21", "CALL_3")).toBe(true);
+    expect(inThisRound("ROUNDS_1_4", "ROUND_NEXT")).toBe(true);
+    expect(inThisRound("AWARDS", "PITCH")).toBe(true);
   });
 
   test("the squad tabs follow the round", () => {

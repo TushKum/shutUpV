@@ -30,7 +30,8 @@ test("every track sees its team, where the night is, its cash, and before the ga
   }
 });
 
-test("focus mode: a page from another round shows a friendly 'not now' card", async ({ page }) => {
+test("focus mode: during a round, a page from another round shows a friendly 'not now' card", async ({ page }) => {
+  await ev.n.q("update events set current_phase = 'BUILD' where id = $1", [ev.n.eventId]); // test-only: Round 1
   await loginAsTeam(page, ev, codeOf("FINANCE"));
   await page.goto("/team/rescue");
   await expect(page.getByTestId("not-now")).toContainText("Not right now");
@@ -38,6 +39,7 @@ test("focus mode: a page from another round shows a friendly 'not now' card", as
   await page.getByRole("link", { name: /Back to Home/ }).click();
   await expect(page).toHaveURL(/\/team$/);
   await expect(page.getByTestId("not-now")).toHaveCount(0);
+  await ev.n.q("update events set current_phase = 'SETUP' where id = $1", [ev.n.eventId]);
 });
 
 test("the latest bulletin, a pause and a disqualification show on every page, without a reload", async ({ page }) => {

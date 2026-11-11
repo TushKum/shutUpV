@@ -108,7 +108,7 @@ const ROUND_PATHS: Record<Track, Record<Stage, readonly string[]>> = {
   CONSULTING: {
     BEFORE: ["", "/bulletins", "/judging"],
     ROUND_1: ["", "/squad", "/calls", "/chat", "/qa", "/market", "/bulletins"],
-    ROUND_2: ["", "/rescue", "/squad", "/chat", "/qa", "/market", "/bulletins"],
+    ROUND_2: ["", "/rescue", "/squad", "/calls", "/chat", "/qa", "/market", "/bulletins"],
     ROUND_3: ["", "/squad", "/calls", "/chat", "/qa", "/market", "/bulletins"],
     RESULTS: [],
   },
@@ -140,9 +140,14 @@ export function focusSections(track: Track, phase: PhaseCode, taskHref: string |
   return all.filter((s) => allowed.has(s.path));
 }
 
-/** May this page be shown now? */
+/**
+ * May this page be shown now? Only the rounds hide pages: before the game every page shows its own "opens at …"
+ * notice, and a section that is not this track's at all keeps its own explanation (say, "Product teams never trade").
+ */
 export function inFocus(track: Track, phase: PhaseCode, path: string, taskHref: string | null = null): boolean {
   const section = sectionOf(path);
+  if (stageOf(phase) === "BEFORE") return true;
+  if (!TEAM_SECTIONS[track].some((s) => s.path === section)) return true;
   return focusSections(track, phase, taskHref).some((s) => s.path === section);
 }
 
@@ -154,6 +159,35 @@ export function opensIn(track: Track, phase: PhaseCode, path: string): Stage | n
     if (stage === "RESULTS" || ROUND_PATHS[track][stage].includes(section)) return stage;
   }
   return null;
+}
+
+/** The round each deadline belongs to (the case pack's three rounds). */
+const DEADLINE_STAGE: Record<string, Stage> = {
+  SQUAD_DRAW: "ROUND_1",
+  PROBLEM_PICK: "ROUND_1",
+  PITCH: "ROUND_1",
+  CALL_1: "ROUND_1",
+  IPO_BIDS: "ROUND_1",
+  FEE: "ROUND_2",
+  DEAL_BONUS: "ROUND_2",
+  DEAL: "ROUND_2",
+  PLAN: "ROUND_2",
+  CALL_2: "ROUND_3",
+  FLASH_BULLETIN: "ROUND_3",
+  FLASH: "ROUND_3",
+  CALL_3: "ROUND_3",
+};
+
+/**
+ * Does this "coming up" item belong to the round on now? Before the game, Round 1's items show (the draw and its
+ * first deadlines); at the results, everything. Items of no particular round (a trading round opening) always show.
+ * By round, not by time: phases moved by hand change the planned times of the phases after them.
+ */
+export function inThisRound(phase: PhaseCode, key: string): boolean {
+  const stage = stageOf(phase);
+  if (stage === "RESULTS") return true;
+  const of = DEADLINE_STAGE[key];
+  return !of || of === (stage === "BEFORE" ? "ROUND_1" : stage);
 }
 
 /** Squad workspace tabs per stage: Overview and the case always; then the round's own writing task. */

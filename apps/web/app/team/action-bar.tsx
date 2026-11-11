@@ -1,6 +1,6 @@
 "use client";
 
-// "Do this now": the one open task of this team that closes first, on every team page, with its countdown and a
+// "Do this now": the one open task of this team that closes first, on every team page but Home (its big card), with its countdown and a
 // button to the place that does it. Nothing to do: no bar.
 
 import Link from "next/link";
@@ -16,7 +16,8 @@ export interface BarTask {
 
 export function ActionBar({ task }: { task: BarTask | null }) {
   const path = usePathname();
-  if (!task) return null;
+  // Home shows the same task as its big card, so the bar would only repeat it there.
+  if (!task || path === "/team") return null;
   const here = path === task.href;
   return (
     <div className="sticky top-0 z-30 border-b border-indigo-700 bg-indigo-600 text-white shadow" role="region" aria-label="Do this now" data-testid="action-bar">
