@@ -4,17 +4,16 @@
 // are written exactly as stored.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Track } from "@msim/engine";
 import {
   EXPORTS,
   EXPORT_KINDS,
-  awardsCsv,
   buildLookups,
   fetchPages,
   ledgerCsv,
   pricesCsv,
   resultsCsv,
   scoresCsv,
-  type AwardExportRow,
   type ExportKind,
   type LedgerExportRow,
   type Lookups,
@@ -25,8 +24,8 @@ import {
 
 async function loadLookups(sb: SupabaseClient, eventId: string): Promise<Lookups> {
   const [teams, companies, rounds] = await Promise.all([
-    fetchPages<{ id: string; code: string }>(
-      (from, to) => sb.from("teams").select("id, code").eq("event_id", eventId).order("id").range(from, to),
+    fetchPages<{ id: string; code: string; track: Track }>(
+      (from, to) => sb.from("teams").select("id, code, track").eq("event_id", eventId).order("id").range(from, to),
       "the teams",
     ),
     fetchPages<{ id: string; ticker: string | null }>(
@@ -50,7 +49,7 @@ export async function buildExport(sb: SupabaseClient, eventId: string, kind: Exp
           (from, to) =>
             sb
               .from("ledger_entries")
-              .select("id::text, txn_id, kind, team_id, company_id, cash_delta_cents::text, share_delta, price_cents, round_id, memo, created_at")
+              .select("id::text, txn_id, kind, team_id, company_id, lot, cash_delta_cents::text, share_delta, price_cents, round_id, memo, created_at")
               .eq("event_id", eventId)
               .order("id")
               .range(from, to),
@@ -65,7 +64,7 @@ export async function buildExport(sb: SupabaseClient, eventId: string, kind: Exp
             sb
               .from("round_prices")
               .select(
-                "id::text, company_id, round_id, kind, market_before, market_after, score_before, score_after, buy_qty, sell_qty, net_qty, capped_net, factor_bp, created_at",
+                "id::text, company_id, round_id, kind, market_before, market_after, ai_before, ai_after, buy_qty, sell_qty, short_qty, cover_qty, net_qty, capped_net, tier_bp, created_at",
               )
               .eq("event_id", eventId)
               .order("id")
@@ -80,7 +79,7 @@ export async function buildExport(sb: SupabaseClient, eventId: string, kind: Exp
           (from, to) =>
             sb
               .from("scores")
-              .select("company_id, team_id, type, run_totals, median, penalty, final_score, missing, status, revealed_at")
+              .select("company_id, type, run_totals, median, final_score, tier_bp, capped, penalty, missing, status, released_at")
               .eq("event_id", eventId)
               .order("id")
               .range(from, to),
@@ -94,19 +93,11 @@ export async function buildExport(sb: SupabaseClient, eventId: string, kind: Exp
           (from, to) =>
             sb
               .from("results")
-              .select("team_id, r1_points, r2_points, r3_points, total, portfolio_cents::text, return_bp::text, rank, eligible")
+              .select("team_id, track, final_value_cents::text, start_value_cents::text, return_bp::text, rank, eligible")
               .eq("event_id", eventId)
               .order("id")
               .range(from, to),
           "the results",
-        ),
-        lk,
-      );
-    case "awards":
-      return awardsCsv(
-        await fetchPages<AwardExportRow>(
-          (from, to) => sb.from("awards").select("code, place, team_id, company_id, metric").eq("event_id", eventId).order("id").range(from, to),
-          "the awards",
         ),
         lk,
       );

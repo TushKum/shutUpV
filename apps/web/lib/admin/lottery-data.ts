@@ -1,14 +1,12 @@
-// Reads the stored draw of one event for the lottery page and the record download, as the signed-in staff member.
-// Until the crisis the seed is in event_secrets (staff only); from the crisis on it is published on the event.
+// Reads the stored draw of one event for the lottery page and the record download, as the signed-in staff member
+// (RLS: staff read every table, including the secret seed in event_secrets).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { LotteryRows } from "./lottery";
 
 export interface LotteryEventRow {
   id: string;
-  slug: string;
   seed_commitment: string | null;
-  seed_revealed: string | null;
   dice: string | null;
   drawn_at: string | null;
   crisis_applied_at: string | null;
@@ -24,15 +22,22 @@ async function rows<T>(query: PromiseLike<{ data: T[] | null; error: { message: 
 export async function loadLotteryRows(sb: SupabaseClient, event: LotteryEventRow): Promise<LotteryRows | null> {
   if (!event.drawn_at || !event.seed_commitment || !event.dice) return null;
   const id = event.id;
-  const [secret, teams, problemCards, crisisCards, companies] = await Promise.all([
-    event.seed_revealed ? Promise.resolve({ data: { seed: event.seed_revealed }, error: null }) : sb.from("event_secrets").select("seed").eq("event_id", id).maybeSingle<{ seed: string }>(),
-    rows<LotteryRows["teams"][number]>(sb.from("teams").select("id, code, name").eq("event_id", id), "the teams"),
+  const [secret, teams, problemCards, squads, coverage, companies, crisisCards] = await Promise.all([
+    sb.from("event_secrets").select("seed").eq("event_id", id).maybeSingle<{ seed: string }>(),
+    rows<LotteryRows["teams"][number]>(sb.from("teams").select("id, code, track").eq("event_id", id), "the teams"),
     rows<LotteryRows["problemCards"][number]>(sb.from("problem_cards").select("id, number, sector, title").eq("event_id", id), "the problem deck"),
-    rows<LotteryRows["crisisCards"][number]>(sb.from("crisis_cards").select("id, number, category, title").eq("event_id", id), "the crisis deck"),
-    rows<LotteryRows["companies"][number]>(
-      sb.from("companies").select("founder_team_id, rescuer_team_id, problem_card_id, crisis_card_id, ticker, name").eq("event_id", id),
-      "the companies",
+    rows<LotteryRows["squads"][number]>(
+      sb
+        .from("squads")
+        .select("number, product_team_id, consulting_team_id, finance_team_id, dealt_card_ids, chosen_card_id, chosen_by_default")
+        .eq("event_id", id),
+      "the squads",
     ),
+    rows<LotteryRows["coverage"][number]>(sb.from("coverage").select("consultant_team_id, company_id").eq("event_id", id), "the coverage"),
+    rows<LotteryRows["companies"][number]>(sb.from("companies").select("id, product_team_id, ticker, crisis_card_id").eq("event_id", id), "the companies"),
+    event.crisis_applied_at
+      ? rows<NonNullable<LotteryRows["crisisCards"]>[number]>(sb.from("crisis_cards").select("id, category, number").eq("event_id", id), "the crisis deck")
+      : Promise.resolve(null),
   ]);
   if (secret.error) throw new Error(`Could not read the seed: ${secret.error.message}`);
   if (!secret.data) throw new Error("The lottery was drawn but its seed is not stored.");
@@ -42,18 +47,20 @@ export async function loadLotteryRows(sb: SupabaseClient, event: LotteryEventRow
     dice: event.dice,
     teams,
     problemCards,
-    crisisCards,
+    squads,
+    coverage,
     companies,
-    crisisApplied: !!event.crisis_applied_at,
+    crisisCards,
   };
 }
 
-export async function loadLotteryEvent(sb: SupabaseClient, slug: string): Promise<LotteryEventRow | null> {
+/** The lottery columns of an event (crisis_applied_at is not part of the shared admin event). */
+export async function loadLotteryEvent(sb: SupabaseClient, slug: string): Promise<(LotteryEventRow & { slug: string }) | null> {
   const { data, error } = await sb
     .from("events")
-    .select("id, slug, seed_commitment, seed_revealed, dice, drawn_at, crisis_applied_at")
+    .select("id, slug, seed_commitment, dice, drawn_at, crisis_applied_at")
     .eq("slug", slug)
-    .maybeSingle<LotteryEventRow>();
+    .maybeSingle<LotteryEventRow & { slug: string }>();
   if (error) throw new Error(`Could not read the event: ${error.message}`);
   return data;
 }

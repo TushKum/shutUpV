@@ -1,20 +1,21 @@
-// Which full-screen takeover the big screen shows, worked out from moments the database stores (the twist, the
-// starting prices, the crisis, the score reveal, the closing bell, the awards) and the server clock. Nothing is kept
-// in the browser: a projector that is reloaded, or reconnects, in the middle of a takeover shows the rest of it, and
-// one that comes back after it ended shows the main screen. Pure, so the timing is unit-tested.
+// Which full-screen takeover the big screen shows, worked out from moments the database stores (the draw, the crisis,
+// each score release, the flash bulletin, the closing bell, the awards) and the server clock. Nothing is kept in the
+// browser: a projector that is reloaded, or reconnects, in the middle of a takeover shows the rest of it, and one
+// that comes back after it ended shows the ticker board. Pure, so the timing is unit-tested.
 
-export type TakeoverKind = "TWIST" | "PRICES" | "CRISIS" | "REVEAL" | "CLOSING_BELL" | "AWARDS";
+export type TakeoverKind = "DRAW" | "CRISIS" | "VERDICTS" | "FLASH" | "CLOSING_BELL" | "AWARDS";
+export type VerdictType = "PITCH" | "PLAN" | "FLASH";
 
 export interface TakeoverMoments {
-  /** published_at of the TWIST bulletin (22:15). */
-  twistAt: string | null;
-  /** events.prices_started_at: the 23:30 PRD reveal and starting prices. */
-  pricesAt: string | null;
-  /** events.crisis_applied_at: the 23:45 crisis, rescue lottery and seed reveal. */
+  /** events.drawn_at: the 21:00 squad draw. */
+  drawnAt: string | null;
+  /** events.crisis_applied_at: the 00:30 crisis draw (and the seed reveal). */
   crisisAt: string | null;
-  /** events.scores_revealed_at: the 02:45 crisis-solution reveal. */
-  revealAt: string | null;
-  /** events.market_closed_at: the 04:30 close. */
+  /** When each kind of score was released (the earliest released_at of that type: the release itself). */
+  verdicts: { type: VerdictType; at: string }[];
+  /** published_at of the FLASH bulletin (04:00). */
+  flashAt: string | null;
+  /** events.market_closed_at: the 05:00 close. */
   closedAt: string | null;
   /** When AWARDS began; set only while the event is in AWARDS (the last phase). */
   awardsAt: string | null;
@@ -26,11 +27,11 @@ export interface TakeoverMoments {
  * stays up.
  */
 export const TAKEOVER_SECONDS: Record<Exclude<TakeoverKind, "AWARDS">, number> = {
-  TWIST: 180,
-  PRICES: 180,
-  CRISIS: 180,
-  REVEAL: 150,
-  CLOSING_BELL: 120,
+  DRAW: 180,
+  CRISIS: 120,
+  VERDICTS: 120,
+  FLASH: 90,
+  CLOSING_BELL: 90,
 };
 export const TAKEOVER_MIN_SECONDS = 30;
 
@@ -47,14 +48,16 @@ export interface ActiveTakeover {
   at: string;
   /** When it ends (null: it stays up, as AWARDS does). */
   until: string | null;
+  /** For VERDICTS: which scores were released. */
+  type?: VerdictType;
 }
 
 function candidates(m: TakeoverMoments): Omit<ActiveTakeover, "until">[] {
   const out: Omit<ActiveTakeover, "until">[] = [];
-  if (m.twistAt) out.push({ kind: "TWIST", at: m.twistAt });
-  if (m.pricesAt) out.push({ kind: "PRICES", at: m.pricesAt });
+  if (m.drawnAt) out.push({ kind: "DRAW", at: m.drawnAt });
   if (m.crisisAt) out.push({ kind: "CRISIS", at: m.crisisAt });
-  if (m.revealAt) out.push({ kind: "REVEAL", at: m.revealAt });
+  for (const v of m.verdicts) out.push({ kind: "VERDICTS", at: v.at, type: v.type });
+  if (m.flashAt) out.push({ kind: "FLASH", at: m.flashAt });
   if (m.closedAt) out.push({ kind: "CLOSING_BELL", at: m.closedAt });
   if (m.awardsAt) out.push({ kind: "AWARDS", at: m.awardsAt });
   return out;
@@ -62,8 +65,8 @@ function candidates(m: TakeoverMoments): Omit<ActiveTakeover, "until">[] {
 
 /**
  * The takeover on screen at `nowMs` (server time): the latest moment that has happened, while its takeover lasts.
- * A newer takeover replaces an older one at once, and once the newest has run out the main screen comes back: an
- * older takeover that would still have time left never returns. Null: show the main screen.
+ * A newer takeover replaces an older one at once, and once the newest has run out the board comes back: an older
+ * takeover that would still have time left never returns. Null: show the ticker board.
  */
 export function activeTakeover(m: TakeoverMoments, nowMs: number, clockSpeed = 1): ActiveTakeover | null {
   let latest: Omit<ActiveTakeover, "until"> | null = null;
@@ -85,10 +88,16 @@ export function activeTakeover(m: TakeoverMoments, nowMs: number, clockSpeed = 1
 
 /** Display names of the takeovers (the strip at the top of each). */
 export const TAKEOVER_TITLES: Record<TakeoverKind, string> = {
-  TWIST: "The twist",
-  PRICES: "PRD scores: starting prices",
+  DRAW: "Squad draw",
   CRISIS: "Crisis",
-  REVEAL: "Crisis-solution scores",
+  VERDICTS: "Verdicts",
+  FLASH: "Flash news",
   CLOSING_BELL: "Closing bell",
   AWARDS: "Awards",
+};
+
+export const VERDICT_TITLES: Record<VerdictType, string> = {
+  PITCH: "Pitch scores: IPO prices are set",
+  PLAN: "Rescue plan verdicts",
+  FLASH: "Flash verdicts",
 };

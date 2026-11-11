@@ -3,7 +3,7 @@ import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { loadLotteryEvent, loadLotteryRows } from "@/lib/admin/lottery-data";
-import { cardSpread, checkDraw, crisisSpread, recordFileName, teamDrawViews, type LotteryRows } from "@/lib/admin/lottery";
+import { buildLotteryRecord, checkDraw, recordFileName, squadViews, type LotteryRows, type SquadView } from "@/lib/admin/lottery";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, Stat, Table, Td, inputClass } from "@/components/ui/ui";
@@ -12,22 +12,22 @@ import { runLottery, setSeedCommitment } from "./actions";
 
 export const metadata: Metadata = { title: "Lottery" };
 
-// Lottery: the seed commitment (published the day before, fixed once the event starts), the 21:15 draw with the seed
-// check (problem cards), the 23:45 draw from the same seed (crisis cards and the rescue circle), and the stored draw
-// re-done independently by the engine.
-export default async function LotteryPage({ params }: PageProps<"/admin/[slug]/lottery">) {
+// Lottery: the seed commitment (published the day before, fixed once the event starts), the 21:00 draw with the
+// seed check, and the stored draw re-done independently by the engine.
+export default async function LotteryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
   const sb = await supabaseServer();
   const [status, lotteryEvent] = await Promise.all([loadEventStatus(event.id), loadLotteryEvent(sb, slug)]);
   const organiser = viewer!.role === "ORGANISER";
+  const drawn = !!event.drawn_at;
   const rows = lotteryEvent ? await loadLotteryRows(sb, lotteryEvent) : null;
 
   return (
     <div className="space-y-6">
-      <CommitmentPanel eventId={event.id} commitment={event.seed_commitment} setup={status.phase === "SETUP" && !event.drawn_at} organiser={organiser} />
-      {rows && lotteryEvent ? (
-        <DrawnPanels slug={slug} rows={rows} drawnAt={lotteryEvent.drawn_at!} revealed={lotteryEvent.seed_revealed} crisisAt={lotteryEvent.crisis_applied_at} />
+      <CommitmentPanel eventId={event.id} commitment={event.seed_commitment} setup={status.phase === "SETUP" && !drawn} organiser={organiser} />
+      {drawn && rows ? (
+        <DrawnPanels slug={slug} rows={rows} drawnAt={event.drawn_at!} revealed={event.seed_revealed} />
       ) : (
         <DrawPanel eventId={event.id} phase={status.phase} commitment={event.seed_commitment} organiser={organiser} />
       )}
@@ -74,20 +74,27 @@ function CommitmentPanel({ eventId, commitment, setup, organiser }: { eventId: s
 }
 
 function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string; phase: PhaseCode; commitment: string | null; organiser: boolean }) {
-  const open = phase === "BRIEFING" || phase === "BUILD";
+  const open = phase === "SQUAD_DRAW";
   return (
-    <Panel title="Draw (start of Build)">
+    <Panel title="Draw">
       {!open ? (
-        <Notice tone="slate">The draw is entered on stage at the start of Round 1 (Briefing or Build). The event is in {PHASE_LABELS[phase]}.</Notice>
+        <Notice tone="slate">
+          The draw is entered in the Squad draw phase (21:00). The event is in {PHASE_LABELS[phase]}.
+        </Notice>
       ) : !commitment ? (
         <Notice tone="red">No seed commitment was published, so the draw cannot be verified.</Notice>
       ) : organiser ? (
         <>
           <p className="text-sm text-slate-600">
-            Enter the secret seed and the dice roll. The database checks SHA-256(seed) against the published commitment before anything is drawn; a
-            mismatch changes nothing. The seed and dice deal the problem cards now, and the crisis cards and the rescue circle at the crisis.
+            Enter the secret seed and the dice roll. The database checks SHA-256(seed) against the published commitment before anything is drawn;
+            a mismatch changes nothing.
           </p>
-          <ConfirmForm action={runLottery.bind(null, eventId)} submit="Verify the seed and draw" confirm="Click again to draw with dice {dice}" className="mt-3 grid max-w-2xl gap-3">
+          <ConfirmForm
+            action={runLottery.bind(null, eventId)}
+            submit="Verify the seed and draw"
+            confirm="Click again to draw with dice {dice}"
+            className="mt-3 grid max-w-2xl gap-3"
+          >
             <label className="block">
               <span className="text-xs font-medium text-slate-600">Secret seed (64 hex characters)</span>
               <input name="seed" type="password" required autoComplete="off" spellCheck={false} className={`${inputClass} font-mono`} />
@@ -105,61 +112,51 @@ function DrawPanel({ eventId, phase, commitment, organiser }: { eventId: string;
   );
 }
 
-function DrawnPanels({ slug, rows, drawnAt, revealed, crisisAt }: { slug: string; rows: LotteryRows; drawnAt: string; revealed: string | null; crisisAt: string | null }) {
-  const check = checkDraw(rows);
-  const teams = teamDrawViews(rows);
-  const spread = cardSpread(teams);
-  const crises = crisisSpread(teams);
+function DrawnPanels({ slug, rows, drawnAt, revealed }: { slug: string; rows: LotteryRows; drawnAt: string; revealed: string | null }) {
+  const record = buildLotteryRecord(rows);
+  const check = checkDraw(record);
+  const squads = squadViews(rows);
   return (
     <>
       <Panel title="Draw">
         <div className="grid gap-3 sm:grid-cols-4">
           <Stat label="Dice" value={<span className="font-mono">{rows.dice}</span>} />
-          <Stat label="Problem cards dealt" value={clock(drawnAt, true)} hint={`${dateTime(drawnAt)} IST`} />
+          <Stat label="Drawn at" value={clock(drawnAt, true)} hint={`${dateTime(drawnAt)} IST`} />
           <Stat
             label="Seed"
             value={check.seedMatches ? <Badge tone="green">Seed matches commitment</Badge> : <Badge tone="red">Seed does NOT match commitment</Badge>}
-            hint={revealed ? "Published at the crisis" : "Secret until the crisis"}
+            hint={revealed ? "Revealed at the crisis" : "Secret until the crisis"}
           />
-          <Stat
-            label="Crisis and rescue circle"
-            value={crisisAt ? clock(crisisAt, true) : "at the crisis"}
-            hint={crisisAt ? "Drawn from the same seed" : "Drawn at the crisis"}
-          />
+          <Stat label="Squads" value={squads.length} />
         </div>
         <div className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">Commitment</div>
         <p className="break-all font-mono text-sm">{rows.commitment}</p>
         {revealed ? (
           <>
-            <div className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">Seed (published)</div>
+            <div className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-500">Seed (revealed)</div>
             <p className="break-all font-mono text-sm">{revealed}</p>
           </>
         ) : null}
-        <p className="mt-3 text-sm text-slate-600">
-          {teams.length} teams, {spread.cards} problem cards used, {spread.min === spread.max ? `${spread.max} teams per card` : `${spread.min}–${spread.max} teams per card`}
-          {crises.length ? `; crisis types: ${crises.map((c) => `#${c.number} ×${c.companies}`).join(", ")}` : ""}.
-        </p>
       </Panel>
 
       <Panel
         title="Independent check"
         actions={
-          crisisAt ? (
-            <a href={`/admin/${slug}/lottery/record`} download={recordFileName(slug)} className="text-sm font-semibold text-slate-900 underline">
-              Download the lottery record (JSON)
-            </a>
-          ) : null
+          <a href={`/admin/${slug}/lottery/record`} download={recordFileName(slug)} className="text-sm font-semibold text-slate-900 underline">
+            Download the lottery record (JSON)
+          </a>
         }
       >
         <p className="text-sm text-slate-600">
-          The engine re-does the draw here from the seed, the dice, the team codes and the card numbers, and compares it with what the database stored
-          {check.scope === "all" ? ": problem cards, crisis cards and the rescue circle." : ": the problem cards (the crisis draw comes at the crisis)."}
+          The engine&apos;s drawLottery re-does the draw here from the stored seed, the dice, the team codes of each track and the problem-card numbers,
+          and compares it with what the database stored{record.crises ? ", including each company's crisis card" : ""}.
         </p>
         <div className="mt-3">
           {check.problems.length === 0 ? (
             <Notice tone="green">
-              <strong>Draw verified.</strong> Every one of the {teams.length} teams&apos;{" "}
-              {check.scope === "all" ? "problem card, crisis card and rescue" : "problem card"} is exactly what the seed and the dice produce.
+              <strong>Draw verified.</strong> All {squads.length} squads,{" "}
+              {record.crises ? "their dealt problem cards, the coverage and the crisis cards" : "their dealt problem cards and the coverage"} are exactly
+              what the seed and the dice produce.
             </Notice>
           ) : (
             <Notice tone="red">
@@ -172,28 +169,49 @@ function DrawnPanels({ slug, rows, drawnAt, revealed, crisisAt }: { slug: string
             </Notice>
           )}
         </div>
-        {crisisAt ? (
-          <p className="mt-3 text-xs text-slate-500">
-            The record is public from the crisis (teams can download it too). Anyone can check it with{" "}
-            <code className="font-mono">pnpm verify-lottery --file {recordFileName(slug)} --commitment &lt;published commitment&gt;</code>.
-          </p>
-        ) : null}
+        <p className="mt-3 text-xs text-slate-500">
+          The record contains the secret seed (staff only until the crisis). Anyone can check it with{" "}
+          <code className="font-mono">pnpm verify-lottery --file {recordFileName(slug)} --commitment &lt;published commitment&gt;</code>.
+        </p>
       </Panel>
 
-      <Panel title="Teams">
-        <Table head={["Team", "Company", "Problem card", "Crisis card", "Rescues", "Rescued by"]} empty="No teams.">
-          {teams.map((t) => (
-            <tr key={t.code}>
-              <Td mono>{t.code}</Td>
-              <Td>{t.ticker ? <span><span className="font-mono">{t.ticker}</span> {t.name}</span> : <span className="text-slate-400">Not named yet</span>}</Td>
-              <Td>{t.problem ? <span><span className="font-mono">#{t.problem.number}</span> {t.problem.title}</span> : "—"}</Td>
-              <Td>{t.crisis ? <span><span className="font-mono">#{t.crisis.number}</span> {t.crisis.category}</span> : "—"}</Td>
-              <Td mono>{t.rescues ?? "—"}</Td>
-              <Td mono>{t.rescuedBy ?? "—"}</Td>
-            </tr>
-          ))}
-        </Table>
+      <Panel title="Squads">
+        <SquadTable squads={squads} />
       </Panel>
     </>
+  );
+}
+
+function card(c: { number: number | null; title: string }) {
+  return c.number === null ? "?" : `#${c.number}`;
+}
+
+function SquadTable({ squads }: { squads: SquadView[] }) {
+  return (
+    <Table head={["Squad", "Product", "Consulting", "Finance", "Dealt cards", "Chosen card", "Consultant covers"]} empty="No squads.">
+      {squads.map((s) => (
+        <tr key={s.number}>
+          <Td mono>{s.number}</Td>
+          <Td mono>{s.product}</Td>
+          <Td mono>{s.consulting}</Td>
+          <Td mono>{s.finance}</Td>
+          <Td mono>
+            <span title={s.dealt.map((c) => `${card(c)} ${c.title}`).join("\n")}>{s.dealt.map(card).join(" · ")}</span>
+          </Td>
+          <Td>
+            {s.chosen ? (
+              <span className="flex items-center gap-2">
+                <span className="font-mono">{card(s.chosen)}</span>
+                <span className="text-slate-600">{s.chosen.title}</span>
+                {s.chosenByDefault ? <Badge tone="amber">Default</Badge> : <Badge tone="green">Picked</Badge>}
+              </span>
+            ) : (
+              <span className="text-slate-500">Not picked yet</span>
+            )}
+          </Td>
+          <Td mono>{s.covers.map((c) => (c.ticker ? `${c.product} (${c.ticker})` : c.product)).join(", ")}</Td>
+        </tr>
+      ))}
+    </Table>
   );
 }

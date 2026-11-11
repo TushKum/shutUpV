@@ -37,7 +37,7 @@ export function OpenOrders({ ctx, items, closesAt, accepting }: { ctx: OrderCont
               <span className="font-mono font-semibold">{label}</span>
               <span className="text-xs text-slate-500">
                 placed {clock(line.createdAt, true)} at {money(line.entryPrice)}
-                {line.reserve > 0 ? ` · cash reserved ${money(line.reserve)}` : ""}
+                {line.reserve > 0 ? ` · ${line.type === "SHORT" ? "collateral" : "cash"} reserved ${money(line.reserve)}` : ""}
               </span>
             </div>
             {open ? (

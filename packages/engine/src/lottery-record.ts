@@ -1,26 +1,31 @@
-// The published lottery record and its check: the seed matches the commitment made before the draw, and the problem
-// cards, crisis cards and rescue circle are exactly what the seed and the dice produce. Used by `pnpm verify-lottery`
-// (scripts/verify-lottery.ts) and by the control panel's independent check of the draw.
+// The published lottery record and its check: the seed matches the commitment made before the draw, and the
+// squads, problem cards, coverage and crisis cards are exactly what the seed and the dice produce. Used by
+// `pnpm verify-lottery` (scripts/verify-lottery.ts) and by the control panel's independent check of the draw.
 
-import { drawLottery, verifyCommitment } from "./lottery";
+import { assignCrises, drawLottery, verifyCommitment } from "./lottery";
 
 export interface LotteryRecord {
   seed: string;
   dice: string;
   commitment: string;
-  /** Every team code. */
-  teams: string[];
+  teams: { product: string[]; consulting: string[]; finance: string[] };
   /** Problem card numbers, as strings. */
   problemCards: string[];
-  /** Crisis card numbers, as strings. */
-  crisisCards: string[];
-  /** Per team: the problem card number it drew, the crisis card number its company drew, the team it rescues. */
-  draws: { team: string; problem: string; crisis: string; rescues: string }[];
+  /** `cards` in the order dealt (the first is the default pick); `covers` are the covered companies' Product team codes. */
+  squads: { number: number; product: string; consulting: string; finance: string; cards: string[]; covers: string[] }[];
+  /** Optional until 00:30: the crisis deck and the card each squad's company drew ("Category #number"). */
+  crisisDeck?: { category: string; number: number }[];
+  crises?: { squad: number; card: string }[];
 }
 
+const cardLabel = (c: { category: string; number: number }) => `${c.category} #${c.number}`;
+
+/** The two covered companies are a set: the database stores coverage without an order. */
+const sameSet = (a: readonly string[], b: readonly string[]) => [...a].sort().join(",") === [...b].sort().join(",");
+
 /**
- * Every difference between the record and a fresh draw (an empty list means the record checks out). `published` is the
- * commitment the checker saw before the event; it must equal the record's.
+ * Every difference between the record and a fresh draw (an empty list means the record checks out).
+ * `published` is the commitment the checker saw before the event; it must equal the record's.
  */
 export function checkLotteryRecord(record: LotteryRecord, published?: string): string[] {
   const problems: string[] = [];
@@ -30,31 +35,33 @@ export function checkLotteryRecord(record: LotteryRecord, published?: string): s
   if (!verifyCommitment(record.seed, record.commitment)) {
     problems.push("the seed does not match the commitment published before the draw");
   }
-  let draw;
-  try {
-    draw = drawLottery(
-      record.seed,
-      record.dice,
-      record.teams,
-      record.problemCards,
-      record.crisisCards.map((n) => ({ id: n, number: Number(n) })),
-    );
-  } catch (err) {
-    return [...problems, `the draw cannot be repeated: ${(err as Error).message}`];
+  const draw = drawLottery(record.seed, record.dice, record.teams, record.problemCards);
+  if (record.squads.length !== draw.squads.length) {
+    problems.push(`expected ${draw.squads.length} squads, the record has ${record.squads.length}`);
   }
-  if (record.draws.length !== record.teams.length) {
-    problems.push(`expected ${record.teams.length} teams, the record has ${record.draws.length}`);
-  }
-  for (const team of [...record.teams].sort()) {
-    const got = record.draws.find((d) => d.team === team);
+  for (const want of draw.squads) {
+    const got = record.squads.find((s) => s.number === want.number);
     if (!got) {
-      problems.push(`${team} is missing`);
+      problems.push(`squad ${want.number} is missing`);
       continue;
     }
-    const want = { problem: draw.problems.get(team)!, crisis: draw.crises.get(team)!, rescues: draw.circle.get(team)! };
-    if (got.problem !== want.problem) problems.push(`${team}: problem card should be #${want.problem}, the record says #${got.problem}`);
-    if (got.crisis !== want.crisis) problems.push(`${team}: crisis card should be #${want.crisis}, the record says #${got.crisis}`);
-    if (got.rescues !== want.rescues) problems.push(`${team}: should rescue ${want.rescues}'s company, the record says ${got.rescues}'s`);
+    for (const key of ["product", "consulting", "finance"] as const) {
+      if (got[key] !== want[key]) problems.push(`squad ${want.number}: ${key} should be ${want[key]}, the record says ${got[key]}`);
+    }
+    if (got.cards.join(",") !== want.cards.join(",")) {
+      problems.push(`squad ${want.number}: problem cards should be ${want.cards.join(", ")}, the record says ${got.cards.join(", ")}`);
+    }
+    if (!sameSet(got.covers, want.covers)) {
+      problems.push(`squad ${want.number}: covered companies should be ${want.covers.join(", ")}, the record says ${got.covers.join(", ")}`);
+    }
+  }
+  if (record.crisisDeck && record.crises) {
+    const deck = record.crisisDeck.map((c) => ({ id: cardLabel(c), category: c.category, number: c.number }));
+    const crises = assignCrises(draw.root, draw.squads.length, deck);
+    crises.forEach((card, i) => {
+      const got = record.crises!.find((c) => c.squad === i + 1)?.card;
+      if (got !== card) problems.push(`squad ${i + 1}: crisis card should be ${card}, the record says ${got ?? "nothing"}`);
+    });
   }
   return problems;
 }

@@ -1,26 +1,29 @@
 import { describe, expect, test } from "vitest";
-import { PHASE_CODES, phaseReached } from "@msim/engine";
+import { PHASE_CODES } from "@msim/engine";
 import { decideRankingsAccess } from "./rankings";
 
 describe("rankings access", () => {
-  test("acceptance 13: after the 03:30 freeze and before AWARDS, teams get 403", () => {
+  test("acceptance 10: the rankings endpoint returns 403 to teams before AWARDS", () => {
     for (const phase of PHASE_CODES) {
-      expect(decideRankingsAccess("TEAM", phase, false)).toEqual({ ok: true });
-      const frozen = decideRankingsAccess("TEAM", phase, true);
-      if (phaseReached(phase, "AWARDS")) expect(frozen).toEqual({ ok: true });
-      else expect(frozen).toMatchObject({ ok: false, status: 403 });
+      const d = decideRankingsAccess("TEAM", phase);
+      if (phase === "AWARDS") expect(d).toEqual({ ok: true });
+      else expect(d).toMatchObject({ ok: false, status: 403 });
     }
   });
 
-  test("the display follows teams; organisers and the fairness officer always see it", () => {
-    expect(decideRankingsAccess("DISPLAY", "SETTLEMENT", true)).toMatchObject({ status: 403 });
-    expect(decideRankingsAccess("DISPLAY", "AWARDS", true)).toEqual({ ok: true });
-    for (const role of ["ORGANISER", "FAIRNESS"] as const) expect(decideRankingsAccess(role, "MARKET", true)).toEqual({ ok: true });
+  test("the display sees them only at AWARDS; organisers and the fairness officer from SETTLEMENT", () => {
+    expect(decideRankingsAccess("DISPLAY", "APPEALS")).toMatchObject({ status: 403 });
+    expect(decideRankingsAccess("DISPLAY", "AWARDS")).toEqual({ ok: true });
+    for (const role of ["ORGANISER", "FAIRNESS"] as const) {
+      expect(decideRankingsAccess(role, "CLOSE")).toMatchObject({ status: 403 });
+      expect(decideRankingsAccess(role, "SETTLEMENT")).toEqual({ ok: true });
+      expect(decideRankingsAccess(role, "APPEALS")).toEqual({ ok: true });
+    }
   });
 
-  test("signed out is 401; an unknown event is 404; an unknown phase 400", () => {
-    expect(decideRankingsAccess(null, "AWARDS", false)).toMatchObject({ status: 401 });
-    expect(decideRankingsAccess("TEAM", null, false)).toMatchObject({ status: 404 });
-    expect(decideRankingsAccess("TEAM", "NOT_A_PHASE", false)).toMatchObject({ status: 400 });
+  test("signed out is 401; an unknown event is 404", () => {
+    expect(decideRankingsAccess(null, "AWARDS")).toMatchObject({ status: 401 });
+    expect(decideRankingsAccess("TEAM", null)).toMatchObject({ status: 404 });
+    expect(decideRankingsAccess("TEAM", "NOT_A_PHASE")).toMatchObject({ status: 400 });
   });
 });

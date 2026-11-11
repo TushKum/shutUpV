@@ -1,268 +1,608 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SUBMISSION_TYPES } from "@msim/engine";
+import type { DeadlineCode, SubmissionType } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
-import { loadAdminEvent } from "@/lib/admin/event";
+import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { loadJudgeData } from "@/lib/admin/judge-data";
-import { APPEAL_STATUS_LABELS, JUDGE_TYPE_LABELS, appealLines, judgeLines, judgeProgress, openAppealCompanies, pickType, type ScoreStatus } from "@/lib/admin/judge";
-import { calibrationResults } from "@/lib/judge/calibration";
-import { judgeConfig } from "@/lib/judge/config";
-import { loadPrompt } from "@/lib/judge/prompts";
-import { clock, count } from "@/lib/format";
-import { Badge, Notice, Panel, Stat, Table, Td, inputClass, type Tone } from "@/components/ui/ui";
-import { ActionButton, ActionForm } from "@/components/ui/action";
+import {
+  APPEAL_STATUS_LABELS,
+  JUDGE_COLUMNS,
+  JUDGE_TYPES,
+  TARGET_TONE,
+  TYPE_NAMES,
+  TYPE_TITLES,
+  appealChange,
+  appealViews,
+  companyViews,
+  defaultJudgeType,
+  duration,
+  effectLines,
+  judgeProgress,
+  modelSwitch,
+  parseJudgeType,
+  perMinuteText,
+  refreshInterval,
+  rerunBlock,
+  scoreWithTier,
+  scoringClosed,
+  scoringClosesAt,
+  startBlock,
+  summarise,
+  targetText,
+  type AppealView,
+  type CompanyJudgeView,
+  type JudgeProgress,
+  type JudgeSlot,
+  type TypeSummary,
+} from "@/lib/admin/judge";
+import { judgeConfig, type JudgeConfig } from "@/lib/judge/config";
+import { fakeJudgeRefusal } from "@/lib/judge";
+import { clock } from "@/lib/format";
+import { Badge, Notice, Panel, Stat, Table, inputClass } from "@/components/ui/ui";
+import { ActionButton, ConfirmForm } from "@/components/ui/action";
+import { Countdown } from "@/components/ui/countdown";
 import { AutoRefresh } from "@/lib/live/auto-refresh";
-import { applyAppeal, dismissAppeal, rerunJudging, retryFailed, setModelSlot, startCalibration, uploadCalibration } from "./actions";
+import { RefreshAt } from "@/lib/live/refresh-at";
+import { CompanyRow } from "./company-row";
 import { JudgeRunner } from "./runner";
+import {
+  applyAppeal,
+  dismissAppeal,
+  releaseScores,
+  retryFailedRuns,
+  sealMissingScores,
+  setJudgeModel,
+  startJudging,
+} from "./actions";
 
 export const metadata: Metadata = { title: "Judge" };
 
-const STATUS_TONE: Record<ScoreStatus | "NOT_LOCKED", Tone> = { NOT_LOCKED: "slate", PENDING: "blue", SCORING: "blue", SEALED: "green", REVEALED: "violet" };
-const STATUS_LABEL: Record<ScoreStatus | "NOT_LOCKED", string> = { NOT_LOCKED: "Not locked", PENDING: "Judging", SCORING: "Judging", SEALED: "Sealed", REVEALED: "Revealed" };
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const TARGET_TEXT = { green: "text-emerald-700", amber: "text-amber-700", red: "text-red-700", slate: "text-slate-700", blue: "text-sky-700", violet: "text-violet-700" } as const;
 
-// Judge: "Run the judge here" (this console works the queue), each round's progress (locked submissions, the three
-// readings, sealed and revealed scores), every company's readings, median, penalty and final score, the backup-model
-// switch, failed readings back to the queue, technical re-runs with a written reason and their approval by a second
-// organiser after a reveal, and calibration before the event. Scores stay secret from everyone but organisers until
-// their reveal (PRDs 23:30, solutions 02:45).
-export default async function JudgePage({ params, searchParams }: PageProps<"/admin/[slug]/judge">) {
-  const { slug } = await params;
-  const sp = await searchParams;
-  const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
-  if (viewer!.role !== "ORGANISER") {
-    return <Notice tone="amber">Judging is the organisers&apos;. Scores are secret until their reveal; the fairness officer sees them from then on, under Fairness.</Notice>;
-  }
-  const data = await loadJudgeData(event.id);
-  const type = pickType(sp.type, data.crisisApplied);
-  const progress = judgeProgress(data, type);
-  const lines = judgeLines(data, type);
-  const slot = data.slots[type];
-  const appeals = appealLines(data.appeals, data.companies, type, viewer!.userId);
-  const open = openAppealCompanies(data.appeals, type);
-  const cal = calibrationResults(data.calibration.samples, data.calibration.runs);
-  const calRunning = data.calibration.runs.some((r) => r.status === "QUEUED" || r.status === "RUNNING");
-  const active = progress.readings.queued + progress.readings.running > 0 || calRunning;
-  let fake = false;
+/** The judge's settings (JUDGE_* variables), or why they are wrong. */
+function readSettings(): { ok: true; config: JudgeConfig } | { ok: false; error: string } {
   try {
-    fake = judgeConfig().fake;
-  } catch {
-    // A bad setting shows when the judge runs (the route answers with it).
+    return { ok: true, config: judgeConfig() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  const prompt = (() => {
-    try {
-      return loadPrompt(type).sha;
-    } catch {
-      return null;
-    }
-  })();
+}
+
+// Judge: the controls (run the judge from this console, the model in use and the backup switch, calibration), per
+// type a summary, the progress of the judge against the brief's target, starting the judging and retrying failed
+// runs, every company's runs, spread, median and final score with a technical re-run, sealing the 0 of companies with
+// no on-time submission and the release; then every appeal and re-run, with apply and dismiss for those after
+// release. Organisers act; the fairness officer sees it read-only. Judge functions broadcast on the staff channel,
+// and the page re-reads itself every 3 s while runs are in flight (a finished run sends no message).
+export default async function JudgePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
+  const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
+  const [status, data] = await Promise.all([loadEventStatus(event.id), loadJudgeData(event.id)]);
+  const organiser = viewer!.role === "ORGANISER";
+  const now = Date.parse(status.server_time);
+  const pausedAt = status.paused ? status.paused_at : null;
+  const settings = readSettings();
+  const type = parseJudgeType(query.type) ?? defaultJudgeType(status.phase);
+  const views = Object.fromEntries(JUDGE_TYPES.map((t) => [t, companyViews(t, data)])) as Record<SubmissionType, CompanyJudgeView[]>;
+  const summaries = Object.fromEntries(JUDGE_TYPES.map((t) => [t, summarise(t, views[t])])) as Record<SubmissionType, TypeSummary>;
+  const summary = summaries[type];
+  const released = summary.released > 0;
+  const refresh = refreshInterval(
+    JUDGE_TYPES.map((t) => summaries[t]),
+    data.runs,
+  );
+  const closesAt = scoringClosesAt(type, data.deadlines);
+  const closed = scoringClosed(type, data.deadlines, now, pausedAt);
+  const startOff = startBlock(type, { closed, released, closesAt });
+  const progress = judgeProgress(type, views[type], data.runs, now);
+  const appeals = appealViews(data);
+  const waiting = appeals.filter((a) => a.canApply).length;
+  const failed = summary.runs.FAILED;
 
   return (
     <div className="space-y-6">
-      <AutoRefresh everyMs={5000} active={active} />
-      <Panel title="The judge worker">
-        <JudgeRunner eventId={event.id} fake={fake} canRun />
-        <p className="mt-2 text-xs text-slate-500">
-          While it is on, this console judges queued readings for both rounds and calibration, a few at a time; several consoles share the work. A laptop
-          can run <span className="font-mono">pnpm judge-worker --event {slug}</span> instead. It switches itself off on a configuration error (a bad key, an
-          unknown model).
-        </p>
-      </Panel>
-      <nav className="flex gap-2" aria-label="Round">
-        {SUBMISSION_TYPES.map((t) => (
+      <AutoRefresh everyMs={refresh ?? 15_000} active={refresh !== null} />
+      {/* When the type's deadline passes, re-read: Start judging (and sealing) opens. */}
+      <RefreshAt at={closed ? null : closesAt} />
+
+      <JudgeControls eventId={event.id} slug={slug} organiser={organiser} settings={settings} slot={data.modelSlot} rehearsal={event.is_rehearsal} />
+
+      {waiting > 0 ? (
+        <Notice tone="amber">
+          {waiting === 1 ? "1 appeal has" : `${waiting} appeals have`} a new score waiting: apply or dismiss{" "}
+          <a href="#appeals" className="font-semibold underline">
+            under Appeals and re-runs
+          </a>
+          . The awards wait for every open appeal.
+        </Notice>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {JUDGE_TYPES.map((t) => (
+          <SummaryCard key={t} slug={slug} summary={summaries[t]} selected={t === type} />
+        ))}
+      </div>
+
+      <nav className="flex gap-1 border-b border-slate-200" aria-label="Submission type">
+        {JUDGE_TYPES.map((t) => (
           <Link
             key={t}
-            href={`/admin/${slug}/judge?type=${t}`}
+            href={`/admin/${slug}/judge?type=${t.toLowerCase()}`}
             aria-current={t === type ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${t === type ? "bg-slate-900 text-white" : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"}`}
+            className={`border-b-2 px-3 py-2 text-sm font-medium ${t === type ? "border-slate-900 text-slate-900" : "border-transparent text-slate-500 hover:text-slate-900"}`}
           >
-            {JUDGE_TYPE_LABELS[t]}
+            {TYPE_TITLES[t]}
           </Link>
         ))}
       </nav>
 
       <Panel
-        title={JUDGE_TYPE_LABELS[type]}
+        title={`${TYPE_TITLES[type]} scores`}
         actions={
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-600">Model:</span>
-            <Badge tone={slot === "PRIMARY" ? "green" : "amber"}>{slot === "PRIMARY" ? "Primary" : "Backup"}</Badge>
-            <ActionButton
-              action={setModelSlot.bind(null, event.id, type, slot === "PRIMARY" ? "BACKUP" : "PRIMARY")}
-              confirm={`Click again to switch to the ${slot === "PRIMARY" ? "backup" : "primary"} model`}
-            >
-              Switch to {slot === "PRIMARY" ? "backup" : "primary"}
-            </ActionButton>
-          </div>
+          <>
+            {released ? <Badge tone="green">Released {clock(summary.releasedAt)}</Badge> : null}
+            {organiser ? (
+              <>
+                {/* Kept mounted (disabled) after the release, so the release's own message stays on screen; keyed by type so a
+                    message never carries over to another type's tab. */}
+                <ActionButton
+                  key={`start-${type}`}
+                  action={startJudging.bind(null, event.id, type)}
+                  confirm={`Click again to start judging ${TYPE_NAMES[type]} submissions`}
+                  disabled={startOff !== null}
+                  title={startOff ?? undefined}
+                >
+                  Start judging
+                </ActionButton>
+                {failed > 0 ? (
+                  <ActionButton
+                    key={`retry-${type}`}
+                    action={retryFailedRuns.bind(null, event.id, type)}
+                    confirm={`Click again to retry ${plural(failed, "failed run")}`}
+                  >
+                    Retry {plural(failed, "failed run")}
+                  </ActionButton>
+                ) : null}
+                <ActionButton
+                  key={`seal-${type}`}
+                  action={sealMissingScores.bind(null, event.id, type)}
+                  confirm={`Click again to seal missing ${TYPE_NAMES[type]} scores as 0`}
+                  disabled={released}
+                  title={released ? `${TYPE_TITLES[type]} scores have been released.` : undefined}
+                >
+                  Seal missing as 0
+                </ActionButton>
+                <ActionButton
+                  key={`release-${type}`}
+                  action={releaseScores.bind(null, event.id, type)}
+                  confirm={`Click again to release ${TYPE_NAMES[type]} scores`}
+                  variant="primary"
+                  disabled={released}
+                  title={released ? `${TYPE_TITLES[type]} scores have been released.` : undefined}
+                >
+                  Release {TYPE_NAMES[type]} scores
+                </ActionButton>
+              </>
+            ) : (
+              <span className="text-sm text-slate-500">Organisers start the judge, seal and release scores.</span>
+            )}
+          </>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Stat label="Locked submissions" value={count(progress.submissions)} hint={`${progress.missing} with nothing saved (score 0)`} />
-          <Stat
-            label="Readings done"
-            value={`${count(progress.readings.done)} of ${count(progress.readings.total)}`}
-            hint={`${progress.readings.queued} queued · ${progress.readings.running} running`}
-          />
-          <Stat
-            label="Failed readings"
-            value={<span className={progress.readings.failed ? "text-red-700" : ""}>{count(progress.readings.failed)}</span>}
-            hint={
-              progress.readings.failed ? (
-                <ActionButton action={retryFailed.bind(null, event.id, type)}>Retry failed readings</ActionButton>
-              ) : undefined
-            }
-          />
-          <Stat
-            label="Sealed"
-            value={`${count(progress.sealed)} of ${count(progress.companies)}`}
-            hint={progress.revealed ? `${progress.revealed} revealed` : progress.complete ? "Every score sealed" : "The phase waits for every score"}
-          />
+        <Progress p={progress} />
+        <div className="mt-4">
+          <Rules type={type} deadlines={data.deadlines} />
         </div>
-        <p className="mt-3 text-xs text-slate-500">
-          Each submission is read three times, independently; the median counts. Lines aimed at the judge are removed before it reads, and a team&apos;s
-          second removed line costs 10 points. The judge worker seals each score when its three readings are in. If the primary model fails, switch
-          to the backup: readings claimed from then on use it.
-          {prompt ? (
-            <>
-              {" "}
-              Prompt SHA-256 <span className="font-mono">{prompt.slice(0, 16)}…</span>
-            </>
-          ) : (
-            <span className="font-semibold text-red-700"> The prompt file for this round is missing.</span>
-          )}
-        </p>
-      </Panel>
-
-      <Panel title={`Companies (${lines.length})`}>
-        <Table head={["Ticker", "Author", "Words", "Readings", "Median", "Penalty", "Final", "Removed lines", "Status", "Re-run"]} empty="No company to judge yet.">
-          {lines.map((l) => (
-            <tr key={l.companyId} className={l.readings.some((r) => r.status === "FAILED") ? "bg-red-50" : ""}>
-              <Td mono className="font-semibold">
-                <span title={l.name}>{l.ticker}</span>
-              </Td>
-              <Td mono>{l.author}</Td>
-              <Td mono>{l.words ?? "—"}</Td>
-              <Td mono>
-                {l.readings.length
-                  ? l.readings.map((r) => (
-                      <span key={r.runNo} title={r.error ?? r.status} className={`mr-2 ${r.status === "FAILED" ? "text-red-700" : r.status === "DONE" ? "" : "text-slate-400"}`}>
-                        {r.total ?? (r.status === "FAILED" ? "✗" : "·")}
-                      </span>
-                    ))
-                  : "—"}
-              </Td>
-              <Td mono>{l.median ?? "—"}</Td>
-              <Td mono>{l.penalty ? `−${l.penalty}` : ""}</Td>
-              <Td mono className="font-semibold">{l.final ?? "—"}</Td>
-              <Td mono>{l.removed ?? "—"}</Td>
-              <Td>
-                <Badge tone={STATUS_TONE[l.status]}>{l.missing ? "Missing (0)" : STATUS_LABEL[l.status]}</Badge>
-                {l.waiting ? <span className="ml-2 text-xs text-slate-500">{l.waiting}</span> : null}
-                {open.has(l.companyId) ? <span className="ml-2 text-xs text-amber-700">re-run open</span> : null}
-              </Td>
-              <Td>
-                {!l.missing && l.status !== "NOT_LOCKED" && !open.has(l.companyId) ? (
-                  <details>
-                    <summary className="cursor-pointer text-xs font-medium text-slate-600">Re-run…</summary>
-                    <ActionForm action={rerunJudging.bind(null, l.companyId, type)} submit="Queue three new readings" className="mt-2 w-64">
-                      <label className="block text-xs text-slate-600">
-                        Technical reason (logged)
-                        <textarea name="reason" required minLength={5} maxLength={1000} rows={2} className={`${inputClass} mt-1 w-full`} />
-                      </label>
-                    </ActionForm>
-                  </details>
-                ) : null}
-              </Td>
-            </tr>
+        {startOff && !released && organiser ? <p className="mt-2 text-sm text-slate-500">{startOff}</p> : null}
+        {summary.stale > 0 ? (
+          <div className="mt-3">
+            <Notice tone="red">
+              {summary.stale} score{summary.stale === 1 ? " was" : "s were"} sealed for a submission that is no longer the current one. The release
+              refuses until {summary.stale === 1 ? "it is" : "they are"} judged again.
+            </Notice>
+          </div>
+        ) : null}
+        <Table head={[...JUDGE_COLUMNS]} empty="No companies yet: they are formed at the squad draw." className="mt-4" label={`${TYPE_TITLES[type]} scores by company`}>
+          {views[type].map((v) => (
+            <CompanyRow
+              key={`${type}-${v.company.id}`}
+              type={type}
+              view={v}
+              organiser={organiser}
+              rerunBlocked={rerunBlock(type, v, { phase: status.phase, closed })}
+            />
           ))}
         </Table>
-        <p className="mt-3 text-xs text-slate-500">
-          Re-runs are for technical errors only (for example a submission that was cut off). Before the reveal the new median replaces the score. After the
-          reveal the new score waits until a second organiser approves it; applying it re-applies the score&apos;s price effect (the starting price for a PRD,
-          the score reveal for a crisis solution) to the current price, and is logged.
-        </p>
       </Panel>
 
-      <Panel title={`Re-runs and appeals (${appeals.length})`}>
-        {appeals.length === 0 ? (
-          <p className="text-sm text-slate-500">No re-runs in this round.</p>
-        ) : (
-          <ul className="divide-y divide-slate-100">
-            {appeals.map((a) => (
-              <li key={a.id} className="py-3 text-sm" data-testid={`appeal-${a.ticker}`}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono font-semibold">{a.ticker}</span>
-                  <Badge tone={a.status === "READY" ? "amber" : a.status === "APPLIED" ? "green" : a.status === "DISMISSED" ? "slate" : "blue"}>
-                    {APPEAL_STATUS_LABELS[a.status]}
-                  </Badge>
-                  <span className="text-slate-600">{a.afterReveal ? "after the reveal" : "before the reveal"}</span>
-                  <span className="font-mono text-slate-600">
-                    {a.oldFinal ?? "—"} → {a.newFinal ?? "…"}
-                    {a.newTotals.length ? ` (${a.newTotals.join(", ")})` : ""}
-                  </span>
-                  <span className="text-xs text-slate-500">{clock(a.requestedAt, true)}</span>
-                </div>
-                <p className="mt-1 text-slate-700">{a.reason}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {a.next}
-                  {a.note ? ` Note: ${a.note}` : ""}
-                </p>
-                {a.status === "READY" && !a.mine ? (
-                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                    <ActionForm action={applyAppeal.bind(null, a.id)} submit="Approve and apply" confirm="Click again to apply the new score and its price effect">
-                      <input name="note" maxLength={1000} placeholder="Note (optional)" className={`${inputClass} w-full`} />
-                    </ActionForm>
-                    <ActionForm action={dismissAppeal.bind(null, a.id)} submit="Dismiss">
-                      <input name="note" required minLength={5} maxLength={1000} placeholder="Why not (required)" className={`${inputClass} w-full`} />
-                    </ActionForm>
-                  </div>
-                ) : null}
-              </li>
+      <AppealsPanel appeals={appeals} organiser={organiser} />
+    </div>
+  );
+}
+
+function JudgeControls({
+  eventId,
+  slug,
+  organiser,
+  settings,
+  slot,
+  rehearsal,
+}: {
+  eventId: string;
+  slug: string;
+  organiser: boolean;
+  settings: ReturnType<typeof readSettings>;
+  slot: JudgeSlot;
+  rehearsal: boolean;
+}) {
+  const config = settings.ok ? settings.config : null;
+  const refusal = config ? fakeJudgeRefusal(config, { is_rehearsal: rehearsal }) : null;
+  const runner = organiser && config !== null && refusal === null;
+  const models = config?.models ?? null;
+  const sw = modelSwitch(slot, models);
+  return (
+    <Panel
+      title="Judge"
+      actions={
+        <>
+          {/* The runner shows its own badge next to its button. */}
+          {config?.fake && !runner ? <Badge tone="amber">FAKE JUDGE</Badge> : null}
+          <Link href={`/admin/${slug}/judge/calibration`} className="text-sm font-semibold text-slate-700 underline hover:text-slate-900">
+            Calibration
+          </Link>
+        </>
+      }
+    >
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-2 lg:col-span-2">
+          <h3 className="text-sm font-semibold text-slate-900">Run the judge</h3>
+          <p className="text-sm text-slate-600">
+            While it is on, this console works the judge queue: every queued run of every type, the extra runs, retries, re-runs and calibration. Several
+            consoles can run it at once, and so can <code className="font-mono text-xs">pnpm judge-worker --event {slug}</code> on a laptop.
+          </p>
+          {!settings.ok ? (
+            <Notice tone="red">
+              <span data-testid="judge-settings-error">The judge settings are wrong: {settings.error}</span>
+            </Notice>
+          ) : refusal ? (
+            <Notice tone="red">{refusal}</Notice>
+          ) : null}
+          {runner ? (
+            <JudgeRunner eventId={eventId} fake={config.fake} canRun={organiser} />
+          ) : organiser ? null : (
+            <p className="text-sm text-slate-500">Organisers run the judge.</p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Model</h3>
+          <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1 text-sm" aria-label="Judge model" data-testid="judge-model">
+            {(["PRIMARY", "BACKUP"] as const).map((s) => (
+              <div key={s} className="contents">
+                <dt className="text-slate-500">{s === "PRIMARY" ? "Primary" : "Backup"}</dt>
+                <dd className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs [overflow-wrap:anywhere]">{models?.[s] ?? "—"}</span>
+                  {slot === s ? <Badge tone="green">In use</Badge> : null}
+                </dd>
+              </div>
             ))}
-          </ul>
-        )}
-      </Panel>
+          </dl>
+          {organiser ? (
+            <ActionButton key="model" action={setJudgeModel.bind(null, eventId, sw.to)} confirm={sw.confirm}>
+              {sw.label}
+            </ActionButton>
+          ) : null}
+          <p className="text-xs text-slate-500">
+            A switch applies to runs claimed from then on; runs already running finish on their model. Every run stores the model that judged it.
+          </p>
+        </div>
+      </div>
+      <p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-600">
+        Before the event:{" "}
+        <Link href={`/admin/${slug}/judge/calibration`} className="font-semibold text-slate-700 underline hover:text-slate-900">
+          calibrate the judge on 10 sample pitches
+        </Link>{" "}
+        and compare its scores with the expected ranges.
+      </p>
+    </Panel>
+  );
+}
 
+function Meter({ label, value, max, text }: { label: string; value: number; max: number; text: string }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  const full = max > 0 && value >= max;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 text-sm">
+        <span className="font-medium text-slate-700">{label}</span>
+        <span className="tabular-nums text-slate-900">
+          {value} of {max}
+        </span>
+      </div>
+      {max > 0 ? (
+        <div
+          role="progressbar"
+          aria-label={label}
+          aria-valuemin={0}
+          aria-valuemax={max}
+          aria-valuenow={value}
+          aria-valuetext={text}
+          className="mt-1 h-2.5 overflow-hidden rounded-full bg-slate-100"
+        >
+          <div className={`h-full rounded-full ${full ? "bg-emerald-600" : "bg-sky-600"}`} style={{ width: `${pct}%` }} />
+        </div>
+      ) : (
+        <p className="mt-1 text-xs text-slate-500">No submissions.</p>
+      )}
+    </div>
+  );
+}
+
+function Progress({ p }: { p: JudgeProgress }) {
+  const r = p.runs;
+  const eta = p.remaining > 0 && p.etaMs !== null ? duration(p.etaMs) : "—";
+  const etaHint =
+    p.remaining === 0
+      ? r.FAILED > 0
+        ? `${plural(r.FAILED, "run")} failed: retry ${r.FAILED === 1 ? "it" : "them"}`
+        : "Nothing left to judge"
+      : p.etaMs === null && p.startedAt
+        ? "No run finished in the last 2 min"
+        : `${plural(p.remaining, "run")} to go, at this pace`;
+  return (
+    <section aria-label={`${TYPE_TITLES[p.type]} progress`} data-testid="judge-progress" className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Meter label="Runs done" value={p.done} max={p.needed} text={`${p.done} of ${p.needed} runs done`} />
+        <Meter label="Companies sealed" value={p.sealed} max={p.submissions} text={`${p.sealed} of ${p.submissions} companies with a submission sealed`} />
+      </div>
+      <p className="text-sm tabular-nums text-slate-700" data-testid="judge-progress-counts">
+        {r.DONE} done · {r.RUNNING} running · {r.QUEUED} queued · <span className={r.FAILED > 0 ? "font-semibold text-red-700" : ""}>{r.FAILED} failed</span>
+        {p.notStarted > 0 ? ` · ${plural(p.notStarted, "submission")} not started` : ""}
+        <span className="text-slate-500"> · runs needed: 3 per submission, plus runs 4–5 where the first 3 spread more than 10 points</span>
+      </p>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <Stat label="Started" value={p.startedAt ? clock(p.startedAt, true) : "—"} hint={p.startedAt ? "The first run" : "Not started"} />
+        <Stat label="Elapsed" value={duration(p.elapsedMs)} hint={p.finishedAt ? `Last run finished ${clock(p.finishedAt, true)}` : p.startedAt ? "Still judging" : undefined} />
+        <Stat label="Throughput" value={perMinuteText(p.perMinute)} hint="Runs done in the last 2 min" />
+        <Stat label="ETA" value={eta} hint={etaHint} />
+      </div>
+      <p className="text-sm text-slate-600" data-testid="judge-target">
+        Target (the brief): all submissions × 3 runs within 10 minutes.{" "}
+        {p.target ? (
+          <span className={`font-semibold ${TARGET_TEXT[TARGET_TONE[p.target.state]]}`}>{targetText(p.target)}</span>
+        ) : (
+          <span>It is timed from the first run.</span>
+        )}
+      </p>
+    </section>
+  );
+}
+
+function SummaryCard({ slug, summary: s, selected }: { slug: string; summary: TypeSummary; selected: boolean }) {
+  const runs = s.runs;
+  const anyRuns = runs.QUEUED + runs.RUNNING + runs.DONE + runs.FAILED > 0;
+  return (
+    <Panel
+      title={TYPE_TITLES[s.type]}
+      className={selected ? "ring-2 ring-slate-900" : ""}
+      actions={
+        s.released > 0 ? (
+          <Badge tone="green">Released</Badge>
+        ) : s.unsealed === 0 && s.companies > 0 ? (
+          <Badge tone="blue">All sealed</Badge>
+        ) : (
+          <Badge tone="slate">Not released</Badge>
+        )
+      }
+    >
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm" aria-label={`${TYPE_TITLES[s.type]} summary`}>
+        <dt className="text-slate-500">Companies</dt>
+        <dd className="tabular-nums">{s.companies}</dd>
+        <dt className="text-slate-500">Submissions</dt>
+        <dd className="tabular-nums">
+          {s.submissions}
+          {s.companies > s.submissions ? <span className="text-slate-500"> · {s.companies - s.submissions} without</span> : null}
+        </dd>
+        <dt className="text-slate-500">Judge runs</dt>
+        <dd className="tabular-nums">
+          {anyRuns ? (
+            <>
+              {runs.DONE} done · {runs.RUNNING} running · {runs.QUEUED} queued ·{" "}
+              <span className={runs.FAILED > 0 ? "font-semibold text-red-700" : ""}>{runs.FAILED} failed</span>
+            </>
+          ) : (
+            "None yet"
+          )}
+        </dd>
+        <dt className="text-slate-500">Scores</dt>
+        <dd className="tabular-nums">
+          {s.sealed} sealed · {s.released} released · {s.missing} missing
+        </dd>
+        <dt className="text-slate-500">Not sealed</dt>
+        <dd className="tabular-nums">{s.unsealed}</dd>
+      </dl>
+      <Link href={`/admin/${slug}/judge?type=${s.type.toLowerCase()}`} className="mt-2 inline-block text-sm font-semibold text-slate-700 underline">
+        {selected ? "Shown below" : `Show ${TYPE_NAMES[s.type]} scores`}
+      </Link>
+    </Panel>
+  );
+}
+
+function When({ at }: { at: string | undefined }) {
+  if (!at) return <span>—</span>;
+  return (
+    <span className="font-mono tabular-nums">
+      {clock(at)} (<Countdown to={at} passed="passed" />)
+    </span>
+  );
+}
+
+function Rules({ type, deadlines }: { type: SubmissionType; deadlines: Partial<Record<DeadlineCode, string>> }) {
+  return (
+    <ul className="list-disc space-y-0.5 pl-5 text-sm text-slate-600">
+      {type === "PITCH" ? (
+        <>
+          <li>
+            Pitch submissions close at <When at={deadlines.PITCH} />. Judging starts after that, and missing pitches can then be sealed as 0.
+          </li>
+          <li>
+            Release after consultant call 1 closes at <When at={deadlines.CALL_1} />, in Reading, between rounds. It sets every company&apos;s IPO price
+            ($10.00 × (1 + tier)).
+          </li>
+        </>
+      ) : type === "PLAN" ? (
+        <>
+          <li>
+            Plans close at <When at={deadlines.PLAN} /> and deals at <When at={deadlines.DEAL} />; judging starts after both. A plan whose deal was not
+            fully signed by then is capped at 50.
+          </li>
+          <li>Release at Verdicts (03:30). The tier moves both the market price and the AI price.</li>
+        </>
+      ) : (
+        <>
+          <li>
+            Flash answers close at <When at={deadlines.FLASH} />. Judging starts after that.
+          </li>
+          <li>
+            Release after round 17 clears (<When at={deadlines.FLASH_TIER} />). The tier moves both the market price and the AI price, and consultant call 2
+            is judged.
+          </li>
+        </>
+      )}
+      <li>
+        Start judging queues runs 1–3 of every current submission. When the first 3 spread more than 10 points, runs 4 and 5 are added. A score is
+        sealed as soon as its runs are complete.
+      </li>
+      <li>A second injection offence by the same squad costs 10 points (penalty). The final score is the median, capped, minus the penalty.</li>
+    </ul>
+  );
+}
+
+function AppealsPanel({ appeals, organiser }: { appeals: AppealView[]; organiser: boolean }) {
+  const open = appeals.filter((a) => a.afterRelease && (a.status === "JUDGING" || a.status === "READY")).length;
+  return (
+    <div id="appeals" className="scroll-mt-4">
       <Panel
-        title={`Calibration${data.calibration.batch ? ` · batch ${data.calibration.batch}` : ""}`}
+        title="Appeals and re-runs"
         actions={
-          <div className="flex gap-2">
-            <ActionButton action={uploadCalibration.bind(null, event.id)}>Upload the samples</ActionButton>
-            {data.calibration.batch && data.calibration.runs.length === 0 ? (
-              <ActionButton action={startCalibration.bind(null, event.id, data.calibration.batch)}>Judge them</ActionButton>
-            ) : null}
-          </div>
+          appeals.length ? (
+            <span className="text-sm text-slate-500">
+              {plural(appeals.length, "re-run")} · {open} open
+            </span>
+          ) : null
         }
       >
-        <p className="text-sm text-slate-600">
-          Before the event, judge the sample PRDs and crisis solutions from <span className="font-mono">prompts/calibration/samples.json</span> (weak to
-          strong, each with the range it should score in) with each round&apos;s current model, and check the medians land in range. Calibration never
-          touches the night&apos;s scores. To try again (say after editing a prompt), upload the samples again: each upload is a new batch.
-        </p>
-        {cal.length ? (
-          <Table head={["#", "Type", "Sample", "Expected", "Readings", "Median", "Spread", "Result"]} label="Calibration results" className="mt-3">
-            {cal.map((c) => (
-              <tr key={c.sample_no} data-testid={`calibration-${c.sample_no}`}>
-                <Td mono>{c.sample_no}</Td>
-                <Td>{c.type === "PRD" ? "PRD" : "Solution"}</Td>
-                <Td>{c.title}</Td>
-                <Td mono>
-                  {c.expected.min}–{c.expected.max}
-                </Td>
-                <Td mono>{c.totals.map((t) => t ?? "·").join(" ")}</Td>
-                <Td mono className="font-semibold">
-                  {c.median ?? "—"}
-                </Td>
-                <Td mono>{c.spread ?? "—"}</Td>
-                <Td>
-                  <Badge tone={c.verdict === "IN_RANGE" ? "green" : c.verdict === "PENDING" ? "slate" : c.verdict === "FAILED" ? "red" : "amber"}>
-                    {c.verdict === "IN_RANGE" ? "In range" : c.verdict === "LOW" ? "Too low" : c.verdict === "HIGH" ? "Too high" : c.verdict === "FAILED" ? "Failed" : "Waiting"}
-                  </Badge>
-                </Td>
-              </tr>
+        <div className="space-y-1 text-sm text-slate-600">
+          <p>
+            For technical errors only. Re-run a submission from its Runs above, with the reason. Before release the new runs replace the score as soon as
+            they are done. After release (plans and flash answers; a released pitch score has set the IPO price) it is an appeal: the new score waits
+            here until an organiser applies or dismisses it. Applying moves the score, the tier, the AI price and, after the close, the closing price; the
+            market price history is not rewritten.
+          </p>
+          <p className="font-medium text-slate-900" data-testid="appeals-gate">
+            The awards wait for every open appeal: Appeals cannot end while one waits for the judge or for a decision.{" "}
+            {open === 0 ? "None is open." : `${open === 1 ? "1 is" : `${open} are`} open.`}
+          </p>
+        </div>
+        {appeals.length ? (
+          <ol className="mt-4 space-y-3">
+            {appeals.map((a) => (
+              <AppealCard key={a.id} a={a} organiser={organiser} />
             ))}
-          </Table>
-        ) : null}
+          </ol>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">No re-runs yet.</p>
+        )}
       </Panel>
     </div>
+  );
+}
+
+function AppealCard({ a, organiser }: { a: AppealView; organiser: boolean }) {
+  const name = TYPE_NAMES[a.type];
+  const openNow = a.status === "READY" || a.status === "JUDGING";
+  return (
+    <li
+      aria-label={`Re-run of ${a.label} ${name}`}
+      className={`rounded-md border p-3 ${a.status === "READY" ? "border-amber-300 bg-amber-50/40" : openNow ? "border-sky-200" : "border-slate-200"}`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono font-semibold">{a.label}</span>
+        <span className="text-sm text-slate-700">{TYPE_TITLES[a.type]}</span>
+        <Badge tone={a.afterRelease ? "violet" : "slate"}>{a.afterRelease ? "After release" : "Before release"}</Badge>
+        <Badge tone={a.badge.tone}>{APPEAL_STATUS_LABELS[a.status]}</Badge>
+      </div>
+      <p className="mt-1 text-sm text-slate-800">Reason: “{a.reason}”</p>
+      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-slate-500">Requested</dt>
+        <dd className="font-mono tabular-nums">{clock(a.requestedAt, true)}</dd>
+        <dt className="text-slate-500">Score</dt>
+        <dd className="tabular-nums" data-testid="appeal-score">
+          {scoreWithTier(a.from)} → {scoreWithTier(a.to)}
+        </dd>
+        <dt className="text-slate-500">Runs</dt>
+        <dd className="tabular-nums" data-testid="appeal-runs">
+          {a.runs.done} of {a.runs.total} done
+          {a.runs.inFlight > 0 ? ` · ${a.runs.inFlight} in flight` : ""}
+          {a.runs.failed > 0 ? <span className="text-red-700"> · {a.runs.failed} failed</span> : null}
+          <span className="text-slate-500"> (generation {a.generation})</span>
+        </dd>
+        {a.decidedAt && a.status !== "JUDGING" && a.status !== "READY" ? (
+          <>
+            <dt className="text-slate-500">{a.status === "APPLIED" ? "Applied" : "Dismissed"}</dt>
+            <dd>
+              <span className="font-mono tabular-nums">{clock(a.decidedAt, true)}</span>
+              {a.note ? <span className="text-slate-700">: “{a.note}”</span> : null}
+            </dd>
+          </>
+        ) : null}
+      </dl>
+      {a.status === "APPLIED" && !a.afterRelease ? <p className="mt-2 text-sm text-slate-600">Sealed from the new runs (before release).</p> : null}
+      {a.status === "JUDGING" && !a.afterRelease ? <p className="mt-2 text-sm text-slate-600">Sealed by itself when its runs are done.</p> : null}
+      {a.status === "JUDGING" && a.runs.failed > 0 ? (
+        <p className="mt-2 text-sm text-red-700">A run failed: retry the failed runs of this type, or re-run it again.</p>
+      ) : null}
+      {a.effects ? (
+        <ul className="mt-2 list-disc pl-5 text-sm text-slate-700" aria-label={`What applying the re-run of ${a.label} changed`}>
+          {effectLines(a.effects).map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+      ) : null}
+      {a.canApply || a.canDismiss ? (
+        organiser ? (
+          <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
+            {a.canApply ? (
+              <div>
+                <ActionButton action={applyAppeal.bind(null, a.id, a.label, a.type)} confirm={`Click again to apply ${appealChange(a)}`} variant="primary">
+                  Apply the new score
+                </ActionButton>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-600">The new score can be applied once the judge has finished its runs.</p>
+            )}
+            <ConfirmForm
+              action={dismissAppeal.bind(null, a.id, a.label, a.type)}
+              submit="Dismiss"
+              confirm={`Click again to dismiss the re-run of ${a.label}'s ${name}`}
+              className="max-w-xl"
+            >
+              <label className="block">
+                <span className="text-xs font-medium text-slate-600">Reason to keep the released score (at least 5 characters; logged)</span>
+                <textarea name="reason" required minLength={5} maxLength={1000} rows={2} className={inputClass} />
+              </label>
+            </ConfirmForm>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-slate-500">Organisers apply or dismiss an appeal.</p>
+        )
+      ) : null}
+    </li>
   );
 }

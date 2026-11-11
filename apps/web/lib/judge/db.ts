@@ -1,9 +1,11 @@
-// The worker's queue over Supabase, as the service role: the RPCs of docs/JUDGE.md for one event. Calibration samples
-// (texts and context) are stored in the database, uploaded from the control panel. Every RPC error is thrown with the function's name, so the worker can log it. queueCounts counts an event's judge
+// The worker's queue over Supabase, as the service role: the RPCs of docs/JUDGE.md for one event. Calibration sample
+// texts come from calibration_input when it returns them, otherwise from prompts/calibration/pitches.json by sample_no.
+// Every RPC error is thrown with the function's name, so the worker can log it. queueCounts counts an event's judge
 // runs (or calibration runs) by status, for the route's answer and the CLI's waiting line.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { SUBMISSION_TYPES } from "@msim/engine";
+import { calibrationSample } from "./calibration";
 import type {
   CalibrationInput,
   ClaimedCalibrationRun,
@@ -67,7 +69,13 @@ function checkInput(data: unknown): JudgeInput {
 }
 
 
-export function supabaseJudgeDb(sb: RpcClient, eventId: string): JudgeDb {
+export interface JudgeDbOptions {
+  /** Fallback text of a calibration sample (default: prompts/calibration/pitches.json). */
+  calibrationText?: (sampleNo: number) => string;
+}
+
+export function supabaseJudgeDb(sb: RpcClient, eventId: string, options: JudgeDbOptions = {}): JudgeDb {
+  const sampleText = options.calibrationText ?? ((n: number) => calibrationSample(n).text);
   return {
     // Keep both the retry count (attempts) and lifetime claim_token; the worker reports only the latter.
     async claimRuns(limit) {
@@ -92,17 +100,15 @@ export function supabaseJudgeDb(sb: RpcClient, eventId: string): JudgeDb {
       const v = object(RPC.calibrationInput, await call(sb, RPC.calibrationInput, { p_run: runId }));
       const sampleNo = Number(v.sample_no);
       if (!Number.isInteger(sampleNo)) throw new Error(`${RPC.calibrationInput}: sample_no is missing`);
-      const type = v.type as CalibrationInput["type"];
-      if (!SUBMISSION_TYPES.includes(type)) throw new Error(`${RPC.calibrationInput}: unknown type ${String(v.type)}`);
+      const text = typeof v.text === "string" && v.text.trim() !== "" ? v.text : sampleText(sampleNo);
       return {
         run_id: typeof v.run_id === "string" ? v.run_id : runId,
         sample_no: sampleNo,
-        type,
+        type: "PITCH",
         ticker: typeof v.ticker === "string" && v.ticker !== "" ? v.ticker : "CAL",
         company_name: typeof v.company_name === "string" ? v.company_name : "",
         names: strings(v.names),
-        context_text: typeof v.context_text === "string" ? v.context_text : "",
-        text: typeof v.text === "string" ? v.text : null,
+        text,
       };
     },
     async finishCalibration(runId, result: RunResult) {

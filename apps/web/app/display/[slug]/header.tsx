@@ -2,7 +2,7 @@
 // reading OPEN, HALTED or PAUSED. Everything is from event_status (the server's view), counted down against the
 // server clock; during a pause the countdowns stand still (the schedule moves later by the pause on resume).
 
-import { PHASE_LABELS, phaseReached } from "@msim/engine";
+import { PHASE_LABELS } from "@msim/engine";
 import type { EventStatus } from "@/lib/event-status";
 import type { DisplayEvent } from "@/lib/display/frame";
 import { clock } from "@/lib/format";
@@ -50,17 +50,14 @@ export function DisplayHeader({ event, status }: { event: DisplayEvent; status: 
             )}
           </>
         ) : (
-          <PhaseTimer endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} paused={status.paused} ended={!!status.ended_at} />
+          <PhaseTimer endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} paused={status.paused} />
         )}
       </div>
 
       <div className="flex items-center gap-8">
-        {/* Trading runs from the blind market to the closing bell; before then the badge would only say HALTED. */}
-        {phaseReached(status.phase, "MARKET_BLIND") && !event.market_closed_at ? (
-          <span className={`rounded-xl px-6 py-2 text-[44px] font-black tracking-wider ${BADGE[status.trading]}`} data-testid="display-trading">
-            {status.trading}
-          </span>
-        ) : null}
+        <span className={`rounded-xl px-6 py-2 text-[44px] font-black tracking-wider ${BADGE[status.trading]}`} data-testid="display-trading">
+          {status.trading}
+        </span>
         <div className="text-right">
           <ServerClock className="text-[60px] leading-none font-bold" />
           <div className="mt-2 flex justify-end [&_span]:text-[18px]">

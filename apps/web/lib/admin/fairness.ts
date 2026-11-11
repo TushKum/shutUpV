@@ -1,8 +1,9 @@
 // The fairness view's pure logic: the collusion flags explained (kind, company, teams, details), the log of the
 // fairness officer's decisions (from the audit log, so a changed decision keeps its history), and the drill-down of
-// one team (the company it built and the one it rescued, holdings, orders across rounds, result). Money stays
-// integer cents and is only formatted here.
+// one team (holdings by lot, orders across rounds, consultant calls, result). Money stays integer cents and is only
+// formatted here.
 
+import { TRACK_LABELS, type Track } from "@msim/engine";
 import { bp, count, money } from "@/lib/format";
 import { companyLabel, type CompanyRef, type LedgerRefs, type TeamRef } from "./ledger";
 import type { StaffRef } from "./ledger-corrections";
@@ -26,16 +27,16 @@ export interface FlagRow {
 /** The three collusion flags, as the brief states them. */
 export const FLAG_KINDS: Record<FlagKind, { title: string; rule: string }> = {
   1: {
-    title: "Reciprocal buying",
-    rule: "The same pair of teams each bought shares of the company the other built.",
+    title: "Funds at the cap of a weak company",
+    rule: "A company whose plan scored below 50 where 3 or more funds hold the 4,000-share long cap.",
   },
   2: {
-    title: "Large position closing at a loss",
-    rule: "A team holding at least 4,000 shares of one company whose closing price fell below the team's average cost.",
+    title: "Funds trading alike",
+    rule: "A pair of funds whose order vectors (round, ticker, signed quantity) have cosine similarity ≥ 0.9, with at least 5 orders each.",
   },
   3: {
-    title: "Teams rushing to the limit",
-    rule: "Five or more teams reaching the 5,000-share limit on the same company in the same round.",
+    title: "Generous rescue terms",
+    rule: "A fee of $33,000 or more, or a deal price ≤ 55% of the post-crisis price, where the plan scored below 50.",
   },
 };
 
@@ -49,6 +50,7 @@ export interface FlagDetail {
 export interface FlagTeam {
   id: string;
   code: string;
+  track: string;
 }
 
 export interface FlagView {
@@ -77,6 +79,7 @@ const cents = (v: unknown): string => {
   const n = num(v);
   return n !== null && Number.isSafeInteger(n) ? money(n) : "—";
 };
+const trackName = (t: string) => TRACK_LABELS[t as Track] ?? t;
 
 export const staffName = (staff: ReadonlyMap<string, StaffRef>, userId: string | null | undefined): string | null =>
   userId ? (staff.get(userId)?.display_name ?? "Unknown staff member") : null;
@@ -88,33 +91,38 @@ export function percentOf(part: number, whole: number): string {
   return `${(tenths / 10).toFixed(1)}%`;
 }
 
-const record = (v: unknown): Record<string, unknown> | null => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
-
 /** The details the settlement stored with a flag, in words. */
 export function flagDetails(kind: number, details: Record<string, unknown> | null, teams: readonly FlagTeam[]): FlagDetail[] {
   const d = details ?? {};
   const out: FlagDetail[] = [];
+  const planScore = num(d.plan_score);
   if (kind === 1) {
-    // {<team code>: {company, bought}} for each of the two teams.
-    for (const t of teams) {
-      const e = record(d[t.code]);
-      if (!e) continue;
-      const bought = num(e.bought);
-      out.push({ label: `${t.code} bought`, value: `${bought === null ? "?" : count(bought)} shares of ${typeof e.company === "string" ? e.company : "?"}` });
-    }
+    if (planScore !== null) out.push({ label: "Plan score", value: String(planScore) });
+    const funds = num(d.funds_at_cap);
+    if (funds !== null) out.push({ label: "Funds at the 4,000-share cap", value: count(funds) });
   } else if (kind === 2) {
-    const qty = num(d.qty);
-    const cost = num(d.cost);
-    const close = num(d.closing_price);
-    if (qty !== null) out.push({ label: "Shares held", value: count(qty) });
-    if (qty && cost !== null) out.push({ label: "Average cost", value: `${cents(Math.round(cost / qty))} (${cents(cost)} in all)` });
-    if (close !== null) out.push({ label: "Closing price", value: cents(close) });
-    if (qty !== null && cost !== null && close !== null) out.push({ label: "Loss at the close", value: cents(qty * close - cost) });
+    const cosine = num(d.cosine);
+    if (cosine !== null) out.push({ label: "Cosine similarity", value: cosine.toFixed(3) });
+    if (Array.isArray(d.orders)) {
+      out.push({
+        label: "Filled orders",
+        value: d.orders.map((n, i) => `${teams[i]?.code ?? "?"}: ${num(n) ?? "?"}`).join(" · "),
+      });
+    }
   } else if (kind === 3) {
-    const round = num(d.round);
-    const n = num(d.teams);
-    if (round !== null) out.push({ label: "Round", value: String(round) });
-    if (n !== null) out.push({ label: "Teams reaching 5,000 shares", value: count(n) });
+    if (planScore !== null) out.push({ label: "Plan score", value: String(planScore) });
+    const fee = num(d.fee_value);
+    out.push({ label: "Fee value", value: fee === null ? "No fee" : `${cents(fee)}${fee >= 3_300_000 ? " (≥ $33,000)" : ""}` });
+    const deal = num(d.deal_price);
+    const post = num(d.post_crisis_price);
+    if (deal === null) out.push({ label: "Deal price", value: "No deal" });
+    else {
+      const cheap = post !== null && deal * 100 <= 55 * post;
+      out.push({
+        label: "Deal price",
+        value: post ? `${cents(deal)}, ${percentOf(deal, post)} of the post-crisis price ${cents(post)}${cheap ? " (≤ 55%)" : ""}` : cents(deal),
+      });
+    }
   }
   return out;
 }
@@ -123,7 +131,7 @@ export function flagView(f: FlagRow, refs: FairnessRefs): FlagView {
   const kind = isKind(f.kind) ? FLAG_KINDS[f.kind] : { title: `Flag ${f.kind}`, rule: "" };
   const teams = (f.team_ids ?? []).map((id) => {
     const t = refs.teams.get(id);
-    return { id, code: t?.code ?? "?" };
+    return { id, code: t?.code ?? "?", track: t ? trackName(t.track) : "" };
   });
   const tickerDetail = typeof f.details?.ticker === "string" ? (f.details.ticker as string) : null;
   return {
@@ -155,7 +163,7 @@ export function flagSummary(rows: readonly { status: FlagStatus }[]): string {
   return `${rows.length} flag${rows.length === 1 ? "" : "s"}: ${n("OPEN")} open, ${n("CLEARED")} cleared, ${n("DISQUALIFIED")} disqualified.`;
 }
 
-/** A short name for a flag in the log: "Flag 2 · MLBT" or "Flag 1 · T001, T002". */
+/** A short name for a flag in the log: "Flag 1 · EMA" or "Flag 2 · MF01, MF02". */
 export function flagLabel(f: Pick<FlagView, "kind" | "ticker" | "teams">): string {
   return `Flag ${f.kind} · ${f.ticker || f.teams.map((t) => t.code).join(", ")}`;
 }
@@ -212,6 +220,7 @@ export function decisionLog(rows: readonly FlagAuditRow[], flags: ReadonlyMap<st
 
 export interface HoldingRow {
   company_id: string;
+  lot: string;
   qty: number;
   cost_cents: number | string;
 }
@@ -228,28 +237,36 @@ export interface OrderRow {
   created_at: string;
 }
 
+export interface CallRow {
+  company_id: string;
+  call_no: number;
+  direction: string | null;
+  made_at: string | null;
+  baseline_price: number | null;
+  judged_price: number | null;
+  correct: boolean | null;
+  earnings_cents: number | string;
+}
+
 export interface ResultRow {
-  r1_points: number;
-  r2_points: number;
-  r3_points: number;
-  portfolio_cents: number | string;
-  return_bp: number | string;
-  total: number;
+  track: string;
+  final_value_cents: number | string;
+  start_value_cents: number | string;
+  return_bp: number | string | null;
   rank: number | null;
   eligible: boolean;
 }
 
+const LOT_ORDER = ["RETAINED", "SQUAD", "EXCHANGE", "SHORT", "FEE"];
+
 const ticker = (refs: LedgerRefs, id: string) => companyLabel(refs.companies.get(id), refs.teams);
 
-/** The team's holdings, by ticker, with the average cost. */
+/** The team's lots that hold shares, by ticker then lot. A SHORT lot's quantity is shares owed. */
 export function holdingLines(rows: readonly HoldingRow[], refs: LedgerRefs) {
   return rows
     .filter((h) => h.qty !== 0)
-    .map((h) => {
-      const cost = Number(h.cost_cents);
-      return { key: h.company_id, ticker: ticker(refs, h.company_id), qty: count(h.qty), cost: money(h.cost_cents), average: money(Math.round(cost / h.qty)) };
-    })
-    .sort((a, b) => a.ticker.localeCompare(b.ticker));
+    .map((h) => ({ key: `${h.company_id}|${h.lot}`, ticker: ticker(refs, h.company_id), lot: h.lot, qty: count(h.qty), cost: money(h.cost_cents) }))
+    .sort((a, b) => a.ticker.localeCompare(b.ticker) || LOT_ORDER.indexOf(a.lot) - LOT_ORDER.indexOf(b.lot));
 }
 
 /** Every order of the team, by round then the time it was placed. */
@@ -270,17 +287,31 @@ export function orderLines(rows: readonly OrderRow[], refs: LedgerRefs) {
     }));
 }
 
-/** The settled result: the three rounds' points, total, portfolio, return and rank (none while disqualified). */
+/** The consultant's calls, by window then ticker. */
+export function callLines(rows: readonly CallRow[], refs: LedgerRefs) {
+  return [...rows]
+    .map((c) => ({
+      key: `${c.company_id}|${c.call_no}`,
+      callNo: c.call_no,
+      ticker: ticker(refs, c.company_id),
+      direction: c.direction ?? "No call",
+      madeAt: c.made_at,
+      baseline: c.baseline_price === null ? "" : money(c.baseline_price),
+      judged: c.judged_price === null ? "" : money(c.judged_price),
+      outcome: c.correct === null ? "Not judged yet" : c.correct ? "Correct" : "Wrong",
+      earnings: money(c.earnings_cents),
+    }))
+    .sort((a, b) => a.callNo - b.callNo || a.ticker.localeCompare(b.ticker));
+}
+
+/** The settled result: final value, start value, return, rank (none while disqualified). */
 export function resultView(r: ResultRow | null) {
   if (!r) return null;
-  const ret = Number(r.return_bp);
+  const ret = r.return_bp === null || r.return_bp === undefined ? null : Number(r.return_bp);
   return {
-    r1: String(r.r1_points),
-    r2: String(r.r2_points),
-    r3: String(r.r3_points),
-    total: String(r.total),
-    portfolio: money(r.portfolio_cents),
-    returnPct: Number.isSafeInteger(ret) ? bp(ret) : "—",
+    final: money(r.final_value_cents),
+    start: money(r.start_value_cents),
+    returnPct: ret === null || !Number.isSafeInteger(ret) ? "—" : bp(ret),
     rank: r.rank === null ? (r.eligible ? "—" : "Not ranked (disqualified)") : `${r.rank}`,
     eligible: r.eligible,
   };

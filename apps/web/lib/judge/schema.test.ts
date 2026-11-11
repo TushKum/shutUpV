@@ -33,6 +33,6 @@ describe("outputSchema", () => {
       expect(json).not.toMatch(/"(minimum|maximum|exclusiveMinimum|exclusiveMaximum)"/);
     }
     // A schema-shaped answer with a line over its maximum is still caught.
-    expect(validateJudgeOutput("SOLUTION", { breakdown: { diagnosis: 21, options: 0, recommendation: 0, feasibility: 0, timeline: 0, risks: 0 }, total: 21, rationale: "x" }).ok).toBe(false);
+    expect(validateJudgeOutput("FLASH", { breakdown: { responds_to_news: 51, realistic: 0, clear: 0 }, total: 51, rationale: "x" }).ok).toBe(false);
   });
 });

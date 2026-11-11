@@ -2,11 +2,11 @@
 // the team can see through RLS, decide (bots.ts), call the public game functions as the team. Used by
 // `pnpm rehearse` (bots playing a rehearsal night) and `pnpm load-test` (the sign-ins and connections).
 
-import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { teamEmail, type PhaseCode } from "@msim/engine";
+import { PHASE_CODES, teamEmail, type PhaseCode, type SubmissionType, type Track } from "@msim/engine";
 import { derivePassword } from "./credentials";
 import { decide, newMemory, remember, rng, type Action, type Memory, type Snapshot } from "./bots";
+
 export interface Env {
   url: string;
   anonKey: string;
@@ -17,8 +17,7 @@ export interface Env {
 export interface TeamLogin {
   id: string;
   code: string;
-  /** Its place in code order (it sets the bot's ticker). */
-  index: number;
+  track: Track;
 }
 
 const noSession = { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false };
@@ -56,48 +55,72 @@ export async function call(sb: SupabaseClient, fn: string, args: Record<string, 
   return { ok: d?.ok === true, code: d?.code, message: d?.message, data };
 }
 
-/** Everything a bot reads for one turn, through RLS as its team. */
+/** Everything a bot reads for one turn, through RLS as its team (only what its track needs). */
 export async function snapshot(sb: SupabaseClient, eventId: string, team: TeamLogin): Promise<Snapshot> {
   const res = await sb.rpc("event_status", { p_event: eventId });
   if (res.error || !res.data) throw new Error(`event_status: ${res.error?.message ?? "no answer"}`);
-  const status = res.data as { phase: PhaseCode; trading: string; paused: boolean; drawn: boolean; open_round: { number: number } | null };
-  const [me, ev, companies, drafts, holdings, pending] = await Promise.all([
-    sb.from("teams").select("cash_cents").eq("id", team.id).single(),
-    sb.from("events").select("crisis_applied_at").eq("id", eventId).single(),
-    sb.from("companies").select("id, ticker, founder_team_id, rescuer_team_id, market_price").eq("event_id", eventId),
-    sb.from("drafts").select("type, version").eq("team_id", team.id),
-    sb.from("holdings").select("company_id, qty").eq("team_id", team.id),
-    sb.from("orders").select("id", { count: "exact", head: true }).eq("team_id", team.id).eq("status", "PENDING"),
-  ]);
-  for (const r of [me, ev, companies, drafts, holdings]) if (r.error) throw new Error(r.error.message);
-  const list = (companies.data ?? []) as Snapshot["companies"];
+  const status = res.data as { phase: PhaseCode; trading: string; open_round: { number: number } | null };
+  const squadQ = sb.from("squads").select("id, number, dealt_card_ids, chosen_card_id").maybeSingle();
+  const teamQ = sb.from("teams").select("cash_cents").eq("id", team.id).single();
+  const companiesQ = sb.from("companies").select("id, ticker, squad_id, ipo_price, market_price, post_crisis_price").eq("event_id", eventId);
+  const [squad, me, companies] = await Promise.all([squadQ, teamQ, companiesQ]);
   const s: Snapshot = {
     phase: status.phase,
     trading: status.trading,
     openRound: status.open_round?.number ?? null,
-    paused: status.paused,
-    team: { id: team.id, code: team.code, index: team.index, cash_cents: Number(me.data?.cash_cents ?? 0) },
-    drawn: status.drawn,
-    crisisApplied: !!ev.data?.crisis_applied_at,
-    drafts: { PRD: 0, SOLUTION: 0 },
-    companies: list,
-    holdings: Object.fromEntries((holdings.data ?? []).map((h) => [h.company_id as string, h.qty as number])),
-    unanswered: [],
-    asked: 0,
-    pendingOrders: pending.count ?? 0,
+    team: { id: team.id, code: team.code, track: team.track, cash_cents: Number(me.data?.cash_cents ?? 0) },
+    squad: squad.data ?? null,
+    companyId: null,
+    drafts: {},
+    submitted: {},
+    fee: null,
+    deal: null,
+    calls: [],
+    companies: (companies.data ?? []) as Snapshot["companies"],
+    holdings: [],
+    pendingOrders: [],
+    ipoBids: 0,
+    flashPublished: false,
   };
-  for (const d of drafts.data ?? []) s.drafts[d.type as "PRD" | "SOLUTION"] = d.version as number;
-  if (s.crisisApplied) {
-    const built = list.find((c) => c.founder_team_id === team.id);
-    const [mine, asked] = await Promise.all([
-      built ? sb.from("qa_questions").select("id").eq("company_id", built.id) : Promise.resolve({ data: [] as { id: string }[], error: null }),
-      sb.from("qa_questions").select("id", { count: "exact", head: true }).eq("asker_team_id", team.id),
-    ]);
-    const ids = (mine.data ?? []).map((q) => q.id as string);
-    const answered = ids.length ? ((await sb.from("qa_answers").select("question_id").in("question_id", ids)).data ?? []).map((a) => a.question_id as string) : [];
-    s.unanswered = ids.filter((id) => !answered.includes(id));
-    s.asked = asked.count ?? 0;
+  s.companyId = s.companies.find((c) => c.squad_id === s.squad?.id)?.id ?? null;
+  const reads: PromiseLike<unknown>[] = [];
+  if (team.track !== "FINANCE") {
+    reads.push(
+      sb.from("submission_drafts").select("type, version").then(({ data }) => {
+        for (const d of data ?? []) s.drafts[d.type as SubmissionType] = d.version;
+      }),
+      s.squad
+        ? sb.from("submissions").select("type").is("superseded_at", null).eq("squad_id", s.squad.id).then(({ data }) => {
+            for (const d of data ?? []) s.submitted[d.type as SubmissionType] = true;
+          })
+        : Promise.resolve(),
+      sb.from("fees").select("version, cash_cents, shares, product_confirmed_at, consulting_confirmed_at, executed_at").maybeSingle().then(({ data }) => {
+        s.fee = data ?? null;
+      }),
+    );
   }
+  reads.push(
+    sb.from("deals").select("version, amount_cents, price_cents, signed_product_at, signed_consulting_at, signed_finance_at, executed_at").maybeSingle().then(({ data }) => {
+      s.deal = data ?? null;
+    }),
+  );
+  if (team.track === "PRODUCT" && status.phase === "ROUNDS_13_21") {
+    reads.push(
+      sb.from("bulletins").select("id", { count: "exact", head: true }).eq("event_id", eventId).eq("kind", "FLASH").not("published_at", "is", null)
+        .then(({ count }) => void (s.flashPublished = (count ?? 0) > 0)),
+    );
+  }
+  if (team.track === "CONSULTING") {
+    reads.push(sb.from("calls").select("company_id, call_no, direction").then(({ data }) => void (s.calls = (data ?? []) as Snapshot["calls"])));
+  }
+  if (team.track === "FINANCE") {
+    reads.push(
+      sb.from("holdings").select("company_id, lot, qty").eq("team_id", team.id).then(({ data }) => void (s.holdings = (data ?? []) as Snapshot["holdings"])),
+      sb.from("orders").select("company_id, type, qty").eq("team_id", team.id).eq("status", "PENDING").then(({ data }) => void (s.pendingOrders = data ?? [])),
+      sb.from("ipo_bids").select("id", { count: "exact", head: true }).eq("team_id", team.id).then(({ count }) => void (s.ipoBids = count ?? 0)),
+    );
+  }
+  await Promise.all(reads);
   return s;
 }
 
@@ -134,7 +157,7 @@ export class Bot {
       this.stats.lastErrors = [...this.stats.lastErrors.slice(-2), e instanceof Error ? e.message : String(e)];
       return;
     }
-    for (const a of decide(s, this.memory, this.random, now, randomUUID)) await this.act(a, s, now);
+    for (const a of decide(s, this.memory, this.random, now, PHASE_CODES)) await this.act(a, s, now);
   }
 
   private async act(a: Action, s: Snapshot, now: number) {

@@ -1,12 +1,13 @@
 "use client";
 
-// The correction request: a reason and one or more entries (team, optional company, cash change in dollars,
+// The correction request: a reason and one or more entries (team, optional company and lot, cash change in dollars,
 // share change). The exchange takes the other side of every entry. Rows can be added and removed; blank rows are
 // ignored. The dollars are converted to cents on the server, exactly, from the text. A refused request keeps what was
 // typed (the form is submitted by hand, so React does not reset it); a request that is accepted clears the form.
 
 import { startTransition, useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TRACK_LABELS, type Track } from "@msim/engine";
 import type { ActionResult } from "@/lib/rpc";
 import { MAX_ENTRIES } from "@/lib/admin/ledger-corrections";
 import { ResultMessage } from "@/components/ui/action";
@@ -14,8 +15,9 @@ import { safely } from "@/components/ui/action-helpers";
 import { buttonClass, inputClass } from "@/components/ui/ui";
 
 export interface RequestOptions {
-  teams: { id: string; code: string }[];
+  tracks: { track: Track; teams: { id: string; code: string }[] }[];
   companies: { id: string; label: string }[];
+  lots: string[];
 }
 
 interface RequestState {
@@ -75,15 +77,19 @@ function Entries({ options }: { options: RequestOptions }) {
       {rows.keys.map((key, i) => (
         <fieldset key={key} className="rounded-md border border-slate-200 p-3">
           <legend className="px-1 text-xs font-semibold text-slate-700">Entry {i + 1}</legend>
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-5">
             <label className="block">
               <span className="text-xs font-medium text-slate-600">Team</span>
               <select name="entry_team" defaultValue="" className={inputClass}>
                 <option value="">—</option>
-                {options.teams.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.code}
-                  </option>
+                {options.tracks.map((t) => (
+                  <optgroup key={t.track} label={TRACK_LABELS[t.track]}>
+                    {t.teams.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.code}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>
@@ -94,6 +100,17 @@ function Entries({ options }: { options: RequestOptions }) {
                 {options.companies.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-slate-600">Lot</span>
+              <select name="entry_lot" defaultValue="" className={inputClass}>
+                <option value="">None</option>
+                {options.lots.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
                   </option>
                 ))}
               </select>
@@ -118,9 +135,9 @@ function Entries({ options }: { options: RequestOptions }) {
         Add entry
       </button>
       <p className="text-xs text-slate-500">
-        Each entry moves cash or shares between the team and the exchange, which takes the other side. A share change needs a company; a team holds
-        0 to 5,000 shares of any company. Shares taken away leave at the average cost; shares added come at no cost (enter what they cost as a cash
-        change).
+        Each entry moves cash or shares between the team and the exchange, which takes the other side. A share change needs a company and a lot
+        (RETAINED: the company&apos;s Product team; FEE: a consultant; SQUAD, EXCHANGE, SHORT: a fund). For a SHORT lot, a positive change means
+        more shares short.
       </p>
     </div>
   );

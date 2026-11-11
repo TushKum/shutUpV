@@ -28,7 +28,7 @@ export function workReply(summary: WorkerSummary, extra: { fake: boolean; remain
 }
 
 /** The answer when the start-up check of the event's model failed (nothing was claimed). */
-export function modelCheckReply(model: string, slot: JudgeSlot, check: Extract<ModelCheck, { ok: false }>, round?: string): WorkReply {
-  const reason = `the API check of ${model} (the ${round ? `${round} round's ` : ""}${slot} model) failed: ${check.error}`;
+export function modelCheckReply(model: string, slot: JudgeSlot, check: Extract<ModelCheck, { ok: false }>): WorkReply {
+  const reason = `the API check of ${model} (the ${slot} model) failed: ${check.error}`;
   return { status: 502, body: { error: reason, stopped: "fatal", reason } };
 }

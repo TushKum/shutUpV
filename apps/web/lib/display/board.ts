@@ -1,7 +1,6 @@
-// The price board on the big screen: one tile per company (ticker, name, price, change since the starting price, and
-// an arrow for the last cleared round's move), in ticker order, 25 tiles to a page, a new page every 20 seconds by the
-// server clock (so every projector shows the same page and a reload does not start again at page 1). Until the 03:30
-// freeze the leaderboard takes a turn after the last page of tiles. Pure.
+// The ticker board on the big screen: one tile per listed company (ticker, name, price, change since the IPO price,
+// and an arrow for the last cleared round's move), in ticker order, 25 tiles to a page, a new page every 20 seconds
+// by the server clock (so every projector shows the same page and a reload does not start again at page 1). Pure.
 // Prices are integer cents; changes are basis points rounded half-up, never floating point.
 
 import { divRoundHalfUp } from "@msim/engine";
@@ -11,12 +10,12 @@ export const BOARD_PAGE_MS = 20_000;
 /** How long tiles that moved stay highlighted after a round clears. */
 export const BOARD_HIGHLIGHT_MS = 6_000;
 
-/** A company as the display reads it (public to the event). */
+/** A company as the display reads it (public from READING). */
 export interface BoardCompany {
   id: string;
   ticker: string | null;
   name: string | null;
-  start_price: number | null;
+  ipo_price: number | null;
   market_price: number | null;
   closing_price: number | null;
 }
@@ -34,21 +33,21 @@ export interface BoardTile {
   id: string;
   ticker: string;
   name: string;
-  /** The price shown: the market price, or the closing price after the close. Null before the starting price is set. */
+  /** The price shown: the market price, or the closing price after the close. Null while the IPO price is pending. */
   price: number | null;
   /** True when `price` is the closing price. */
   closing: boolean;
-  /** Change of `price` since the starting price, in basis points (half-up). Null before the starting price is set. */
+  /** Change of `price` since the IPO price, in basis points (half-up). Null while the IPO price is pending. */
   changeBp: number | null;
   /** The last cleared round's move; null before any round has cleared. */
   move: Move | null;
 }
 
-/** (price − start) × 10,000 ÷ start, rounded half-up (ties away from zero). Null without a starting price or a price. */
-export function changeSinceStartBp(start: number | null, price: number | null): number | null {
-  if (start === null || price === null) return null;
-  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(price) || start <= 0) throw new Error("prices are positive whole cents");
-  return divRoundHalfUp((price - start) * 10_000, start);
+/** (price − ipo) × 10,000 ÷ ipo, rounded half-up (ties away from zero). Null without an IPO price or a price. */
+export function changeSinceIpoBp(ipo: number | null, price: number | null): number | null {
+  if (ipo === null || price === null) return null;
+  if (!Number.isSafeInteger(ipo) || !Number.isSafeInteger(price) || ipo <= 0) throw new Error("prices are positive whole cents");
+  return divRoundHalfUp((price - ipo) * 10_000, ipo);
 }
 
 /** Which way a round moved the price; null when the move is unknown. */
@@ -62,7 +61,7 @@ const byTicker = (a: BoardTile, b: BoardTile) => (a.ticker < b.ticker ? -1 : a.t
 
 /**
  * The tiles in ticker order. After the market close (`closed`) a company with a closing price shows that price and
- * its change since the starting price is to the closing price. `lastRound` is the last cleared round's clearing rows (empty
+ * its change since the IPO is to the closing price. `lastRound` is the last cleared round's clearing rows (empty
  * before any round has cleared).
  */
 export function boardTiles(companies: readonly BoardCompany[], lastRound: readonly BoardMoveRow[], closed: boolean): BoardTile[] {
@@ -71,7 +70,7 @@ export function boardTiles(companies: readonly BoardCompany[], lastRound: readon
     .filter((c): c is BoardCompany & { ticker: string } => !!c.ticker)
     .map((c): BoardTile => {
       const closing = closed && c.closing_price !== null;
-      const price = c.start_price === null ? null : closing ? c.closing_price : c.market_price;
+      const price = c.ipo_price === null ? null : closing ? c.closing_price : c.market_price;
       const m = moves.get(c.id);
       return {
         id: c.id,
@@ -79,7 +78,7 @@ export function boardTiles(companies: readonly BoardCompany[], lastRound: readon
         name: c.name ?? c.ticker,
         price,
         closing: closing && price !== null,
-        changeBp: changeSinceStartBp(c.start_price, price),
+        changeBp: changeSinceIpoBp(c.ipo_price, price),
         move: m ? moveOf(m.market_before, m.market_after) : null,
       };
     })

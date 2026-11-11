@@ -1,8 +1,9 @@
 // What every team page needs, once per request, read through RLS as the signed-in team: its own row (cash,
-// disqualification), its event and where the night is, the company it builds (from the start) and the company it
-// rescues (from the 23:45 rescue lottery).
+// collateral, disqualification), its event and where the night is, and its squad and squad company once the lottery
+// has formed them. A team can read only its own team row, its own squad and its squad's company (before Reading).
 
 import { cache } from "react";
+import type { Track } from "@msim/engine";
 import { requireRole, type Viewer } from "@/lib/auth/viewer";
 import { loadEventStatus, type EventStatus } from "@/lib/event-status";
 import { cents } from "@/lib/format";
@@ -11,13 +12,14 @@ import { supabaseServer } from "@/lib/supabase/server";
 export interface TeamRow {
   id: string;
   code: string;
+  track: Track;
   name: string;
   /** Integer cents. */
   cash: number;
+  /** Integer cents locked as short collateral (funds). */
+  collateral: number;
   disqualified: boolean;
   disqualified_reason: string | null;
-  /** ACTIVE plays; a BACKUP plays only if activated before the draw; WITHDRAWN does not play. */
-  status: "ACTIVE" | "BACKUP" | "WITHDRAWN";
 }
 
 export interface TeamEvent {
@@ -26,82 +28,90 @@ export interface TeamEvent {
   is_rehearsal: boolean;
   clock_speed: number;
   drawn_at: string | null;
-  prds_locked_at: string | null;
-  prices_started_at: string | null;
   crisis_applied_at: string | null;
-  solutions_locked_at: string | null;
-  scores_revealed_at: string | null;
-  market_closed_at: string | null;
 }
 
-/** A company as every team reads it. Prices are integer cents (null until they are set). */
-export interface CompanyRow {
+export interface SquadRow {
   id: string;
-  founder_team_id: string;
-  rescuer_team_id: string | null;
-  problem_card_id: string | null;
-  crisis_card_id: string | null;
+  number: number;
+  product_team_id: string;
+  consulting_team_id: string;
+  finance_team_id: string;
+  dealt_card_ids: string[];
+  chosen_card_id: string | null;
+  chosen_at: string | null;
+  chosen_by_default: boolean;
+}
+
+/** The squad's company. Prices are integer cents. */
+export interface SquadCompany {
+  id: string;
   name: string | null;
   ticker: string | null;
-  start_price: number | null;
+  ipo_price: number | null;
   market_price: number | null;
-  score_price: number | null;
+  ai_price: number | null;
   post_crisis_price: number | null;
   closing_price: number | null;
 }
-
-export const COMPANY_COLUMNS =
-  "id, founder_team_id, rescuer_team_id, problem_card_id, crisis_card_id, name, ticker, start_price, market_price, score_price, post_crisis_price, closing_price";
 
 export interface TeamContext {
   viewer: Viewer;
   team: TeamRow;
   event: TeamEvent;
   status: EventStatus;
-  /** The company this team builds (Round 1). */
-  built: CompanyRow | null;
-  /** The company this team rescues (Round 2), from 23:45. */
-  rescued: CompanyRow | null;
-}
-
-/**
- * The team's own row. The playing status (backup teams) comes with database update 16; if the website is deployed
- * before that update is loaded, the row is read without it and the team counts as playing, instead of every team page
- * failing.
- */
-async function readTeam(sb: Awaited<ReturnType<typeof supabaseServer>>, teamId: string) {
-  const full = await sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason, status").eq("id", teamId).single();
-  if (!full.error || !/status/.test(full.error.message)) return full;
-  console.error("team context: the database has no team status yet (run supabase db push); reading without it");
-  return sb.from("teams").select("id, code, name, cash_cents, disqualified, disqualified_reason").eq("id", teamId).single();
+  /** Null before the 21:00 draw. */
+  squad: SquadRow | null;
+  company: SquadCompany | null;
 }
 
 export const loadTeamContext = cache(async (): Promise<TeamContext> => {
   const viewer = await requireRole(["TEAM"], "/team");
   const sb = await supabaseServer();
   const eventId = viewer.team!.eventId;
-  const teamId = viewer.team!.id;
-  const [team, event, companies, status] = await Promise.all([
-    readTeam(sb, teamId),
+  const [team, event, squad, status] = await Promise.all([
     sb
-      .from("events")
-      .select("id, name, is_rehearsal, clock_speed, drawn_at, prds_locked_at, prices_started_at, crisis_applied_at, solutions_locked_at, scores_revealed_at, market_closed_at")
-      .eq("id", eventId)
-      .single<TeamEvent>(),
-    sb.from("companies").select(COMPANY_COLUMNS).or(`founder_team_id.eq.${teamId},rescuer_team_id.eq.${teamId}`),
+      .from("teams")
+      .select("id, code, track, name, cash_cents, collateral_cents, disqualified, disqualified_reason")
+      .eq("id", viewer.team!.id)
+      .single(),
+    sb.from("events").select("id, name, is_rehearsal, clock_speed, drawn_at, crisis_applied_at").eq("id", eventId).single<TeamEvent>(),
+    sb
+      .from("squads")
+      .select("id, number, product_team_id, consulting_team_id, finance_team_id, dealt_card_ids, chosen_card_id, chosen_at, chosen_by_default")
+      .eq("event_id", eventId)
+      .maybeSingle<SquadRow>(),
     loadEventStatus(eventId),
   ]);
   if (team.error) throw new Error(`Could not read your team: ${team.error.message}`);
   if (event.error) throw new Error(`Could not read the event: ${event.error.message}`);
-  if (companies.error) throw new Error(`Could not read your companies: ${companies.error.message}`);
-  const rows = (companies.data ?? []) as CompanyRow[];
-  const t = team.data as Omit<TeamRow, "cash"> & { cash_cents: string | number };
+  if (squad.error) throw new Error(`Could not read your squad: ${squad.error.message}`);
+  let company: SquadCompany | null = null;
+  if (squad.data) {
+    const { data, error } = await sb
+      .from("companies")
+      .select("id, name, ticker, ipo_price, market_price, ai_price, post_crisis_price, closing_price")
+      .eq("squad_id", squad.data.id)
+      .maybeSingle<SquadCompany>();
+    if (error) throw new Error(`Could not read your company: ${error.message}`);
+    company = data;
+  }
+  const t = team.data as Omit<TeamRow, "cash" | "collateral"> & { cash_cents: string | number; collateral_cents: string | number };
   return {
     viewer,
-    team: { id: t.id, code: t.code, name: t.name, cash: cents(t.cash_cents), disqualified: t.disqualified, disqualified_reason: t.disqualified_reason, status: t.status ?? "ACTIVE" },
+    team: {
+      id: t.id,
+      code: t.code,
+      track: t.track,
+      name: t.name,
+      cash: cents(t.cash_cents),
+      collateral: cents(t.collateral_cents),
+      disqualified: t.disqualified,
+      disqualified_reason: t.disqualified_reason,
+    },
     event: event.data,
     status,
-    built: rows.find((c) => c.founder_team_id === teamId) ?? null,
-    rescued: rows.find((c) => c.rescuer_team_id === teamId) ?? null,
+    squad: squad.data,
+    company,
   };
 });

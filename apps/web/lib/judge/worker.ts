@@ -11,7 +11,7 @@
 
 import type { SubmissionType } from "@msim/engine";
 import type { JudgePrompt } from "./prompts";
-import { buildCalibrationRequest, buildJudgeRequest, type BuiltRequest } from "./request";
+import { buildJudgeRequest, type BuiltRequest } from "./request";
 import {
   EMPTY_USAGE,
   type CalibrationInput,
@@ -45,8 +45,8 @@ export interface WorkerOptions {
   budgetMs: number;
   /** Runs in flight at once. */
   concurrency: number;
-  /** Each round's model for each slot (JUDGE_PRD_MODEL, JUDGE_SOLUTION_BACKUP_MODEL, …). */
-  models: Record<SubmissionType, Record<JudgeSlot, string>>;
+  /** The model for each slot (JUDGE_MODEL, JUDGE_BACKUP_MODEL). */
+  models: Record<JudgeSlot, string>;
   /** The system prompt for a type (prompts/<TYPE>.md). */
   prompts: (type: SubmissionType) => Pick<JudgePrompt, "text" | "sha">;
   /** For log lines only. */
@@ -206,13 +206,25 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
     }
     const input = await o.db.calibrationInput(job.run.run_id);
     if (!input.text || input.text.trim() === "") throw new Error(`calibration sample ${input.sample_no} has no text`);
-    const prompt = o.prompts(input.type);
-    return { built: buildCalibrationRequest(input, prompt.text), prompt, type: input.type };
+    const prompt = o.prompts("PITCH");
+    const built = buildJudgeRequest(
+      {
+        run_id: input.run_id,
+        type: "PITCH",
+        ticker: input.ticker || "CAL",
+        company_name: input.company_name ?? "",
+        names: input.names ?? [],
+        submission_id: "",
+        submission_text: input.text,
+        injections_recorded: true,
+      },
+      prompt.text,
+    );
+    return { built, prompt, type: "PITCH" };
   }
 
   async function work(job: Job): Promise<void> {
-    const pair = o.models[job.run.type];
-    const model = pair[job.run.slot] ?? pair.PRIMARY;
+    const model = o.models[job.run.slot] ?? o.models.PRIMARY;
     const attempt = job.run.claim_token;
     if (!Number.isSafeInteger(attempt) || attempt < 1) {
       stop("fatal", "The queue returned no valid claim token; apply the latest database migrations.");
@@ -335,7 +347,7 @@ export async function runWorker(o: WorkerOptions): Promise<WorkerSummary> {
             })
             .finally(() => {
               inFlight.delete(p);
-              drained = false; // a finished run may have freed a slot, or a re-run may have queued more
+              drained = false; // a finished run may have queued runs 4 and 5
               summary.ms = now() - started;
               try {
                 o.onProgress?.(summary);

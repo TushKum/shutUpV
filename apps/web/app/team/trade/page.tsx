@@ -1,52 +1,78 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { phaseReached } from "@msim/engine";
+import { RULES, phaseReached } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
-import { loadTradeData, traderContext } from "@/lib/team/trade-data";
-import { cashSummary, notTradable, openOrders, openOrdersState, tradingNotice, type TradingNotice } from "@/lib/team/trade";
+import { fundContext, loadTradeData } from "@/lib/team/trade-data";
+import { fundSummary, openOrders, openOrdersState, tradingNotice, type TradingNotice } from "@/lib/team/trade";
 import { clock, money } from "@/lib/format";
 import { AutoRefresh } from "@/lib/live/auto-refresh";
 import { RefreshAt } from "@/lib/live/refresh-at";
 import { Notice, Panel } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
+import { tradeGate } from "./gate";
 import { OrderTicket, type TicketCompany } from "./ticket";
 import { OpenOrders } from "./open-orders";
 import { cancelOrder, editOrder, placeOrder } from "./actions";
-import { TradingNotYet } from "./not-yet";
 
-export const metadata: Metadata = { title: "Round 3: Trade" };
+export const metadata: Metadata = { title: "Trade" };
 
-// Orders: the team's cash, the order ticket while a round is open (or why trading is closed and when the next round
-// opens), and the open round's orders with their countdown. Clearings, phase changes and pauses broadcast, so the page
-// re-reads itself then and after each of its own actions; also when the round's closing time or the next round's
-// opening time passes, and every 10 s while a round accepts orders (an order placed on another screen of the team sends
-// no broadcast).
+// Orders: the fund's cash and limits, the order ticket while a round is open (or why trading is closed and when the
+// next round opens), and the open round's orders with their countdown. Clearings, phase changes and pauses broadcast,
+// so the page re-reads itself then, and after each of its own actions. The page also re-reads itself when the round's
+// closing time or the next round's opening time passes, and every 10 s while a round accepts orders: an order placed
+// on the fund's other device, or a rescue deal a partner signs last, sends no broadcast, and a stale view could
+// otherwise refuse an order the exchange would accept.
 export default async function TradePage() {
   const ctx = await loadTeamContext();
-  const { status, event, built, rescued } = ctx;
-
-  if (!phaseReached(status.phase, "MARKET_BLIND")) return <TradingNotYet phase={status.phase} title="Round 3: Trade" />;
-
+  const gate = tradeGate(ctx);
+  if (gate) return gate;
+  const { status, company: own } = ctx;
   const data = await loadTradeData(ctx, { orders: "pending" });
-  const tctx = traderContext(ctx, data);
+  const at = (code: "READING" | "IPO" | "ROUNDS_1_4") => (data.phaseStarts[code] ? clock(data.phaseStarts[code]) : null);
+
+  if (!phaseReached(status.phase, "READING")) {
+    return (
+      <Panel title="Trading">
+        <p className="text-sm text-slate-700" data-testid="trading-notice">
+          Trading starts with round 1{at("ROUNDS_1_4") ? ` at ${at("ROUNDS_1_4")}` : ""}. The companies are listed at Reading
+          {at("READING") ? ` (${at("READING")})` : ""}, and IPO bids open with the IPO{at("IPO") ? ` at ${at("IPO")}` : ""}.
+        </p>
+      </Panel>
+    );
+  }
+
+  const fctx = fundContext(ctx, data);
   const nowMs = new Date(status.server_time).getTime();
-  const notice = tradingNotice({ phase: status.phase, trading: status.trading, paused: status.paused, marketClosed: event.market_closed_at !== null, nowMs, gate: status.gate }, data.rounds);
-  const cash = cashSummary(tctx);
+  const notice = tradingNotice(
+    { phase: status.phase, trading: status.trading, paused: status.paused, marketClosed: data.marketClosedAt !== null, nowMs },
+    data.rounds,
+  );
+  const summary = fundSummary(fctx);
   const open = openOrders(data.orders, data.rounds, data.companies);
   const accepting = status.trading === "OPEN" && status.open_round !== null && !status.paused;
   const ordersRound = open.length > 0 ? (data.rounds.find((r) => r.number === open[0]!.roundNumber) ?? null) : null;
   const shownRound = status.open_round ?? (ordersRound ? { number: ordersRound.number, closes_at: ordersRound.closes_at } : null);
   const ordersState = shownRound ? openOrdersState({ accepting, paused: status.paused, closesAt: shownRound.closes_at, nowMs }) : null;
-  const companies: TicketCompany[] = data.companies
-    .filter((c) => c.market_price !== null)
-    .map((c) => ({ id: c.id, ticker: c.ticker!, name: c.name, price: c.market_price!, blocked: notTradable(tctx, c.id) }));
+  const tradable: TicketCompany[] = data.companies
+    .filter((c) => c.market_price !== null && c.id !== own?.id)
+    .map((c) => ({ id: c.id, ticker: c.ticker!, name: c.name, price: c.market_price! }));
+  const ownTicker = own?.ticker ?? null;
 
   return (
     <div className="space-y-4">
       <RefreshAt at={accepting ? status.open_round!.closes_at : (notice?.next?.opensAt ?? null)} />
       <AutoRefresh everyMs={10_000} active={accepting} />
 
-      {notice ? <ClosedNotice notice={notice} nowMs={nowMs} /> : null}
+      {notice ? <ClosedNotice notice={notice} nowMs={nowMs} ipo={status.phase === "IPO"} /> : null}
+
+      {summary.blocked ? (
+        <Notice tone="red">
+          <span data-testid="collateral-blocked">
+            Your cash ({money(summary.cash)}) is below your locked collateral ({money(summary.collateral)}), short by {money(summary.deficit)}: new buys and shorts are
+            blocked until cash covers it. Sells and covers are always allowed, and nothing is sold for you before the close.
+          </span>
+        </Notice>
+      ) : null}
 
       <div className={accepting ? "grid gap-4 lg:grid-cols-5" : "space-y-4"}>
         {accepting ? (
@@ -59,11 +85,20 @@ export default async function TradePage() {
               </span>
             }
           >
-            <OrderTicket ctx={tctx} companies={companies} round={{ number: status.open_round!.number, closesAt: status.open_round!.closes_at }} action={placeOrder} />
-            <p className="mt-3 text-xs text-slate-500">
-              {built?.ticker ? `${built.ticker} (you built it)` : "The company you built"} and {rescued?.ticker ? `${rescued.ticker} (you rescued it)` : "the company you rescued"}{" "}
-              cannot be traded by your team.
-            </p>
+            {tradable.length === 0 ? (
+              <p className="text-sm text-slate-500">No company is trading.</p>
+            ) : (
+              <OrderTicket ctx={fctx} companies={tradable} round={{ number: status.open_round!.number, closesAt: status.open_round!.closes_at }} action={placeOrder} />
+            )}
+            {ownTicker ? (
+              <p className="mt-3 text-xs text-slate-500">
+                Your squad&apos;s company, {ownTicker}, is not listed: a fund never trades its own squad&apos;s company. Your squad lot is under{" "}
+                <Link href="/team/trade/positions" className="underline">
+                  Positions
+                </Link>
+                .
+              </p>
+            ) : null}
           </Panel>
         ) : null}
 
@@ -91,15 +126,14 @@ export default async function TradePage() {
                 <p className="text-sm text-slate-500">No open orders in round {shownRound.number}.</p>
               ) : (
                 <OpenOrders
-                  ctx={tctx}
+                  ctx={fctx}
                   closesAt={shownRound.closes_at}
                   accepting={accepting}
                   items={open.map((line) => ({ line, edit: editOrder.bind(null, line.id), cancel: cancelOrder.bind(null, line.id) }))}
                 />
               )}
               <p className="mt-3 text-xs text-slate-500">
-                Every valid order fills at its company&apos;s new price when the round clears: price × (1 + net shares ÷ 1,000 %), at most ±10%. Past rounds are
-                under{" "}
+                Every valid order fills at its company&apos;s new price when the round clears. Past rounds and their fill prices are under{" "}
                 <Link href="/team/trade/history" className="underline">
                   History
                 </Link>
@@ -108,16 +142,23 @@ export default async function TradePage() {
             </Panel>
           ) : null}
 
-          <Panel title="Cash">
-            <dl className="grid grid-cols-3 gap-x-4 gap-y-3 text-sm">
-              <Fact label="Cash" value={money(cash.cash)} />
-              <Fact label="Reserved by open buys" value={money(cash.reserved)} testId="reserved" />
-              <Fact label="Available" value={money(cash.available)} hint="cash − reserves" testId="available" />
+          <Panel title="Cash and limits">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <Fact label="Cash" value={money(summary.cash)} />
+              <Fact label="Collateral locked" value={money(summary.collateral)} hint="150% of your shorts' value" />
+              <Fact label="Reserved by open orders" value={money(summary.reserved)} testId="reserved" />
+              <Fact label="Available cash" value={money(summary.available)} hint="Cash − collateral − reserves" testId="available" />
+              <Fact
+                label="Short exposure"
+                value={money(summary.shortExposureWithPending)}
+                hint={`of ${money(RULES.SHORT_EXPOSURE_LIMIT)}, pending shorts included`}
+                testId="exposure"
+              />
             </dl>
             <p className="mt-3 text-xs text-slate-500">
-              A buy reserves quantity × price × 1.10 until the round clears. Holdings and profit and loss are under{" "}
+              Holdings, profit and loss and the limits per company are under{" "}
               <Link href="/team/trade/positions" className="underline">
-                Portfolio
+                Positions
               </Link>
               .
             </p>
@@ -128,7 +169,7 @@ export default async function TradePage() {
   );
 }
 
-function ClosedNotice({ notice, nowMs }: { notice: TradingNotice; nowMs: number }) {
+function ClosedNotice({ notice, nowMs, ipo }: { notice: TradingNotice; nowMs: number; ipo: boolean }) {
   const upcoming = notice.next && new Date(notice.next.opensAt).getTime() > nowMs ? notice.next : null;
   return (
     <Notice tone={notice.tone}>
@@ -142,6 +183,14 @@ function ClosedNotice({ notice, nowMs }: { notice: TradingNotice; nowMs: number 
           </>
         ) : null}
       </span>
+      {ipo ? (
+        <>
+          {" "}
+          <Link href="/team/trade/ipo" className="font-semibold underline">
+            IPO bids
+          </Link>
+        </>
+      ) : null}
     </Notice>
   );
 }

@@ -1,11 +1,9 @@
-// The rehearsal bots' decisions. Pure: given what a team can see now and what it has already done, which game
-// functions it calls next. Bots play through the same public functions as real teams, so every refusal (a closed
-// window, a limit, a version conflict, a rate limit) is the game's own answer; a bot simply tries again later or
-// moves on. The runner (scripts/lib/bot-runner.ts) reads the snapshot through RLS as the team and executes the
-// actions. Every team plays all three rounds: a PRD (21:15–23:00), the Q&A board and a crisis solution
-// (23:45–01:45), and orders in every trading round (02:15–04:30).
+// The rehearsal bots' decisions (Phase 7). Pure: given what a team can see now and what it has already done, which
+// game functions it calls next. The bots play through the same public functions as real teams, so every refusal
+// (a closed window, a limit, a rate limit) is the game's own answer; a bot simply tries again later or moves on.
+// The runner (scripts/lib/bot-runner.ts) reads the snapshot through RLS as the team and executes the actions.
 
-import { RULES, type PhaseCode, type SubmissionType } from "@msim/engine";
+import type { PhaseCode, SubmissionType, Track } from "@msim/engine";
 
 // ───────────────────────────── Randomness (deterministic per team) ─────────────────────────────
 
@@ -33,9 +31,41 @@ const between = (r: () => number, lo: number, hi: number) => lo + Math.floor(r()
 export interface BotCompany {
   id: string;
   ticker: string | null;
-  founder_team_id: string;
-  rescuer_team_id: string | null;
+  squad_id: string | null;
+  ipo_price: number | null;
   market_price: number | null;
+  post_crisis_price: number | null;
+}
+
+export interface BotHolding {
+  company_id: string;
+  lot: "RETAINED" | "SQUAD" | "EXCHANGE" | "SHORT" | "FEE";
+  qty: number;
+}
+
+export interface BotFee {
+  version: number;
+  cash_cents: number;
+  shares: number;
+  product_confirmed_at: string | null;
+  consulting_confirmed_at: string | null;
+  executed_at: string | null;
+}
+
+export interface BotDeal {
+  version: number;
+  amount_cents: number | null;
+  price_cents: number | null;
+  signed_product_at: string | null;
+  signed_consulting_at: string | null;
+  signed_finance_at: string | null;
+  executed_at: string | null;
+}
+
+export interface BotCall {
+  company_id: string;
+  call_no: number;
+  direction: "BUY" | "SELL" | null;
 }
 
 export interface Snapshot {
@@ -43,21 +73,22 @@ export interface Snapshot {
   /** OPEN, HALTED or PAUSED (event_status.trading). */
   trading: string;
   openRound: number | null;
-  paused: boolean;
-  team: { id: string; code: string; index: number; cash_cents: number };
-  drawn: boolean;
-  crisisApplied: boolean;
-  /** Saved versions of the team's drafts (0 when none). */
-  drafts: Record<SubmissionType, number>;
+  team: { id: string; code: string; track: Track; cash_cents: number };
+  squad: { id: string; number: number; dealt_card_ids: string[]; chosen_card_id: string | null } | null;
+  /** The squad's company. */
+  companyId: string | null;
+  drafts: Partial<Record<SubmissionType, number>>; // type → version
+  submitted: Partial<Record<SubmissionType, boolean>>;
+  fee: BotFee | null;
+  deal: BotDeal | null;
+  calls: BotCall[];
   companies: BotCompany[];
-  /** Shares the team owns, by company. */
-  holdings: Record<string, number>;
-  /** Questions about the company the team built that have no answer yet. */
-  unanswered: string[];
-  /** Questions this team asked. */
-  asked: number;
-  /** This team's PENDING orders (only the open round has any). */
-  pendingOrders: number;
+  holdings: BotHolding[];
+  /** This team's PENDING orders in the open round. */
+  pendingOrders: { company_id: string; type: string; qty: number }[];
+  ipoBids: number;
+  /** The flash bulletin is out (flash answers open with it). */
+  flashPublished: boolean;
 }
 
 /** What a bot remembers between turns. */
@@ -65,157 +96,216 @@ export interface Memory {
   done: Set<string>;
   /** Action key → time (ms) before which it is not tried again. */
   wait: Map<string, number>;
-  /** Round numbers in which this team has already placed its orders. */
+  /** Round numbers in which this fund has already placed its orders. */
   tradedRounds: Set<number>;
 }
 
 export const newMemory = (): Memory => ({ done: new Set(), wait: new Map(), tradedRounds: new Set() });
 
 export type Action =
+  | { key: string; fn: "pick_problem_card"; args: { p_card: string } }
   | { key: string; fn: "save_draft"; args: { p_type: SubmissionType; p_content: Record<string, string>; p_expected_version: number } }
-  | { key: string; fn: "post_question"; args: { p_body: string } }
-  | { key: string; fn: "answer_question"; args: { p_question: string; p_body: string } }
-  | { key: string; fn: "place_order"; args: { p_company: string; p_type: "BUY" | "SELL"; p_qty: number; p_client_ref: string } };
+  | { key: string; fn: "submit_submission"; args: { p_type: SubmissionType } }
+  | { key: string; fn: "propose_fee"; args: { p_cash: number; p_shares: number } }
+  | { key: string; fn: "confirm_fee"; args: { p_version: number } }
+  | { key: string; fn: "edit_deal"; args: { p_amount?: number; p_price?: number } }
+  | { key: string; fn: "sign_deal"; args: { p_version: number } }
+  | { key: string; fn: "make_call"; args: { p_company: string; p_call_no: number; p_direction: "BUY" | "SELL" } }
+  | { key: string; fn: "place_ipo_bid"; args: { p_company: string; p_qty: number } }
+  | { key: string; fn: "place_order"; args: { p_company: string; p_type: "BUY" | "SELL" | "SHORT" | "COVER"; p_qty: number; p_client_ref: string } }
+  | { key: string; fn: "post_squad_message"; args: { p_body: string } };
 
 // ───────────────────────────── Content ─────────────────────────────
 
-const SECTORS = ["water", "farming", "transport", "health", "education", "energy", "waste", "retail", "snacks", "housing"];
-const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const SECTORS = ["water", "farming", "transport", "health", "education", "energy", "waste", "retail", "finance", "housing"];
 
-/** A unique four-letter ticker per team: B + three letters from its index (BAAA, BAAB, …). */
-export function tickerFor(index: number): string {
-  const n = index;
-  return `B${LETTERS[Math.floor(n / 676) % 26]}${LETTERS[Math.floor(n / 26) % 26]}${LETTERS[n % 26]}`;
+/** A unique 3–4 letter ticker per squad: B + two letters from the squad number (BAA, BAB, …). */
+export function tickerFor(squadNumber: number): string {
+  const n = squadNumber - 1;
+  return `B${String.fromCharCode(65 + Math.floor(n / 26))}${String.fromCharCode(65 + (n % 26))}`;
 }
 
-/**
- * A PRD of a believable length; its quality (how much of it is filled in, with numbers or not) varies by team, so
- * the fake judge (which hashes the text) and a real one both give a spread of scores.
- */
-export function prdContent(index: number, r: () => number, draft: number): Record<string, string> {
+export function pitchContent(squadNumber: number, r: () => number): Record<string, string> {
   const sector = pick(r, SECTORS);
-  const town = pick(r, ["Udupi", "Alappuzha", "Nashik", "Madurai", "Guwahati", "Indore"]);
-  const strong = r() < 0.5;
-  const c: Record<string, string> = {
-    company_name: `Bot ${sector[0]!.toUpperCase()}${sector.slice(1)} ${index + 1}`,
-    ticker: tickerFor(index),
-    problem: strong
-      ? `In ${town}, ${between(r, 20, 80)} small ${sector} businesses we spoke to lose about Rs ${between(r, 500, 3000)} a month to the problem on our card.`
-      : `People in ${town} have a ${sector} problem.`,
-    target_user: `Owners of small ${sector} businesses in ${town}.`,
-    must_have: `A low-cost ${sector} service run from a phone app with local partners.`,
-    per_pack_maths: strong ? `Price Rs ${between(r, 40, 90)}, cost Rs ${between(r, 20, 39)}, margin per unit about Rs ${between(r, 10, 40)}.` : "",
-    go_to_market: "Start with ten shops through a local distributor.",
-    risks: draft > 1 ? "The twist may raise our costs; we would switch to paper packaging." : "Copycats.",
+  return {
+    company_name: `Bot ${sector[0]!.toUpperCase()}${sector.slice(1)} ${squadNumber}`,
+    ticker: tickerFor(squadNumber),
+    problem: `Small towns lack reliable ${sector} services and lose money every month.`,
+    solution: `A low-cost ${sector} service run from a phone app with local partners.`,
+    customers: "Town councils and small businesses.",
+    business_model: "A monthly subscription per site, plus a set-up fee.",
+    advantage: "Half the price of today's options and ready in a week.",
+    use_of_seed: "Hire two engineers and sign the first ten towns.",
   };
-  if (strong) {
-    c.should_have = "A monthly report for each owner.";
-    c.not_in_v1 = "Home delivery.";
-    c.success_metrics = `${between(r, 20, 60)} paying shops by week 8.`;
-  }
-  return c;
 }
 
-export function solutionContent(index: number, r: () => number): Record<string, string> {
-  const strong = r() < 0.5;
+export function planContent(): Record<string, string> {
   return {
-    diagnosis: "The crisis cuts the company's main input; without it the product stops within two weeks.",
-    three_options: strong ? "A: a far supplier at a higher price. B: raise prices. C: two local suppliers after a trial." : "Find a new supplier.",
-    recommendation: strong ? "C, with A as a three-week bridge." : "Find a supplier quickly.",
-    per_pack_maths: strong ? `Cost rises Rs ${between(r, 10, 40)} a unit; price up Rs ${between(r, 5, 20)}; margin stays positive.` : "",
-    timeline: strong ? "Week 1 bridge order; week 3 contracts; week 4 first local supply." : "Soon.",
-    risks: `Quality may vary (team ${index + 1}): weekly checks.`,
+    crisis: "The crisis cuts our main supplier for a year.",
+    new_plan: "License the software to partners while we change suppliers.",
+    money: "Costs fall 20%; the deal funds six months.",
+    deal: "The squad's fund invests at a discount for a stake.",
+    time_to_recovery: "Nine months.",
+    risks: "Partners may refuse; a second supplier may be late.",
+    next_steps: "Sign two partners this week.",
   };
 }
+
+export const flashContent = (): Record<string, string> => ({ answer: "We cut costs and reach profit within 12 months with no new loans." });
 
 // ───────────────────────────── Decisions ─────────────────────────────
 
-const WRITING_PRD: readonly PhaseCode[] = ["BRIEFING", "BUILD"];
-const WRITING_SOLUTION: readonly PhaseCode[] = ["CRISIS_QA", "RESCUE"];
+const RESCUE: PhaseCode[] = ["CRISIS", "RESCUE_1", "BREAK", "RESCUE_2"];
+const order = (p: PhaseCode, from: PhaseCode, to: PhaseCode, phases: readonly PhaseCode[]) =>
+  phases.indexOf(p) >= phases.indexOf(from) && phases.indexOf(p) <= phases.indexOf(to);
 
 /** The next actions of a team, most important first. `now` is used only to respect back-offs. */
-export function decide(s: Snapshot, m: Memory, r: () => number, now: number, nonce: () => string): Action[] {
+export function decide(s: Snapshot, m: Memory, r: () => number, now: number, phases: readonly PhaseCode[]): Action[] {
   const out: Action[] = [];
   const ready = (key: string) => !m.done.has(key) && (m.wait.get(key) ?? 0) <= now;
   const add = (a: Action) => {
     if (ready(a.key)) out.push(a);
   };
-  if (s.paused) return out;
+  const track = s.team.track;
   const p = s.phase;
-  const built = s.companies.find((c) => c.founder_team_id === s.team.id) ?? null;
-  const rescued = s.companies.find((c) => c.rescuer_team_id === s.team.id) ?? null;
 
-  // Round 1: a first PRD, then one revision (as a team improves its draft before the lock).
-  if (s.drawn && WRITING_PRD.includes(p)) {
-    for (const draft of [1, 2]) {
-      if (s.drafts.PRD === draft - 1) add({ key: `prd-${draft}`, fn: "save_draft", args: { p_type: "PRD", p_content: prdContent(s.team.index, r, draft), p_expected_version: s.drafts.PRD } });
+  // Squad work: problem card and pitch (Product), plan (Product), flash answer (Product).
+  if (track === "PRODUCT" && s.squad) {
+    if (order(p, "SQUAD_DRAW", "BUILD", phases)) {
+      if (!s.squad.chosen_card_id && s.squad.dealt_card_ids.length) add({ key: "pick", fn: "pick_problem_card", args: { p_card: pick(r, s.squad.dealt_card_ids) } });
+      submission(add, s, "PITCH", () => pitchContent(s.squad!.number, r));
+    }
+    if (RESCUE.includes(p)) submission(add, s, "PLAN", planContent);
+    if (p === "ROUNDS_13_21" && s.flashPublished) submission(add, s, "FLASH", flashContent);
+  }
+
+  // The squad chat: each team says hello after the draw; in the rescue, Consulting names its fee and Finance its
+  // amount before setting them (as a squad would, talking first).
+  if (s.squad && p !== "AWARDS") {
+    add({ key: "chat-hello", fn: "post_squad_message", args: { p_body: `Hello from the ${track.toLowerCase()} team of squad ${s.squad.number}.` } });
+    if (RESCUE.includes(p) && track === "CONSULTING") add({ key: "chat-fee", fn: "post_squad_message", args: { p_body: "Our fee: $20,000 cash. Proposing it now." } });
+    if (RESCUE.includes(p) && track === "FINANCE") add({ key: "chat-deal", fn: "post_squad_message", args: { p_body: "We can put $60,000 into the rescue deal." } });
+  }
+
+  // The advisor's fee (Consulting proposes $20,000 cash; both confirm).
+  if ((track === "PRODUCT" || track === "CONSULTING") && RESCUE.includes(p) && s.fee && !s.fee.executed_at) {
+    const proposed = s.fee.version > 1;
+    if (!proposed && track === "CONSULTING") add({ key: "fee-propose", fn: "propose_fee", args: { p_cash: 2_000_000, p_shares: 0 } });
+    const mine = track === "PRODUCT" ? s.fee.product_confirmed_at : s.fee.consulting_confirmed_at;
+    if (proposed && !mine) add({ key: `fee-confirm-${s.fee.version}`, fn: "confirm_fee", args: { p_version: s.fee.version } });
+  }
+
+  // The rescue deal: Consulting sets the price (75% of the post-crisis price), Finance the amount ($60,000); all sign.
+  if (RESCUE.includes(p) && s.deal && !s.deal.executed_at && s.squad) {
+    const company = s.companies.find((c) => c.id === s.companyId);
+    if (track === "CONSULTING" && s.deal.price_cents === null && company?.post_crisis_price) {
+      add({ key: "deal-price", fn: "edit_deal", args: { p_price: Math.max(1, Math.round(company.post_crisis_price * 0.75)) } });
+    }
+    if (track === "FINANCE" && s.deal.amount_cents === null) add({ key: "deal-amount", fn: "edit_deal", args: { p_amount: 6_000_000 } });
+    const signed = track === "PRODUCT" ? s.deal.signed_product_at : track === "CONSULTING" ? s.deal.signed_consulting_at : s.deal.signed_finance_at;
+    if (s.deal.price_cents !== null && s.deal.amount_cents !== null && !signed) {
+      add({ key: `deal-sign-${s.deal.version}`, fn: "sign_deal", args: { p_version: s.deal.version } });
     }
   }
 
-  // The crisis: the rescuer asks the founders one question; founders answer what they are asked.
-  if (s.crisisApplied && p === "CRISIS_QA" && rescued && s.asked === 0) {
-    add({ key: "ask", fn: "post_question", args: { p_body: `What does your ${rescued.ticker ?? "company"} pay per unit for its main input today, and who supplies it?` } });
-  }
-  if (s.crisisApplied && WRITING_SOLUTION.includes(p)) {
-    for (const q of s.unanswered.slice(0, 2)) {
-      add({ key: `answer-${q}`, fn: "answer_question", args: { p_question: q, p_body: "About Rs 400 a unit, from one supplier in the next district; we have no second source yet." } });
-    }
-    if (rescued && s.drafts.SOLUTION === 0) {
-      add({ key: "solution", fn: "save_draft", args: { p_type: "SOLUTION", p_content: solutionContent(s.team.index, r), p_expected_version: 0 } });
+  // Consultant calls: every unmade call is tried (the database says when its window is open).
+  if (track === "CONSULTING") {
+    for (const c of s.calls) {
+      if (c.direction === null) add({ key: `call-${c.company_id}-${c.call_no}`, fn: "make_call", args: { p_company: c.company_id, p_call_no: c.call_no, p_direction: r() < 0.5 ? "BUY" : "SELL" } });
     }
   }
 
-  // Round 3: a few orders in every open round.
-  if (s.trading === "OPEN" && s.openRound !== null && !m.tradedRounds.has(s.openRound) && s.pendingOrders === 0) {
-    for (const a of roundOrders(s, built?.id ?? null, rescued?.id ?? null, r, nonce)) out.push(a);
+  if (track === "FINANCE") {
+    const others = s.companies.filter((c) => c.squad_id !== null && c.squad_id !== s.squad?.id);
+    if (p === "IPO" && s.ipoBids === 0 && !m.done.has("ipo")) {
+      for (const a of ipoBids(others, s.team.cash_cents, r)) add(a);
+    }
+    if (s.trading === "OPEN" && s.openRound !== null && !m.tradedRounds.has(s.openRound)) {
+      for (const a of roundOrders(s, others, r)) out.push(a);
+    }
+  }
+  return out;
+}
+
+function submission(add: (a: Action) => void, s: Snapshot, type: SubmissionType, content: () => Record<string, string>) {
+  if (s.submitted[type]) return;
+  const version = s.drafts[type];
+  if (version === undefined) return;
+  add({ key: `save-${type}`, fn: "save_draft", args: { p_type: type, p_content: content(), p_expected_version: version } });
+  add({ key: `submit-${type}`, fn: "submit_submission", args: { p_type: type } });
+}
+
+/** IPO bids: 4–8 other companies, 500–2,000 shares each, within 60% of the fund's cash at IPO prices. */
+export function ipoBids(companies: BotCompany[], cash: number, r: () => number): Action[] {
+  const priced = companies.filter((c) => c.ipo_price);
+  const out: Action[] = [];
+  let budget = Math.floor(cash * 0.6);
+  const n = Math.min(priced.length, between(r, 4, 8));
+  const chosen = [...priced].sort(() => r() - 0.5).slice(0, n);
+  for (const c of chosen) {
+    const qty = Math.min(between(r, 5, 20) * 100, Math.floor(budget / c.ipo_price! / 10) * 10, 4000);
+    if (qty < 10) break;
+    budget -= qty * c.ipo_price!;
+    out.push({ key: `ipo-${c.id}`, fn: "place_ipo_bid", args: { p_company: c.id, p_qty: qty } });
   }
   return out;
 }
 
 /**
- * One round's orders: sell part of a holding now and then, and buy 1–3 other companies, 100–1,500 shares each,
- * within 80% of the cash (a buy reserves price × 1.10) and the 5,000-share limit. Never the built or rescued company.
+ * A fund's orders for one round: 1–3 orders. Buys stay within a fifth of its cash and the 4,000-share long cap;
+ * sells take part of what it holds on the exchange lot; now and then a small short within the 2,000 cap.
  */
-export function roundOrders(s: Snapshot, builtId: string | null, rescuedId: string | null, r: () => number, nonce: () => string): Action[] {
-  const round = s.openRound!;
-  const tradable = s.companies.filter((c) => c.market_price && c.id !== builtId && c.id !== rescuedId);
+export function roundOrders(s: Snapshot, companies: BotCompany[], r: () => number, count = between(r, 1, 3)): Action[] {
+  const priced = companies.filter((c) => c.market_price);
+  if (!priced.length) return [];
+  const held = (id: string, lot: BotHolding["lot"]) => s.holdings.filter((h) => h.company_id === id && h.lot === lot).reduce((a, h) => a + h.qty, 0);
+  // Pending orders, including the ones planned in this turn.
+  const planned = s.pendingOrders.map((o) => ({ ...o }));
+  const pending = (id: string, type: string) => planned.filter((o) => o.company_id === id && o.type === type).reduce((a, o) => a + o.qty, 0);
   const out: Action[] = [];
-  const held = Object.entries(s.holdings).filter(([, q]) => q > 0);
-  if (held.length && r() < 0.4) {
-    const [company, qty] = pick(r, held);
-    const sell = Math.max(1, Math.floor(qty * (0.2 + r() * 0.6)));
-    out.push({ key: `r${round}-sell-${company}`, fn: "place_order", args: { p_company: company, p_type: "SELL", p_qty: sell, p_client_ref: ref(nonce(), company, "SELL", sell) } });
-  }
-  let budget = Math.floor(s.team.cash_cents * 0.8);
-  const n = between(r, 1, 3);
-  const chosen = new Set<string>();
-  for (let i = 0; i < n && tradable.length; i++) {
-    const c = pick(r, tradable);
-    if (chosen.has(c.id)) continue;
-    chosen.add(c.id);
-    const room = RULES.HOLD_LIMIT - (s.holdings[c.id] ?? 0);
-    const affordable = Math.floor(budget / Math.ceil((c.market_price! * RULES.RESERVE_PCT) / 100));
-    const qty = Math.min(room, affordable, between(r, 1, 15) * 100);
-    if (qty < 1) continue;
-    budget -= Math.ceil((qty * c.market_price! * RULES.RESERVE_PCT) / 100);
-    out.push({ key: `r${round}-buy-${c.id}`, fn: "place_order", args: { p_company: c.id, p_type: "BUY", p_qty: qty, p_client_ref: ref(nonce(), c.id, "BUY", qty) } });
+  const plan = (company: string, type: "BUY" | "SELL" | "SHORT", qty: number, i: number, ref: string) => {
+    planned.push({ company_id: company, type, qty });
+    out.push({ key: `order-${s.openRound}-${i}`, fn: "place_order", args: { p_company: company, p_type: type, p_qty: qty, p_client_ref: ref } });
+  };
+  let cash = s.team.cash_cents;
+  for (let i = 0; i < count; i++) {
+    const c = pick(r, priced);
+    const price = c.market_price!;
+    const roll = r();
+    const ref = `bot-${s.openRound}-${i}`;
+    const exchange = held(c.id, "EXCHANGE");
+    if (roll < 0.35 && exchange - pending(c.id, "SELL") >= 10) {
+      const qty = Math.max(10, Math.floor((exchange - pending(c.id, "SELL")) * (0.2 + r() * 0.5) / 10) * 10);
+      plan(c.id, "SELL", qty, i, ref);
+    } else if (roll < 0.45 && held(c.id, "SHORT") + pending(c.id, "SHORT") < 1500) {
+      plan(c.id, "SHORT", between(r, 1, 5) * 100, i, ref);
+    } else {
+      const room = 4000 - exchange - held(c.id, "SQUAD") - pending(c.id, "BUY");
+      const affordable = Math.floor(cash / 5 / price / 10) * 10;
+      const qty = Math.min(room, affordable, between(r, 1, 10) * 100);
+      if (qty < 10) continue;
+      cash -= qty * price;
+      plan(c.id, "BUY", qty, i, ref);
+    }
   }
   return out;
 }
 
-/** The order's client reference, in the format place_order accepts (nonce|company|type|qty). */
-export const ref = (nonce: string, company: string, type: "BUY" | "SELL", qty: number) => `${nonce}|${company}|${type}|${qty}`;
+/** Refusal codes that mean "not now" (try again later) rather than "never". */
+export const LATER = new Set(["RATE_LIMITED", "NOT_OPEN", "WINDOW_CLOSED", "TRADING_HALTED", "TRADING_PAUSED", "NOT_YET", "WRONG_PHASE", "STALE_VERSION", "VERSION_CONFLICT"]);
 
-/** After an action: done for good, try again later, or (orders) the round is traded. */
-export function remember(m: Memory, a: Action, r: { ok: boolean; code?: string }, now: number, s: Pick<Snapshot, "openRound">) {
-  if (a.fn === "place_order") {
-    if (s.openRound !== null) m.tradedRounds.add(s.openRound);
+/** What a refusal means for the memory: done (never again), or wait and retry. */
+export function remember(m: Memory, a: Action, result: { ok: boolean; code?: string }, now: number, s: Snapshot) {
+  if (result.ok) {
+    m.done.add(a.key);
+    if (a.fn === "place_ipo_bid") m.done.add("ipo");
+    if (a.fn === "place_order" && s.openRound !== null) m.tradedRounds.add(s.openRound);
     return;
   }
-  if (r.ok || ["ALREADY", "TICKER_TAKEN", "TOO_LONG"].includes(r.code ?? "")) {
+  if (a.fn === "place_order" && s.openRound !== null) m.tradedRounds.add(s.openRound); // one try per round
+  if (result.code && !LATER.has(result.code) && (result.code.includes("DEADLINE") || result.code.startsWith("ALREADY"))) {
     m.done.add(a.key);
     return;
   }
-  // A closed window, a version conflict or a rate limit: look again in a while.
-  m.wait.set(a.key, now + (r.code === "RATE_LIMITED" ? 10_000 : 4_000));
+  m.wait.set(a.key, now + (result.code === "RATE_LIMITED" ? 5_000 : result.code === "CALL_CLOSED" ? 20_000 : 15_000));
 }

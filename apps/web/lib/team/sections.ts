@@ -1,29 +1,40 @@
-// The team portal's sections, in the order of the night (the brief's /team list). Every team plays all three rounds,
-// so every team has the same sections; a section that is not in use yet says when it opens.
+// The team portal's sections, per track: what each team can do on the night (the brief's /team list), and the judge's
+// published prompts (Judging) and the squad chat (Chat) for every track.
 
-import { phaseReached, type PhaseCode } from "@msim/engine";
+import type { Track } from "@msim/engine";
 
 export interface TeamSection {
   path: string;
   label: string;
-  /** The phase from which the section has something to show (it opens before then with a note). */
-  from: PhaseCode;
 }
 
-export const TEAM_SECTIONS: readonly TeamSection[] = [
-  { path: "", label: "Home", from: "SETUP" },
-  { path: "/build", label: "Round 1: PRD", from: "BRIEFING" },
-  { path: "/rescue", label: "Round 2: Rescue", from: "CRISIS_QA" },
-  { path: "/qa", label: "Q&A", from: "CRISIS_QA" },
-  { path: "/market", label: "Market", from: "REVEAL_1" },
-  { path: "/trade", label: "Round 3: Trade", from: "MARKET_BLIND" },
-  { path: "/ledger", label: "Ledger", from: "MARKET_BLIND" },
-  { path: "/leaderboard", label: "Leaderboard", from: "REVEAL_1" },
-  { path: "/bulletins", label: "News", from: "SETUP" },
-  { path: "/judging", label: "How judging works", from: "SETUP" },
+const HOME = { path: "", label: "Home" };
+const RESCUE = { path: "/rescue", label: "Rescue" };
+/** The squad chat, for all three teams of a squad. */
+const CHAT = { path: "/chat", label: "Chat" };
+const COMMON: TeamSection[] = [
+  { path: "/market", label: "Market" },
+  { path: "/qa", label: "Q&A" },
+  { path: "/ledger", label: "Ledger" },
+  { path: "/bulletins", label: "Bulletins" },
+  { path: "/judging", label: "Judging" },
 ];
 
-/** Sections in use now come first in the row; the rest keep their order (the row stays the same all night). */
-export function sectionLive(section: TeamSection, phase: PhaseCode): boolean {
-  return phaseReached(phase, section.from);
+export const TEAM_SECTIONS: Record<Track, readonly TeamSection[]> = {
+  PRODUCT: [HOME, { path: "/squad", label: "Squad" }, RESCUE, CHAT, ...COMMON],
+  CONSULTING: [
+    HOME,
+    { path: "/squad", label: "Squad" },
+    RESCUE,
+    CHAT,
+    { path: "/calls", label: "Calls" },
+    { path: "/earnings", label: "Earnings" },
+    ...COMMON,
+  ],
+  FINANCE: [HOME, { path: "/trade", label: "Trade" }, RESCUE, CHAT, ...COMMON],
+};
+
+/** May this track open this section? (Pages also check, so a typed address shows a clear notice.) */
+export function sectionAllowed(track: Track, path: string): boolean {
+  return TEAM_SECTIONS[track].some((s) => s.path === path);
 }

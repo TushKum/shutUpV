@@ -1,7 +1,7 @@
 // The fake judge (JUDGE_FAKE=1), for tests and rehearsals without the API. Deterministic: the SHA-256 of the request
 // sets a "quality" for the submission, and the SHA-256 of the request and the run number adds a little noise per
-// rubric line, so the three readings of one submission differ a little, but the same reading always gives the same
-// answer. Each line stays within its maximum and the total is the sum.
+// rubric line, so runs of one submission differ (sometimes by more than 10, which exercises runs 4 and 5) but the
+// same run always gives the same answer. Each line stays within its maximum and the total is the sum.
 // The worker refuses the fake judge on a live (non-rehearsal) event.
 
 import { createHash } from "node:crypto";

@@ -5,7 +5,7 @@
 // refuses one that is locked.
 
 import { rpc, type ActionResult } from "@/lib/rpc";
-import { checkTwist, parseCrisisDeck, parseProblemDeck, parseTwist, readCsvUpload, type Parsed } from "@/lib/admin/content";
+import { parseCrisisDeck, parseFlashBulletin, parseProblemDeck, readCsvUpload, type Parsed } from "@/lib/admin/content";
 
 async function parseUpload<T>(form: FormData, parse: (text: string) => Parsed<T>): Promise<Parsed<T> & { code?: string }> {
   const file = await readCsvUpload(form.get("file"));
@@ -27,24 +27,14 @@ export async function uploadCrisisDeck(eventId: string, _prev: ActionResult | nu
   const deck = await parseUpload(form, parseCrisisDeck);
   if (!deck.ok) return { ok: false, code: deck.code, message: deck.message };
   const r = await rpc("upload_crisis_deck", { p_event: eventId, p_cards: deck.value });
-  return r.ok ? { ...r, message: `Uploaded ${plural(deck.value.length, "crisis card")}; the previous deck was replaced.` } : r;
+  if (!r.ok) return r;
+  const categories = Number(r.data?.categories ?? 0);
+  return { ...r, message: `Uploaded ${plural(deck.value.length, "crisis card")} in ${plural(categories, "category", "categories")}; the previous deck was replaced.` };
 }
 
-async function saveTwist(eventId: string, title: string, body: string): Promise<ActionResult> {
-  const r = await rpc("set_twist", { p_event: eventId, p_title: title, p_body: body });
-  return r.ok ? { ...r, message: `Twist saved: “${title}”. It goes out at the twist time set on Event timing (or publish it by hand under Bulletins).` } : r;
-}
-
-/** The twist typed into the form. */
-export async function setTwist(eventId: string, _prev: ActionResult | null, form: FormData): Promise<ActionResult> {
-  const twist = checkTwist(String(form.get("title") ?? ""), String(form.get("body") ?? ""));
-  if (!twist.ok) return { ok: false, code: "BAD_TWIST", message: twist.message };
-  return saveTwist(eventId, twist.value.title, twist.value.body);
-}
-
-/** The twist from a one-row CSV (title, body). */
-export async function uploadTwist(eventId: string, _prev: ActionResult | null, form: FormData): Promise<ActionResult> {
-  const twist = await parseUpload(form, parseTwist);
-  if (!twist.ok) return { ok: false, code: twist.code, message: twist.message };
-  return saveTwist(eventId, twist.value.title, twist.value.body);
+export async function prepareFlashBulletin(eventId: string, _prev: ActionResult | null, form: FormData): Promise<ActionResult> {
+  const flash = await parseUpload(form, parseFlashBulletin);
+  if (!flash.ok) return { ok: false, code: flash.code, message: flash.message };
+  const r = await rpc("prepare_flash_bulletin", { p_event: eventId, p_title: flash.value.title, p_body: flash.value.body });
+  return r.ok ? { ...r, message: `Flash bulletin prepared: “${flash.value.title}”. Publish it under Bulletins at 04:00.` } : r;
 }

@@ -22,82 +22,84 @@ describe("default timetable matches the brief", () => {
   });
 
   test.each([
-    ["CHECKIN", "20:00", "20:45"],
-    ["BRIEFING", "20:45", "21:15"],
-    ["BUILD", "21:15", "23:00"],
-    ["JUDGING_1", "23:00", "23:30"],
-    ["REVEAL_1", "23:30", "23:45"],
-    ["CRISIS_QA", "23:45", "00:15"],
-    ["RESCUE", "00:15", "01:45"],
-    ["JUDGING_2", "01:45", "02:15"],
-    ["MARKET_BLIND", "02:15", "02:45"],
-    ["MARKET", "02:45", "04:30"],
-    ["SETTLEMENT", "04:30", "05:15"],
-    ["AWARDS", "05:15", "06:00"],
+    ["CHECKIN", "20:00", "20:30"],
+    ["BRIEFING", "20:30", "21:00"],
+    ["SQUAD_DRAW", "21:00", "21:10"],
+    ["BUILD", "21:10", "22:30"],
+    ["READING", "22:30", "23:15"],
+    ["IPO", "23:15", "23:30"],
+    ["ROUNDS_1_4", "23:30", "00:30"],
+    ["CRISIS", "00:30", "00:45"],
+    ["RESCUE_1", "00:45", "01:45"],
+    ["BREAK", "01:45", "02:00"],
+    ["RESCUE_2", "02:00", "03:00"],
+    ["PLANS_PUBLISHED", "03:00", "03:30"],
+    ["VERDICTS", "03:30", "03:30"],
+    ["ROUNDS_13_21", "03:30", "05:00"],
+    ["CLOSE", "05:00", "05:00"],
+    ["SETTLEMENT", "05:00", "05:30"],
+    ["APPEALS", "05:30", "05:40"],
+    ["AWARDS", "05:40", "06:00"],
   ])("%s runs %s–%s", (code, start, end) => {
     expect(formatEventMinute(phase(code).start)).toBe(start);
     expect(formatEventMinute(phase(code).end)).toBe(end);
   });
 
-  test("nine rounds of 15 minutes, 02:15–04:30, inside their phases; rounds 1–2 before the 02:45 reveal", () => {
-    expect(DEFAULT_ROUNDS.map((r) => r.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  test("21 rounds: 1–12 are 15 minutes, 13–21 are 10 minutes, inside their phases", () => {
+    expect(DEFAULT_ROUNDS.map((r) => r.number)).toEqual(Array.from({ length: 21 }, (_, i) => i + 1));
     for (const r of DEFAULT_ROUNDS) {
-      expect(r.end - r.start).toBe(15);
+      expect(r.end - r.start).toBe(r.number <= 12 ? 15 : 10);
       const p = phase(r.phase);
       expect(r.start).toBeGreaterThanOrEqual(p.start);
       expect(r.end).toBeLessThanOrEqual(p.end);
     }
-    expect(DEFAULT_ROUNDS.map((r) => r.phase)).toEqual(["MARKET_BLIND", "MARKET_BLIND", ...Array(7).fill("MARKET")]);
-    expect(formatEventMinute(DEFAULT_ROUNDS[0]!.start)).toBe("02:15");
-    expect(formatEventMinute(DEFAULT_ROUNDS[2]!.start)).toBe("02:45");
-    expect(formatEventMinute(DEFAULT_ROUNDS[8]!.end)).toBe("04:30");
+    expect(formatEventMinute(DEFAULT_ROUNDS[0]!.start)).toBe("23:30");
+    expect(formatEventMinute(DEFAULT_ROUNDS[16]!.end)).toBe("04:20"); // round 17 clears at 04:20
+    expect(formatEventMinute(DEFAULT_ROUNDS[20]!.end)).toBe("05:00");
   });
 
   test.each([
-    ["PROBLEM_DRAW", "21:15"],
-    ["TWIST", "22:15"],
-    ["PRD_LOCK", "23:00"],
-    ["QA_CLOSE", "00:15"],
-    ["SOLUTION_LOCK", "01:45"],
-    ["LEADERBOARD_FREEZE", "03:30"],
-    ["MARKET_CLOSE", "04:30"],
+    ["PROBLEM_PICK", "21:10"],
+    ["PITCH", "22:30"],
+    ["CALL_1", "23:15"],
+    ["IPO_BIDS", "23:30"],
+    ["FEE", "01:05"],
+    ["DEAL_BONUS", "02:45"],
+    ["DEAL", "03:00"],
+    ["PLAN", "03:00"],
+    ["CALL_2", "03:40"],
+    ["FLASH_BULLETIN", "04:00"],
+    ["FLASH", "04:15"],
+    ["FLASH_TIER", "04:20"],
+    ["CALL_3", "04:30"],
   ])("deadline %s is at %s", (code, time) => {
     expect(formatEventMinute(at(code))).toBe(time);
   });
 });
 
 describe("buildSchedule", () => {
-  test("live event: durations from the planned night; untimed Setup, trading phases and awards", () => {
-    const s = buildSchedule(1);
-    const d = Object.fromEntries(s.phases.map((p) => [p.code, p.duration_seconds]));
-    expect(d.SETUP).toBeNull();
-    expect(d.BUILD).toBe(105 * 60); // 21:15–23:00
-    expect(d.RESCUE).toBe(90 * 60); // 00:15–01:45
-    expect(d.MARKET_BLIND).toBeNull();
-    expect(d.MARKET).toBeNull();
-    expect(d.AWARDS).toBeNull(); // open until an organiser ends the night
-    expect(s.rounds).toHaveLength(9);
-    expect(s.rounds.every((r) => r.duration_seconds === 900)).toBe(true);
-    expect(s.twist_offset_seconds).toBe(60 * 60); // an hour into Build: 22:15
-    expect(s.freeze_offset_seconds).toBe(45 * 60); // 45 minutes into Market: 03:30
+  test("live event: 20:00 IST is 14:30 UTC", () => {
+    const start = eventStartIST("2026-11-14");
+    expect(start.toISOString()).toBe("2026-11-14T14:30:00.000Z");
+    const s = buildSchedule(start, 1);
+    expect(s.phases.find((p) => p.code === "BUILD")!.ends_at).toBe("2026-11-14T17:00:00.000Z"); // 22:30 IST
+    expect(s.deadlines.find((d) => d.code === "PLAN")!.at).toBe("2026-11-14T21:30:00.000Z"); // 03:00 IST next day
+    expect(s.rounds).toHaveLength(21);
   });
 
-  test("rehearsal at 10x: every duration ten times shorter (never under 30 seconds)", () => {
-    const s = buildSchedule(10);
-    expect(s.rounds[0]!.duration_seconds).toBe(90);
-    expect(s.phases.find((p) => p.code === "REVEAL_1")!.duration_seconds).toBe(90);
-    expect(buildSchedule(100).rounds[0]!.duration_seconds).toBe(30);
-    expect(() => buildSchedule(0)).toThrow();
-  });
-
-  test("the 20:00 start of the planned night in IST", () => {
-    expect(eventStartIST("2026-11-20").toISOString()).toBe("2026-11-20T14:30:00.000Z");
-    expect(realToEventMinute(eventStartIST("2026-11-20"), new Date("2026-11-20T18:15:00Z"))).toBe(225);
+  test("rehearsal at 10× compresses the night into one hour", () => {
+    const start = new Date("2026-11-13T10:00:00Z");
+    const s = buildSchedule(start, 10);
+    const awards = s.phases.find((p) => p.code === "AWARDS")!;
+    expect(new Date(awards.ends_at).getTime() - start.getTime()).toBe(60 * 60_000);
+    const r1 = s.rounds[0]!;
+    expect(new Date(r1.closes_at).getTime() - new Date(r1.opens_at).getTime()).toBe(90_000);
+    expect(realToEventMinute(start, new Date(r1.opens_at), 10)).toBe(210);
   });
 });
 
 test("phaseReached follows the order of the night", () => {
   expect(phaseReached("AWARDS", "AWARDS")).toBe(true);
-  expect(phaseReached("SETTLEMENT", "AWARDS")).toBe(false);
-  expect(phaseReached("MARKET", "JUDGING_2")).toBe(true);
+  expect(phaseReached("APPEALS", "AWARDS")).toBe(false);
+  expect(phaseReached("CRISIS", "READING")).toBe(true);
 });

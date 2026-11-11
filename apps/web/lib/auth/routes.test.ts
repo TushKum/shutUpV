@@ -34,7 +34,6 @@ describe("route access by role", () => {
     expect(areaOf("/teams")).toBeNull();
     expect(areaOf("/administrator")).toBeNull();
     expect(areaOf("/team")).toBe("/team");
-    expect(areaOf("/welcome")).toBe("/welcome"); // the opening screen after a team signs in: teams only
   });
 
   test("next= after login: same-site paths of the role's own area only", () => {

@@ -1,4 +1,4 @@
-// The judge's system prompts: prompts/PRD.md and prompts/SOLUTION.md at the repository root, published
+// The judge's system prompts: prompts/PITCH.md, prompts/PLAN.md and prompts/FLASH.md at the repository root, published
 // to teams. The folder is found by walking up from the working directory (apps/web for the Next server, the repository
 // root for `pnpm judge-worker`), or set with JUDGE_PROMPTS_DIR. A prompt is read again when its file changes; its
 // SHA-256 (hex, of the exact text sent) is stored with every run as prompt_sha.
@@ -10,8 +10,9 @@ import path from "node:path";
 import type { SubmissionType } from "@msim/engine";
 
 export const PROMPT_FILES: Record<SubmissionType, string> = {
-  PRD: "PRD.md",
-  SOLUTION: "SOLUTION.md",
+  PITCH: "PITCH.md",
+  PLAN: "PLAN.md",
+  FLASH: "FLASH.md",
 };
 
 export interface JudgePrompt {
@@ -28,7 +29,7 @@ export function sha256Hex(text: string): string {
 }
 
 /**
- * The prompts folder: JUDGE_PROMPTS_DIR if set, otherwise the first `prompts/` holding PRD.md (or, failing that,
+ * The prompts folder: JUDGE_PROMPTS_DIR if set, otherwise the first `prompts/` holding PITCH.md (or, failing that,
  * the first `prompts/` folder at all) found walking up from `from`.
  */
 export function findPromptsDir(from: string = process.cwd(), env: Record<string, string | undefined> = process.env): string {
@@ -38,7 +39,7 @@ export function findPromptsDir(from: string = process.cwd(), env: Record<string,
   let dir = path.resolve(/* turbopackIgnore: true */ from);
   for (;;) {
     const candidate = path.join(dir, "prompts");
-    if (existsSync(path.join(candidate, PROMPT_FILES.PRD))) return candidate;
+    if (existsSync(path.join(candidate, PROMPT_FILES.PITCH))) return candidate;
     if (firstFolder === null && existsSync(candidate) && statSync(candidate).isDirectory()) firstFolder = candidate;
     const parent = path.dirname(dir);
     if (parent === dir) break;

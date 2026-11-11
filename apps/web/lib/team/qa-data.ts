@@ -1,12 +1,13 @@
-// Reads the Q&A board as the signed-in team (public to the event, except questions an organiser hid): questions newest
-// first, a page at a time, with their answers; the companies that name them.
+// Reads the Q&A board as the signed-in team: questions are readable without their asker (a column grant hides it;
+// only the granted columns are selected), answers in full, companies from Reading. Questions newest first, a page at
+// a time; the answers of the questions on the page.
 
 import { supabaseServer } from "@/lib/supabase/server";
 import { fetchAll } from "@/lib/fetch-all";
 import { pageOf, type Paging } from "./public-ledger";
 import { QUESTIONS_PER_PAGE, threads, unanswered, type AnswerRow, type QuestionRow, type Thread } from "./qa";
 
-const Q_COLUMNS = "id, company_id, asker_team_id, body, created_at";
+const Q_COLUMNS = "id, company_id, body, created_at";
 const A_COLUMNS = "id, question_id, company_id, body, word_count, created_at";
 
 function must<T>(r: { data: T | null; error: { message: string } | null }, what: string): T {
@@ -53,7 +54,7 @@ export async function loadQaPage(eventId: string, companyId: string | null, page
   return { threads: threads(qs, as), paging };
 }
 
-/** The questions to one company that have no answer yet, oldest first (the founding team's queue). */
+/** The questions to one company that have no answer yet, oldest first (the Product team's queue). */
 export async function loadUnanswered(companyId: string): Promise<QuestionRow[]> {
   const sb = await supabaseServer();
   const [qs, as] = await Promise.all([

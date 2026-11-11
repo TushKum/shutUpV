@@ -6,14 +6,12 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { anthropicClient, claudeJudge, modelChecker, type ModelCheck } from "./call";
 import type { JudgeConfig } from "./config";
 import { fakeJudge } from "./fake";
-import type { SubmissionType } from "@msim/engine";
-import type { JudgeFn, JudgeSlot } from "./types";
+import type { JudgeFn } from "./types";
 
-export { judgeConfig, hasApiCredential, rejectsSampling, JUDGE_DEFAULTS, MODEL_VARIABLES, type JudgeConfig, type JudgeModels } from "./config";
+export { judgeConfig, hasApiCredential, rejectsSampling, JUDGE_DEFAULTS, type JudgeConfig } from "./config";
 export { supabaseJudgeDb, queueCounts, type QueueCounts } from "./db";
 export { promptLoader, loadPrompt, findPromptsDir, type JudgePrompt } from "./prompts";
 export { loadCalibrationSamples, type CalibrationSample } from "./calibration";
-export { buildJudgeRequest, buildCalibrationRequest } from "./request";
 export { runWorker, RUN_TIMEOUT_MS, type JudgeDb, type WorkerSummary } from "./worker";
 export { workReply, modelCheckReply, type WorkReply } from "./reply";
 export { FAKE_MODEL } from "./fake";
@@ -47,20 +45,4 @@ export function checkJudgeModel(model: string): Promise<ModelCheck> {
 export function fakeJudgeRefusal(config: Pick<JudgeConfig, "fake">, event: { is_rehearsal: boolean }): string | null {
   if (!config.fake || event.is_rehearsal) return null;
   return "The fake judge (JUDGE_FAKE) is on, and this is a live event: turn JUDGE_FAKE off to judge it.";
-}
-
-/** Each round's model slot as the event stores it (the control panel's backup switch). */
-export interface EventSlots {
-  prd_model_slot: JudgeSlot;
-  solution_model_slot: JudgeSlot;
-}
-
-export const SLOT_COLUMNS = "prd_model_slot, solution_model_slot";
-
-/** The models each round uses now, for the start-up check: one entry per round. */
-export function modelsInUse(config: Pick<JudgeConfig, "models">, slots: EventSlots): { type: SubmissionType; slot: JudgeSlot; model: string }[] {
-  return (["PRD", "SOLUTION"] as const).map((type) => {
-    const slot: JudgeSlot = (type === "PRD" ? slots.prd_model_slot : slots.solution_model_slot) === "BACKUP" ? "BACKUP" : "PRIMARY";
-    return { type, slot, model: config.models[type][slot] };
-  });
 }

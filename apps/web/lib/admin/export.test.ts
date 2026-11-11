@@ -13,7 +13,6 @@ import {
   pricesCsv,
   protectFormula,
   quoteField,
-  awardsCsv,
   resultsCsv,
   scoresCsv,
   tickerOf,
@@ -249,8 +248,8 @@ describe("fetchPages", () => {
 });
 
 describe("kinds and file names", () => {
-  it("knows the five exports", () => {
-    expect(EXPORT_KINDS).toEqual(["ledger", "prices", "scores", "results", "awards"]);
+  it("knows the four exports", () => {
+    expect(EXPORT_KINDS).toEqual(["ledger", "prices", "scores", "results"]);
     expect(isExportKind("ledger")).toBe(true);
     expect(isExportKind("flags")).toBe(false);
     expect(isExportKind(undefined)).toBe(false);
@@ -266,10 +265,10 @@ describe("kinds and file names", () => {
 const T = { p1: "t-p1", c1: "t-c1", f1: "t-f1", f2: "t-f2" };
 const lk = buildLookups(
   [
-    { id: T.p1, code: "P01" },
-    { id: T.c1, code: "C01" },
-    { id: T.f1, code: "F01" },
-    { id: T.f2, code: "F02" },
+    { id: T.p1, code: "P01", track: "PRODUCT" },
+    { id: T.c1, code: "C01", track: "CONSULTING" },
+    { id: T.f1, code: "F01", track: "FINANCE" },
+    { id: T.f2, code: "F02", track: "FINANCE" },
   ],
   [
     { id: "co-aqs", ticker: "AQS" },
@@ -296,6 +295,7 @@ describe("ledgerCsv", () => {
     txn_id: "tx-1",
     kind: "TRADE",
     company_id: "co-aqs",
+    lot: "EXCHANGE",
     price_cents: 1082,
     round_id: "r1",
     memo: null,
@@ -306,14 +306,14 @@ describe("ledgerCsv", () => {
     const csv = ledgerCsv(
       [
         { ...base, id: 7, team_id: T.f1, cash_delta_cents: "-2164000", share_delta: 2000 },
-        { ...base, id: "8", team_id: null, cash_delta_cents: 2164000, share_delta: -2000 },
+        { ...base, id: "8", team_id: null, lot: null, cash_delta_cents: 2164000, share_delta: -2000 },
       ],
       lk,
     );
     expect(parseCsv(csv)).toEqual([
-      ["id", "time_ist", "txn_id", "kind", "team", "ticker", "cash_delta_cents", "share_delta", "price_cents", "round", "memo"],
-      ["7", "2026-10-08T23:45:00.000001+05:30", "tx-1", "TRADE", "F01", "AQS", "-2164000", "2000", "1082", "1", ""],
-      ["8", "2026-10-08T23:45:00.000001+05:30", "tx-1", "TRADE", "Exchange", "AQS", "2164000", "-2000", "1082", "1", ""],
+      ["id", "time_ist", "txn_id", "kind", "team", "ticker", "lot", "cash_delta_cents", "share_delta", "price_cents", "round", "memo"],
+      ["7", "2026-10-08T23:45:00.000001+05:30", "tx-1", "TRADE", "F01", "AQS", "EXCHANGE", "-2164000", "2000", "1082", "1", ""],
+      ["8", "2026-10-08T23:45:00.000001+05:30", "tx-1", "TRADE", "Exchange", "AQS", "", "2164000", "-2000", "1082", "1", ""],
     ]);
   });
 
@@ -322,12 +322,12 @@ describe("ledgerCsv", () => {
       [{ ...base, id: 9, kind: "CORRECTION", team_id: T.f2, cash_delta_cents: 50000, share_delta: 0, price_cents: null, round_id: null, memo: "=1+2, refund" }],
       lk,
     );
-    expect(csv.split("\r\n")[1]).toBe(`9,2026-10-08T23:45:00.000001+05:30,tx-1,CORRECTION,F02,AQS,50000,0,,,"'=1+2, refund"`);
+    expect(csv.split("\r\n")[1]).toBe(`9,2026-10-08T23:45:00.000001+05:30,tx-1,CORRECTION,F02,AQS,EXCHANGE,50000,0,,,"'=1+2, refund"`);
   });
 });
 
 describe("pricesCsv", () => {
-  it("writes the round, ticker, kind, both prices before and after, the round's quantities and the reveal factor", () => {
+  it("writes the round, ticker, kind, prices before and after and the round's quantities", () => {
     const row: PriceExportRow = {
       id: 3,
       company_id: "co-aqs",
@@ -335,20 +335,39 @@ describe("pricesCsv", () => {
       kind: "CLEARING",
       market_before: 1050,
       market_after: 1082,
-      score_before: 1088,
-      score_after: 1088,
+      ai_before: 1050,
+      ai_after: 1050,
       buy_qty: 3500,
       sell_qty: 500,
+      short_qty: 0,
+      cover_qty: 0,
       net_qty: 3000,
       capped_net: 3000,
-      factor_bp: null,
-      created_at: "2026-11-20T23:30:00Z",
+      tier_bp: null,
+      created_at: "2026-10-08T23:30:00Z",
     };
-    const reveal: PriceExportRow = { ...row, id: 1, round_id: null, kind: "REVEAL", market_before: 1088, market_after: 1273, score_after: 1273, buy_qty: 0, sell_qty: 0, net_qty: 0, capped_net: 0, factor_bp: 11700 };
-    expect(parseCsv(pricesCsv([reveal, row], lk))).toEqual([
-      ["id", "time_ist", "round", "ticker", "kind", "market_before_cents", "market_after_cents", "score_price_before_cents", "score_price_after_cents", "buy_qty", "sell_qty", "net_qty", "capped_net", "factor_bp"],
-      ["1", "2026-11-21T05:00:00+05:30", "", "AQS", "REVEAL", "1088", "1273", "1088", "1273", "0", "0", "0", "0", "11700"],
-      ["3", "2026-11-21T05:00:00+05:30", "21", "AQS", "CLEARING", "1050", "1082", "1088", "1088", "3500", "500", "3000", "3000", ""],
+    const ipo: PriceExportRow = { ...row, id: 1, round_id: null, kind: "IPO", market_before: null, ai_before: null, market_after: 1050, ai_after: 1050, buy_qty: 0, sell_qty: 0, net_qty: 0, capped_net: 0, tier_bp: 500 };
+    expect(parseCsv(pricesCsv([ipo, row], lk))).toEqual([
+      [
+        "id",
+        "time_ist",
+        "round",
+        "ticker",
+        "kind",
+        "market_before_cents",
+        "market_after_cents",
+        "ai_before_cents",
+        "ai_after_cents",
+        "buy_qty",
+        "sell_qty",
+        "short_qty",
+        "cover_qty",
+        "net_qty",
+        "capped_net",
+        "tier_bp",
+      ],
+      ["1", "2026-10-09T05:00:00+05:30", "", "AQS", "IPO", "", "1050", "", "1050", "0", "0", "0", "0", "0", "0", "500"],
+      ["3", "2026-10-09T05:00:00+05:30", "21", "AQS", "CLEARING", "1050", "1082", "1050", "1050", "3500", "500", "0", "0", "3000", "3000", ""],
     ]);
   });
 });
@@ -358,9 +377,9 @@ describe("orderPrices", () => {
     const at = (t: string) => `2026-10-08T${t}+00:00`;
     const rows = [
       { id: "12", company_id: "co-aqs", round_id: "r1", kind: "CLEARING", created_at: at("18:15:00.5") },
-      { id: "3", company_id: "co-aqs", round_id: null, kind: "START", created_at: at("17:45:00") },
+      { id: "3", company_id: "co-aqs", round_id: null, kind: "IPO", created_at: at("17:45:00") },
       { id: "10", company_id: "co-snp", round_id: "r1", kind: "CLEARING", created_at: at("18:15:00.5") },
-      { id: "2", company_id: "co-snp", round_id: null, kind: "START", created_at: at("17:45:00") },
+      { id: "2", company_id: "co-snp", round_id: null, kind: "IPO", created_at: at("17:45:00") },
       { id: "11", company_id: "co-new", round_id: "r1", kind: "CLEARING", created_at: at("18:15:00.5") },
       { id: "13", company_id: "co-snp", round_id: "r21", kind: "CLEARING", created_at: at("18:30:00") },
       { id: "14", company_id: "co-aqs", round_id: "r21", kind: "CLEARING", created_at: at("18:30:00") },
@@ -374,90 +393,78 @@ describe("orderPrices", () => {
 describe("scoresCsv", () => {
   const score = (over: Partial<ScoreExportRow>): ScoreExportRow => ({
     company_id: "co-aqs",
-    team_id: T.p1,
-    type: "PRD",
-    run_totals: [70, 78, 90],
-    median: 78,
+    type: "PITCH",
+    run_totals: [64, 66, 68],
+    median: 66,
+    final_score: 66,
+    tier_bp: 500,
+    capped: false,
     penalty: 0,
-    final_score: 78,
     missing: false,
-    status: "REVEALED",
-    revealed_at: "2026-11-20T18:00:00Z",
+    status: "RELEASED",
+    released_at: "2026-10-08T17:45:00Z",
     ...over,
   });
 
-  it("writes the team, every reading, median, penalty, final score, missing, status and reveal time", () => {
+  it("writes every run, the median, final score, tier, cap, penalty, missing, status and release time", () => {
     expect(parseCsv(scoresCsv([score({})], lk))).toEqual([
-      ["ticker", "type", "team", "readings", "median", "penalty", "final", "missing", "status", "revealed_at_ist"],
-      ["AQS", "PRD", "P01", "70 78 90", "78", "0", "78", "false", "REVEALED", "2026-11-20T23:30:00+05:30"],
+      ["ticker", "type", "runs", "median", "final", "tier_bp", "capped", "penalty", "missing", "status", "released_at_ist"],
+      ["AQS", "PITCH", "64 66 68", "66", "66", "500", "false", "0", "false", "RELEASED", "2026-10-08T23:15:00+05:30"],
     ]);
   });
 
-  it("sorts by type (PRD, then solution), then ticker, and writes a missing score's empty readings and median", () => {
+  it("sorts by type (pitch, plan, flash), then ticker, and writes a missing score's empty runs and median", () => {
     const rows = parseCsv(
       scoresCsv(
         [
-          score({ company_id: "co-snp", type: "SOLUTION", team_id: T.c1, run_totals: [80, 81, 82], median: 81, penalty: 10, final_score: 71, status: "SEALED", revealed_at: null }),
-          score({ company_id: "co-aqs", type: "SOLUTION", team_id: T.f1, run_totals: [], median: null, final_score: 0, missing: true, status: "SEALED", revealed_at: null }),
-          score({ company_id: "co-snp", type: "PRD" }),
-          score({ company_id: "co-aqs", type: "PRD" }),
+          score({ company_id: "co-snp", type: "FLASH" }),
+          score({ company_id: "co-snp", type: "PLAN", run_totals: [70, 80, 90, 85, 60], median: 80, final_score: 50, tier_bp: 0, capped: true, penalty: 10, status: "SEALED", released_at: null }),
+          score({ company_id: "co-aqs", type: "PLAN", run_totals: [], median: null, final_score: 0, tier_bp: -2000, missing: true, status: "SEALED", released_at: null }),
+          score({ company_id: "co-snp", type: "PITCH" }),
+          score({ company_id: "co-aqs", type: "PITCH" }),
         ],
         lk,
       ),
     );
-    expect(rows.slice(1).map((r) => `${r[1]} ${r[0]}`)).toEqual(["PRD AQS", "PRD SNP", "SOLUTION AQS", "SOLUTION SNP"]);
-    expect(rows[3]).toEqual(["AQS", "SOLUTION", "F01", "", "", "0", "0", "true", "SEALED", ""]);
-    expect(rows[4]).toEqual(["SNP", "SOLUTION", "C01", "80 81 82", "81", "10", "71", "false", "SEALED", ""]);
+    expect(rows.slice(1).map((r) => `${r[1]} ${r[0]}`)).toEqual(["PITCH AQS", "PITCH SNP", "PLAN AQS", "PLAN SNP", "FLASH SNP"]);
+    expect(rows[3]).toEqual(["AQS", "PLAN", "", "", "0", "-2000", "false", "0", "true", "SEALED", ""]);
+    expect(rows[4]).toEqual(["SNP", "PLAN", "70 80 90 85 60", "80", "50", "0", "true", "10", "false", "SEALED", ""]);
   });
 });
 
 describe("resultsCsv", () => {
-  const result = (team_id: string, rank: number | null, over: Partial<ResultExportRow> = {}): ResultExportRow => ({
+  const result = (team_id: string, track: ResultExportRow["track"], rank: number | null, over: Partial<ResultExportRow> = {}): ResultExportRow => ({
     team_id,
-    r1_points: 78,
-    r2_points: 71,
-    r3_points: 77,
-    total: 226,
-    portfolio_cents: "11078000",
-    return_bp: 1078,
+    track,
+    final_value_cents: "73413000",
+    start_value_cents: 68000000,
+    return_bp: 796,
     rank,
     eligible: true,
     ...over,
   });
 
   it("is only a header before settlement", () => {
-    expect(resultsCsv([], lk)).toBe("rank,team,r1_points,r2_points,r3_points,total,portfolio_cents,return_bp,eligible\r\n");
+    expect(resultsCsv([], lk)).toBe("team,track,final_value_cents,start_value_cents,return_bp,rank,eligible\r\n");
   });
 
-  it("sorts by rank (unranked last), then team code, with exact cents", () => {
-    const rows = parseCsv(resultsCsv([result(T.f2, null, { eligible: false }), result(T.f1, 2), result(T.c1, 1), result(T.p1, 1)], lk));
-    expect(rows.slice(1).map((r) => [r[0], r[1], r[8]])).toEqual([
-      ["1", "C01", "true"],
-      ["1", "P01", "true"],
-      ["2", "F01", "true"],
-      ["", "F02", "false"],
-    ]);
-    expect(rows[1]).toEqual(["1", "C01", "78", "71", "77", "226", "11078000", "1078", "true"]);
-  });
-});
-
-describe("awardsCsv", () => {
-  it("in the order of the ceremony, the best company once per team", () => {
+  it("sorts by track, then rank (unranked last), then team code, with exact cents", () => {
     const rows = parseCsv(
-      awardsCsv(
+      resultsCsv(
         [
-          { code: "BEST_COMPANY", place: 1, team_id: T.c1, company_id: "co-aqs", metric: { rise_bp: 2151 } },
-          { code: "BEST_COMPANY", place: 1, team_id: T.p1, company_id: "co-aqs", metric: { rise_bp: 2151 } },
-          { code: "WINNER", place: 1, team_id: T.f1, company_id: null, metric: { total: 226 } },
+          result(T.f2, "FINANCE", null, { eligible: false, return_bp: -120 }),
+          result(T.f1, "FINANCE", 1, { final_value_cents: 51650000, start_value_cents: 50000000, return_bp: 330 }),
+          result(T.c1, "CONSULTING", 1, { return_bp: null }),
+          result(T.p1, "PRODUCT", 1),
         ],
         lk,
       ),
     );
-    expect(rows).toEqual([
-      ["award", "team", "ticker", "metric"],
-      ["WINNER", "F01", "", '{"total":226}'],
-      ["BEST_COMPANY", "C01", "AQS", '{"rise_bp":2151}'],
-      ["BEST_COMPANY", "P01", "AQS", '{"rise_bp":2151}'],
+    expect(rows.slice(1)).toEqual([
+      ["P01", "PRODUCT", "73413000", "68000000", "796", "1", "true"],
+      ["C01", "CONSULTING", "73413000", "68000000", "", "1", "true"],
+      ["F01", "FINANCE", "51650000", "50000000", "330", "1", "true"],
+      ["F02", "FINANCE", "73413000", "68000000", "-120", "", "false"],
     ]);
   });
 });

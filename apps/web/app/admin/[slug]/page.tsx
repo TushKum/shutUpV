@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { DEADLINE_LABELS, PHASE_LABELS, type DeadlineCode, type PhaseCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
@@ -18,8 +17,8 @@ export const metadata: Metadata = { title: "Phase" };
 interface PhaseRow {
   code: PhaseCode;
   seq: number;
-  starts_at: string | null;
-  ends_at: string | null;
+  starts_at: string;
+  ends_at: string;
   started_at: string | null;
   ended_at: string | null;
 }
@@ -41,16 +40,16 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      {/* At the phase's end the gate and the controls change: re-read then, not only on the next broadcast. */}
+      {/* At the planned end the gate and the controls change: re-read then, not only on the next broadcast. */}
       <RefreshAt at={status.phase_ends_at} />
       <div className="min-w-0 space-y-6 lg:col-span-2">
         <Panel title="Now">
           <div className="grid gap-3 sm:grid-cols-4">
             <Stat label="Phase" value={PHASE_LABELS[status.phase]} hint={status.phase_started_at ? `since ${clock(status.phase_started_at)}` : undefined} />
             <Stat
-              label="Ends"
-              value={status.phase_ends_at ? <Countdown to={status.phase_ends_at} passed="due" /> : status.phase_untimed ? "Untimed" : "—"}
-              hint={status.phase_ends_at ? clock(status.phase_ends_at) : status.phase_untimed ? "until you end it" : status.phase === "SETUP" ? "starts when you start it" : undefined}
+              label="Planned end"
+              value={<Countdown to={status.phase_ends_at} passed="due" />}
+              hint={status.phase_ends_at ? clock(status.phase_ends_at) : undefined}
             />
             <Stat
               label="Trading"
@@ -69,11 +68,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                 ) : undefined
               }
             />
-            <Stat
-              label="Mode"
-              value={status.auto_advance ? "Advance when timer expires" : "Manual advance"}
-              hint={status.paused ? `Paused since ${clock(status.paused_at)}` : status.ended_at ? `Night ended ${clock(status.ended_at)}` : undefined}
-            />
+            <Stat label="Auto-advance" value={status.auto_advance ? "On" : "Off"} hint={status.paused ? `Paused since ${clock(status.paused_at)}` : undefined} />
           </div>
           {blocked ? (
             <div className="mt-4">
@@ -84,26 +79,18 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
           ) : null}
         </Panel>
 
-        <Notice tone="blue">
-          Durations, previews of every moved deadline, untimed phases, early round closes and the timing log are on{" "}
-          <Link href={`/admin/${slug}/timing`} className="font-semibold underline underline-offset-2">
-            Event timing
-          </Link>
-          .
-        </Notice>
-
         {organiser ? (
           <Panel title="Controls">
             <div className="flex flex-wrap items-start gap-3">
               {next ? (
                 <ActionButton
                   action={advancePhase.bind(null, event.id, status.phase)}
-                  confirm={status.phase === "SETUP" ? "Click again to start the night" : `Click again: end ${PHASE_LABELS[status.phase]}, start ${PHASE_LABELS[next]}`}
+                  confirm={`Click again to start ${PHASE_LABELS[next]}`}
                   variant="primary"
                   disabled={!!blocked}
                   title={blocked ?? undefined}
                 >
-                  {status.phase === "SETUP" ? "Start the night" : `Advance to ${PHASE_LABELS[next]}`}
+                  Advance to {PHASE_LABELS[next]}
                 </ActionButton>
               ) : null}
               {status.paused ? (
@@ -135,7 +122,7 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
             </div>
             <div className="mt-5 border-t border-slate-100 pt-4">
               <h3 className="text-sm font-semibold text-slate-900">Extend</h3>
-              <p className="text-sm text-slate-600">The open round, or else the current phase, and everything after it move later.</p>
+              <p className="text-sm text-slate-600">The current round or phase and everything after it move later.</p>
               <div className="mt-2 flex flex-wrap items-start gap-2">
                 {[5, 10, 15].map((m) => (
                   <ActionButton key={m} action={extendEvent.bind(null, event.id, m)} confirm={`Click again: +${m} min`}>

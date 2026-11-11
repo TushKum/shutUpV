@@ -22,35 +22,38 @@ export interface ClaimedRun {
   slot: JudgeSlot;
 }
 
-/** One row of public.claim_calibration_runs(event, limit). */
+/** One row of public.claim_calibration_runs(event, limit) (it also returns batch and type 'PITCH'). */
 export interface ClaimedCalibrationRun {
   run_id: string;
-  batch: number;
   sample_no: number;
   run_no: number;
   attempts: number;
   /** Monotonic safe-integer token; unlike attempts, never reset by a retry. */
   claim_token: number;
   slot: JudgeSlot;
-  type: SubmissionType;
 }
 
-export interface CardInput {
-  /** A problem card's sector, or a crisis card's category. */
-  sector?: string;
-  category?: string;
+export interface CrisisCardInput {
+  category: string;
   title: string;
   body: string;
 }
 
-/** What the judge reads besides the submission: a PRD with its problem card and the twist; a crisis solution with
- * the rescued company's PRD and its crisis card. */
-export interface JudgeContext {
-  problem_card?: CardInput | null;
-  twist?: { title: string; body: string } | null;
-  /** SOLUTION only: the rescued company's PRD as it was judged (team-written). */
-  prd_text?: string | null;
-  crisis_card?: CardInput | null;
+export interface DealInput {
+  /** True when the deal was executed (all three signatures) by the deadline. */
+  signed: boolean;
+  executed_at: string | null;
+  amount_cents: number | string | null;
+  price_cents: number | string | null;
+  shares: number | string | null;
+  /** The company's share price after the crisis: the deal's price is shown against it. */
+  post_crisis_price_cents?: number | string | null;
+  deadline: string | null;
+}
+
+export interface BulletinInput {
+  title: string;
+  body: string;
 }
 
 /** public.judge_input(run): everything needed to build one run's request. */
@@ -59,29 +62,38 @@ export interface JudgeInput {
   type: SubmissionType;
   ticker: string;
   company_name: string;
-  /** Company, team and member names of the teams involved: each becomes the ticker. */
+  /** Company, team and member names of the squad: each becomes the ticker. */
   names: string[];
   /**
    * The members' full names (also in `names`). Each part of these names (a first name used alone) is hidden too, in
-   * the submission and in team-written context.
+   * the submission and the pitch card.
    */
   member_names?: string[];
   submission_id: string;
   submission_text: string;
-  context?: JudgeContext;
+  /** PLAN only: the company's current pitch card. */
+  pitch_text?: string | null;
+  /** PLAN only. */
+  crisis_card?: CrisisCardInput | null;
+  /** PLAN only. */
+  deal?: DealInput | null;
+  /** FLASH only: the published flash bulletin. */
+  bulletin?: BulletinInput | null;
   injections_recorded: boolean;
 }
 
-/** public.calibration_input(run): a sample PRD or crisis solution with its context written as plain text. */
+/**
+ * public.calibration_input(run): {run_id, type: 'PITCH', batch, sample_no, run_no, ticker, company_name, names, text,
+ * title}. When `text` is missing or empty, the worker reads it from prompts/calibration/pitches.json by sample_no.
+ */
 export interface CalibrationInput {
   run_id: string;
   sample_no: number;
-  type: SubmissionType;
+  type: "PITCH";
   ticker: string;
+  /** The sample company's name (from the text's first line, "Name (TICKER)"): replaced by the ticker like a real one. */
   company_name?: string;
   names?: string[];
-  /** The sample's context (problem card and twist, or PRD and crisis card), as one text. */
-  context_text?: string;
   text: string | null;
 }
 

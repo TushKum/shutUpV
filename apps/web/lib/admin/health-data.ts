@@ -32,7 +32,7 @@ export async function loadHealthData(eventId: string): Promise<HealthData> {
     }),
     sb
       .from("teams")
-      .select("id, code")
+      .select("id, code, track")
       .eq("event_id", eventId)
       .order("code")
       .then((r) => {

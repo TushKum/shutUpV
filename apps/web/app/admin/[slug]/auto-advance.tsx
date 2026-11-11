@@ -25,14 +25,14 @@ export function AutoAdvanceButton({
 }) {
   const now = useServerNow();
   const overdue = !on && !!nextLabel && !!endsAt && now >= new Date(endsAt).getTime();
-  if (on) return <ActionButton action={turnOff}>Switch to manual advance</ActionButton>;
+  if (on) return <ActionButton action={turnOff}>Turn auto-advance off</ActionButton>;
   return (
     <ActionButton
       action={overdue ? confirmOn : turnOn}
       confirm={overdue ? `Click again: this advances to ${nextLabel} now` : undefined}
-      title={overdue ? `This phase's time is up: the event advances to ${nextLabel} within seconds.` : undefined}
+      title={overdue ? `The planned end has passed: the event advances to ${nextLabel} within seconds.` : undefined}
     >
-      Advance when timer expires
+      Turn auto-advance on
     </ActionButton>
   );
 }

@@ -1,15 +1,13 @@
 import type { SubmissionType } from "@msim/engine";
 import { submissionSections } from "@/lib/team/market";
 import type { PublicSubmission } from "@/lib/team/market-data";
-import { count } from "@/lib/format";
+import { clock, count } from "@/lib/format";
 
-/** A public submission: its template parts in order, as locked, with its word count. */
+/** A public submission: its template sections in order, as submitted, with its word count and time. */
 export function Submission({ type, s }: { type: SubmissionType; s: PublicSubmission }) {
   const sections = submissionSections(type, s.content);
-  const name = typeof s.content.company_name === "string" ? s.content.company_name : null;
   return (
     <div className="space-y-3 text-sm" data-testid={`submission-${type}`}>
-      {name ? <p className="font-semibold text-slate-900">{name}</p> : null}
       <dl className="space-y-3">
         {sections.map((x) => (
           <div key={x.key}>
@@ -18,7 +16,9 @@ export function Submission({ type, s }: { type: SubmissionType; s: PublicSubmiss
           </div>
         ))}
       </dl>
-      <p className="text-xs text-slate-500">{count(s.word_count)} words · the version saved before the lock</p>
+      <p className="text-xs text-slate-500">
+        {count(s.word_count)} words · submitted {clock(s.submitted_at)}
+      </p>
     </div>
   );
 }

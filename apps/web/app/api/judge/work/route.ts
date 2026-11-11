@@ -2,8 +2,8 @@
 // While an organiser keeps "Run the judge here" on, the control panel calls this again and again: each call claims
 // runs from the queue for JUDGE_WORK_BUDGET_MS (50 s) with up to JUDGE_CONCURRENCY calls in parallel, waits for them,
 // and answers with what it did and what is left. Several open consoles share the queue (claims skip locked rows).
-// The fake judge (JUDGE_FAKE) is refused on a live event. With the real models, the API is checked first with each
-// round's model in its current slot (no run used; a success is trusted for 60 s). It answers 502 when that check fails
+// The fake judge (JUDGE_FAKE) is refused on a live event. With the real model, the API is checked first with the
+// model of the event's current slot (no run used; a success is trusted for 60 s). It answers 502 when that check fails
 // or when the worker stopped on an error it cannot get past (lib/judge/reply.ts), so the console's loop switches off.
 // The queue is worked as the service role; the organiser check happens here first, and the claim and report
 // functions are not callable by signed-in users at all. prompts/ is read at run time: next.config.ts traces it in.
@@ -17,14 +17,12 @@ import {
   hasApiCredential,
   judgeConfig,
   modelCheckReply,
-  modelsInUse,
   promptLoader,
   queueCounts,
   runWorker,
   supabaseJudgeDb,
   workReply,
-  SLOT_COLUMNS,
-  type EventSlots,
+  type JudgeSlot,
 } from "@/lib/judge";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseService } from "@/lib/supabase/service";
@@ -73,9 +71,9 @@ export async function POST(request: Request) {
 
   const { data: event, error: eventError } = await sb
     .from("events")
-    .select(`id, is_rehearsal, ${SLOT_COLUMNS}`)
+    .select("id, is_rehearsal, judge_model_slot")
     .eq("id", eventId)
-    .maybeSingle<{ id: string; is_rehearsal: boolean } & EventSlots>();
+    .maybeSingle<{ id: string; is_rehearsal: boolean; judge_model_slot: JudgeSlot }>();
   if (eventError) return reply(500, { error: "Could not read the event." });
   if (!event) return reply(404, { error: "There is no such event." });
 
@@ -88,20 +86,20 @@ export async function POST(request: Request) {
   // Check the prompts before claiming anything, so a deployment without them fails here and not run by run.
   const prompts = promptLoader();
   try {
-    prompts("PRD");
-    prompts("SOLUTION");
+    prompts("PITCH");
+    prompts("PLAN");
+    prompts("FLASH");
   } catch (e) {
     return reply(500, { error: e instanceof Error ? e.message : String(e) });
   }
 
   // A bad key, no access or an unknown model shows here, before a run is claimed.
   if (!config.fake) {
-    for (const m of modelsInUse(config, event)) {
-      const check = await checkJudgeModel(m.model);
-      if (!check.ok) {
-        const r = modelCheckReply(m.model, m.slot, check, m.type === "PRD" ? "PRD" : "crisis-solution");
-        return reply(r.status, r.body);
-      }
+    const slot: JudgeSlot = event.judge_model_slot === "BACKUP" ? "BACKUP" : "PRIMARY";
+    const check = await checkJudgeModel(config.models[slot]);
+    if (!check.ok) {
+      const r = modelCheckReply(config.models[slot], slot, check);
+      return reply(r.status, r.body);
     }
   }
 

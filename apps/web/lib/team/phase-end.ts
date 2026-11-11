@@ -5,19 +5,12 @@ import { PHASE_LABELS, type PhaseCode } from "@msim/engine";
 
 const WAITING: Partial<Record<PhaseCode, string>> = {
   SETUP: "waiting to start",
-  BRIEFING: "waiting for the problem cards",
-  JUDGING_1: "waiting for every PRD score",
-  MARKET_BLIND: "waiting for every crisis-solution score",
-  SETTLEMENT: "waiting for the fairness officer",
+  SQUAD_DRAW: "waiting for the draw",
+  READING: "waiting for the pitch scores",
+  VERDICTS: "waiting for the plan scores",
+  ROUNDS_13_21: "waiting for the flash scores",
+  APPEALS: "waiting for the fairness officer",
 };
-
-/** A phase with no end time: the night has not started, it is over, or an organiser ends this phase by hand. */
-export function phaseOpenText(phase: PhaseCode, ended: boolean): string {
-  if (ended) return "the night is over";
-  if (phase === "SETUP") return "waiting for the organisers to start";
-  if (phase === "AWARDS") return "until the organisers close the night";
-  return "until the organisers end it";
-}
 
 /** The text after the planned end has passed (null: keep the countdown). */
 export function phaseOverText(phase: PhaseCode, gate: string | null, next: PhaseCode | null): string {

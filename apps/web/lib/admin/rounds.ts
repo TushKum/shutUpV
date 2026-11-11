@@ -1,9 +1,19 @@
 // The rounds view's pure logic: which round to show, the open round's order book (per company and per order), the
-// clearing preview (the engine's clearRound on the current prices, the pending orders and the teams' books), and the
-// history of cleared rounds. Money stays integer cents throughout: bigint columns arrive as numbers or strings and
-// are converted exactly.
+// clearing preview (the engine's clearRound on the current prices, the pending orders and the funds' books), the
+// IPO book with its allocation preview (the engine's allocateIpo), and the history of cleared rounds.
+// Money stays integer cents throughout: bigint columns arrive as numbers or strings and are converted exactly.
 
-import { cappedNet, clearRound, netDemand, type ClearingOrder, type OrderType, type TraderBook } from "@msim/engine";
+import {
+  RULES,
+  allocateIpo,
+  cappedNet,
+  clearRound,
+  divRoundHalfUp,
+  netDemand,
+  type ClearingOrder,
+  type FundBook,
+  type OrderType,
+} from "@msim/engine";
 import { cents, signedCount, signedMoney } from "@/lib/format";
 import { fetchAll, PAGE_SIZE } from "@/lib/fetch-all";
 
@@ -28,17 +38,21 @@ export interface CompanyRow {
   ticker: string | null;
   name: string | null;
   market_price: number | null;
+  ipo_price: number | null;
 }
 
 export interface TeamRow {
   id: string;
   code: string;
+  track: "PRODUCT" | "CONSULTING" | "FINANCE";
   cash_cents: Cents;
+  collateral_cents: Cents;
 }
 
 export interface HoldingRow {
   team_id: string;
   company_id: string;
+  lot: string;
   qty: number;
   cost_cents: Cents;
 }
@@ -60,11 +74,22 @@ export interface ClearingPriceRow {
   market_after: number;
   buy_qty: number;
   sell_qty: number;
+  short_qty: number;
+  cover_qty: number;
   net_qty: number;
   capped_net: number;
 }
 
+export interface IpoBidRow {
+  team_id: string;
+  company_id: string;
+  qty_requested: number;
+  qty_allocated: number | null;
+  price: number;
+}
+
 // ───────────────────────────── Conversions ─────────────────────────────
+
 
 const tickerOf = (companies: ReadonlyMap<string, CompanyRow>, id: string) => companies.get(id)?.ticker ?? "—";
 const byTicker = (a: { ticker: string }, b: { ticker: string }) => a.ticker.localeCompare(b.ticker);
@@ -81,20 +106,33 @@ export function listedPrices(companies: readonly CompanyRow[]): Record<string, n
   return out;
 }
 
-/** Every team's book as the clearing sees it: cash and its holdings. */
-export function traderBooks(teams: readonly TeamRow[], holdings: readonly HoldingRow[]): Record<string, TraderBook> {
-  const books: Record<string, TraderBook> = {};
-  for (const t of teams) books[t.id] = { cash: cents(t.cash_cents), positions: {} };
+/** Every fund's book as the clearing sees it: cash, collateral, and the EXCHANGE and SHORT lots. */
+export function fundBooks(teams: readonly TeamRow[], holdings: readonly HoldingRow[]): Record<string, FundBook & { collateral: number }> {
+  const books: Record<string, FundBook & { collateral: number }> = {};
+  for (const t of teams) {
+    if (t.track === "FINANCE") books[t.id] = { cash: cents(t.cash_cents), collateral: cents(t.collateral_cents), positions: {} };
+  }
   for (const h of holdings) {
     const book = books[h.team_id];
-    if (book && h.qty > 0) book.positions[h.company_id] = { qty: h.qty, cost: cents(h.cost_cents) };
+    if (!book || (h.lot !== "EXCHANGE" && h.lot !== "SHORT")) continue;
+    const pos = (book.positions[h.company_id] ??= { exchangeQty: 0, exchangeCost: 0, shortQty: 0, shortProceeds: 0 });
+    if (h.lot === "EXCHANGE") {
+      pos.exchangeQty = h.qty;
+      pos.exchangeCost = cents(h.cost_cents);
+    } else {
+      pos.shortQty = h.qty;
+      pos.shortProceeds = cents(h.cost_cents);
+    }
   }
   return books;
 }
 
 // ───────────────────────────── Which round ─────────────────────────────
 
-export type RoundFocus = { kind: "OPEN"; round: RoundRow; overdue: boolean } | { kind: "NEXT"; round: RoundRow } | null;
+export type RoundFocus =
+  | { kind: "OPEN"; round: RoundRow; overdue: boolean }
+  | { kind: "NEXT"; round: RoundRow }
+  | null;
 
 /**
  * The round the page is about: the open round (status OPEN, lowest number, even if its closing time has passed and
@@ -103,25 +141,23 @@ export type RoundFocus = { kind: "OPEN"; round: RoundRow; overdue: boolean } | {
 export function focusRound(rounds: readonly RoundRow[], nowMs: number): RoundFocus {
   const sorted = [...rounds].sort((a, b) => a.number - b.number);
   const open = sorted.find((r) => r.status === "OPEN");
-  if (open) return { kind: "OPEN", round: open, overdue: !!open.closes_at && new Date(open.closes_at).getTime() <= nowMs };
+  if (open) return { kind: "OPEN", round: open, overdue: new Date(open.closes_at).getTime() <= nowMs };
   const next = sorted.find((r) => r.status === "SCHEDULED");
   return next ? { kind: "NEXT", round: next } : null;
 }
 
 /**
  * Why the focus round is not moving although its time has come (null: it is on time). The heartbeat does nothing
- * while the event is paused; a round opens only in its own phase and after the rounds before it. Round 3 is the first
- * of the Market phase: it opens once the event has advanced past the 02:45 reveal, which waits for every crisis-solution
- * score.
+ * while the event is paused; a round opens only in its own phase, after the rounds before it, and round 18 only once
+ * the flash scores are out (they set the flash tier, applied after round 17 clears).
  */
 export function roundWait(
   focus: RoundFocus,
-  state: { nowMs: number; paused: boolean; phase: string; autoAdvance: boolean; gate: string | null },
+  state: { nowMs: number; paused: boolean; phase: string; autoAdvance: boolean; flashReleased: boolean },
   phaseLabel: (phase: string) => string,
 ): { tone: "amber" | "blue"; text: string } | null {
   if (!focus) return null;
-  const at = focus.kind === "OPEN" ? focus.round.closes_at : focus.round.opens_at;
-  const due = !!at && new Date(at).getTime() <= state.nowMs;
+  const due = new Date(focus.kind === "OPEN" ? focus.round.closes_at : focus.round.opens_at).getTime() <= state.nowMs;
   if (state.paused) {
     return {
       tone: "amber",
@@ -134,13 +170,15 @@ export function roundWait(
   if (!due) return null;
   if (focus.kind === "OPEN") return { tone: "amber", text: "The closing time has passed: the round clears on the next heartbeat (every 2 seconds)." };
   if (focus.round.phase !== state.phase) {
-    if (state.gate) return { tone: "amber", text: `Round ${focus.round.number} opens in ${phaseLabel(focus.round.phase)}, but the phase cannot advance yet: ${state.gate}` };
     return {
       tone: "blue",
       text: `Round ${focus.round.number} opens when the event advances to ${phaseLabel(focus.round.phase)}${
         state.autoAdvance ? " (auto-advance is on)." : ". Auto-advance is off: advance the phase on the Phase page."
       }`,
     };
+  }
+  if (focus.round.number === 18 && !state.flashReleased) {
+    return { tone: "amber", text: "Round 18 waits for the flash scores: release them under Judge (the flash tier applies before round 18 opens)." };
   }
   return { tone: "blue", text: "The opening time has passed: the round opens on the next heartbeat (every 2 seconds)." };
 }
@@ -153,6 +191,8 @@ export interface CompanyBook {
   name: string;
   buy: number;
   sell: number;
+  short: number;
+  cover: number;
   net: number;
   cappedNet: number;
   price: number | null;
@@ -167,12 +207,26 @@ export function aggregateOrders(orders: readonly PendingOrderRow[], companies: r
     let b = books.get(o.company_id);
     if (!b) {
       const c = byId.get(o.company_id);
-      b = { companyId: o.company_id, ticker: c?.ticker ?? "—", name: c?.name ?? "", buy: 0, sell: 0, net: 0, cappedNet: 0, price: c?.market_price ?? null, orders: 0 };
+      b = {
+        companyId: o.company_id,
+        ticker: c?.ticker ?? "—",
+        name: c?.name ?? "",
+        buy: 0,
+        sell: 0,
+        short: 0,
+        cover: 0,
+        net: 0,
+        cappedNet: 0,
+        price: c?.market_price ?? null,
+        orders: 0,
+      };
       books.set(o.company_id, b);
     }
     b.orders += 1;
     if (o.type === "BUY") b.buy += o.qty;
-    else b.sell += o.qty;
+    else if (o.type === "SELL") b.sell += o.qty;
+    else if (o.type === "SHORT") b.short += o.qty;
+    else b.cover += o.qty;
   }
   for (const b of books.values()) {
     b.net = netDemand(b);
@@ -219,23 +273,26 @@ export interface PreviewCompany {
   cappedNet: number;
 }
 
-export interface PreviewTeam {
+export interface PreviewFund {
   teamId: string;
   code: string;
   orders: number;
   cashBefore: number;
   cashAfter: number;
   cashChange: number;
+  collateralBefore: number;
+  collateralAfter: number;
 }
 
 export type ClearingPreview =
-  | { ok: true; companies: PreviewCompany[]; unchanged: number; teams: PreviewTeam[]; exchangeCashDelta: number }
+  | { ok: true; companies: PreviewCompany[]; unchanged: number; funds: PreviewFund[]; exchangeCashDelta: number }
   | { ok: false; message: string };
 
 /**
- * What the clearing would do if the round cleared now, computed with the engine's clearRound (the database's clearing
- * is a port of it): every company whose price moves or that has orders, and every team whose cash changes. A book the
- * engine refuses (a sell larger than the position) is reported, not thrown: the database would refuse to clear it too.
+ * What the clearing would do if the round cleared now, computed with the engine's clearRound (the database's
+ * clearing is a port of it): every company whose price moves or that has orders, and every fund whose cash or
+ * collateral changes. A book the engine refuses (a sell larger than the position) is reported, not thrown: the
+ * database would refuse to clear it too.
  */
 export function previewClearing(
   companies: readonly CompanyRow[],
@@ -245,14 +302,15 @@ export function previewClearing(
 ): ClearingPreview {
   try {
     const prices = listedPrices(companies);
-    const books = traderBooks(teams, holdings);
+    const books = fundBooks(teams, holdings);
     const clearing: ClearingOrder[] = orders.map((o) => ({ id: o.id, teamId: o.team_id, companyId: o.company_id, type: o.type, qty: o.qty }));
     const result = clearRound(prices, clearing, books);
     const byId = companyMap(companies);
     const moved: PreviewCompany[] = [];
     let unchanged = 0;
     for (const [companyId, c] of Object.entries(result.companies)) {
-      if (c.buy + c.sell === 0 && c.newPrice === c.oldPrice) {
+      const traded = c.buy + c.sell + c.short + c.cover > 0;
+      if (!traded && c.newPrice === c.oldPrice) {
         unchanged += 1;
         continue;
       }
@@ -261,17 +319,88 @@ export function previewClearing(
     const codes = new Map(teams.map((t) => [t.id, t.code]));
     const orderCount = new Map<string, number>();
     for (const o of orders) orderCount.set(o.team_id, (orderCount.get(o.team_id) ?? 0) + 1);
-    const out: PreviewTeam[] = [];
-    for (const [teamId, after] of Object.entries(result.traders)) {
+    const funds: PreviewFund[] = [];
+    for (const [teamId, after] of Object.entries(result.funds)) {
       const before = books[teamId]!;
       const n = orderCount.get(teamId) ?? 0;
-      if (n === 0 && after.cash === before.cash) continue;
-      out.push({ teamId, code: codes.get(teamId) ?? "—", orders: n, cashBefore: before.cash, cashAfter: after.cash, cashChange: after.cash - before.cash });
+      if (n === 0 && after.cash === before.cash && after.collateral === before.collateral) continue;
+      funds.push({
+        teamId,
+        code: codes.get(teamId) ?? "—",
+        orders: n,
+        cashBefore: before.cash,
+        cashAfter: after.cash,
+        cashChange: after.cash - before.cash,
+        collateralBefore: before.collateral,
+        collateralAfter: after.collateral,
+      });
     }
-    return { ok: true, companies: moved.sort(byTicker), unchanged, teams: out.sort(byCode), exchangeCashDelta: result.exchangeCashDelta };
+    return { ok: true, companies: moved.sort(byTicker), unchanged, funds: funds.sort(byCode), exchangeCashDelta: result.exchangeCashDelta };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+// ───────────────────────────── IPO book ─────────────────────────────
+
+export interface IpoBidLine {
+  teamId: string;
+  code: string;
+  requested: number;
+  allocated: number;
+}
+
+export interface IpoCompanyBook {
+  companyId: string;
+  ticker: string;
+  name: string;
+  ipoPrice: number | null;
+  bidders: number;
+  requested: number;
+  available: number;
+  /** Requested as a whole percentage of the shares on offer (rounded half-up). */
+  subscribedPct: number;
+  oversubscribed: boolean;
+  allocated: number;
+  bids: IpoBidLine[];
+}
+
+/**
+ * The IPO book per company (every company with an IPO price), with the allocation the engine's allocateIpo would
+ * give each bid if the IPO were allocated now. Zero requests are withdrawn bids and are left out.
+ */
+export function ipoBook(
+  companies: readonly CompanyRow[],
+  bids: readonly IpoBidRow[],
+  teams: readonly TeamRow[],
+  available: number = RULES.IPO_SHARES,
+): IpoCompanyBook[] {
+  const codes = new Map(teams.map((t) => [t.id, t.code]));
+  const out: IpoCompanyBook[] = [];
+  for (const c of companies) {
+    if (c.ipo_price === null || c.ipo_price === undefined) continue;
+    const live = bids
+      .filter((b) => b.company_id === c.id && b.qty_requested > 0)
+      .map((b) => ({ teamId: b.team_id, code: codes.get(b.team_id) ?? "—", qty: b.qty_requested }));
+    const allocated = allocateIpo(live, available);
+    const requested = live.reduce((s, b) => s + b.qty, 0);
+    out.push({
+      companyId: c.id,
+      ticker: c.ticker ?? "—",
+      name: c.name ?? "",
+      ipoPrice: c.ipo_price,
+      bidders: live.length,
+      requested,
+      available,
+      subscribedPct: divRoundHalfUp(requested * 100, available),
+      oversubscribed: requested > available,
+      allocated: allocated.reduce((s, b) => s + b.allocated, 0),
+      bids: allocated
+        .map((b) => ({ teamId: b.teamId, code: b.code, requested: b.qty, allocated: b.allocated }))
+        .sort((a, b) => b.requested - a.requested || a.code.localeCompare(b.code)),
+    });
+  }
+  return out.sort(byTicker);
 }
 
 // ───────────────────────────── History ─────────────────────────────
@@ -297,8 +426,12 @@ export function roundHistory(prices: readonly ClearingPriceRow[], rounds: readon
       groups.set(r.id, g);
     }
     g.rows.push({ ...p, ticker: tickerOf(byId, p.company_id) });
-    if (p.buy_qty + p.sell_qty > 0) g.traded += 1;
+    if (p.buy_qty + p.sell_qty + p.short_qty + p.cover_qty > 0) g.traded += 1;
   }
   for (const g of groups.values()) g.rows.sort(byTicker);
   return [...groups.values()].sort((a, b) => b.number - a.number);
 }
+
+// ───────────────────────────── Paging ─────────────────────────────
+
+/** PostgREST returns at most this many rows per request. */

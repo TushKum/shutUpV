@@ -1,42 +1,49 @@
 import { describe, expect, test } from "vitest";
-import { checkLotteryRecord, type LotteryRecord } from "../src/lottery-record";
-import { Rng, assignCrises, dealProblemCards, drawLottery, rescueCircle, rootSeed, sha256Hex, verifyCommitment } from "../src/lottery";
-import { teamCode } from "../src/identity";
+import { Rng, assignCoverage, assignCrises, dealProblemCards, drawLottery, formSquads, rootSeed, sha256Hex, verifyCommitment } from "../src/lottery";
 
-const teams = Array.from({ length: 150 }, (_, i) => teamCode(i + 1));
-const problems = Array.from({ length: 50 }, (_, i) => String(i + 1));
-const crisisDeck = Array.from({ length: 10 }, (_, i) => ({ id: `crisis-${i + 1}`, number: i + 1 }));
+const teams = {
+  product: Array.from({ length: 50 }, (_, i) => `P${String(i + 1).padStart(2, "0")}`),
+  consulting: Array.from({ length: 50 }, (_, i) => `C${String(i + 1).padStart(2, "0")}`),
+  finance: Array.from({ length: 50 }, (_, i) => `F${String(i + 1).padStart(2, "0")}`),
+};
+const cards = Array.from({ length: 60 }, (_, i) => `card-${i + 1}`);
+const crisisDeck = [
+  "Supply shortage", "Regulation", "Legal dispute", "Partner exit", "Data breach",
+  "Funding freeze", "Competitor launch", "Safety recall", "Demand collapse", "Operations outage",
+].map((category, i) => ({ id: `crisis-${i}`, category, number: 1 }));
 
 describe("hashing and commitment", () => {
   test("SHA-256 test vector", () => {
     expect(sha256Hex("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   });
-  test("the root is SHA-256(seed + dice)", () => {
-    expect(rootSeed("primus-night", "4")).toBe(sha256Hex("primus-night4"));
+  test("the root is SHA-256(seed + dice) by plain concatenation", () => {
+    expect(rootSeed("market-night", "4")).toBe(sha256Hex("market-night4"));
   });
-  test("the commitment verifies the seed; a wrong seed is rejected", () => {
-    const c = sha256Hex("primus-night");
-    expect(verifyCommitment("primus-night", c)).toBe(true);
-    expect(verifyCommitment("primus-night", ` ${c.toUpperCase()} `)).toBe(true);
-    expect(verifyCommitment("primus-nigh", c)).toBe(false);
+  test("the published commitment verifies the seed", () => {
+    const commitment = sha256Hex("market-night");
+    expect(verifyCommitment("market-night", commitment)).toBe(true);
+    expect(verifyCommitment("market-night", commitment.toUpperCase())).toBe(true);
+    expect(verifyCommitment("market-nigh", commitment)).toBe(false);
   });
 });
 
 describe("generator", () => {
   test("deterministic per root and stream, independent across streams", () => {
-    const seq = (s: "problems" | "crisis" | "circle") => {
-      const r = new Rng("root", s);
-      return Array.from({ length: 20 }, () => r.nextUint32());
-    };
-    expect(seq("problems")).toEqual(seq("problems"));
-    expect(seq("crisis")).not.toEqual(seq("problems"));
+    const a = new Rng("root", "squads");
+    const b = new Rng("root", "squads");
+    const c = new Rng("root", "crisis");
+    const seqA = Array.from({ length: 20 }, () => a.nextUint32());
+    expect(Array.from({ length: 20 }, () => b.nextUint32())).toEqual(seqA);
+    expect(Array.from({ length: 20 }, () => c.nextUint32())).not.toEqual(seqA);
   });
+
   test("first words are the big-endian words of SHA-256(root:stream:0)", () => {
-    const hex = sha256Hex("root:circle:0");
-    const rng = new Rng("root", "circle");
+    const hex = sha256Hex("root:squads:0");
+    const rng = new Rng("root", "squads");
     expect(rng.nextUint32()).toBe(parseInt(hex.slice(0, 8), 16));
     expect(rng.nextUint32()).toBe(parseInt(hex.slice(8, 16), 16));
   });
+
   test("int(n) stays in range and is roughly uniform", () => {
     const rng = new Rng("uniform", "problems");
     const counts = new Array(6).fill(0);
@@ -45,83 +52,84 @@ describe("generator", () => {
   });
 });
 
-describe("the draws", () => {
-  const root = rootSeed("primus-night", "4");
-  test("problem cards: 150 teams, 50 cards, exactly 3 each", () => {
-    const m = dealProblemCards(root, teams, problems);
-    expect(m.size).toBe(150);
-    const per = new Map<string, number>();
-    for (const c of m.values()) per.set(c, (per.get(c) ?? 0) + 1);
-    expect(per.size).toBe(50);
-    expect([...per.values()].every((n) => n === 3)).toBe(true);
-  });
-  test("problem cards spread evenly with an uneven deck; too small a deck is refused", () => {
-    const m = dealProblemCards(root, teams, problems.slice(0, 60 - 10).concat(["51", "52", "53", "54", "55", "56", "57", "58", "59", "60"]));
-    const per = new Map<string, number>();
-    for (const c of m.values()) per.set(c, (per.get(c) ?? 0) + 1);
-    expect(Math.max(...per.values()) - Math.min(...per.values())).toBeLessThanOrEqual(1);
-    expect(() => dealProblemCards(root, teams, problems.slice(0, 49))).toThrow(/at least 50/);
-    expect(() => dealProblemCards(root, ["T001", "T001"], problems)).toThrow(/duplicate/);
-  });
-  test("crisis cards: 10 types × 15 companies", () => {
-    const m = assignCrises(root, teams, crisisDeck);
-    const per = new Map<string, number>();
-    for (const c of m.values()) per.set(c, (per.get(c) ?? 0) + 1);
-    expect(per.size).toBe(10);
-    expect([...per.values()].every((n) => n === 15)).toBe(true);
-  });
-  test("rescue circle: 150 assignments, nobody rescues itself, every company has exactly one rescuer, one cycle", () => {
-    const m = rescueCircle(root, teams);
-    expect(m.size).toBe(150);
-    for (const [rescuer, founder] of m) expect(rescuer).not.toBe(founder);
-    expect(new Set(m.values()).size).toBe(150);
-    let t = teams[0]!;
-    const seen = new Set<string>();
-    while (!seen.has(t)) {
-      seen.add(t);
-      t = m.get(t)!;
+describe("the 21:00 draw", () => {
+  const draw = drawLottery("market-night", "4", teams, cards);
+
+  test("50 squads, each with one Product, one Consulting and one Finance team, every team exactly once", () => {
+    expect(draw.squads).toHaveLength(50);
+    expect(draw.squads.map((s) => s.number)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
+    for (const track of ["product", "consulting", "finance"] as const) {
+      expect(new Set(draw.squads.map((s) => s[track])).size).toBe(50);
+      expect([...draw.squads.map((s) => s[track])].sort()).toEqual(teams[track]);
     }
-    expect(seen.size).toBe(150);
+    // It is a real shuffle, not the identity.
+    expect(draw.squads.filter((s) => s.product === `P${String(s.number).padStart(2, "0")}`).length).toBeLessThan(10);
   });
-  test("identical every time from the same seed and dice, whatever the input order; different with another dice", () => {
-    const a = drawLottery("primus-night", "4", teams, problems, crisisDeck);
-    const b = drawLottery("primus-night", "4", [...teams].reverse(), problems, [...crisisDeck].reverse());
-    expect([...b.problems].sort()).toEqual([...a.problems].sort());
-    expect([...b.crises].sort()).toEqual([...a.crises].sort());
-    expect([...b.circle].sort()).toEqual([...a.circle].sort());
-    const c = drawLottery("primus-night", "5", teams, problems, crisisDeck);
-    expect([...c.circle].sort()).not.toEqual([...a.circle].sort());
+
+  test("3 distinct problem cards per squad, no card used more than 3 times", () => {
+    const uses = new Map<string, number>();
+    for (const s of draw.squads) {
+      expect(s.cards).toHaveLength(3);
+      expect(new Set(s.cards).size).toBe(3);
+      for (const c of s.cards) uses.set(c, (uses.get(c) ?? 0) + 1);
+    }
+    expect(Math.max(...uses.values())).toBeLessThanOrEqual(3);
+    expect([...uses.values()].reduce((a, b) => a + b, 0)).toBe(150);
   });
-  test("small rehearsal (3 teams) works; 1 team is refused", () => {
-    const m = rescueCircle(root, ["X001", "X002", "X003"]);
-    expect(new Set(m.values()).size).toBe(3);
-    expect(() => rescueCircle(root, ["X001"])).toThrow();
+
+  test("each consultant covers 2 companies outside its squad; each company is covered by exactly 2", () => {
+    const coveredBy = new Map<string, number>();
+    for (const s of draw.squads) {
+      expect(s.covers).toHaveLength(2);
+      expect(s.covers[0]).not.toBe(s.covers[1]);
+      expect(s.covers).not.toContain(s.product);
+      for (const p of s.covers) coveredBy.set(p, (coveredBy.get(p) ?? 0) + 1);
+    }
+    expect(coveredBy.size).toBe(50);
+    for (const n of coveredBy.values()) expect(n).toBe(2);
+  });
+
+  test("the same seed and dice always give the same draw; a different dice roll gives a different one", () => {
+    expect(drawLottery("market-night", "4", teams, cards)).toEqual(draw);
+    // Input order does not matter: teams are sorted by code first.
+    const shuffled = { product: [...teams.product].reverse(), consulting: teams.consulting, finance: teams.finance };
+    expect(drawLottery("market-night", "4", shuffled, cards)).toEqual(draw);
+    expect(drawLottery("market-night", "5", teams, cards).squads[0]).not.toEqual(draw.squads[0]);
+  });
+
+  test("works for a small rehearsal (3 squads)", () => {
+    const small = { product: ["XP01", "XP02", "XP03"], consulting: ["XC01", "XC02", "XC03"], finance: ["XF01", "XF02", "XF03"] };
+    const d = drawLottery("seed", "1", small, cards.slice(0, 5));
+    expect(d.squads).toHaveLength(3);
+    for (const s of d.squads) expect(s.covers).not.toContain(s.product);
+  });
+
+  test("refuses impossible inputs", () => {
+    expect(() => assignCoverage("r", 2)).toThrow();
+    expect(() => dealProblemCards("r", 3, ["a", "b", "c", "d"])).toThrow(/2 more cards/);
+    expect(() => formSquads("r", { product: ["a"], consulting: [], finance: ["c"] })).toThrow();
   });
 });
 
-describe("the published record", () => {
-  const seed = "primus-night";
-  const dice = "4";
-  const commitment = sha256Hex(seed);
-  const deck = crisisDeck.map((c) => String(c.number));
-  const d = drawLottery(seed, dice, teams, problems, deck.map((n) => ({ id: n, number: Number(n) })));
-  const record: LotteryRecord = {
-    seed,
-    dice,
-    commitment,
-    teams,
-    problemCards: problems,
-    crisisCards: deck,
-    draws: teams.map((t) => ({ team: t, problem: d.problems.get(t)!, crisis: d.crises.get(t)!, rescues: d.circle.get(t)! })),
-  };
-  test("a true record checks out", () => {
-    expect(checkLotteryRecord(record, commitment)).toEqual([]);
+describe("the 00:30 crisis draw", () => {
+  test("10 categories × 5 companies", () => {
+    const root = rootSeed("market-night", "4");
+    const crises = assignCrises(root, 50, crisisDeck);
+    const perCategory = new Map<string, number>();
+    for (const id of crises) perCategory.set(id, (perCategory.get(id) ?? 0) + 1);
+    expect(perCategory.size).toBe(10);
+    for (const n of perCategory.values()) expect(n).toBe(5);
+    expect(assignCrises(root, 50, crisisDeck)).toEqual(crises);
   });
-  test("a wrong seed, a swapped draw or another commitment is caught", () => {
-    expect(checkLotteryRecord({ ...record, seed: "other" })).toContain("the seed does not match the commitment published before the draw");
-    const draws = record.draws.map((x) => ({ ...x }));
-    [draws[0]!.rescues, draws[1]!.rescues] = [draws[1]!.rescues, draws[0]!.rescues];
-    expect(checkLotteryRecord({ ...record, draws }).length).toBeGreaterThan(0);
-    expect(checkLotteryRecord(record, sha256Hex("x"))).toContain("the record's commitment is not the one published before the event");
+
+  test("with several cards in a category, one is chosen per company", () => {
+    const deck = [
+      { id: "a1", category: "A", number: 1 },
+      { id: "a2", category: "A", number: 2 },
+      { id: "b1", category: "B", number: 1 },
+    ];
+    const out = assignCrises(rootSeed("s", "1"), 10, deck);
+    expect(out.filter((id) => id.startsWith("a"))).toHaveLength(5);
+    expect(out.filter((id) => id === "b1")).toHaveLength(5);
   });
 });

@@ -3,10 +3,10 @@
 
 import type { DisplayEvent } from "@/lib/display/frame";
 import type { ActiveTakeover } from "@/lib/display/takeover";
-import { TwistTakeover } from "./twist";
-import { PricesTakeover } from "./prices";
+import { DrawTakeover } from "./draw";
 import { CrisisTakeover } from "./crisis";
-import { RevealTakeover } from "./reveal";
+import { VerdictsTakeover } from "./verdicts";
+import { FlashTakeover } from "./flash";
 import { ClosingBellTakeover } from "./closing-bell";
 import { AwardsTakeover } from "./awards";
 
@@ -17,14 +17,14 @@ export interface TakeoverProps {
 
 export function TakeoverView(props: TakeoverProps) {
   switch (props.takeover.kind) {
-    case "TWIST":
-      return <TwistTakeover {...props} />;
-    case "PRICES":
-      return <PricesTakeover {...props} />;
+    case "DRAW":
+      return <DrawTakeover {...props} />;
     case "CRISIS":
       return <CrisisTakeover {...props} />;
-    case "REVEAL":
-      return <RevealTakeover {...props} />;
+    case "VERDICTS":
+      return <VerdictsTakeover {...props} />;
+    case "FLASH":
+      return <FlashTakeover {...props} />;
     case "CLOSING_BELL":
       return <ClosingBellTakeover {...props} />;
     case "AWARDS":

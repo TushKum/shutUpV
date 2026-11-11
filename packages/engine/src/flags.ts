@@ -1,9 +1,10 @@
 // Collusion flags generated at settlement, for the fairness officer only.
-//   1. Reciprocal buying: two teams each bought shares of the company the other built.
-//   2. A team holding at least 4,000 shares of one company whose closing price is below its average cost.
-//   3. Five or more teams reaching the 5,000-share limit on the same company in the same round.
+//   1. A company whose plan scored below 50 where 3 or more funds hold the 4,000-share long cap.
+//   2. A pair of funds whose order vectors (round, ticker, signed qty) have cosine similarity ≥ 0.9,
+//      with at least 5 orders each.
+//   3. A fee of $33,000 or more, or a deal price ≤ 55% of the post-crisis price, where the plan scored below 50.
 
-import { mul } from "./money";
+import { PRICE_EFFECT } from "./prices";
 import { RULES } from "./rules";
 import type { OrderType } from "./types";
 
@@ -14,84 +15,119 @@ export interface Flag {
   details: Record<string, unknown>;
 }
 
-export interface Fill {
-  teamId: string;
-  companyId: string;
-  type: OrderType;
-  qty: number;
-  roundNumber: number;
-}
-
-const byId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
-
-/** Flag 1. @param founders company id → the team that built it */
-export function flagReciprocalBuying(fills: readonly Fill[], founders: Readonly<Record<string, string>>): Flag[] {
-  // bought[a][b] = shares team a bought of team b's company
-  const bought = new Map<string, Map<string, number>>();
-  for (const f of fills) {
-    if (f.type !== "BUY") continue;
-    const founder = founders[f.companyId];
-    if (founder === undefined || founder === f.teamId) continue;
-    const m = bought.get(f.teamId) ?? new Map<string, number>();
-    bought.set(f.teamId, m);
-    m.set(founder, (m.get(founder) ?? 0) + f.qty);
-  }
-  const companyOf = new Map(Object.entries(founders).map(([c, t]) => [t, c]));
+/**
+ * @param capHolders per company, the funds whose exchange lot is exactly at the 4,000 cap at settlement
+ */
+export function flagCapHolders(
+  companies: readonly { companyId: string; productTeamId: string; finalPlanScore: number }[],
+  capHolders: Readonly<Record<string, readonly string[]>>,
+): Flag[] {
   const out: Flag[] = [];
-  for (const a of [...bought.keys()].sort(byId)) {
-    for (const [b, qtyAB] of [...bought.get(a)!].sort((x, y) => byId(x[0], y[0]))) {
-      if (byId(a, b) >= 0) continue;
-      const qtyBA = bought.get(b)?.get(a);
-      if (!qtyBA) continue;
+  for (const c of companies) {
+    const funds = [...(capHolders[c.companyId] ?? [])].sort();
+    if (c.finalPlanScore < RULES.FLAG_PLAN_BELOW && funds.length >= RULES.FLAG_CAP_FUNDS) {
       out.push({
         kind: 1,
-        companyId: null,
-        teamIds: [a, b],
-        details: { [a]: { company: companyOf.get(b), bought: qtyAB }, [b]: { company: companyOf.get(a), bought: qtyBA } },
+        companyId: c.companyId,
+        teamIds: [c.productTeamId, ...funds],
+        details: { planScore: c.finalPlanScore, fundsAtCap: funds.length },
       });
     }
   }
   return out;
 }
 
-/** Flag 2: qty ≥ 4,000 and qty × closing price < cost (closing price below the average cost). */
-export function flagLossPositions(
-  holdings: readonly { teamId: string; companyId: string; qty: number; cost: number }[],
-  closingPrices: Readonly<Record<string, number>>,
-): Flag[] {
+export interface FundOrder {
+  roundNumber: number;
+  companyId: string;
+  type: OrderType;
+  qty: number;
+}
+
+/** Order vector: one dimension per (round, company); value = Σ signed qty (BUY/COVER +, SELL/SHORT −). */
+export function orderVector(orders: readonly FundOrder[]): Map<string, number> {
+  const v = new Map<string, number>();
+  for (const o of orders) {
+    const k = `${o.roundNumber}|${o.companyId}`;
+    v.set(k, (v.get(k) ?? 0) + PRICE_EFFECT[o.type] * o.qty);
+  }
+  return v;
+}
+
+/** cosine(a, b) ≥ 9/10, decided exactly: dot > 0 and 100·dot² ≥ 81·|a|²·|b|². */
+export function cosineAtLeast(a: Map<string, number>, b: Map<string, number>, num = RULES.FLAG_COSINE.NUM, den = RULES.FLAG_COSINE.DEN): boolean {
+  let dot = 0n;
+  let na = 0n;
+  let nb = 0n;
+  for (const [k, x] of a) {
+    na += BigInt(x) * BigInt(x);
+    const y = b.get(k);
+    if (y !== undefined) dot += BigInt(x) * BigInt(y);
+  }
+  for (const y of b.values()) nb += BigInt(y) * BigInt(y);
+  if (dot <= 0n || na === 0n || nb === 0n) return false;
+  return BigInt(den * den) * dot * dot >= BigInt(num * num) * na * nb;
+}
+
+/** Cosine similarity as a number, for display only. */
+export function cosine(a: Map<string, number>, b: Map<string, number>): number {
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (const [k, x] of a) {
+    na += x * x;
+    dot += x * (b.get(k) ?? 0);
+  }
+  for (const y of b.values()) nb += y * y;
+  return na && nb ? dot / Math.sqrt(na * nb) : 0;
+}
+
+export function flagSimilarFunds(funds: readonly { teamId: string; orders: readonly FundOrder[] }[]): Flag[] {
+  const eligible = funds
+    .filter((f) => f.orders.length >= RULES.FLAG_MIN_ORDERS)
+    .map((f) => ({ teamId: f.teamId, orders: f.orders.length, vector: orderVector(f.orders) }))
+    .sort((a, b) => (a.teamId < b.teamId ? -1 : 1));
   const out: Flag[] = [];
-  for (const h of [...holdings].sort((a, b) => byId(a.teamId, b.teamId) || byId(a.companyId, b.companyId))) {
-    const p = closingPrices[h.companyId];
-    if (p === undefined || h.qty < RULES.FLAG_LARGE_POSITION) continue;
-    if (mul(h.qty, p) < h.cost) {
-      out.push({ kind: 2, companyId: h.companyId, teamIds: [h.teamId], details: { qty: h.qty, cost: h.cost, closingPrice: p } });
+  for (let i = 0; i < eligible.length; i++) {
+    for (let j = i + 1; j < eligible.length; j++) {
+      const a = eligible[i]!;
+      const b = eligible[j]!;
+      if (cosineAtLeast(a.vector, b.vector)) {
+        out.push({
+          kind: 2,
+          companyId: null,
+          teamIds: [a.teamId, b.teamId],
+          details: { cosine: Math.round(cosine(a.vector, b.vector) * 1000) / 1000, orders: [a.orders, b.orders] },
+        });
+      }
     }
   }
   return out;
 }
 
-/**
- * Flag 3. @param positions every team's holding of each company before and after each round's clearing; a team
- * "reaches" the limit in a round when it holds fewer than 5,000 before and exactly 5,000 after.
- */
-export function flagCapRush(
-  positions: readonly { roundNumber: number; teamId: string; companyId: string; before: number; after: number }[],
+export function flagRescueTerms(
+  squads: readonly {
+    companyId: string;
+    teamIds: readonly string[];
+    finalPlanScore: number;
+    feeValue: number | null;
+    dealPrice: number | null;
+    postCrisisPrice: number;
+  }[],
 ): Flag[] {
-  const groups = new Map<string, { roundNumber: number; companyId: string; teams: string[] }>();
-  for (const p of positions) {
-    if (!(p.before < RULES.HOLD_LIMIT && p.after === RULES.HOLD_LIMIT)) continue;
-    const k = `${p.roundNumber}|${p.companyId}`;
-    const g = groups.get(k) ?? { roundNumber: p.roundNumber, companyId: p.companyId, teams: [] };
-    groups.set(k, g);
-    g.teams.push(p.teamId);
+  const out: Flag[] = [];
+  for (const s of squads) {
+    if (s.finalPlanScore >= RULES.FLAG_PLAN_BELOW) continue;
+    const bigFee = s.feeValue !== null && s.feeValue >= RULES.FLAG_FEE;
+    const cheapDeal = s.dealPrice !== null && s.dealPrice * 100 <= RULES.FLAG_DEAL_PCT * s.postCrisisPrice;
+    if (bigFee || cheapDeal) {
+      out.push({
+        kind: 3,
+        companyId: s.companyId,
+        teamIds: [...s.teamIds],
+        details: { planScore: s.finalPlanScore, feeValue: s.feeValue, dealPrice: s.dealPrice, postCrisisPrice: s.postCrisisPrice, bigFee, cheapDeal },
+      });
+    }
   }
-  return [...groups.values()]
-    .filter((g) => g.teams.length >= RULES.FLAG_CAP_TEAMS)
-    .sort((a, b) => a.roundNumber - b.roundNumber || byId(a.companyId, b.companyId))
-    .map((g) => ({
-      kind: 3 as const,
-      companyId: g.companyId,
-      teamIds: g.teams.sort(byId),
-      details: { roundNumber: g.roundNumber, teams: g.teams.length },
-    }));
+  return out;
 }

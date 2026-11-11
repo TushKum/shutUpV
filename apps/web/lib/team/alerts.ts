@@ -1,7 +1,7 @@
 // What the "Do this now" bar shows and when a team is alerted. Pure: the bar and the alerts (app/team/action-bar.tsx,
 // app/team/alerts.tsx) only draw these decisions.
 
-import { clock } from "@/lib/format";
+import type { Track } from "@msim/engine";
 import type { HomePlan, HomeTask } from "./home";
 
 /** The one thing to do next: the open task of this team that closes first (the plan lists them in closing order). */
@@ -44,93 +44,34 @@ export interface EventToast {
 }
 
 /** What a broadcast tells a team, in a few words; null for the ones that need no toast. */
-export function eventToast(kind: string, payload: Record<string, unknown>): EventToast | null {
+export function eventToast(kind: string, payload: Record<string, unknown>, track: Track): EventToast | null {
   const round = typeof payload.round === "number" ? `Round ${payload.round}` : "A round";
   switch (kind) {
-    case "problem_draw":
-      return { text: "The problem cards are dealt: open yours and start your PRD.", tone: "good", href: "/team/build", loud: true };
-    case "twist":
-      return { text: `The twist: ${typeof payload.title === "string" ? payload.title : "read it now"}. Your PRD must answer it.`, tone: "warn", href: "/team/build", loud: true };
-    case "locked":
-      return payload.type === "SOLUTION"
-        ? { text: "The crisis solution form is locked. Your last saved version is being judged.", tone: "info", href: "/team/rescue", loud: false }
-        : { text: "The PRD form is locked. Your last saved version is being judged.", tone: "info", href: "/team/build", loud: false };
-    case "prices_started":
-      return { text: "PRD scores are out: see your score and your company's starting price.", tone: "good", href: "/team/build", loud: true };
-    case "crisis":
-      return { text: "Crisis! Every company has a crisis card and every price fell 15%. See which company you rescue.", tone: "warn", href: "/team/rescue", loud: true };
-    case "solutions_published":
-      return { text: "Every crisis solution is now public.", tone: "info", href: "/team/market/solutions", loud: false };
-    case "scores_revealed":
-      return { text: "Crisis-solution scores are out: prices have moved.", tone: "good", href: "/team/rescue", loud: true };
-    case "round_open":
-      return { text: `${round} is open: place your orders.`, tone: "good", href: "/team/trade", loud: false };
     case "round_cleared":
-      return { text: `${round} cleared: new prices are in.`, tone: "info", href: "/team/trade/positions", loud: false };
+      return { text: `${round} cleared: new prices are in.`, tone: "info", href: track === "FINANCE" ? "/team/trade/positions" : "/team/market", loud: false };
+    case "round_open":
+      return track === "FINANCE" ? { text: `${round} is open: place your orders.`, tone: "good", href: "/team/trade", loud: false } : null;
     case "bulletin": {
       const title = typeof payload.title === "string" ? payload.title : "a new bulletin";
-      const k = payload.bulletin_kind;
-      if (k === "TWIST") return null; // the twist has its own broadcast
-      return { text: k === "RUMOUR" ? `Rumour: ${title}` : k === "CRISIS" ? `Crisis news: ${title}` : `News: ${title}`, tone: k === "CRISIS" ? "warn" : "info", href: "/team/bulletins", loud: k === "CRISIS" };
+      const flash = payload.bulletin_kind === "FLASH";
+      return { text: flash ? `Flash news: ${title}` : `News: ${title}`, tone: flash ? "warn" : "info", href: "/team/bulletins", loud: flash };
     }
-    case "leaderboard_frozen":
-      return { text: "The leaderboard is frozen until the awards. Trading carries on until the closing bell.", tone: "info", href: null, loud: false };
+    case "crisis":
+      return { text: "Crisis! Every company has a crisis card and every price fell 15%.", tone: "warn", href: track === "FINANCE" ? "/team/market" : "/team/rescue", loud: true };
+    case "verdicts":
+      return { text: "Scores released: prices have moved.", tone: "info", href: "/team/market", loud: true };
+    case "ipo_allocated":
+      return track === "FINANCE" ? { text: "IPO shares allocated: check your positions.", tone: "good", href: "/team/trade/positions", loud: false } : null;
+    case "squad_draw":
+      // Finance has no squad workspace: it meets its squad in the chat.
+      return { text: "The squads are drawn: meet your squad.", tone: "good", href: track === "FINANCE" ? "/team/chat" : "/team/squad", loud: true };
     case "closing_bell":
-      return { text: "The closing bell: the market is closed. Results at the awards.", tone: "info", href: "/team/trade/positions", loud: true };
-    case "settled":
-      return null;
+      return { text: "The market is closed. Results at the awards.", tone: "info", href: null, loud: true };
     case "paused":
       return { text: "The event is paused: the clock is frozen.", tone: "warn", href: null, loud: false };
     case "resumed":
       return { text: "The event has resumed.", tone: "good", href: null, loud: false };
-    case "extended": {
-      const m = typeof payload.minutes === "number" ? payload.minutes : null;
-      return { text: m ? `The organisers added ${m} minutes: deadlines moved later.` : "Deadlines moved later.", tone: "info", href: null, loud: false };
-    }
-    case "timing":
-      return timingToast(payload);
-    case "ended":
-      return { text: "The night is over. Thank you for playing PRIMUS!", tone: "good", href: null, loud: true };
     default:
       return null;
   }
-}
-
-export interface TimingChange {
-  key: string;
-  kind: "phase" | "round" | "deadline";
-  label: string;
-  from: string | null;
-  to: string | null;
-  earlier: boolean;
-}
-
-/** The changes a team cares about: its deadlines and the trading rounds (the phases' own ends are for the staff). */
-export function teamTimingChanges(changes: unknown): TimingChange[] {
-  if (!Array.isArray(changes)) return [];
-  return (changes as TimingChange[]).filter(
-    (c) => c && typeof c.label === "string" && (c.kind === "deadline" || c.kind === "round") && c.key !== "deadline:PROBLEM_DRAW",
-  );
-}
-
-/** "PRD form locks 23:00 → 22:45": one moved time, as a team reads it. */
-export function changeText(c: TimingChange): string {
-  if (!c.to) return `${c.label}: when the organisers end the phase`;
-  if (!c.from) return `${c.label} at ${clock(c.to)}`;
-  return `${c.label} ${clock(c.from)} → ${clock(c.to)}`;
-}
-
-/** An organiser changed the timing: which deadlines moved, earlier ones first (they are the ones to act on). */
-export function timingToast(payload: Record<string, unknown>): EventToast | null {
-  const changes = teamTimingChanges(payload.changes);
-  if (changes.length === 0) return null;
-  const earlier = changes.filter((c) => c.earlier);
-  const shown = [...earlier, ...changes.filter((c) => !c.earlier)].slice(0, 2).map(changeText);
-  const more = changes.length > 2 ? ` (+${changes.length - 2} more)` : "";
-  return {
-    text: `${earlier.length > 0 ? "Deadline moved earlier" : "Timing changed"}: ${shown.join("; ")}${more}.`,
-    tone: earlier.length > 0 ? "warn" : "info",
-    href: null,
-    loud: earlier.length > 0,
-  };
 }

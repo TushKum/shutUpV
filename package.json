@@ -7,17 +7,15 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "pnpm -r --if-present test && pnpm test:scripts && pnpm test:db",
-    "test:scripts": "vitest run scripts/test",
+    "test": "pnpm -r --if-present test && pnpm test:db",
     "test:db": "vitest run --config supabase/tests/vitest.config.ts",
     "typecheck": "pnpm -r --if-present typecheck && tsc -p scripts/tsconfig.json --noEmit",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "cards": "tsx --env-file-if-exists=.env scripts/login-cards.ts",
-    "staff-sheet": "tsx --env-file-if-exists=.env scripts/staff-sheet.ts",
-    "certificates": "tsx --env-file-if-exists=.env scripts/certificates.ts",
     "verify-lottery": "tsx scripts/verify-lottery.ts",
     "judge-worker": "tsx --env-file-if-exists=.env scripts/judge-worker.ts",
     "human-scores": "tsx --env-file-if-exists=.env scripts/human-scores.ts",
+    "print-docs": "tsx scripts/print-docs.ts",
     "new-seed": "tsx scripts/new-seed.ts",
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "load-test": "tsx --env-file-if-exists=.env scripts/load-test.ts"

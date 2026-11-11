@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHASE_LABELS } from "@msim/engine";
+import { PHASE_LABELS, TRACK_LABELS } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, money } from "@/lib/format";
 import { ClockProvider } from "@/lib/live/clock";
 import { EventChannel } from "@/lib/live/channel";
+import { SquadChannel } from "@/lib/live/squad-channel";
 import { Heartbeat } from "@/lib/live/heartbeat";
 import { FeedbackBar, FeedbackProvider } from "@/lib/live/feedback";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -17,36 +18,25 @@ import { ActionBar } from "./action-bar";
 import { Alerts, SoundToggle } from "./alerts";
 import { loadPlanFacts } from "@/lib/team/home-data";
 import { homePlan } from "@/lib/team/home";
-import { alertTasks, changeText, nextAction, teamTimingChanges } from "@/lib/team/alerts";
+import { alertTasks, nextAction } from "@/lib/team/alerts";
 import { PhaseEnd } from "./phase-end";
-import { BULLETIN_KIND_LABELS, type BulletinKind } from "@/lib/admin/content-bulletins";
 
 export const metadata: Metadata = { title: { template: "%s · Team", default: "Team" } };
 
 // Every team screen (laptop or phone): the team, where the night is (phase and countdown, trading, the open round),
-// its cash, the companies it built and rescues, the "Do this now" bar, the alerts, the latest news and the sections.
-// The event's realtime channel refreshes the page on every broadcast, and the heartbeat tells the control panel the
-// screen is connected.
+// its cash, the latest bulletin and the sections of its track. The event's realtime channel refreshes the page on
+// every broadcast, the squad's channel announces chat messages, and the heartbeat tells the control panel the screen
+// is connected.
 export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
-  const { team, event, status, built, rescued } = ctx;
+  const { team, event, status } = ctx;
   // The bar and the alerts are guidance: if the plan cannot be read (say, the database is older than the app), every
   // page still works, without them.
   const plan = await loadPlanFacts(ctx).then(homePlan, (err: unknown) => {
     console.error("team layout: no plan for the bar and alerts:", err);
     return null;
   });
-  // A backup or withdrawn team: before the draw it can look around (and is told it is not playing yet); once the
-  // problem cards are dealt it is out of the night, and every page says so instead of showing the game.
-  const notPlaying = team.status !== "ACTIVE";
-  const outOfTheNight = notPlaying && !!event.drawn_at;
-  const next = plan && !notPlaying ? nextAction(plan) : null;
-  // The last timing change stays on every screen for 20 minutes, so a team that was away (or reconnects) still sees
-  // which deadlines moved; the times themselves are always the server's.
-  const recent =
-    status.timing_change && status.timing_changed_at && Date.parse(status.server_time) - Date.parse(status.timing_changed_at) < 20 * 60_000
-      ? teamTimingChanges(status.timing_change.changes)
-      : [];
+  const next = plan ? nextAction(plan) : null;
   const sb = await supabaseServer();
   const { data: latest } = await sb
     .from("bulletins")
@@ -56,9 +46,11 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
     .order("published_at", { ascending: false })
     .limit(1)
     .maybeSingle<{ id: string; kind: string; title: string; published_at: string }>();
+  const finance = team.track === "FINANCE";
   return (
     <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
       <EventChannel eventId={event.id}>
+        <SquadChannel squadId={ctx.squad?.id ?? null}>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <div className="min-h-screen bg-slate-50">
@@ -66,6 +58,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 pt-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <h1 className="font-mono text-lg font-bold">{team.code}</h1>
+                <Badge tone="slate">{TRACK_LABELS[team.track]}</Badge>
                 <span className="hidden truncate text-sm text-slate-600 sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
               </div>
@@ -81,7 +74,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                 <dt className="text-xs text-slate-500">Phase</dt>
                 <dd className="font-semibold" data-testid="team-phase">
                   {PHASE_LABELS[status.phase]}
-                  <PhaseEnd endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} ended={!!status.ended_at} />
+                  <PhaseEnd endsAt={status.phase_ends_at} phase={status.phase} gate={status.gate} next={status.next_phase} />
                 </dd>
               </div>
               <div>
@@ -105,44 +98,20 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                   {money(team.cash)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-xs text-slate-500">Built · rescued</dt>
-                <dd className="font-mono" data-testid="team-companies">
-                  {built?.ticker ?? "—"} · {rescued?.ticker ?? "—"}
-                </dd>
-              </div>
+              {finance ? (
+                <div>
+                  <dt className="text-xs text-slate-500">Collateral locked</dt>
+                  <dd className="font-mono tabular-nums">{money(team.collateral)}</dd>
+                </div>
+              ) : null}
             </dl>
-            <TeamNav phase={status.phase} />
+            <TeamNav track={team.track} />
           </header>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
-          <Alerts tasks={plan && !notPlaying ? alertTasks(plan) : []} />
+          <Alerts tasks={plan ? alertTasks(plan) : []} track={team.track} teamId={team.id} />
           {status.paused ? (
             <p className="bg-amber-100 px-4 py-2 text-center text-sm font-medium text-amber-900">
               The event is paused. Deadlines move later by the length of the pause.
-            </p>
-          ) : null}
-          {recent.length > 0 ? (
-            <div
-              className={`px-4 py-2 text-center text-sm font-medium ${recent.some((c) => c.earlier) ? "bg-amber-100 text-amber-950" : "bg-sky-50 text-sky-950"}`}
-              data-testid="timing-banner"
-              role="status"
-            >
-              <span className="font-semibold">{recent.some((c) => c.earlier) ? "Deadline moved earlier" : "Timing changed"}</span>
-              <span className="text-xs font-normal"> at {clock(status.timing_changed_at)}</span>:{" "}
-              {recent.slice(0, 4).map(changeText).join(" · ")}
-              {recent.length > 4 ? ` · +${recent.length - 4} more` : ""}
-            </div>
-          ) : null}
-          {status.ended_at ? (
-            <p className="bg-emerald-100 px-4 py-2 text-center text-sm font-medium text-emerald-900">The night is over. Thank you for playing PRIMUS.</p>
-          ) : null}
-          {notPlaying ? (
-            <p className="bg-slate-800 px-4 py-2 text-center text-sm font-medium text-white" data-testid="team-not-playing">
-              {outOfTheNight
-                ? "Your team is not playing tonight: the problem cards were dealt to the active teams only."
-                : team.status === "BACKUP"
-                  ? "Your team is a backup: you play only if the organisers activate your team before the problem cards are dealt. Stay near the registration desk."
-                  : "Your team has been withdrawn from tonight's game. If this is a mistake, go to the registration desk before the problem cards are dealt."}
             </p>
           ) : null}
           {team.disqualified ? (
@@ -156,23 +125,16 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
               className="mx-auto block max-w-5xl px-4 pt-3 text-sm [overflow-wrap:anywhere]"
               data-testid="latest-bulletin"
             >
-              <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">{BULLETIN_KIND_LABELS[latest.kind as BulletinKind] ?? latest.kind}</span>{" "}
+              <span className="rounded bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">{latest.kind}</span>{" "}
               <span className="font-mono text-xs text-slate-500">{clock(latest.published_at)}</span>{" "}
               <span className="font-semibold text-slate-900 underline-offset-2 hover:underline">{latest.title}</span>
             </Link>
           ) : null}
           <FeedbackBar className="mx-auto max-w-5xl px-4 pt-3" />
-          <main className="mx-auto max-w-5xl px-4 py-4">
-            {outOfTheNight ? (
-              <p className="rounded-lg bg-white p-6 text-center text-slate-700 shadow-sm">
-                Thank you for coming. You can follow the night on the big screen.
-              </p>
-            ) : (
-              children
-            )}
-          </main>
+          <main className="mx-auto max-w-5xl px-4 py-4">{children}</main>
         </div>
       </FeedbackProvider>
+        </SquadChannel>
       </EventChannel>
     </ClockProvider>
   );

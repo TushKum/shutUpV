@@ -2,7 +2,7 @@
 
 // "Run the judge here": while it is on, this console works the judge queue by calling POST /api/judge/work again and
 // again (each call claims runs for about 50 s, JUDGE_CONCURRENCY at a time, and answers with what it did). With
-// nothing to claim it asks again every 5 s, so runs that are queued later (a retry, a re-run, calibration)
+// nothing to claim it asks again every 5 s, so runs that are queued later (extra runs, a retry, a re-run, calibration)
 // are picked up. Several consoles can run it at once: they share the queue. It switches itself off on any refusal
 // (signed out, not an organiser, the fake judge on a live event, a missing API key, a configuration error) and after
 // three network failures in a row. It stays on across a reload of the page (this tab only).
@@ -39,7 +39,7 @@ interface Totals {
 
 const IDLE_MS = 5000;
 const NETWORK_RETRIES = 3;
-const storageKey = (eventId: string) => `primus-judge-runner:${eventId}`;
+const storageKey = (eventId: string) => `msim-judge-runner:${eventId}`;
 
 function remembered(eventId: string): boolean {
   try {

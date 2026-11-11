@@ -1,8 +1,9 @@
 // Ledger corrections (two people): the request form turned into request_correction's entries, and the stored
 // corrections turned into lines for the pending list and the history. Amounts are converted from the typed text by
 // exact string parsing (money-input.ts), never through floating point. The game functions check everything again
-// (the team and company belong to the event, the limits, the second person) and their refusals are shown as they come.
+// (the lot fits the team, the limits, the second person) and their refusals are shown as they come.
 
+import { LOT_TYPES, type LotType } from "@msim/engine";
 import { parseDollars, parseShares } from "./money-input";
 import { bigCents, companyLabel, signedCount, signedMoney, shortTxn, type CompanyRef, type TeamRef } from "./ledger";
 
@@ -12,6 +13,7 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
 export interface CorrectionEntry {
   team_id: string;
   company_id?: string;
+  lot?: LotType;
   cash_delta_cents?: number;
   share_delta?: number;
 }
@@ -24,40 +26,45 @@ export interface CorrectionForm {
   reason: string;
   team: string[];
   company: string[];
+  lot: string[];
   cash: string[];
   shares: string[];
 }
 
 const text = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
 
-/** Reads the request form (every entry row has the four fields, so the lists line up). */
+/** Reads the request form (every entry row has the five fields, so the lists line up). */
 export function readCorrectionForm(form: FormData): CorrectionForm {
   const all = (name: string) => form.getAll(name).map(text);
   return {
     reason: text(form.get("reason")),
     team: all("entry_team"),
     company: all("entry_company"),
+    lot: all("entry_lot"),
     cash: all("entry_cash"),
     shares: all("entry_shares"),
   };
 }
 
+const isLot = (v: string): v is LotType => (LOT_TYPES as readonly string[]).includes(v);
+
 /**
  * The reason and entries for request_correction. Blank rows are skipped. Each entry needs a team and a cash or share
- * change; a share change needs a company. Dollars become integer cents exactly ("12.34" → 1234, "-0.5" →
+ * change; a share change needs a company and a lot. Dollars become integer cents exactly ("12.34" → 1234, "-0.5" →
  * -50); more than 2 decimals is refused.
  */
 export function correctionFromForm(f: CorrectionForm): Parsed<{ reason: string; entries: CorrectionEntry[] }> {
   const reason = f.reason.trim();
   if (reason.length < MIN_REASON) return { ok: false, message: `Give a reason of at least ${MIN_REASON} characters.` };
-  const rows = Math.max(f.team.length, f.company.length, f.cash.length, f.shares.length);
+  const rows = Math.max(f.team.length, f.company.length, f.lot.length, f.cash.length, f.shares.length);
   const entries: CorrectionEntry[] = [];
   for (let i = 0; i < rows; i++) {
     const team = (f.team[i] ?? "").trim();
     const company = (f.company[i] ?? "").trim();
+    const lot = (f.lot[i] ?? "").trim();
     const cashText = f.cash[i] ?? "";
     const sharesText = f.shares[i] ?? "";
-    if (!team && !company && !cashText.trim() && !sharesText.trim()) continue;
+    if (!team && !company && !lot && !cashText.trim() && !sharesText.trim()) continue;
     const at = `Entry ${i + 1}`;
     if (!team) return { ok: false, message: `${at}: choose a team.` };
     const cash = parseDollars(cashText);
@@ -65,9 +72,11 @@ export function correctionFromForm(f: CorrectionForm): Parsed<{ reason: string; 
     const shares = parseShares(sharesText);
     if (!shares.ok) return { ok: false, message: `${at}: share change ${shares.message}.` };
     if (!cash.value && !shares.value) return { ok: false, message: `${at}: enter a cash change or a share change.` };
-    if (shares.value && !company) return { ok: false, message: `${at}: a share change needs a company.` };
+    if (lot && !isLot(lot)) return { ok: false, message: `${at}: unknown lot ${lot}.` };
+    if (shares.value && (!company || !lot)) return { ok: false, message: `${at}: a share change needs a company and a lot.` };
     const e: CorrectionEntry = { team_id: team };
     if (company) e.company_id = company;
+    if (lot) e.lot = lot as LotType;
     if (cash.value) e.cash_delta_cents = cash.value;
     if (shares.value) e.share_delta = shares.value;
     entries.push(e);
@@ -101,6 +110,7 @@ export interface StaffRef {
 export interface CorrectionEntryLine {
   party: string;
   ticker: string;
+  lot: string;
   cash: string;
   cashSign: -1 | 0 | 1;
   shares: string;
@@ -148,6 +158,7 @@ export function correctionEntryLines(
     return {
       party: teamId ? (teams.get(teamId)?.code ?? "?") : "?",
       ticker: companyId ? companyLabel(companies.get(companyId), teams) : "",
+      lot: field(e, "lot") ?? "",
       cash: cash === 0n ? "" : signedMoney(cash),
       cashSign: cash > 0n ? 1 : cash < 0n ? -1 : 0,
       shares: shares ? signedCount(shares) : "",
@@ -208,14 +219,20 @@ export function correctionViews(
   };
 }
 
-/** Options for the request form: teams by code, companies by ticker. */
-export function correctionOptions(teams: readonly TeamRef[], companies: readonly CompanyRef[]) {
+/** Options for the request form: teams grouped by track (codes in order), companies by ticker. */
+export function correctionOptions(teams: readonly TeamRef[], companies: readonly (CompanyRef & { squad_id?: string | null })[]) {
   const byCode = (a: TeamRef, b: TeamRef) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0);
   const map = new Map(teams.map((t) => [t.id, t]));
   return {
-    teams: [...teams].sort(byCode).map((t) => ({ id: t.id, code: t.code })),
+    tracks: (["PRODUCT", "CONSULTING", "FINANCE"] as const).map((track) => ({
+      track,
+      teams: teams.filter((t) => t.track === track).sort(byCode).map((t) => ({ id: t.id, code: t.code })),
+    })),
+    // Only companies that belong to a squad can be corrected (the game function checks it again).
     companies: companies
+      .filter((c) => c.squad_id !== null)
       .map((c) => ({ id: c.id, label: companyLabel(c, map) }))
       .sort((a, b) => (a.label < b.label ? -1 : a.label > b.label ? 1 : 0)),
+    lots: [...LOT_TYPES],
   };
 }

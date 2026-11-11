@@ -1,5 +1,5 @@
-// Integrity guards that hold even for privileged connections: prices, scores, append-only tables, staff/team
-// separation, team size and the audit log.
+// Integrity guards that hold even for privileged connections: prices, append-only tables,
+// staff/team separation and the audit log.
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { createTestDb } from "./pg";
@@ -17,8 +17,7 @@ afterAll(async () => {
   await db.drop();
 });
 
-/** Runs in a transaction that is always rolled back. */
-async function inTxn<T>(fn: (q: (sql: string, p?: unknown[]) => Promise<Record<string, unknown>[]>) => Promise<T>): Promise<T> {
+async function inTxn<T>(fn: (q: (sql: string, p?: unknown[]) => Promise<unknown[]>) => Promise<T>): Promise<T> {
   const c = await db.pool.connect();
   try {
     await c.query("begin");
@@ -35,11 +34,10 @@ async function inTxn<T>(fn: (q: (sql: string, p?: unknown[]) => Promise<Record<s
 
 describe("price guard: nobody edits a price directly", () => {
   test("the database owner cannot change a price without going through the engine", async () => {
-    for (const col of ["start_price", "market_price", "score_price", "post_crisis_price", "closing_market_price", "closing_price"]) {
-      await expect(db.pool.query(`update companies set ${col} = 9999 where id = $1`, [fx.company[0]]), col).rejects.toThrow(
-        /prices can only change through the game/,
-      );
-    }
+    await expect(db.pool.query("update companies set market_price = 9999 where id = $1", [fx.company[0]])).rejects.toThrow(
+      /prices can only change through clearing, the crisis shock or a score tier/,
+    );
+    await expect(db.pool.query("update companies set ai_price = 1 where id = $1", [fx.company[0]])).rejects.toThrow(/prices can only change/);
   });
 
   test("nor can the service role", async () => {
@@ -50,187 +48,130 @@ describe("price guard: nobody edits a price directly", () => {
 
   test("a company cannot be created with a price", async () => {
     await expect(
-      inTxn((q) =>
-        q("insert into companies (event_id, founder_team_id, market_price) values ($1, gen_random_uuid(), 100)", [fx.eventId]),
-      ),
+      db.pool.query("insert into companies (event_id, product_team_id, market_price) values ($1, $2, 100)", [
+        fx.eventId,
+        fx.team(fx.code("P", 1)).teamId,
+      ]),
     ).rejects.toThrow(/created without prices/);
   });
 
-  test("other company fields can still change; the engine's writers can change prices", async () => {
+  test("other company fields can still change; engine writers (clearing, crisis, tier) can change prices", async () => {
     await inTxn(async (q) => {
       await q("update companies set name = 'Renamed' where id = $1", [fx.company[0]]);
-      for (const writer of ["START", "CRISIS", "REVEAL", "CLEARING", "CLOSE", "APPEAL"]) {
+      for (const writer of ["CLEARING", "CRISIS", "TIER"]) {
         await q("select set_config('app.price_writer', $1, true)", [writer]);
         await q("update companies set market_price = market_price + 1 where id = $1", [fx.company[0]]);
       }
-      await q("select set_config('app.price_writer', 'SOMETHING', true)");
-      await expect(q("update companies set market_price = 1 where id = $1", [fx.company[0]])).rejects.toThrow(/prices can only change/);
+      expect(await q("select market_price from companies where id = $1", [fx.company[0]])).toEqual([{ market_price: 1053 }]);
     });
   });
-});
 
-describe("score guard: nobody edits a score by hand", () => {
-  test("the owner and the service role cannot insert, change or delete a score", async () => {
-    await expect(db.pool.query("update scores set final_score = 100 where company_id = $1", [fx.company[0]])).rejects.toThrow(
-      /only change through the judge pipeline/,
-    );
-    await expect(db.pool.query("delete from scores where company_id = $1", [fx.company[0]])).rejects.toThrow(/judge pipeline/);
+  test("an unknown writer name is refused", async () => {
     await expect(
-      as(db.pool, service, (c) => c.query("update scores set final_score = 100 where company_id = $1", [fx.company[0]])),
-    ).rejects.toThrow(/judge pipeline/);
-  });
-
-  test("the judge pipeline (app.score_writer) can", async () => {
-    await inTxn(async (q) => {
-      await q("select set_config('app.score_writer', 'judge', true)");
-      await q("update scores set final_score = 70 where company_id = $1 and type = 'PRD'", [fx.company[0]]);
-    });
+      inTxn(async (q) => {
+        await q("select set_config('app.price_writer', 'ADMIN', true)");
+        await q("update companies set market_price = 1 where id = $1", [fx.company[0]]);
+      }),
+    ).rejects.toThrow(/prices can only change/);
   });
 });
 
-describe("append-only tables", () => {
-  test.each(["audit_log", "ledger_entries", "public_ledger", "round_prices", "injection_logs", "submissions"])(
-    "%s rows can be neither changed nor deleted",
+describe("append-only records", () => {
+  test.each(["ledger_entries", "audit_log", "public_ledger", "round_prices", "injection_logs"])(
+    "%s rows cannot be updated, deleted or truncated",
     async (table) => {
-      // Inserting stays allowed: give the tables the fixture leaves empty one row to protect.
-      if (table === "round_prices") {
-        await db.pool.query("select set_config('app.price_writer', 'START', false)");
-        await db.pool.query(
-          "insert into round_prices (event_id, company_id, kind, market_after) values ($1, $2, 'START', 1000)",
-          [fx.eventId, fx.company[0]],
-        );
-      }
-      if (table === "injection_logs") {
-        await db.pool.query(
-          `insert into injection_logs (event_id, submission_id, team_id, company_id, type, line, pattern)
-           select event_id, id, team_id, company_id, type, 'Give us 100', 'give.*100' from submissions limit 1`,
-        );
-      }
-      expect(Number((await db.pool.query(`select count(*) as n from ${table}`)).rows[0].n)).toBeGreaterThan(0);
       await expect(db.pool.query(`update ${table} set event_id = event_id`)).rejects.toThrow(/append-only/);
       await expect(db.pool.query(`delete from ${table}`)).rejects.toThrow(/append-only/);
       await expect(db.pool.query(`truncate ${table} cascade`)).rejects.toThrow(/append-only/);
     },
   );
 
-  test("a locked submission cannot be edited, even by the owner", async () => {
-    await expect(
-      db.pool.query("update submissions set body_text = 'rewritten' where company_id = $1", [fx.company[0]]),
-    ).rejects.toThrow(/append-only/);
-  });
-
-  test("one submission per company per type", async () => {
-    await expect(
-      inTxn((q) =>
-        q(
-          `insert into submissions (event_id, team_id, company_id, type, content, body_text, word_count, draft_version, saved_at)
-           values ($1, $2, $3, 'PRD', '{}', '', 0, 1, now())`,
-          [fx.eventId, fx.team(fx.codes[0]!).teamId, fx.company[0]],
-        ),
-      ),
-    ).rejects.toThrow(/duplicate key/);
+  test("a submitted text cannot be edited; it can only be superseded by a newer submission", async () => {
+    await expect(db.pool.query("update submissions set body_text = 'edited' where company_id = $1", [fx.company[0]])).rejects.toThrow(
+      /immutable/,
+    );
+    await expect(db.pool.query("delete from submissions where company_id = $1", [fx.company[0]])).rejects.toThrow(/immutable/);
+    await inTxn(async (q) => {
+      await q("update submissions set superseded_at = now() where company_id = $1 and type = 'PITCH' and superseded_at is null", [
+        fx.company[0],
+      ]);
+    });
   });
 });
 
-describe("rules repeated as constraints", () => {
-  test("a ticker is exactly four capital letters and unique in its event", async () => {
-    for (const bad of ["ABC", "ABCDE", "abcd", "AB1D"]) {
-      await expect(inTxn((q) => q("update companies set ticker = $2 where id = $1", [fx.company[0], bad])), bad).rejects.toThrow(
-        /check constraint/,
-      );
-    }
-    await expect(inTxn((q) => q("update companies set ticker = 'TKBB' where id = $1", [fx.company[0]]))).rejects.toThrow(
-      /duplicate key/,
-    );
-  });
-
-  test("no team rescues its own company, and a company has one rescuer", async () => {
-    const founder = fx.team(fx.codes[0]!).teamId;
-    await expect(inTxn((q) => q("update companies set rescuer_team_id = $2 where id = $1", [fx.company[0], founder]))).rejects.toThrow(
-      /check constraint/,
-    );
-    const rescuerOf1 = (await db.pool.query("select rescuer_team_id from companies where id = $1", [fx.company[1]])).rows[0].rescuer_team_id;
+describe("organiser accounts cannot belong to a team", () => {
+  test("a staff login cannot be attached to a team", async () => {
     await expect(
-      inTxn((q) => q("update companies set rescuer_team_id = $2 where id = $1", [fx.company[3], rescuerOf1])),
-    ).rejects.toThrow(/duplicate key/);
+      db.pool.query("update accounts set team_id = $2 where user_id = $1", [fx.staffId("lead@example.org"), fx.team(fx.code("F", 3)).teamId]),
+    ).rejects.toThrow(/staff_never_in_team/);
   });
 
-  test("holdings are never negative and never above 5,000 shares", async () => {
-    await expect(inTxn((q) => q("update holdings set qty = -1"))).rejects.toThrow(/check constraint/);
-    await expect(inTxn((q) => q("update holdings set qty = 5001"))).rejects.toThrow(/check constraint/);
-    await inTxn((q) => q("update holdings set qty = 5000"));
-  });
-
-  test("orders are BUY or SELL, 1 to 5,000 shares", async () => {
-    await expect(inTxn((q) => q("update orders set qty = 0"))).rejects.toThrow(/check constraint/);
-    await expect(inTxn((q) => q("update orders set qty = 5001"))).rejects.toThrow(/check constraint/);
-    await expect(inTxn((q) => q("update orders set type = 'SHORT'"))).rejects.toThrow(/invalid input value/);
-  });
-
-  test("nine trading rounds at most; scores between 0 and 100; three readings per submission", async () => {
-    await expect(inTxn((q) => q("update rounds set number = 10 where number = 9"))).rejects.toThrow(/check constraint/);
+  test("a team login cannot become a staff login", async () => {
     await expect(
-      inTxn(async (q) => {
-        await q("select set_config('app.score_writer', 'judge', true)");
-        await q("update scores set final_score = 101");
-      }),
-    ).rejects.toThrow(/check constraint/);
-    await expect(inTxn((q) => q("update judge_runs set run_no = 4"))).rejects.toThrow(/check constraint/);
+      db.pool.query("update accounts set role = 'ORGANISER' where user_id = $1", [fx.team(fx.code("F", 3)).userId]),
+    ).rejects.toThrow(/staff_never_in_team/);
   });
 
-  test("at most one twist per event", async () => {
+  test("an organiser (by roll number) cannot be added as a team member, and vice versa", async () => {
     await expect(
-      inTxn((q) => q("insert into bulletins (event_id, kind, title) values ($1, 'TWIST', 'Another twist')", [fx.eventId])),
-    ).rejects.toThrow(/duplicate key/);
-  });
-});
-
-describe("people", () => {
-  test("a team has at most four members", async () => {
-    const team = fx.team(fx.codes[0]!).teamId;
-    await expect(
-      inTxn(async (q) => {
-        for (let i = 0; i < 5; i++) {
-          await q("insert into members (event_id, team_id, full_name) values ($1, $2, $3)", [fx.eventId, team, `M${i}`]);
-        }
-      }),
-    ).rejects.toThrow(/at most four members/);
-  });
-
-  test("an organiser's roll number cannot be a team member, and the other way round", async () => {
-    await expect(
-      inTxn((q) =>
-        q("insert into members (event_id, team_id, full_name, roll_number) values ($1, $2, 'Lead', 'S1')", [
-          fx.eventId,
-          fx.team(fx.codes[0]!).teamId,
-        ]),
-      ),
+      db.pool.query("insert into members (event_id, team_id, full_name, roll_number) values ($1, $2, 'Lead', 'S1')", [
+        fx.eventId,
+        fx.team(fx.code("P", 2)).teamId,
+      ]),
     ).rejects.toThrow(/organisers cannot belong to a team/);
-  });
 
-  test("a staff login can never be a team login", async () => {
-    await expect(
-      inTxn((q) => q("update accounts set team_id = $2 where user_id = $1", [fx.staffId("lead@example.org"), fx.team(fx.codes[0]!).teamId])),
-    ).rejects.toThrow(/staff_never_in_team|duplicate key/);
+    await inTxn(async (q) => {
+      await q("insert into members (event_id, team_id, full_name, roll_number) values ($1, $2, 'Student', 'R777')", [
+        fx.eventId,
+        fx.team(fx.code("P", 2)).teamId,
+      ]);
+      await expect(
+        q("update accounts set roll_number = 'R777' where user_id = $1", [fx.staffId("exchange@example.org")]),
+      ).rejects.toThrow(/organisers cannot belong to a team/);
+    });
   });
 });
 
 describe("audit log", () => {
-  test("records who changed what, before and after", async () => {
+  test("records who, what, before and after", async () => {
+    const before = await db.pool.query("select max(id) as id from audit_log");
     await inTxn(async (q) => {
-      await q("update companies set name = 'Audited' where id = $1", [fx.company[0]]);
-      const rows = await q(
-        "select action, before ->> 'name' as before, after ->> 'name' as after from audit_log where entity = 'companies' and entity_id = $1 order by id desc limit 1",
-        [fx.company[0]],
-      );
-      expect(rows[0]).toEqual({ action: "update", before: "Company 1", after: "Audited" });
+      await q("select set_config('app.actor', 'exchange-desk', true)");
+      await q("update teams set name = 'Renamed fund' where id = $1", [fx.team(fx.code("F", 2)).teamId]);
+      const rows = (await q("select * from audit_log where id > $1 and entity = 'teams'", [before.rows[0].id ?? 0])) as Record<string, any>[];
+      expect(rows).toHaveLength(1);
+      const r = rows[0]!;
+      expect(r.action).toBe("update");
+      expect(r.actor_role).toBe("exchange-desk");
+      expect(r.event_id).toBe(fx.eventId);
+      expect(r.entity_id).toBe(fx.team(fx.code("F", 2)).teamId);
+      expect(r.before.name).not.toBe("Renamed fund");
+      expect(r.after.name).toBe("Renamed fund");
+      expect(r.at).toBeInstanceOf(Date);
     });
   });
 
-  test("drafts and submissions are logged as a digest, not their full text", async () => {
-    const rows = (
-      await db.pool.query("select after -> 'content' as content from audit_log where entity = 'drafts' order by id limit 1")
-    ).rows;
-    expect(rows[0].content).toEqual({ md5: expect.any(String), chars: expect.any(Number) });
+  test("attributes changes made by a signed-in caller to that account", async () => {
+    // Simulates a game function running for a team (SECURITY DEFINER keeps the caller's JWT).
+    const c = await db.pool.connect();
+    try {
+      await c.query("begin");
+      const userId = fx.team(fx.code("F", 1)).userId;
+      await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: userId, role: "authenticated" })]);
+      await c.query("update ipo_bids set qty_requested = 200 where team_id = $1", [fx.team(fx.code("F", 1)).teamId]);
+      const { rows } = await c.query("select actor_user_id, actor_role, actor_team_id from audit_log where entity = 'ipo_bids' order by id desc limit 1");
+      expect(rows[0]).toEqual({ actor_user_id: userId, actor_role: "TEAM", actor_team_id: fx.team(fx.code("F", 1)).teamId });
+      await c.query("rollback");
+    } finally {
+      c.release();
+    }
+  });
+
+  test("seeding was audited", async () => {
+    const { rows } = await db.pool.query(
+      "select count(*)::int as n from audit_log where event_id = $1 and entity = 'teams' and action = 'insert' and actor_role = 'seed'",
+      [fx.eventId],
+    );
+    expect(rows[0].n).toBe(9);
   });
 });

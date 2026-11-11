@@ -3,12 +3,11 @@ import Link from "next/link";
 import Form from "next/form";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadQaCompanies, loadQaPage, loadUnanswered } from "@/lib/team/qa-data";
-import { answerState, askState, parseQaQuery, qaHref, type BoardFacts, type QaQuery, type Thread } from "@/lib/team/qa";
-import { loadDeadline } from "@/lib/team/round-data";
+import { boardRole, boardState, parseQaQuery, qaHref, type QaQuery, type QuestionRow, type Thread } from "@/lib/team/qa";
+import { supabaseServer } from "@/lib/supabase/server";
 import { clock, count, dateTime } from "@/lib/format";
 import { Badge, Notice, Panel, buttonClass, inputClass } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
-import { RefreshAt } from "@/lib/live/refresh-at";
 import { answerQuestion, postQuestion } from "./actions";
 import { AnswerForm, AskForm } from "./forms";
 
@@ -16,31 +15,26 @@ export const metadata: Metadata = { title: "Q&A" };
 
 const PATH = "/team/qa";
 
-// The Q&A board (23:45–00:15): this team asks the founders of the company it rescues, and answers the team that rescues
-// its own company (until 01:45). Every question and answer is public, newest first, per company or all together. New
-// posts arrive over the event's realtime channel, which refreshes the page.
+// The Q&A board: every question with its answers, newest first, per company or all together. Funds ask; the Product
+// team answers questions about its own company (its unanswered questions are listed first, oldest first); every
+// question and answer is public. Who asked is never shown (a fund); an answer is shown as its company's. New posts
+// arrive over the event's realtime channel, which refreshes the page.
 export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
-  const { event, status, built, rescued } = await loadTeamContext();
+  const { team, event, status, company: own } = await loadTeamContext();
   const q = parseQaQuery(await searchParams);
-  const [qaClose, solutionLock] = await Promise.all([loadDeadline(event.id, "QA_CLOSE"), loadDeadline(event.id, "SOLUTION_LOCK")]);
-  const facts: BoardFacts = {
-    phase: status.phase,
-    paused: status.paused,
-    pausedAt: status.paused_at,
-    nowMs: new Date(status.server_time).getTime(),
-    crisisApplied: !!event.crisis_applied_at,
-    qaClose,
-    solutionLock,
-  };
-  const ask = askState(facts);
-  const answer = answerState(facts);
+  const state = boardState(status.phase);
+  const role = boardRole(team.track);
+  const sb = await supabaseServer();
+  const { data: times, error } = await sb.from("phases").select("code, starts_at").eq("event_id", event.id).in("code", ["READING", "CLOSE"]);
+  if (error) throw new Error(`Could not read the schedule: ${error.message}`);
+  const startOf = (code: string) => (times ?? []).find((t) => t.code === code)?.starts_at as string | undefined;
 
-  if (ask === "NOT_YET") {
+  if (state === "NOT_YET") {
     return (
       <Panel title="Q&A board">
         <Notice>
-          The board opens at the crisis. You ask the founders of the company you rescue (up to 300 characters, until the questions close), and you answer the team
-          that rescues your company (up to 150 words). Everything on the board is public.
+          The Q&A board opens {startOf("READING") ? `at ${clock(startOf("READING"))} ` : ""}(Reading) with the pitch book. Finance teams ask questions; each Product
+          team answers questions about its own company, in up to 100 words. Everything on the board is public.
         </Notice>
       </Panel>
     );
@@ -48,44 +42,46 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
 
   const companies = await loadQaCompanies(event.id);
   const filtered = q.company ? (companies.find((c) => c.ticker === q.company) ?? null) : null;
+  const ownListed = own ? (companies.find((c) => c.id === own.id) ?? null) : null;
   const [page, waiting] = await Promise.all([
     q.company && !filtered ? null : loadQaPage(event.id, filtered?.id ?? null, q.page),
-    answer === "OPEN" && built ? loadUnanswered(built.id) : Promise.resolve([]),
+    state === "OPEN" && role === "ANSWER" && ownListed ? loadUnanswered(ownListed.id) : Promise.resolve([] as QuestionRow[]),
   ]);
   const tickers = new Map(companies.map((c) => [c.id, c.ticker]));
+  const closes = startOf("CLOSE");
 
   return (
     <div className="space-y-6">
-      <RefreshAt at={ask === "OPEN" ? qaClose : answer === "OPEN" ? solutionLock : null} />
-      {ask === "OPEN" && rescued ? (
-        <Panel
-          title={`Ask ${rescued.ticker}'s founders`}
-          actions={
-            qaClose ? (
-              <span className="text-sm text-slate-600">
-                Questions close at {clock(qaClose)} · <Countdown to={qaClose} className="font-semibold text-slate-900" />
-              </span>
-            ) : null
-          }
-        >
-          <p className="mb-3 text-sm text-slate-600">
-            You rescue <span className="font-mono font-semibold">{rescued.ticker}</span> {rescued.name}. Ask what you need to write its crisis solution.
-          </p>
-          <AskForm action={postQuestion} ticker={rescued.ticker ?? "the company"} />
+      {state === "CLOSED" ? (
+        <Notice>The Q&A board closed at the close. Every question and answer stays readable.</Notice>
+      ) : (
+        <p className="text-sm text-slate-600" data-testid="qa-open">
+          Open until the close
+          {closes ? (
+            <>
+              {" "}
+              ({clock(closes)}, in <Countdown to={closes} passed="a moment" />)
+            </>
+          ) : null}
+          . Everything on the board is public; who asked is never shown (only that a fund asked), and answers are shown as their company&apos;s.
+        </p>
+      )}
+
+      {state === "OPEN" && role === "ASK" ? (
+        <Panel title="Ask a question">
+          <AskForm action={postQuestion} companies={companies} initial={filtered?.id ?? null} />
         </Panel>
-      ) : ask === "CLOSED" ? (
-        <Notice>Questions closed at {clock(qaClose)}. {answer === "OPEN" ? `Founders can still answer until ${clock(solutionLock)}.` : "Every question and answer stays readable."}</Notice>
       ) : null}
 
-      {answer === "OPEN" && built ? (
-        <Panel title={`Questions to your company ${built.ticker ?? ""} waiting for an answer (${count(waiting.length)})`}>
+      {state === "OPEN" && role === "ANSWER" && ownListed ? (
+        <Panel title={`Waiting for your answer (${count(waiting.length)})`}>
           {waiting.length === 0 ? (
-            <p className="text-sm text-slate-500">Nothing is waiting for an answer.</p>
+            <p className="text-sm text-slate-500">No question to {ownListed.ticker} is waiting for an answer.</p>
           ) : (
             <ul className="space-y-4" aria-label="Questions waiting for your answer">
               {waiting.map((w) => (
                 <li key={w.id} className="rounded-md border border-amber-200 bg-amber-50/40 p-3">
-                  <QuestionHead ticker={built.ticker ?? "—"} at={w.created_at} />
+                  <QuestionHead ticker={ownListed.ticker} at={w.created_at} />
                   <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">{w.body}</p>
                   <div className="mt-2">
                     <AnswerForm action={answerQuestion.bind(null, w.id)} label={`Answer the question asked at ${clock(w.created_at, true)}`} />
@@ -97,7 +93,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
         </Panel>
       ) : null}
 
-      <Panel title="The board">
+      <Panel title="Questions">
         <Form action={PATH} className="flex flex-wrap items-end gap-2">
           <label className="block">
             <span className="text-xs font-medium text-slate-600">Company</span>
@@ -106,7 +102,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
               {companies.map((c) => (
                 <option key={c.id} value={c.ticker}>
                   {c.ticker}
-                  {c.id === built?.id ? " (yours)" : c.id === rescued?.id ? " (you rescue it)" : ""}
+                  {c.id === own?.id ? " (yours)" : ""}
                 </option>
               ))}
             </select>
@@ -123,7 +119,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
 
         {!page ? (
           <div className="mt-4">
-            <Notice tone="amber">No company has the ticker {q.company}.</Notice>
+            <Notice tone="amber">No listed company has the ticker {q.company}.</Notice>
           </div>
         ) : (
           <>
@@ -137,7 +133,7 @@ export default async function QaPage({ searchParams }: PageProps<"/team/qa">) {
                     key={t.question.id}
                     t={t}
                     ticker={tickers.get(t.question.company_id) ?? "—"}
-                    canAnswer={answer === "OPEN" && t.question.company_id === built?.id && t.answers.length > 0}
+                    canAnswer={state === "OPEN" && role === "ANSWER" && t.question.company_id === own?.id && t.answers.length > 0}
                   />
                 ))}
               </ul>
@@ -156,7 +152,7 @@ function QuestionHead({ ticker, at }: { ticker: string; at: string }) {
       <Link href={`/team/market/${ticker}`} className="font-mono text-sm font-semibold text-slate-900 underline underline-offset-2">
         {ticker}
       </Link>
-      <span>its rescuing team asked</span>
+      <span>A fund asked</span>
       <time dateTime={at} title={`${dateTime(at)} IST`} className="font-mono tabular-nums">
         {clock(at, true)}
       </time>
@@ -178,7 +174,7 @@ function ThreadItem({ t, ticker, canAnswer }: { t: Thread; ticker: string; canAn
           {t.answers.map((a) => (
             <li key={a.id} className="text-sm">
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">{ticker}&apos;s founders answered</span>
+                <span className="font-semibold text-slate-700">{ticker} answered</span>
                 <time dateTime={a.created_at} className="font-mono tabular-nums">
                   {clock(a.created_at, true)}
                 </time>

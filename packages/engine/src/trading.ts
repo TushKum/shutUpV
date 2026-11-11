@@ -1,17 +1,18 @@
-// Order entry, the "max quantity" helper and round clearing (Round 3).
+// Order entry, the "max quantity" helper and round clearing.
 //
 // Model:
-//   • Every team trades with its own cash ($100,000 at the start). Buy and sell only: no short selling.
-//   • A team may not trade the company it built (founded) or the company it rescued.
-//   • At most 5,000 shares of any one company: shares owned plus pending buys.
-//   • A pending BUY reserves qty × price × 1.10 of cash, so it can still be paid after a 10% rise.
-//     Available cash = cash − reserves of pending buys. A SELL reserves nothing.
-//   • Every valid order in a round fills at its company's new price when the round clears.
+//   • A fund's long position bought at the IPO or on the exchange is the EXCHANGE lot (max 4,000 per company).
+//   • Its short position is the SHORT lot (max 2,000 per company); short proceeds are credited to cash.
+//   • Collateral = Σ 150% × short qty × current price. It is a lock on cash, recalculated whenever prices change.
+//   • Available cash = cash − collateral − reserves of pending orders.
+//     A BUY reserves qty × price × 1.10; a SHORT reserves qty × price × 1.5 × 1.10.
+//     SELL and COVER reserve nothing (covering releases more collateral than it costs) and are always allowed.
+//   • If cash < collateral (a collateral deficit), new BUY and SHORT orders are blocked until it is fixed.
 
 import { mul, mulRate } from "./money";
 import { cappedNet, clearingPrice } from "./prices";
 import { RULES } from "./rules";
-import type { OrderType } from "./types";
+import type { OrderType, Track } from "./types";
 
 export type TradingState = "OPEN" | "HALTED" | "PAUSED";
 
@@ -26,26 +27,21 @@ export interface PendingOrder extends OrderRequest {
   reserve: number;
 }
 
-export interface Position {
-  qty: number;
-  /** What the shares held cost (cents; the average cost basis × qty). */
-  cost: number;
-}
-
-export interface TraderView {
+export interface FundView {
+  track: Track;
   cash: number;
-  /** The company this team built (Round 1): never tradable by it. */
-  builtCompanyId: string | null;
-  /** The company this team rescued (Round 2): never tradable by it. */
-  rescuedCompanyId: string | null;
-  positions: Readonly<Record<string, Position>>;
-  /** This team's pending orders in the open round. */
+  collateral: number;
+  /** The company of the fund's own squad (insider rule). */
+  squadCompanyId: string | null;
+  /** Per company: EXCHANGE lot and SHORT lot quantities. */
+  positions: Readonly<Record<string, { exchangeQty: number; shortQty: number }>>;
+  /** This fund's pending orders in the open round. */
   pending: readonly PendingOrder[];
 }
 
 export interface OrderContext {
   trading: TradingState;
-  trader: TraderView;
+  fund: FundView;
   /** Current market price of every listed company (cents). */
   prices: Readonly<Record<string, number>>;
   /** When editing, the order being replaced (excluded from the pending totals). */
@@ -53,75 +49,135 @@ export interface OrderContext {
 }
 
 export type OrderRejection =
+  | "NOT_A_FUND"
   | "TRADING_PAUSED"
   | "TRADING_HALTED"
   | "BAD_QUANTITY"
-  | "OWN_COMPANY"
-  | "RESCUED_COMPANY"
+  | "INSIDER"
   | "NOT_LISTED"
-  | "HOLD_LIMIT"
+  | "COLLATERAL_DEFICIT"
+  | "LONG_LIMIT"
   | "NOT_ENOUGH_SHARES"
-  | "INSUFFICIENT_CASH";
+  | "SHORT_LIMIT"
+  | "SHORT_EXPOSURE"
+  | "INSUFFICIENT_CASH"
+  | "NOT_ENOUGH_SHORT";
 
 export type OrderCheck =
   | { ok: true; reserve: number; entryPrice: number }
   | { ok: false; code: OrderRejection; message: string };
 
 export const ORDER_MESSAGES: Record<OrderRejection, string> = {
+  NOT_A_FUND: "Only Finance teams can trade.",
   TRADING_PAUSED: "Trading is paused.",
   TRADING_HALTED: "Trading is closed right now.",
-  BAD_QUANTITY: "Enter a whole number of shares (1 to 5,000).",
-  OWN_COMPANY: "You cannot trade the company you built.",
-  RESCUED_COMPANY: "You cannot trade the company you rescued.",
+  BAD_QUANTITY: "Enter a whole number of shares (1 to 100,000).",
+  INSIDER: "A fund cannot trade its own squad's company.",
   NOT_LISTED: "That company is not trading.",
-  HOLD_LIMIT: "That would take you over 5,000 shares of this company (including pending buys).",
+  COLLATERAL_DEFICIT: "Your collateral is short: buys and new shorts are blocked until cash covers it.",
+  LONG_LIMIT: "That would take you over 4,000 shares of this company (including pending buys).",
   NOT_ENOUGH_SHARES: "You can only sell shares you own (minus pending sells).",
-  INSUFFICIENT_CASH: "Not enough available cash for this order (a buy holds back its value plus 10%).",
+  SHORT_LIMIT: "That would take you over 2,000 shares short in this company (including pending shorts).",
+  SHORT_EXPOSURE: "That would take your total short exposure over $250,000.",
+  INSUFFICIENT_CASH: "Not enough available cash for this order.",
+  NOT_ENOUGH_SHORT: "You can only cover shares you are short (minus pending covers).",
 };
 
 const reject = (code: OrderRejection): OrderCheck => ({ ok: false, code, message: ORDER_MESSAGES[code] });
 
-/** Cash held back for a pending BUY: qty × price × 1.10, rounded half-up. */
+/** Cash held back for a pending BUY: qty × price × 1.10. */
 export function buyReserve(qty: number, price: number): number {
   return mulRate(mul(qty, price), RULES.RESERVE_PCT, 100);
 }
 
-export function availableCash(trader: TraderView, replacingOrderId?: string): number {
-  let reserved = 0;
-  for (const o of trader.pending) if (o.id !== replacingOrderId) reserved += o.reserve;
-  return trader.cash - reserved;
+/** Collateral held back for a pending SHORT: qty × price × 150% × 1.10 (rounded after each step). */
+export function shortReserve(qty: number, price: number): number {
+  return mulRate(mulRate(mul(qty, price), RULES.COLLATERAL_PCT, 100), RULES.RESERVE_PCT, 100);
 }
 
-function pendingQty(trader: TraderView, companyId: string, type: OrderType, replacingOrderId?: string): number {
+/** Locked collateral for an open short: 150% × qty × price. */
+export function shortCollateral(qty: number, price: number): number {
+  return mulRate(mul(qty, price), RULES.COLLATERAL_PCT, 100);
+}
+
+export function collateralFor(
+  positions: Readonly<Record<string, { shortQty: number }>>,
+  prices: Readonly<Record<string, number>>,
+): number {
+  let total = 0;
+  for (const [companyId, p] of Object.entries(positions)) {
+    if (p.shortQty > 0) total += shortCollateral(p.shortQty, priceOf(prices, companyId));
+  }
+  return total;
+}
+
+function priceOf(prices: Readonly<Record<string, number>>, companyId: string): number {
+  const p = prices[companyId];
+  if (p === undefined) throw new Error(`no price for company ${companyId}`);
+  return p;
+}
+
+export function availableCash(fund: FundView, replacingOrderId?: string): number {
+  let reserved = 0;
+  for (const o of fund.pending) if (o.id !== replacingOrderId) reserved += o.reserve;
+  return fund.cash - fund.collateral - reserved;
+}
+
+function pendingQty(fund: FundView, companyId: string, type: OrderType, replacingOrderId?: string): number {
   let q = 0;
-  for (const o of trader.pending) {
+  for (const o of fund.pending) {
     if (o.id !== replacingOrderId && o.companyId === companyId && o.type === type) q += o.qty;
   }
   return q;
 }
 
-/** Validates an order at entry, counting pending orders. The order of the checks is part of the contract (SQL mirrors it). */
+/** Validates an order at entry, counting pending orders. Order of checks is part of the contract (SQL mirrors it). */
 export function validateOrder(ctx: OrderContext, order: OrderRequest): OrderCheck {
-  const { trader, prices, replacingOrderId } = ctx;
+  const { fund, prices, replacingOrderId } = ctx;
+  if (fund.track !== "FINANCE") return reject("NOT_A_FUND");
   if (ctx.trading === "PAUSED") return reject("TRADING_PAUSED");
   if (ctx.trading !== "OPEN") return reject("TRADING_HALTED");
-  if (!Number.isInteger(order.qty) || order.qty < 1 || order.qty > RULES.HOLD_LIMIT) return reject("BAD_QUANTITY");
-  if (order.companyId === trader.builtCompanyId) return reject("OWN_COMPANY");
-  if (order.companyId === trader.rescuedCompanyId) return reject("RESCUED_COMPANY");
+  if (!Number.isInteger(order.qty) || order.qty < 1 || order.qty > 100_000) return reject("BAD_QUANTITY");
+  if (order.companyId === fund.squadCompanyId) return reject("INSIDER");
   const price = prices[order.companyId];
   if (price === undefined) return reject("NOT_LISTED");
 
-  const owned = trader.positions[order.companyId]?.qty ?? 0;
-  if (order.type === "BUY") {
-    if (owned + pendingQty(trader, order.companyId, "BUY", replacingOrderId) + order.qty > RULES.HOLD_LIMIT) {
-      return reject("HOLD_LIMIT");
-    }
-    const reserve = buyReserve(order.qty, price);
-    if (reserve > availableCash(trader, replacingOrderId)) return reject("INSUFFICIENT_CASH");
-    return { ok: true, reserve, entryPrice: price };
+  const pos = fund.positions[order.companyId] ?? { exchangeQty: 0, shortQty: 0 };
+  const pend = (t: OrderType) => pendingQty(fund, order.companyId, t, replacingOrderId);
+
+  if ((order.type === "BUY" || order.type === "SHORT") && fund.cash < fund.collateral) {
+    return reject("COLLATERAL_DEFICIT");
   }
-  if (order.qty > owned - pendingQty(trader, order.companyId, "SELL", replacingOrderId)) return reject("NOT_ENOUGH_SHARES");
-  return { ok: true, reserve: 0, entryPrice: price };
+
+  switch (order.type) {
+    case "BUY": {
+      if (pos.exchangeQty + pend("BUY") + order.qty > RULES.LONG_LIMIT) return reject("LONG_LIMIT");
+      const reserve = buyReserve(order.qty, price);
+      if (reserve > availableCash(fund, replacingOrderId)) return reject("INSUFFICIENT_CASH");
+      return { ok: true, reserve, entryPrice: price };
+    }
+    case "SELL": {
+      if (order.qty > pos.exchangeQty - pend("SELL")) return reject("NOT_ENOUGH_SHARES");
+      return { ok: true, reserve: 0, entryPrice: price };
+    }
+    case "SHORT": {
+      if (pos.shortQty + pend("SHORT") + order.qty > RULES.SHORT_LIMIT) return reject("SHORT_LIMIT");
+      let exposure = mul(order.qty, price);
+      const companies = new Set([...Object.keys(fund.positions), ...fund.pending.map((o) => o.companyId)]);
+      for (const c of companies) {
+        const q = (fund.positions[c]?.shortQty ?? 0) + pendingQty(fund, c, "SHORT", replacingOrderId);
+        if (q > 0) exposure += mul(q, priceOf(prices, c));
+      }
+      if (exposure > RULES.SHORT_EXPOSURE_LIMIT) return reject("SHORT_EXPOSURE");
+      const reserve = shortReserve(order.qty, price);
+      if (reserve > availableCash(fund, replacingOrderId)) return reject("INSUFFICIENT_CASH");
+      return { ok: true, reserve, entryPrice: price };
+    }
+    case "COVER": {
+      if (order.qty > pos.shortQty - pend("COVER")) return reject("NOT_ENOUGH_SHORT");
+      return { ok: true, reserve: 0, entryPrice: price };
+    }
+  }
 }
 
 /** Largest quantity that would pass validation right now (0 if none). */
@@ -129,7 +185,7 @@ export function maxQuantity(ctx: OrderContext, companyId: string, type: OrderTyp
   const ok = (qty: number) => validateOrder(ctx, { companyId, type, qty }).ok;
   if (!ok(1)) return 0;
   let lo = 1;
-  let hi: number = RULES.HOLD_LIMIT;
+  let hi = 100_000;
   if (ok(hi)) return hi;
   while (hi - lo > 1) {
     const mid = Math.floor((lo + hi) / 2);
@@ -141,9 +197,16 @@ export function maxQuantity(ctx: OrderContext, companyId: string, type: OrderTyp
 
 // ───────────────────────────── Clearing ─────────────────────────────
 
-export interface TraderBook {
+export interface FundPosition {
+  exchangeQty: number;
+  exchangeCost: number;
+  shortQty: number;
+  shortProceeds: number;
+}
+
+export interface FundBook {
   cash: number;
-  positions: Record<string, Position>;
+  positions: Record<string, FundPosition>;
 }
 
 export interface ClearingOrder extends OrderRequest {
@@ -156,6 +219,8 @@ export interface CompanyClearing {
   newPrice: number;
   buy: number;
   sell: number;
+  short: number;
+  cover: number;
   net: number;
   cappedNet: number;
 }
@@ -163,82 +228,105 @@ export interface CompanyClearing {
 export interface ClearingResult {
   companies: Record<string, CompanyClearing>;
   fills: { orderId: string; price: number }[];
-  traders: Record<string, TraderBook>;
+  funds: Record<string, FundBook & { collateral: number }>;
   /** Cash the exchange receives (positive) or pays out (negative) this round. */
   exchangeCashDelta: number;
+  /** Shares the exchange receives (positive) or hands out (negative), per company. */
+  exchangeShareDelta: Record<string, number>;
 }
 
+const emptyPosition = (): FundPosition => ({ exchangeQty: 0, exchangeCost: 0, shortQty: 0, shortProceeds: 0 });
+
 /**
- * One round, all companies at once. Every valid order fills at its company's new price; a price row is produced for
- * every listed company, traded or not. Per team and company, sells are applied before buys, so the shares sold leave
- * at the average cost and the cost basis is deterministic.
+ * One round, all companies at once. Every valid order fills at its company's new price; a price row is
+ * produced for every listed company, traded or not. Per fund and company the fills are applied in a fixed
+ * order (SELL, COVER, BUY, SHORT) so cost bases are deterministic: sells and covers leave at the average cost.
  */
 export function clearRound(
   prices: Readonly<Record<string, number>>,
   orders: readonly ClearingOrder[],
-  traders: Readonly<Record<string, TraderBook>>,
+  funds: Readonly<Record<string, FundBook>>,
 ): ClearingResult {
   const companies: Record<string, CompanyClearing> = {};
   for (const [companyId, oldPrice] of Object.entries(prices)) {
-    companies[companyId] = { oldPrice, newPrice: oldPrice, buy: 0, sell: 0, net: 0, cappedNet: 0 };
+    companies[companyId] = { oldPrice, newPrice: oldPrice, buy: 0, sell: 0, short: 0, cover: 0, net: 0, cappedNet: 0 };
   }
   for (const o of orders) {
     const c = companies[o.companyId];
     if (!c) throw new Error(`order ${o.id} is for a company with no price`);
     if (o.type === "BUY") c.buy += o.qty;
-    else c.sell += o.qty;
+    else if (o.type === "SELL") c.sell += o.qty;
+    else if (o.type === "SHORT") c.short += o.qty;
+    else c.cover += o.qty;
   }
   const newPrices: Record<string, number> = {};
   let exchangeCashDelta = 0;
+  const exchangeShareDelta: Record<string, number> = {};
   for (const [companyId, c] of Object.entries(companies)) {
-    c.net = c.buy - c.sell;
+    c.net = c.buy + c.cover - (c.sell + c.short);
     c.cappedNet = cappedNet(c.net);
     c.newPrice = clearingPrice(c.oldPrice, c.net);
     newPrices[companyId] = c.newPrice;
+    exchangeShareDelta[companyId] = -c.net;
     exchangeCashDelta += mul(c.net, c.newPrice);
   }
 
-  // Aggregate per team and company.
-  const agg = new Map<string, Map<string, { BUY: number; SELL: number }>>();
+  // Aggregate per fund and company.
+  const agg = new Map<string, Map<string, Record<OrderType, number>>>();
   for (const o of orders) {
-    if (!traders[o.teamId]) throw new Error(`order from ${o.teamId}, which has no book`);
-    const byCompany = agg.get(o.teamId) ?? new Map<string, { BUY: number; SELL: number }>();
+    const byCompany = agg.get(o.teamId) ?? new Map<string, Record<OrderType, number>>();
     agg.set(o.teamId, byCompany);
-    const a = byCompany.get(o.companyId) ?? { BUY: 0, SELL: 0 };
+    const a = byCompany.get(o.companyId) ?? { BUY: 0, SELL: 0, SHORT: 0, COVER: 0 };
     byCompany.set(o.companyId, a);
     a[o.type] += o.qty;
   }
 
-  const out: Record<string, TraderBook> = {};
-  for (const [teamId, book] of Object.entries(traders)) {
-    const positions: Record<string, Position> = {};
+  const outFunds: ClearingResult["funds"] = {};
+  for (const [teamId, book] of Object.entries(funds)) {
+    const positions: Record<string, FundPosition> = {};
     for (const [c, p] of Object.entries(book.positions)) positions[c] = { ...p };
     let cash = book.cash;
     for (const [companyId, a] of agg.get(teamId) ?? []) {
       const P = newPrices[companyId]!;
-      const pos = (positions[companyId] ??= { qty: 0, cost: 0 });
-      if (a.SELL > pos.qty) throw new Error(`team ${teamId} sells more of ${companyId} than it holds`);
+      const pos = (positions[companyId] ??= emptyPosition());
+      if (a.SELL > pos.exchangeQty) throw new Error(`fund ${teamId} sells more ${companyId} than it holds`);
+      if (a.COVER > pos.shortQty) throw new Error(`fund ${teamId} covers more ${companyId} than it is short`);
       if (a.SELL > 0) {
-        const costOut = mulRate(pos.cost, a.SELL, pos.qty);
-        pos.qty -= a.SELL;
-        pos.cost -= costOut;
+        const costOut = mulRate(pos.exchangeCost, a.SELL, pos.exchangeQty);
+        pos.exchangeQty -= a.SELL;
+        pos.exchangeCost -= costOut;
       }
-      pos.qty += a.BUY;
-      pos.cost += mul(a.BUY, P);
-      cash += mul(a.SELL - a.BUY, P);
+      if (a.COVER > 0) {
+        const proceedsOut = mulRate(pos.shortProceeds, a.COVER, pos.shortQty);
+        pos.shortQty -= a.COVER;
+        pos.shortProceeds -= proceedsOut;
+      }
+      pos.exchangeQty += a.BUY;
+      pos.exchangeCost += mul(a.BUY, P);
+      pos.shortQty += a.SHORT;
+      pos.shortProceeds += mul(a.SHORT, P);
+      cash += mul(a.SELL - a.BUY + a.SHORT - a.COVER, P);
     }
-    out[teamId] = { cash, positions };
+    outFunds[teamId] = { cash, positions, collateral: collateralFor(positions, newPrices) };
+  }
+  for (const teamId of agg.keys()) {
+    if (!funds[teamId]) throw new Error(`order from ${teamId}, which is not a fund`);
   }
 
   return {
     companies,
     fills: orders.map((o) => ({ orderId: o.id, price: newPrices[o.companyId]! })),
-    traders: out,
+    funds: outFunds,
     exchangeCashDelta,
+    exchangeShareDelta,
   };
 }
 
-/** Profit or loss of a position at a price: value − cost. */
-export function positionPnl(p: Position, price: number): number {
-  return mul(p.qty, price) - p.cost;
+/** Profit and loss of a fund's position at a price (long: value − cost; short: proceeds − cost to cover). */
+export function positionPnl(p: FundPosition, price: number): { long: number; short: number } {
+  return {
+    long: mul(p.exchangeQty, price) - p.exchangeCost,
+    short: p.shortProceeds - mul(p.shortQty, price),
+  };
 }
+

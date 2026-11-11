@@ -1,15 +1,10 @@
 // The verifiable lottery.
 //
-// The day before, organisers publish SHA-256(secret seed). At 21:15 they enter the seed and a dice roll on stage.
+// The day before, organisers publish SHA-256(secret seed). At 21:00 they enter the seed and a dice roll.
 //   root = hex(SHA-256(seed + dice))                     (plain string concatenation, UTF-8)
 // Each draw uses its own stream of the same generator, so one draw can never shift another:
-//   block i of stream "problems" = SHA-256(root + ":problems:" + i), read as 8 big-endian unsigned 32-bit words
+//   block i of stream "squads" = SHA-256(root + ":squads:" + i), read as 8 big-endian unsigned 32-bit words
 // Integers below n are drawn by rejection sampling (no modulo bias). Shuffles are Fisher–Yates from the end.
-//
-// Three draws, all from the same root:
-//   21:15  "problems"  one problem card per team (each card to at most 3 teams, spread evenly)
-//   23:45  "crisis"    one crisis card per company (with 150 companies and 10 types, each type exactly 15 times)
-//   23:45  "circle"    the rescue circle: each team rescues the next team's company
 // Everything here is also implemented in SQL (app.lottery_*) and both are tested against the same fixtures.
 
 import { sha256 } from "@noble/hashes/sha2.js";
@@ -27,7 +22,7 @@ export function rootSeed(seed: string, dice: string): string {
   return sha256Hex(seed + dice);
 }
 
-export type Stream = "problems" | "crisis" | "circle";
+export type Stream = "squads" | "problems" | "coverage" | "crisis";
 
 export class Rng {
   private block = 0;
@@ -68,87 +63,121 @@ export class Rng {
   }
 }
 
-/** At most this many teams share one problem card. */
-export const MAX_TEAMS_PER_PROBLEM = 3;
-
-const sorted = (xs: readonly string[]) => [...xs].sort();
-
-function assertDistinct(xs: readonly string[], what: string) {
-  if (new Set(xs).size !== xs.length) throw new Error(`duplicate ${what}`);
+export interface SquadDraw {
+  number: number;
+  product: string;
+  consulting: string;
+  finance: string;
 }
 
 /**
- * 21:15: one problem card per team. The teams (sorted by code) are shuffled, the deck (in card-number order) is
- * shuffled, and the k-th team in the shuffled order gets the (k mod deck size)-th card: every card goes to
- * ⌊teams ÷ cards⌋ or ⌈teams ÷ cards⌉ teams, never more than 3 (150 teams, 50 cards: exactly 3 each).
- * @returns team code → card id
+ * 1 Product + 1 Consulting + 1 Finance per squad. Each list is first sorted by team code, so the result
+ * depends only on the seed, the dice and the set of teams.
  */
-export function dealProblemCards(root: string, teamCodes: readonly string[], cardIds: readonly string[]): Map<string, string> {
-  assertDistinct(teamCodes, "team codes");
-  assertDistinct(cardIds, "card ids");
-  if (cardIds.length === 0) throw new Error("the problem deck is empty");
-  if (Math.ceil(teamCodes.length / cardIds.length) > MAX_TEAMS_PER_PROBLEM) {
-    throw new Error(`the problem deck needs at least ${Math.ceil(teamCodes.length / MAX_TEAMS_PER_PROBLEM)} cards`);
-  }
-  const rng = new Rng(root, "problems");
-  const teams = rng.shuffle(sorted(teamCodes));
-  const deck = rng.shuffle(cardIds);
-  return new Map(teams.map((team, k) => [team, deck[k % deck.length]!]));
+export function formSquads(
+  root: string,
+  teams: { product: readonly string[]; consulting: readonly string[]; finance: readonly string[] },
+): SquadDraw[] {
+  const n = teams.product.length;
+  if (teams.consulting.length !== n || teams.finance.length !== n) throw new Error("tracks must be the same size");
+  const rng = new Rng(root, "squads");
+  const sort = (a: readonly string[]) => [...a].sort();
+  const p = rng.shuffle(sort(teams.product));
+  const c = rng.shuffle(sort(teams.consulting));
+  const f = rng.shuffle(sort(teams.finance));
+  return p.map((product, i) => ({ number: i + 1, product, consulting: c[i]!, finance: f[i]! }));
 }
 
 /**
- * 23:45: one crisis card per company. The companies (by founder team code) are shuffled and dealt round the deck in
- * card-number order, so every crisis type goes to the same number of companies (within one): 150 companies and 10
- * types, exactly 15 each.
- * @param deck crisis cards, any order (sorted here by number)
- * @returns founder team code → crisis card id
+ * Deals 3 distinct cards to each squad (in squad-number order). No card is used more than 3 times.
+ * @param cards card ids in deck order (by card number)
+ */
+export function dealProblemCards(root: string, squadCount: number, cards: readonly string[]): string[][] {
+  if (new Set(cards).size !== cards.length) throw new Error("duplicate card ids");
+  // With at least squads + 2 cards, every hand (including the last) still has 3 distinct cards to choose from:
+  // before the last hand 3 × (cards − squads + 1) uses remain, spread over at least cards − squads + 1 ≥ 3 cards.
+  if (cards.length < squadCount + 2) throw new Error("the deck needs at least 2 more cards than there are squads");
+  const rng = new Rng(root, "problems");
+  const left = new Map(cards.map((c) => [c, 3]));
+  const hands: string[][] = [];
+  for (let s = 0; s < squadCount; s++) {
+    const hand: string[] = [];
+    for (let k = 0; k < 3; k++) {
+      const candidates = cards.filter((c) => left.get(c)! > 0 && !hand.includes(c));
+      if (candidates.length === 0) throw new Error("the deck cannot deal 3 distinct cards to every squad");
+      const card = candidates[rng.int(candidates.length)]!;
+      hand.push(card);
+      left.set(card, left.get(card)! - 1);
+    }
+    hands.push(hand);
+  }
+  return hands;
+}
+
+/**
+ * Each consultant covers 2 companies outside its own squad and every company is covered by exactly 2:
+ * squads are put in a random cycle, and the consultant of each squad covers the next two squads' companies.
+ * @returns for squad index i (0-based, squad number i+1), the two covered squad indices
+ */
+export function assignCoverage(root: string, squadCount: number): [number, number][] {
+  if (squadCount < 3) throw new Error("coverage needs at least 3 squads");
+  const rng = new Rng(root, "coverage");
+  const cycle = rng.shuffle(Array.from({ length: squadCount }, (_, i) => i));
+  const out: [number, number][] = new Array(squadCount);
+  cycle.forEach((squad, k) => {
+    out[squad] = [cycle[(k + 1) % squadCount]!, cycle[(k + 2) % squadCount]!];
+  });
+  return out;
+}
+
+/**
+ * At 00:30 each company gets one crisis card. Companies (in squad-number order) are shuffled and dealt round
+ * the categories (sorted by name), so with 50 companies and 10 categories each category gets exactly 5.
+ * Within a category with several cards, one is picked per company.
+ * @returns for squad index i, the crisis card id
  */
 export function assignCrises(
   root: string,
-  founderCodes: readonly string[],
-  deck: readonly { id: string; number: number }[],
-): Map<string, string> {
-  assertDistinct(founderCodes, "team codes");
-  if (deck.length === 0) throw new Error("the crisis deck is empty");
-  const cards = [...deck].sort((a, b) => a.number - b.number);
+  squadCount: number,
+  deck: readonly { id: string; category: string; number: number }[],
+): string[] {
+  const categories = [...new Set(deck.map((c) => c.category))].sort();
+  if (categories.length === 0) throw new Error("the crisis deck is empty");
+  const byCategory = new Map(
+    categories.map((cat) => [cat, deck.filter((c) => c.category === cat).sort((a, b) => a.number - b.number)]),
+  );
   const rng = new Rng(root, "crisis");
-  const order = rng.shuffle(sorted(founderCodes));
-  return new Map(order.map((team, k) => [team, cards[k % cards.length]!.id]));
+  const order = rng.shuffle(Array.from({ length: squadCount }, (_, i) => i));
+  const out: string[] = new Array(squadCount);
+  order.forEach((squad, k) => {
+    const cards = byCategory.get(categories[k % categories.length]!)!;
+    out[squad] = cards.length === 1 ? cards[0]!.id : cards[rng.int(cards.length)]!.id;
+  });
+  return out;
 }
 
-/**
- * 23:45: the rescue circle. The teams (sorted by code) are shuffled into a circle and each team rescues the company of
- * the next team round the circle: nobody rescues its own company and every company has exactly one rescuer.
- * @returns rescuer team code → the founder team code of the company it rescues
- */
-export function rescueCircle(root: string, teamCodes: readonly string[]): Map<string, string> {
-  assertDistinct(teamCodes, "team codes");
-  if (teamCodes.length < 2) throw new Error("the rescue circle needs at least 2 teams");
-  const rng = new Rng(root, "circle");
-  const circle = rng.shuffle(sorted(teamCodes));
-  return new Map(circle.map((team, k) => [team, circle[(k + 1) % circle.length]!]));
-}
-
-export interface LotteryDraw {
+export interface LotteryResult {
   root: string;
-  problems: Map<string, string>;
-  crises: Map<string, string>;
-  circle: Map<string, string>;
+  squads: (SquadDraw & { cards: string[]; covers: [string, string] })[];
 }
 
-/** Every draw of the night from one seed and dice roll. */
+/** The 21:00 draw in one call (the crisis draw happens separately at 00:30 with the same root). */
 export function drawLottery(
   seed: string,
   dice: string,
-  teamCodes: readonly string[],
-  problemCardIds: readonly string[],
-  crisisDeck: readonly { id: string; number: number }[],
-): LotteryDraw {
+  teams: { product: readonly string[]; consulting: readonly string[]; finance: readonly string[] },
+  problemCards: readonly string[],
+): LotteryResult {
   const root = rootSeed(seed, dice);
+  const squads = formSquads(root, teams);
+  const hands = dealProblemCards(root, squads.length, problemCards);
+  const coverage = assignCoverage(root, squads.length);
   return {
     root,
-    problems: dealProblemCards(root, teamCodes, problemCardIds),
-    crises: assignCrises(root, teamCodes, crisisDeck),
-    circle: rescueCircle(root, teamCodes),
+    squads: squads.map((s, i) => ({
+      ...s,
+      cards: hands[i]!,
+      covers: [squads[coverage[i]![0]]!.product, squads[coverage[i]![1]]!.product],
+    })),
   };
 }

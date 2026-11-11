@@ -6,19 +6,16 @@ import { usePathname } from "next/navigation";
 
 export const SECTIONS = [
   { path: "", label: "Phase" },
-  { path: "/timing", label: "Timing" },
-  { path: "/teams", label: "Teams" },
   { path: "/lottery", label: "Lottery" },
   { path: "/rounds", label: "Rounds" },
   { path: "/judge", label: "Judge" },
   { path: "/bulletins", label: "Bulletins" },
   { path: "/content", label: "Content" },
   { path: "/ledger", label: "Ledger" },
-  { path: "/results", label: "Results" },
   { path: "/fairness", label: "Fairness" },
+  { path: "/chats", label: "Chats" },
   { path: "/exports", label: "Exports" },
   { path: "/health", label: "Health" },
-  { path: "/access", label: "Access" },
 ] as const;
 
 export function AdminNav({ slug, fairness }: { slug: string; fairness: boolean }) {

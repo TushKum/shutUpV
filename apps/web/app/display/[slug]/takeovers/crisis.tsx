@@ -1,32 +1,49 @@
-// 23:45 the crisis: every company has drawn a crisis card and every price fell 15%; the rescue lottery has given every
-// team another team's company to rescue. The rescue circle shows who rescues whom by ticker (the team that built AAA
-// rescues the next company on the line), the pages turning every 20 s by the server clock; which cards were dealt;
-// and the seed reveal: the seed, the dice, the commitment, SHA-256(seed) checked against the commitment here on the
-// server, and the address of the public lottery record that anyone can re-run with `pnpm verify-lottery`.
+// The 00:30 crisis: every company has drawn a crisis card and its price fell 15%. Each company's card and its price
+// before → after (up to 20 at a time, the pages turning every 20 s by the server clock), and the seed reveal: the
+// seed, the dice, the commitment, SHA-256(seed) checked against the commitment here on the server, and the address of
+// the public lottery record that anyone can re-run with `pnpm verify-lottery`.
 
 import { verifyCommitment } from "@msim/engine";
 import { TAKEOVER_TITLES } from "@/lib/display/takeover";
-import { circleLines, evenPages, rescueCircles } from "@/lib/display/takeovers";
-import { count } from "@/lib/format";
+import { crisisTitle, evenPages } from "@/lib/display/takeovers";
 import type { TakeoverProps } from "./index";
 import { TakeoverFrame } from "./frame";
-import { loadCompanies, loadCrisisCards, lotteryRecordAddress } from "./data";
-import { HexGroups } from "./parts";
+import { loadCompanies, loadCrisisCards, loadPriceMoves, lotteryRecordAddress } from "./data";
+import { HexGroups, PriceMove } from "./parts";
 import { Pager } from "./pager";
 
-/** 10 tickers to a line, 6 lines to a page: 150 companies take 3 pages. */
-const PER_LINE = 10;
-const LINES_PER_PAGE = 6;
+/** 5 columns × 4 rows; with 50 companies, three pages (17, 17, 16). */
+const PER_PAGE = 20;
+
+interface CrisisCompany {
+  id: string;
+  ticker: string;
+  category: string | null;
+  title: string | null;
+  before: number | null;
+  after: number | null;
+}
 
 export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
-  const [companies, cards, record] = await Promise.all([loadCompanies(event.id), loadCrisisCards(event.id), lotteryRecordAddress(event.slug)]);
-  const lines = circleLines(rescueCircles(companies), PER_LINE);
-  const pages = evenPages(lines, LINES_PER_PAGE);
-  const dealt = new Map<string, number>();
-  for (const c of companies) {
+  const [companies, cards, moves, record] = await Promise.all([
+    loadCompanies(event.id),
+    loadCrisisCards(event.id),
+    loadPriceMoves(event.id, "CRISIS"),
+    lotteryRecordAddress(event.slug),
+  ]);
+  const rows: CrisisCompany[] = companies.map((c) => {
     const card = c.crisis_card_id ? cards.get(c.crisis_card_id) : undefined;
-    if (card) dealt.set(card.category, (dealt.get(card.category) ?? 0) + 1);
-  }
+    const move = moves.get(c.id);
+    return {
+      id: c.id,
+      ticker: c.ticker,
+      category: card?.category ?? null,
+      title: card ? crisisTitle(card.category, card.title) : null,
+      before: move?.market_before ?? null,
+      after: move?.market_after ?? null,
+    };
+  });
+  const pages = evenPages(rows, PER_PAGE);
   const seed = event.seed_revealed;
   const commitment = event.seed_commitment;
   const matches = seed && commitment ? verifyCommitment(seed, commitment) : null;
@@ -34,49 +51,43 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
   return (
     <TakeoverFrame title={TAKEOVER_TITLES.CRISIS} at={takeover.at} until={takeover.until} tone="bg-red-500 text-black">
       <div className="flex h-full flex-col gap-5">
-        <p className="shrink-0 text-[52px] leading-tight font-black" data-testid="crisis-headline">
-          Every company has been hit. <span className="text-red-400">All share prices fell 15%.</span>
-        </p>
-
-        <section className="flex min-h-0 flex-1 flex-col" aria-label="The rescue circle" data-testid="crisis-circle">
-          <h2 className="flex shrink-0 items-baseline justify-between gap-8 border-b-4 border-red-500 pb-1">
-            <span className="text-[40px] font-black text-red-300">The rescue circle: the founders of each company rescue the next</span>
-          </h2>
-          <div className="min-h-0 flex-1 pt-3">
-            {lines.length === 0 ? (
-              <p className="text-[34px] text-slate-300">The rescue lottery runs with the crisis.</p>
-            ) : (
-              <Pager
-                pages={pages.map((page, i) => (
-                  <div key={i} className="flex h-full flex-col gap-2">
-                    {page.map((line, j) => (
-                      <p key={j} className="flex flex-wrap items-baseline gap-x-3 font-mono text-[38px] leading-[1.25] font-bold" data-testid="crisis-circle-line">
-                        {line.map((t, k) => (
-                          <span key={k} className="whitespace-nowrap">
-                            {k > 0 ? <span className="mr-3 text-red-400">→</span> : null}
-                            {t}
-                          </span>
-                        ))}
+        <div className="min-h-0 flex-1">
+          <Pager
+            pages={pages.map((page, i) => (
+              <div key={i} className="flex h-full flex-col gap-4">
+                <div className="flex shrink-0 items-baseline justify-between gap-8">
+                  <p className="text-[52px] leading-tight font-black" data-testid="crisis-headline">
+                    Every company has been hit. <span className="text-red-400">All share prices fell 15%.</span>
+                  </p>
+                  {pages.length > 1 ? (
+                    <p className="shrink-0 text-[28px] text-slate-400 tabular-nums" data-testid="crisis-page">
+                      Page {i + 1} of {pages.length}
+                    </p>
+                  ) : null}
+                </div>
+                <ul className="grid min-h-0 flex-1 grid-cols-5 grid-rows-4 gap-3" data-testid="crisis-companies">
+                  {page.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex min-h-0 min-w-0 flex-col justify-center overflow-hidden rounded-xl border-2 border-red-500/50 bg-red-950/50 px-4"
+                      data-testid={`crisis-${c.ticker}`}
+                    >
+                      {/* The price move sits under the ticker on every card, so a wide ticker with long prices fits too. */}
+                      <div className="flex flex-col items-start">
+                        <span className="text-[36px] leading-[1.1] font-black">{c.ticker}</span>
+                        <PriceMove before={c.before} after={c.after} tone="down" className="text-[32px] leading-[1.1]" />
+                      </div>
+                      <p className="truncate text-[28px] leading-[1.3]">
+                        <span className="font-bold text-amber-300">{c.category ?? "No card"}</span>
+                        {c.title ? <span className="text-slate-200"> · {c.title}</span> : null}
                       </p>
-                    ))}
-                    {pages.length > 1 ? (
-                      <p className="mt-auto text-[26px] text-slate-400 tabular-nums" data-testid="crisis-page">
-                        Page {i + 1} of {pages.length}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
-              />
-            )}
-          </div>
-        </section>
-
-        {dealt.size > 0 ? (
-          <p className="shrink-0 truncate text-[30px] text-slate-200" data-testid="crisis-cards">
-            <span className="font-bold text-amber-300">Crisis cards dealt:</span>{" "}
-            {[...dealt].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([cat, n]) => `${cat} ×${count(n)}`).join(" · ")}
-          </p>
-        ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          />
+        </div>
 
         <section aria-label="Seed reveal" className="shrink-0 rounded-2xl border-2 border-white/25 bg-white/[0.06] px-7 py-4" data-testid="crisis-seed">
           {seed ? (
@@ -113,7 +124,7 @@ export async function CrisisTakeover({ event, takeover }: TakeoverProps) {
               </dd>
             </dl>
           ) : (
-            <p className="text-[32px] text-slate-300">The seed is revealed with the crisis.</p>
+            <p className="text-[32px] text-slate-300">The seed is revealed with the crisis draw.</p>
           )}
         </section>
       </div>

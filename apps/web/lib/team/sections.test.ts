@@ -1,26 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { TEAM_SECTIONS, sectionLive } from "./sections";
+import { TEAM_SECTIONS, sectionAllowed } from "./sections";
 
 describe("team sections", () => {
-  test("every team has the same sections, in the order of the night", () => {
-    expect(TEAM_SECTIONS.map((s) => s.label)).toEqual([
-      "Home",
-      "Round 1: PRD",
-      "Round 2: Rescue",
-      "Q&A",
-      "Market",
-      "Round 3: Trade",
-      "Ledger",
-      "Leaderboard",
-      "News",
-      "How judging works",
-    ]);
-  });
-
-  test("a section is live from its phase on", () => {
-    const trade = TEAM_SECTIONS.find((s) => s.path === "/trade")!;
-    expect(sectionLive(trade, "RESCUE")).toBe(false);
-    expect(sectionLive(trade, "MARKET_BLIND")).toBe(true);
-    expect(sectionLive(TEAM_SECTIONS[0]!, "SETUP")).toBe(true);
+  test("every track has home and the public sections; each has its own tools", () => {
+    for (const track of ["PRODUCT", "CONSULTING", "FINANCE"] as const) {
+      expect(TEAM_SECTIONS[track].map((s) => s.label)).toEqual(expect.arrayContaining(["Home", "Market", "Q&A", "Ledger", "Bulletins", "Judging", "Rescue", "Chat"]));
+      // The judge's prompts are published to every team, right after Bulletins.
+      expect(TEAM_SECTIONS[track].map((s) => s.label).slice(-2)).toEqual(["Bulletins", "Judging"]);
+      expect(sectionAllowed(track, "/judging")).toBe(true);
+    }
+    expect(sectionAllowed("FINANCE", "/trade")).toBe(true);
+    expect(sectionAllowed("PRODUCT", "/trade")).toBe(false);
+    expect(sectionAllowed("CONSULTING", "/calls")).toBe(true);
+    expect(sectionAllowed("FINANCE", "/squad")).toBe(false);
   });
 });

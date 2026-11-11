@@ -17,8 +17,6 @@ vi.mock("@/lib/judge", () => ({
   runWorker: mocks.worker,
   queueCounts: async () => ({}),
   workReply: () => ({ status: 200, body: {} }),
-  SLOT_COLUMNS: "prd_model_slot, solution_model_slot",
-  modelsInUse: () => [],
 }));
 
 import { POST } from "./route";

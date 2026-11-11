@@ -1,12 +1,19 @@
-// The market as every team sees it: the companies with their prices, the last round's move and a trend line, each
-// company's price history (round_prices: the starting price, the crisis, the 02:45 reveal, every round, the close) with
-// its market and score-based prices, and what is public about it (the PRD from 23:30, the crisis card from 23:45, the
-// crisis solution from 02:15, its scores once revealed). Pure. Prices are integer cents; changes are computed exactly
-// (basis points, rounded half-up) and never through floating point.
+// The market as every team sees it: listed companies with their prices and last-round move, each company's price
+// history (round_prices), and what has gone public about it (the pitch, the rescue plan, the verdicts, the crisis
+// card, the flash answer). Pure. Prices are integer cents; changes are computed exactly (basis points, rounded
+// half-up) and never through floating point.
 
 import type { ChartPoint } from "@/lib/chart";
-import { TEMPLATES, divRoundHalfUp, phaseReached, trimAscii, type PhaseCode, type SubmissionType } from "@msim/engine";
-import { bp, count, money, signedCount } from "@/lib/format";
+import {
+  RUBRICS,
+  TEMPLATES,
+  divRoundHalfUp,
+  phaseReached,
+  trimAscii,
+  type PhaseCode,
+  type SubmissionType,
+} from "@msim/engine";
+import { bp, clock, count, money, signedCount } from "@/lib/format";
 
 /** after − before as basis points of before (rounded half-up, ties away from zero). */
 export function changeBp(before: number, after: number): number {
@@ -29,10 +36,8 @@ export interface ListedCompany {
   id: string;
   name: string | null;
   ticker: string | null;
-  start_price: number | null;
+  ipo_price: number | null;
   market_price: number | null;
-  score_price: number | null;
-  closing_price: number | null;
 }
 
 export interface ClearingRow {
@@ -45,18 +50,14 @@ export interface MarketLine {
   id: string;
   ticker: string;
   name: string;
-  start: number | null;
+  ipo: number | null;
   price: number | null;
-  scorePrice: number | null;
-  closing: number | null;
   /** The last cleared round's move (null before the first clearing). */
   change: { before: number; after: number; bp: number } | null;
-  /** The market price after every step so far, for the trend line. */
-  trend: number[];
 }
 
-/** The companies in ticker order (never by price or score) with the last cleared round's move and their trend. */
-export function marketLines(companies: readonly ListedCompany[], lastRound: readonly ClearingRow[], trends: Readonly<Record<string, readonly number[]>>): MarketLine[] {
+/** The listed companies in ticker order (never by price or score: no rankings) with the last cleared round's move. */
+export function marketLines(companies: readonly ListedCompany[], lastRound: readonly ClearingRow[]): MarketLine[] {
   const moves = new Map(lastRound.map((r) => [r.company_id, r]));
   return companies
     .filter((c) => c.ticker)
@@ -66,12 +67,9 @@ export function marketLines(companies: readonly ListedCompany[], lastRound: read
         id: c.id,
         ticker: c.ticker!,
         name: c.name ?? c.ticker!,
-        start: c.start_price,
+        ipo: c.ipo_price,
         price: c.market_price,
-        scorePrice: c.score_price,
-        closing: c.closing_price,
         change: m && m.market_before !== null ? { before: m.market_before, after: m.market_after, bp: changeBp(m.market_before, m.market_after) } : null,
-        trend: [...(trends[c.id] ?? [])],
       };
     })
     .sort((a, b) => a.ticker.localeCompare(b.ticker));
@@ -79,7 +77,7 @@ export function marketLines(companies: readonly ListedCompany[], lastRound: read
 
 // ───────────────────────────── Price history ─────────────────────────────
 
-export type PriceKind = "START" | "CRISIS" | "REVEAL" | "CLEARING" | "CLOSE" | "APPEAL";
+export type PriceKind = "IPO" | "CLEARING" | "CRISIS" | "PLAN_TIER" | "FLASH_TIER" | "CLOSE" | "APPEAL";
 
 export interface PriceRow {
   id: number | string;
@@ -87,12 +85,14 @@ export interface PriceRow {
   round_number: number | null;
   market_before: number | null;
   market_after: number;
-  score_before: number | null;
-  score_after: number | null;
+  ai_before: number | null;
+  ai_after: number | null;
   buy_qty: number;
   sell_qty: number;
+  short_qty: number;
+  cover_qty: number;
   net_qty: number;
-  factor_bp: number | null;
+  tier_bp: number | null;
   created_at: string;
 }
 
@@ -105,78 +105,125 @@ export interface HistoryLine {
   price: number;
   change: string;
   changeSign: -1 | 0 | 1;
-  /** The score-based price after this step, when the row carries it. */
-  scorePrice: number | null;
+  /** The AI price after this step, when it is part of the row. */
+  ai: number | null;
   detail: string;
 }
 
-/** For steps recorded in the same transaction: the order of the night. */
-const KIND_ORDER: Record<PriceKind, number> = { START: 0, CRISIS: 1, CLEARING: 2, REVEAL: 3, CLOSE: 4, APPEAL: 5 };
+/** For steps recorded in the same transaction (the last clearing and the close): the order of the night. */
+const KIND_ORDER: Record<PriceKind, number> = { IPO: 0, CLEARING: 1, CRISIS: 1, PLAN_TIER: 1, FLASH_TIER: 1, CLOSE: 2, APPEAL: 3 };
 
-/** Every price change of one company, in the order it happened (the starting price first, the close last). */
+/**
+ * Every price change of one company, in the order it happened (IPO first, the close last, then any technical appeal
+ * applied after the close). An appeal changes the AI price (and after the close the closing price); the market prices
+ * that already happened stay as they were.
+ */
 export function historyLines(rows: readonly PriceRow[]): HistoryLine[] {
+  let closed = false;
   return [...rows]
     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || Number(a.id) - Number(b.id))
     .map((r): HistoryLine => {
-      const base = { key: String(r.id), kind: r.kind, at: r.created_at, price: r.market_after, scorePrice: r.score_after };
+      const base = { key: String(r.id), kind: r.kind, at: r.created_at, price: r.market_after, ai: r.ai_after };
       const moved = (before: number | null) => ({
         change: changeText(before, r.market_after),
         changeSign: before === null ? (0 as const) : sign(r.market_after - before),
       });
       switch (r.kind) {
-        case "START":
-          return { ...base, label: "Starting price", change: "—", changeSign: 0, detail: "$10.00 + $0.10 × (PRD score − 50)" };
+        case "IPO":
+          return { ...base, label: "IPO price", change: "—", changeSign: 0, detail: `Pitch tier ${bp(r.tier_bp ?? 0)} on $10.00` };
+        case "CLEARING": {
+          const parts = [`buy ${count(r.buy_qty)}`, `sell ${count(r.sell_qty)}`, `short ${count(r.short_qty)}`, `cover ${count(r.cover_qty)}`];
+          return { ...base, ...moved(r.market_before), label: `Round ${r.round_number ?? "?"}`, detail: `Net ${signedCount(r.net_qty)} (${parts.join(" · ")})` };
+        }
         case "CRISIS":
-          return { ...base, ...moved(r.market_before), label: "Crisis", detail: "−15% on the market and score-based prices" };
-        case "REVEAL":
+          return { ...base, ...moved(r.market_before), label: "Crisis shock", detail: "−15% on the market and AI prices" };
+        case "PLAN_TIER":
+          return { ...base, ...moved(r.market_before), label: "Plan tier", detail: `${bp(r.tier_bp ?? 0)} on the market and AI prices` };
+        case "FLASH_TIER":
+          return { ...base, ...moved(r.market_before), label: "Flash tier", detail: `${bp(r.tier_bp ?? 0)} on the market and AI prices` };
+        case "CLOSE":
+          closed = true;
           return {
             ...base,
-            ...moved(r.market_before),
-            label: "Score reveal",
-            detail: `× ${r.factor_bp === null ? "?" : (r.factor_bp / 10_000).toFixed(4).replace(/0+$/, "").replace(/\.$/, "")} on both prices (crisis-solution score)`,
+            label: "Closing price",
+            change: "—",
+            changeSign: 0,
+            detail: `(market ${money(r.market_before)} + AI ${money(r.ai_after)}) ÷ 2`,
           };
-        case "CLEARING":
-          return { ...base, ...moved(r.market_before), label: `Round ${r.round_number ?? "?"}`, detail: `Net ${signedCount(r.net_qty)} (buy ${count(r.buy_qty)} · sell ${count(r.sell_qty)})` };
-        case "CLOSE":
-          return { ...base, label: "Closing price", change: "—", changeSign: 0, detail: `(market ${money(r.market_before)} + score-based ${money(r.score_after)}) ÷ 2` };
-        case "APPEAL":
-          return { ...base, ...moved(r.market_before), label: "Technical appeal", detail: `Score-based price ${money(r.score_before)} → ${money(r.score_after)}` };
+        case "APPEAL": {
+          const ai = `AI price ${money(r.ai_before)} → ${money(r.ai_after)} (tier ${bp(r.tier_bp ?? 0)})`;
+          // After the close the row's prices are the closing prices; before it the market price did not move.
+          return closed
+            ? { ...base, ...moved(r.market_before), label: "Technical appeal", detail: `${ai}; closing price ${money(r.market_before)} → ${money(r.market_after)}` }
+            : { ...base, label: "Technical appeal", change: "—", changeSign: 0, detail: ai };
+        }
       }
     });
 }
 
-const MARKERS: Partial<Record<PriceKind, string>> = { START: "Start", CRISIS: "Crisis", REVEAL: "Reveal", CLOSE: "Close" };
+const MARKERS: Partial<Record<PriceKind, string>> = { IPO: "IPO", CRISIS: "Crisis", PLAN_TIER: "Plan", FLASH_TIER: "Flash", CLOSE: "Close" };
 
 /**
- * The chart of a company's history: the market price step by step, the score-based price dashed (it moves only with
- * the crisis and the reveal, so it is carried forward between them), and a tag on the steps that are not rounds.
+ * The chart of a company's history: the market price step by step, the AI price dashed (it moves only with the IPO,
+ * the crisis and the tiers, so it is carried forward between them), and a tag on the steps that are not rounds.
  */
 export function chartPoints(lines: readonly HistoryLine[]): ChartPoint[] {
-  let second: number | null = null;
+  let ai: number | null = null;
   return lines.map((l) => {
-    if (l.scorePrice !== null) second = l.scorePrice;
-    return { label: l.label, value: l.price, second, marker: MARKERS[l.kind] ?? null };
+    if (l.ai !== null) ai = l.ai;
+    return { label: l.label, value: l.price, second: ai, marker: MARKERS[l.kind] ?? null };
   });
 }
 
 // ───────────────────────────── What is public ─────────────────────────────
 
-/** Which submissions are public now (the submissions policy): the PRD from 23:30, the crisis solution from 02:15. */
-export function publicTypes(phase: PhaseCode): SubmissionType[] {
+export type Released = Record<SubmissionType, boolean>;
+
+/**
+ * Which submissions are public now (the same rule as the submissions policy): the pitch from Reading, the rescue
+ * plan from Plans published, the flash answer once flash scores are released. A squad can read its own drafts and
+ * submissions earlier, but the market shows only what everyone can see.
+ */
+export function publicTypes(phase: PhaseCode, released: Released): SubmissionType[] {
   const out: SubmissionType[] = [];
-  if (phaseReached(phase, "REVEAL_1")) out.push("PRD");
-  if (phaseReached(phase, "MARKET_BLIND")) out.push("SOLUTION");
+  if (phaseReached(phase, "READING")) out.push("PITCH");
+  if (phaseReached(phase, "PLANS_PUBLISHED")) out.push("PLAN");
+  if (released.FLASH) out.push("FLASH");
   return out;
 }
 
-export const SUBMISSION_TITLES: Record<SubmissionType, string> = { PRD: "PRD", SOLUTION: "Crisis solution" };
+export const SUBMISSION_TITLES: Record<SubmissionType, string> = { PITCH: "Pitch", PLAN: "Rescue plan", FLASH: "Flash answer" };
 
+/** When each kind of submission goes public, for a page that is waiting for it. */
 export const PUBLIC_FROM: Record<SubmissionType, string> = {
-  PRD: "PRDs go public with the starting prices, at the PRD reveal.",
-  SOLUTION: "Crisis solutions go public when trading starts, without their scores (the scores are revealed at the score reveal).",
+  PITCH: "The pitch book goes public when Reading starts.",
+  PLAN: "Rescue plans go public when Plans published starts.",
+  FLASH: "Flash answers go public once the flash scores are released.",
 };
 
-/** The template parts of a submission, in order, with the text as locked ("" when a part was left empty). */
+// ───────────────────────────── Books ─────────────────────────────
+
+/** A book: every company's public submission of one type, or every company's crisis card. */
+export type BookKind = SubmissionType | "CRISIS";
+export const BOOK_KINDS: readonly BookKind[] = ["PITCH", "CRISIS", "PLAN", "FLASH"];
+export const BOOK_TITLES: Record<BookKind, string> = { PITCH: "Pitch book", CRISIS: "Crisis cards", PLAN: "Rescue plans", FLASH: "Flash answers" };
+
+/** The books that are public now, in the order of the night (crisis cards from the crisis, as the crisis_cards policy). */
+export function openBooks(phase: PhaseCode, released: Released): BookKind[] {
+  const types = publicTypes(phase, released);
+  return BOOK_KINDS.filter((k) => (k === "CRISIS" ? phaseReached(phase, "CRISIS") : types.includes(k)));
+}
+
+/** The book named in the address (?type=), the pitch book by default. */
+export function parseBookKind(raw: string | string[] | undefined): BookKind {
+  const v = (Array.isArray(raw) ? raw[0] : raw)?.trim().toUpperCase() ?? "";
+  return (BOOK_KINDS as readonly string[]).includes(v) ? (v as BookKind) : "PITCH";
+}
+
+/** When a book goes public, for a page that is waiting for it. */
+export const BOOK_PUBLIC_FROM: Record<BookKind, string> = { ...PUBLIC_FROM, CRISIS: "Crisis cards go public at the crisis, when every company gets one." };
+
+/** The template sections of a submission, in order, with the text as submitted ("" when a section was left empty). */
 export function submissionSections(type: SubmissionType, content: Readonly<Record<string, unknown>>): { key: string; label: string; text: string }[] {
   return TEMPLATES[type].map((f) => {
     const v = content[f.key];
@@ -184,7 +231,69 @@ export function submissionSections(type: SubmissionType, content: Readonly<Recor
   });
 }
 
-/** "The market opens at 23:30 with the starting prices." */
-export function marketOpensText(): string {
-  return "The market list opens at the PRD reveal, when the scores set every company's starting price. Trading (Round 3) starts after Round 2.";
+// ───────────────────────────── Verdicts ─────────────────────────────
+
+export interface ScoreRow {
+  company_id: string;
+  type: SubmissionType;
+  final_score: number | null;
+  median: number | null;
+  tier_bp: number | null;
+  capped: boolean;
+  late: boolean;
+  missing: boolean;
+  penalty: number;
+  /** The published judge run's points per rubric line, and its rationale (decision 10). */
+  breakdown?: Record<string, unknown> | null;
+  rationale?: string | null;
+}
+
+export interface VerdictLine {
+  label: string;
+  points: number | null;
+  max: number;
+}
+
+export interface Verdict {
+  title: string;
+  score: string;
+  tier: string;
+  tierSign: -1 | 0 | 1;
+  notes: string[];
+  /** The rubric lines with the published run's points (empty when nothing was judged, e.g. a missing submission). */
+  lines: VerdictLine[];
+  rationale: string | null;
+}
+
+/** A released score as the market sees it: the final score, its tier and why it is what it is. */
+export function verdict(s: ScoreRow): Verdict {
+  const notes: string[] = [];
+  if (s.missing) notes.push("No submission on time: scored 0.");
+  if (s.late) notes.push("Submitted late: scored 0.");
+  if (s.capped) notes.push(`Capped at 50: the rescue deal was not fully signed by the deal deadline${s.median !== null ? ` (judges' median ${s.median})` : ""}.`);
+  if (s.penalty > 0) notes.push(`−${s.penalty} points: a second attempt to instruct the judge.`);
+  const tier = s.tier_bp ?? 0;
+  return {
+    title: SUBMISSION_TITLES[s.type],
+    score: s.final_score === null ? "—" : `${s.final_score}/100`,
+    tier: s.type === "PITCH" ? `${bp(tier)} on the IPO price` : `${bp(tier)} on the price`,
+    tierSign: sign(tier),
+    notes,
+    lines: verdictLines(s.type, s.breakdown ?? null),
+    rationale: s.rationale?.trim() ? s.rationale.trim() : null,
+  };
+}
+
+/** The rubric lines in order with the published run's points (null when absent). */
+export function verdictLines(type: SubmissionType, breakdown: Record<string, unknown> | null): VerdictLine[] {
+  if (!breakdown) return [];
+  const points = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : typeof v === "string" && /^\d+$/.test(v) ? Number(v) : null);
+  return RUBRICS[type].map((l) => ({ label: l.label, points: points(breakdown[l.key]), max: l.max }));
+}
+
+/** "The market opens at 22:30, when the pitch book goes public." */
+export function marketOpensText(readingStartsAt: string | null | undefined): string {
+  return readingStartsAt
+    ? `The market opens at ${clock(readingStartsAt)} (Reading), when the pitch book goes public. Prices follow at the IPO.`
+    : "The market opens at Reading, when the pitch book goes public. Prices follow at the IPO.";
 }

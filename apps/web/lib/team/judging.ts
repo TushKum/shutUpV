@@ -1,51 +1,46 @@
-// What the team page "How judging works" shows (the brief: "Each round's rubric and the exact judge instructions are
-// published to teams on the website before the round starts"): how a PRD and a crisis solution are judged, each
-// rubric, what a score does to the price, and the judge's prompts exactly as it receives them, each with its SHA-256
-// (stored with every reading as prompt_sha). The prompts are read on the server through lib/judge/prompts, the
-// worker's own loader, so the page shows the very text the judge is sent; the numbers come from the engine's rules.
+// What the team page "How the judge scores" shows (the brief: "Store the prompts as files in the repo; they will be
+// published to teams"): how a submission is judged, the score tiers, and the three system prompts exactly as the
+// judge receives them, each with its SHA-256 (stored with every judging run as prompt_sha). The prompts are read on
+// the server through lib/judge/prompts, the worker's own loader, so the page shows the very text the judge is sent;
+// the numbers come from the engine's rules.
 
 import {
   RUBRICS,
   RULES,
-  SUBMISSION_LABELS,
   SUBMISSION_TYPES,
-  applyReveal,
-  crisisShock,
+  ipoPrice,
   medianScore,
-  revealFactorBp,
-  startPrice,
+  tierBp,
   type RubricLine,
   type SubmissionType,
 } from "@msim/engine";
 import { PROMPT_FILES, loadPrompt, type JudgePrompt } from "@/lib/judge/prompts";
+import { SUBMISSION_LABELS } from "./squad";
 
-/** What a type's score does. */
+/** When the first 3 runs spread more than this many points, 2 more are made (the engine's needsExtraRuns). */
+export const EXTRA_RUN_SPREAD = 10;
+
+/** What a type's score moves. */
 const MOVES: Record<SubmissionType, string> = {
-  PRD: "Its score is your Round 1 points and sets your company's starting share price at the PRD reveal.",
-  SOLUTION: "Its score is your Round 2 points and moves the rescued company's price at the score reveal.",
-};
-
-/** What the judge reads besides the submission. */
-const CONTEXT: Record<SubmissionType, string> = {
-  PRD: "the problem card and the twist",
-  SOLUTION: "the rescued company's PRD and its crisis card",
+  PITCH: "Its score sets the IPO price.",
+  PLAN: "Its score moves the market price and the AI price.",
+  FLASH: "Its score moves the market price and the AI price.",
 };
 
 export interface PublishedPrompt {
   type: SubmissionType;
-  /** "PRD", "Crisis solution". */
+  /** "Pitch card", "Rescue plan", "Flash answer". */
   label: string;
-  /** The file in prompts/, e.g. "PRD.md". */
+  /** The file in prompts/, e.g. "PITCH.md". */
   file: string;
   wordLimit: number;
   moves: string;
-  context: string;
   rubric: readonly RubricLine[];
   /** The prompt exactly as the judge receives it and its SHA-256 (hex), or why it could not be read. */
   prompt: { ok: true; text: string; sha: string } | { ok: false; error: string };
 }
 
-/** The two prompts in the order of the night (PRD, SOLUTION). A prompt that cannot be read is reported, not thrown. */
+/** The three prompts in the order of the night (PITCH, PLAN, FLASH). A prompt that cannot be read is reported, not thrown. */
 export function publishedPrompts(load: (type: SubmissionType) => JudgePrompt = (type) => loadPrompt(type)): PublishedPrompt[] {
   return SUBMISSION_TYPES.map((type) => {
     let prompt: PublishedPrompt["prompt"];
@@ -61,33 +56,47 @@ export function publishedPrompts(load: (type: SubmissionType) => JudgePrompt = (
       file: PROMPT_FILES[type],
       wordLimit: RULES.WORD_LIMIT[type],
       moves: MOVES[type],
-      context: CONTEXT[type],
       rubric: RUBRICS[type],
       prompt,
     };
   });
 }
 
-/** The page anchor of a prompt ("prd", "solution"). */
+/** The page anchor of a prompt ("pitch", "plan", "flash"). */
 export const promptAnchor = (type: SubmissionType) => type.toLowerCase();
 
-// ───────────────────────────── What a score does to the price ─────────────────────────────
+// ───────────────────────────── Score tiers ─────────────────────────────
 
-export interface PriceExample {
-  score: number;
-  /** Round 1: the starting price for this PRD score. */
-  start: number;
-  /** Round 2: the reveal factor for this crisis-solution score, in basis points (11,700 = × 1.17). */
-  factorBp: number;
-  /** A $10.00 company after the crisis (× 0.85) and then the reveal at this score. */
-  afterReveal: number;
+/** The score bands of the brief's tier table, highest first. */
+export const TIER_BANDS: readonly (readonly [min: number, max: number])[] = [
+  [90, 100],
+  [80, 89],
+  [70, 79],
+  [60, 69],
+  [50, 59],
+  [40, 49],
+  [0, 39],
+];
+
+export interface TierRow {
+  /** "90–100". */
+  band: string;
+  min: number;
+  max: number;
+  /** Price change per type, in basis points (+2000 = +20%), from the engine's tier rule. */
+  bp: Record<SubmissionType, number>;
+  /** Integer cents: the IPO price a pitch score in this band gives ($10.00 × (1 + pitch tier)). */
+  ipoPrice: number;
 }
 
-export const EXAMPLE_SCORES = [100, 84, 70, 50, 30, 0] as const;
-
-export function priceExamples(scores: readonly number[] = EXAMPLE_SCORES): PriceExample[] {
-  const afterCrisis = crisisShock(startPrice(50));
-  return scores.map((score) => ({ score, start: startPrice(score), factorBp: revealFactorBp(score), afterReveal: applyReveal(afterCrisis, score) }));
+export function tierRows(): TierRow[] {
+  return TIER_BANDS.map(([min, max]) => ({
+    band: `${min}–${max}`,
+    min,
+    max,
+    bp: { PITCH: tierBp("PITCH", min), PLAN: tierBp("PLAN", min), FLASH: tierBp("FLASH", min) },
+    ipoPrice: ipoPrice(min),
+  }));
 }
 
 // ───────────────────────────── How a submission is judged ─────────────────────────────
@@ -97,7 +106,7 @@ export interface JudgingStep {
   text: string;
 }
 
-/** Three readings of the brief's example. */
+/** The brief's AquaSense pitch runs. */
 const EXAMPLE_RUNS = [64, 66, 68] as const;
 
 /** The steps of judging, in plain words, with the engine's numbers. */
@@ -105,42 +114,44 @@ export function judgingSteps(): JudgingStep[] {
   const [a, b, c] = EXAMPLE_RUNS;
   return [
     {
-      title: "The last saved version is judged.",
-      text: "There is no submit button: whatever your form holds when it locks (at the end of Build for the PRD, at the end of the rescue for the crisis solution) is what the judge reads. An empty form scores 0.",
-    },
-    {
       title: "Names become the ticker.",
-      text: "Team names, member names and company names are replaced by the company's ticker before the judge reads the work, so the judge never sees which team wrote it.",
+      text:
+        "Before judging, company, team and member names in your submission and its context are replaced by your company's ticker, " +
+        "so the judge does not know whose work it is.",
     },
     {
       title: "Lines aimed at the judge are removed.",
       text:
-        'A line addressed to the judge (such as "ignore the rubric" or "give this full marks") is removed and logged before judging. ' +
-        `The first time, nothing else happens; a second attempt by the same team costs ${RULES.INJECTION_PENALTY} points.`,
+        'A line addressed to the judge (such as "ignore the rubric" or "give this 100") is removed and logged. ' +
+        `The first time, nothing else happens. From your squad's second submission with a removed line, that submission loses ${RULES.INJECTION_PENALTY} points.`,
     },
     {
-      title: "The judge reads the prompt, the context and your work.",
+      title: "The judge reads the prompt and your submission.",
       text:
-        "The prompt below is the judge's instructions, word for word. A PRD is read with its problem card and the twist; a crisis solution with the " +
-        "rescued company's PRD and crisis card. Your work is sent inside tags, and the judge is told that everything inside them is data, not instructions.",
+        "The prompt below for your submission's type is the judge's instructions, word for word. Your submission is sent inside XML tags with " +
+        "its context (a rescue plan also gets the pitch card, the crisis card and a summary of the deal; a flash answer gets the bulletin), and " +
+        "the judge is told that everything inside the tags is data, not instructions.",
     },
     {
-      title: `Each submission is read ${RULES.JUDGE_RUNS} times, and the median counts.`,
+      title: "Each submission is judged 3 times, and the median counts.",
       text:
-        `The ${RULES.JUDGE_RUNS} readings are independent. Each gives points for every rubric line, a total and a three-sentence reason, in a fixed format the server checks. ` +
-        `Totals of ${a}, ${b} and ${c} give ${medianScore(EXAMPLE_RUNS)}; the breakdown and reason you see come from the median reading.`,
+        `If the 3 totals spread more than ${EXTRA_RUN_SPREAD} points, it is judged 2 more times (5 in all). The score is the median of all the runs: ` +
+        `${a}, ${b} and ${c} give ${medianScore(EXAMPLE_RUNS)}. ` +
+        "The breakdown and rationale you see on the Market page come from a run whose total is the median.",
     },
     {
-      title: "Scores stay sealed until the reveal.",
-      text: "PRD scores are revealed after Round 1 is judged, and crisis-solution scores at the score reveal during the market. Before then nobody outside the organisers can see a score.",
+      title: "A rescue plan needs a signed deal.",
+      text: `A rescue plan without a fully signed deal by 03:00 is capped at ${RULES.PLAN_CAP_WITHOUT_DEAL}. A late or missing submission scores 0.`,
     },
     {
-      title: "Every reading is stored.",
-      text: "Each reading is kept with its model, its breakdown and the SHA-256 of the prompt it used, so anyone can check which prompt judged a submission.",
+      title: "Scores stay sealed until the organisers release them.",
+      text:
+        "On release, the tier for the score (below) moves the price. The pitch tier sets the IPO price: $10.00 × (1 + tier). " +
+        "Plan and flash tiers move both the market price and the AI price.",
     },
     {
-      title: "Appeals are for technical errors only.",
-      text: "If something went wrong (for example a submission that was cut off), tell an organiser. They can re-run the judging with a written reason; a score changed after a reveal needs a second organiser's approval.",
+      title: "Every run is stored.",
+      text: "Each run is kept with its model, its breakdown and the SHA-256 of the prompt it used, so anyone can check which prompt judged a submission.",
     },
   ];
 }

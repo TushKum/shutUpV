@@ -1,104 +1,87 @@
-# Runbook: the night, step by step
+# Runbook: the night, minute by minute
 
-For the organisers on duty on Friday 20 November 2026. Setting up is in [docs/DEPLOY.md](docs/DEPLOY.md); how the
-judge works is in [docs/JUDGE.md](docs/JUDGE.md). Times are the **planned** times in IST: the night starts when you
-start it, and every later time follows from the actual starts and the durations on **Timing** (`/admin/<slug>/timing`).
-*(auto)* marks what the system does by itself (the database's clock ticks every 2 seconds); everything else is a click
-on the control panel, `/admin/<slug>`. A
-two-click button says "Click again to …": the second click counts only for what the first one showed.
+For the organisers on duty. Deployment and preparation are in [docs/DEPLOY.md](docs/DEPLOY.md); the judge in
+[docs/JUDGE.md](docs/JUDGE.md); the briefing, announcements, registration desk and participant handbook in
+[docs/event/](docs/event/README.md). Times are IST. Everything the system does by itself is marked *(auto)*; everything
+else is a click on the control panel, `/admin/<slug>`. A two-click button asks "Click again to …": the second click
+counts only for what the first one showed.
 
-## Roles
+## Roles on the night
 
 | Who | Where | Job |
 |---|---|---|
-| Event lead (organiser) | laptop 1, **Timing** | starts the night, ends phases, runs the lottery, pauses, extends, ends the night, talks to the room |
-| AI desk (organiser) | laptops 2 and 3, **Judge** | keeps **Run the judge here** on, watches every score seal, handles re-runs |
-| Exchange desk (organiser) | laptop 4, **Rounds** and **Ledger** | watches rounds open and clear; approves ledger corrections and appeals (the second organiser) |
-| Fairness officer (faculty) | own laptop, **Fairness** | reviews collusion flags in Settlement and decides each one |
-| Tech on call | any laptop, **Health** and the Supabase and Vercel dashboards | connections, errors, the venue network |
-| Registration desk | printed login cards | one card per team; the 3 backup cards (B001–B003) for walk-ins and replacements; reprints with `pnpm cards … --only <codes>` |
-| Projector | a laptop signed in with a display account | `/display/<slug>` in full screen (F11) |
+| Event lead (organiser) | laptop 1, Phase page | advances the night, pauses, extends, talks to the room |
+| Exchange desk (organiser) | laptop 2, Rounds + Ledger | watches rounds clear, approves corrections (needs a second person) |
+| AI desk (organiser) | laptop 3, Judge page | starts judging, keeps "Run the judge here" on, releases scores, appeals |
+| Fairness officer | own laptop, Fairness page; Chats | reads the squad chats when something looks wrong (from 21:00); decides collusion flags (05:00–05:40) |
+| Tech on call | any laptop, Health page + Supabase/Vercel dashboards | connections, errors, the venue network |
+| Registration desk | printed cards | one card per team; reprints with `pnpm cards … --only <codes>` (docs/event/staff/REGISTRATION.md) |
 
-Keep the organiser laptops on wired or staff network, on power. Keep the main page open on laptop 1 all night: an
-open control panel also ticks the event, as a backup to the database's clock.
+Keep laptops 1–3 on a wired or staff network. Keep the Phase page open on laptop 1 all night: an open control panel
+also ticks the event (a backup to the database's 2-second heartbeat).
 
 ## Before 19:30
 
-- [ ] **Health:** the heartbeat is green, no tick errors, the event is in SETUP.
-- [ ] **Lottery:** the seed commitment shows, and it is the one published to teams. The secret seed is with the event
-      lead only (sealed envelope).
-- [ ] **Content:** 50+ problem cards, 10 crisis cards, the twist written. The SETUP gate is clear (the main page says
-      nothing is missing).
-- [ ] **Judge:** a calibration batch from this week, samples in range; both rounds on the **primary** model; the
-      prompt files show their SHA-256. No FAKE JUDGE badge.
-- [ ] **Projector:** signed in with a display account, full screen, showing the evening countdown.
-- [ ] **Timing:** the durations are right (Timing → Phases and rounds; preview, then apply), and the mode is chosen:
-      **Advance when timer expires** (phases end on time unless something holds them: the lottery, unsealed scores,
-      open flags) or **Manual advance** (the next phase waits for you; forms and rounds still close on time). The
-      awards are untimed: the night ends when you click **End the night**.
-- [ ] A test team card works on a phone on the venue Wi-Fi and on mobile data.
-- [ ] Two rumours written and ready to publish (Bulletins), for 00:30 and 01:00.
+- [ ] /admin → Health: the heartbeat is green, no tick errors, the event is in SETUP.
+- [ ] The seed commitment is published (Lottery page) and on the projector slide; the secret seed is on paper with the
+      event lead only.
+- [ ] Both decks are uploaded (Content); the flash bulletin is prepared (Bulletins).
+- [ ] Judge → Calibration: a batch from today, samples near their bands, the current prompt SHA and model.
+- [ ] Projectors: signed in with display accounts, `/display` in full screen (F11), showing the event.
+- [ ] Auto-advance: decide on or off (Phase page). With it on, phases end at their planned time when nothing holds
+      them; holds (unreleased scores, open flags) still need a click.
+- [ ] A test team login works on a phone on the venue Wi-Fi and on mobile data.
 
 ## The night
 
 | Time | Phase | Do | Watch |
 |---|---|---|---|
-| 20:00 | SETUP → CHECKIN | **Timing → Start the night…**: check the preview, then confirm. Hand out the cards (one per team). | Health: connected screens rising towards 200 |
-| 20:00–21:15 | CHECKIN, BRIEFING | **Teams:** withdraw teams that did not come, and activate a backup card (B001–B003) for a walk-in team or a replacement. Only possible **before the lottery**: at the draw, only the playing teams get a company. | Teams: the number playing; the problem deck needs one card per three playing teams |
-| 20:45 | BRIEFING | Explain the night; show "How judging works" (`/team/judging`) on the projector. | |
-| 21:15 | BRIEFING → BUILD | **Lottery:** enter the secret seed and roll the dice in front of the room (two clicks). The problem cards are dealt; BUILD starts. | Lottery page: "verified"; teams' **Round 1** pages show their card |
-| 22:15 | BUILD | *(auto)* the twist is published to every screen. | The twist takeover on the projector |
-| 23:00 | → JUDGING_1 | *(auto)* the PRD forms lock; three readings per PRD are queued. **Judge:** "Run the judge here" on, on laptops 2 and 3. | Judge: readings done climbing; every score sealed by about 23:25 |
-| 23:30 | REVEAL_1 | *(auto, once every PRD score is sealed)* starting prices and the top 5 PRDs. | The reveal on the projector; teams see score and reason |
-| 23:45 | CRISIS_QA | *(auto)* crisis cards, every price −15%, the rescue circle, the seed published. Q&A board opens. | The crisis takeover |
-| 00:15 | RESCUE | *(auto)* questions close; crisis solutions continue. **00:30 and 01:00:** publish a rumour (Bulletins). | |
-| 01:45 | → JUDGING_2 | *(auto)* the solution forms lock; readings queued. Keep "Run the judge here" on. | Every score sealed well before 02:45 (they stay secret) |
-| 02:15 | MARKET_BLIND | *(auto)* all solutions published (no scores); trading rounds 1 and 2. | Rounds: each round clears within seconds of its close |
-| 02:45 | MARKET | *(auto, once every solution score is sealed)* the score reveal moves prices; rounds 3–9. | The reveal takeover; Rounds page |
-| 03:30 | MARKET | *(auto)* the leaderboard freezes (hidden from teams and the projector until the awards). | |
-| 04:30 | → SETTLEMENT | *(auto)* the closing bell: closing prices, Round 3 points, totals, awards, collusion flags. | The closing bell takeover |
-| 04:30–05:10 | SETTLEMENT | **Fairness officer:** review each flag (Fairness), clear or disqualify with a written reason. | The main page shows what still holds the awards |
-| 05:15 | AWARDS | *(auto, once every flag is decided)* the awards, revealed one by one on the projector, the winner last. | |
-| after the last award | AWARDS | **Timing → End the night** (two clicks). `pnpm certificates --event <slug>` and print. | Every screen says the night is over |
-
-**Giving someone access.** Any organiser can make another person an organiser: **Access → Give organiser access**
-(name and email). The password is shown once on the screen: hand it over in person. The same page resets a password or
-removes someone's access. Nobody can remove their own access.
+| 20:00 | CHECKIN | Hand out cards. Advance from SETUP when the room is ready. | Health: connected screens rising |
+| 20:30 | BRIEFING | Explain the night; show `/team/judging` (the published prompts). | |
+| 21:00 | SQUAD_DRAW | Lottery: enter the seed and roll the dice (two clicks). The projector shows the seed check. | "Draw verified" on the Lottery page |
+| 21:10 | BUILD | *(auto)* teams that did not pick get their first dealt card at 21:10. | |
+| 22:30 | READING | *(auto)* pitches close. **Judge: Start judging (Pitch)**, "Run the judge here" on 2–3 consoles. | Progress view: all sealed well before 23:15 |
+| 23:15 | → IPO | After call 1 closes (23:15): **Seal missing as 0**, then **Release pitch scores**. Advance to IPO. | IPO prices on the projector |
+| 23:30 | ROUNDS 1–4 | *(auto)* the IPO is allocated; rounds open and clear every 15 minutes. | Rounds page: each round clears in seconds |
+| 00:30 | CRISIS | *(auto)* crisis cards, −15%, the seed is revealed. | The crisis takeover on the projector |
+| 00:45 | RESCUE_1 | *(auto)* rounds 5–8; default fees at 01:05. | |
+| 01:45 | BREAK | Trading paused 15 minutes. | |
+| 02:00 | RESCUE_2 | Rounds 9–12; deal bonus cutoff 02:45, plans and deals close 03:00. | |
+| 03:00 | PLANS_PUBLISHED | **Start judging (Plan)** at once; plans are public. | Progress: all sealed by 03:25 |
+| 03:30 | VERDICTS | **Seal missing as 0**, **Release plan scores**. Advance. | The verdicts takeover |
+| 03:30 | ROUNDS 13–21 | 10-minute rounds. **04:00: Publish the flash bulletin** (Bulletins). | |
+| 04:15 | | Flash answers close. **Start judging (Flash)** immediately: only 5 minutes until 04:20. | Progress view pace |
+| 04:20 | | After round 17 clears: **Seal missing as 0**, **Release flash scores** (round 18 waits for it). | |
+| 05:00 | CLOSE | *(auto)* shorts covered, closing prices; the closing bell. | |
+| 05:00 | SETTLEMENT | *(auto)* bonuses, results, collusion flags. Fairness officer starts deciding flags. | Fairness page |
+| 05:30 | APPEALS | Technical appeals only: Judge → re-run with a reason → apply or dismiss the new score. | The gate lists what still holds the awards |
+| 05:40 | AWARDS | Advance when the gate is clear: the rankings appear on every screen. | The awards takeover |
 
 ## When something goes wrong
 
-**First rule: pause, then think.** **Pause** (main page, two clicks) freezes every countdown and refuses every action;
-**Resume** gives back exactly the time that was left. Tell the room before you resume.
-
-**Changing the timing.** On **Timing**, edit a duration (or tick *Untimed*), click **Preview changes**, read the
-before/after list, then **Apply**. Anything that comes earlier is marked and needs a second click; teams get a toast
-and a banner naming each moved deadline. **End <phase>…** shows the next phase, what still holds it and every time
-that moves before you confirm. If another console changed the timing first, your change is refused ("changed on
-another console"): look at the new times and try again.
+**Rule one: pause first, think second.** "Pause" (Phase page) freezes the order book and every countdown; "Resume"
+gives back exactly the time that was left. Tell the room before you resume.
 
 | Symptom | Likely cause | Do |
 |---|---|---|
-| A lock, reveal or round does not happen on time | the database clock stopped | Keep the main page open (it ticks too). Health shows the heartbeat and tick errors. If a round is past its close: Timing → "Close a round early" (Clear fills the pending orders; Cancel cancels them). |
-| The phase does not move on | something holds it | The main page says what: the lottery not run, scores not sealed, flags not decided. Deal with that; auto-advance continues. |
-| Many teams cannot sign in | venue Wi-Fi, or Supabase's sign-in rate limit | Mobile data; raise Auth → Rate Limits in Supabase; ask venue IT. Reprint a lost card with `pnpm cards … --only <code>`. |
-| Screens show a grey live dot | Realtime limit or the network | Screens re-read by themselves; nothing is lost. Reload a projector if it stays grey. Check Supabase → Realtime usage. |
-| The website is down | a Vercel problem | Pause (Supabase SQL editor: `select public.pause_event('<event id>');`). Roll back to the last good deployment in Vercel. Resume when it is back. |
-| The database is down | a Supabase incident | Nothing changes while it is down, so nothing is lost. Announce, wait, then **Extend** the phase by the lost minutes. |
-| Judging is slow | rate limits or a slow model | Switch "Run the judge here" on a third laptop, or run `pnpm judge-worker --event <slug>` on a laptop. |
-| "The judge stopped: …" (a configuration error) | a bad API key or model name | Fix the Vercel variable, redeploy, switch "Run the judge here" on again: the readings went back to the queue. |
-| Many failed readings | a round's model is failing | Judge → "Switch to backup" for that round, then "Retry failed readings". |
-| The AI service is down (both models fail) | a provider outage | **Extend** the judging phase. Switch "Run the judge here" off. Three human judges score each submission on paper against the published rubric; type the marks into a CSV and run `pnpm human-scores --event <slug> --type PRD --file prd.csv` (or `SOLUTION`). Scores seal and reveal as usual. |
-| A score must be re-judged | a technical error (a submission cut off) | Judge → the company → Re-run, with the reason. Before its reveal, the new score replaces the old. After its reveal, a **second** organiser approves or dismisses it under "Re-runs and appeals"; approving re-applies the score's price effect. |
-| A team's money or shares are wrong | a mistake to correct | Ledger → Corrections: one organiser requests, a second approves. Nobody edits a price or a score. |
-| The room needs more time | a phase is behind | Timing → **Extend** (+N min, previewed first; extends the open round, else the phase), or make the phase longer, or untimed and end it by hand. |
-| Power cut in the hall | power | Pause. Move the projector and organiser desk to backup power; resume when teams can work again. |
+| Rounds do not open or clear on time | the database heartbeat stopped | Keep the Phase page open (it ticks too). Health shows tick errors; if the open round is past its close, use "Close round N now". Check `select * from cron.job` in Supabase. |
+| Many teams cannot log in | venue Wi-Fi, or the Auth rate limit | Mobile data; check Supabase → Auth → Rate limits; ask venue IT. Reprint a lost card with `pnpm cards … --only <code>` (the seeding options; docs/event/staff/REGISTRATION.md). |
+| Screens show "Reconnecting…" or a grey realtime dot | Realtime limits or the network | Screens re-read by themselves every 10 s; nothing is lost. Check Supabase → Realtime usage; reload a projector if it stays grey. |
+| The site is down (Vercel) | deploy or platform problem | Pause the event in the Supabase SQL editor: `select public.pause_event('<event id>');`. Roll back to the last good deployment in Vercel. Resume when back. |
+| The database is down | Supabase incident | Nothing can change while it is down, so no state is lost; the heartbeat resumes by itself. Announce, wait, then extend the phase (Phase page → Extend) by the lost minutes. |
+| The judge is slow | rate limits or a slow model | Open a third console with "Run the judge here", or run `pnpm judge-worker --event <slug>` on a laptop. |
+| The judge reports a configuration error | bad API key or model name | Fix the Vercel variable, redeploy, switch the runner on again: the runs went back to the queue. |
+| Many failed runs | the primary model is failing | "Switch to the backup model", then "Retry N failed runs". |
+| The AI service is down (primary and backup both fail) | provider outage | Pause or extend the phase. Switch "Run the judge here" off. Call the human panel and follow [docs/event/staff/HUMAN-JUDGING.md](docs/event/staff/HUMAN-JUDGING.md): paper score sheets, one CSV per type, `pnpm human-scores --event <slug> --type <TYPE> --file <csv>`, then release as usual. |
+| A score must be re-judged | technical appeal | Judge → the company → Re-run, with the reason. Before the release the new score replaces the old one; after the release it waits until you apply or dismiss it. A released pitch cannot be re-judged (the IPO is done). |
+| A team's money or shares are wrong | a mistake to correct | Ledger → Corrections: one organiser requests, a second approves. Nobody can edit a price. |
+| A phase needs more time | the room is behind | Phase → Extend by N minutes (moves every later time). |
+| A team reports abuse or pressure in its squad chat | a squad dispute | Chats → that squad (or search every chat). Read it with the fairness officer, then talk to the squad in person. Chats cannot be edited; every message is in the audit log. |
+| Team pages work but the "Do this now" bar is missing | the app is newer than the database | Apply the missing migrations (`supabase db push`); the bar comes back on the next page load. |
 
 ## After 06:00
 
-1. Print the certificates (`pnpm certificates --event <slug>`).
-2. **Exports:** download the ledger, prices, scores and results (CSV), and the public lottery record; store them
-   encrypted on the shared drive.
-3. Rotate the Anthropic key and the Supabase service_role key; delete `out/` from the laptop once its files are
-   archived.
-4. Purge rehearsal events (`select public.purge_event('<rehearsal slug>');`, rehearsals only) and scale the Supabase
-   and Vercel plans back down.
+1. Exports: ledger, prices, scores, results (CSV) to the shared drive.
+2. Revoke the Anthropic key; rotate the Supabase service_role key; delete `out/` from the laptop.
+3. Purge rehearsal events: `select public.purge_event('<slug>');` (rehearsals only).
+4. Scale the Supabase compute and Vercel plan back down.
