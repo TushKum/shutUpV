@@ -16,18 +16,18 @@ describe("focus mode", () => {
   test("each round shows only its sections", () => {
     expect(labels(focusSections("PRODUCT", "SETUP"))).toEqual(["Home", "Bulletins", "Judging"]);
     expect(labels(focusSections("PRODUCT", "BUILD"))).toEqual(["Home", "Squad", "Chat", "Market", "Q&A", "Bulletins"]);
-    expect(labels(focusSections("PRODUCT", "RESCUE_1"))).toEqual(["Home", "Squad", "Rescue", "Chat", "Market", "Bulletins"]);
-    expect(labels(focusSections("CONSULTING", "ROUNDS_13_21"))).toEqual(["Home", "Squad", "Chat", "Calls", "Market", "Bulletins"]);
+    expect(labels(focusSections("PRODUCT", "RESCUE_1"))).toEqual(["Home", "Squad", "Rescue", "Chat", "Market", "Q&A", "Bulletins"]);
+    expect(labels(focusSections("CONSULTING", "ROUNDS_13_21"))).toEqual(["Home", "Squad", "Chat", "Calls", "Market", "Q&A", "Bulletins"]);
     expect(labels(focusSections("FINANCE", "IPO"))).toEqual(["Home", "Trade", "Chat", "Market", "Q&A", "Bulletins"]);
-    expect(labels(focusSections("FINANCE", "CRISIS"))).toEqual(["Home", "Trade", "Rescue", "Chat", "Market", "Bulletins"]);
+    expect(labels(focusSections("FINANCE", "CRISIS"))).toEqual(["Home", "Trade", "Rescue", "Chat", "Market", "Q&A", "Bulletins"]);
     // The results show everything.
     expect(focusSections("CONSULTING", "AWARDS")).toEqual([...TEAM_SECTIONS.CONSULTING]);
   });
 
   test("the section a 'do this now' task points to is never hidden", () => {
-    expect(labels(focusSections("PRODUCT", "RESCUE_1", "/team/qa"))).toContain("Q&A");
-    expect(inFocus("PRODUCT", "RESCUE_1", "/team/qa", "/team/qa")).toBe(true);
-    expect(inFocus("PRODUCT", "RESCUE_1", "/team/qa")).toBe(false);
+    expect(labels(focusSections("PRODUCT", "RESCUE_1", "/team/ledger"))).toContain("Ledger");
+    expect(inFocus("PRODUCT", "RESCUE_1", "/team/ledger", "/team/ledger")).toBe(true);
+    expect(inFocus("PRODUCT", "RESCUE_1", "/team/ledger")).toBe(false);
   });
 
   test("pages are matched by section, and a hidden page says when it opens", () => {
@@ -37,7 +37,7 @@ describe("focus mode", () => {
     expect(inFocus("FINANCE", "ROUNDS_1_4", "/team/ledger")).toBe(false);
     expect(opensIn("FINANCE", "ROUNDS_1_4", "/team/rescue")).toBe("ROUND_2");
     expect(opensIn("FINANCE", "ROUNDS_1_4", "/team/ledger")).toBe("RESULTS");
-    expect(opensIn("PRODUCT", "RESCUE_1", "/team/qa")).toBe("RESULTS");
+    expect(opensIn("PRODUCT", "RESCUE_1", "/team/judging")).toBe("RESULTS");
   });
 
   test("the squad tabs follow the round", () => {

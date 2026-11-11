@@ -101,22 +101,22 @@ const ROUND_PATHS: Record<Track, Record<Stage, readonly string[]>> = {
   PRODUCT: {
     BEFORE: ["", "/bulletins", "/judging"],
     ROUND_1: ["", "/squad", "/chat", "/qa", "/market", "/bulletins"],
-    ROUND_2: ["", "/rescue", "/squad", "/chat", "/market", "/bulletins"],
-    ROUND_3: ["", "/squad", "/chat", "/market", "/bulletins"],
+    ROUND_2: ["", "/rescue", "/squad", "/chat", "/qa", "/market", "/bulletins"],
+    ROUND_3: ["", "/squad", "/chat", "/qa", "/market", "/bulletins"],
     RESULTS: [],
   },
   CONSULTING: {
     BEFORE: ["", "/bulletins", "/judging"],
     ROUND_1: ["", "/squad", "/calls", "/chat", "/qa", "/market", "/bulletins"],
-    ROUND_2: ["", "/rescue", "/squad", "/chat", "/market", "/bulletins"],
-    ROUND_3: ["", "/squad", "/calls", "/chat", "/market", "/bulletins"],
+    ROUND_2: ["", "/rescue", "/squad", "/chat", "/qa", "/market", "/bulletins"],
+    ROUND_3: ["", "/squad", "/calls", "/chat", "/qa", "/market", "/bulletins"],
     RESULTS: [],
   },
   FINANCE: {
     BEFORE: ["", "/bulletins", "/judging"],
     ROUND_1: ["", "/trade", "/chat", "/qa", "/market", "/bulletins"],
-    ROUND_2: ["", "/rescue", "/trade", "/chat", "/market", "/bulletins"],
-    ROUND_3: ["", "/trade", "/chat", "/market", "/bulletins"],
+    ROUND_2: ["", "/rescue", "/trade", "/chat", "/qa", "/market", "/bulletins"],
+    ROUND_3: ["", "/trade", "/chat", "/qa", "/market", "/bulletins"],
     RESULTS: [], // every section, for the results
   },
 };
