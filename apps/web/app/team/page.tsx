@@ -15,6 +15,9 @@ import { inThisRound } from "@/lib/team/focus";
 import { Glyph } from "@/components/ui/matrix/glyph";
 import { CipherText } from "@/components/ui/matrix/cipher-text";
 import { DitherLayer } from "@/components/ui/matrix/dither-layer";
+import { scoreNow } from "@/lib/team/badges";
+import { loadBadges } from "@/lib/team/badges-data";
+import { BadgesCard } from "./badges-card";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -35,6 +38,9 @@ export default async function TeamHome() {
   const data = await loadHomeData(ctx);
   const plan = homePlan(data.facts);
   const holdings = holdingsView(data.holdings, data.companies);
+  // The team's own score now, and its badges (both only about this team: the rankings stay hidden until the awards).
+  const score = scoreNow(team.track, team.cash, holdings.total, company?.ipo_price ?? null);
+  const badges = await loadBadges(score.value);
   const nowMs = data.facts.nowMs;
   const times = [...plan.now.map((t) => t.due), ...plan.next.map((n) => n.at)]
     .filter((t): t is string => !!t && new Date(t).getTime() > nowMs)
@@ -84,6 +90,8 @@ export default async function TeamHome() {
         )}
       </section>
 
+      <ScoreNow track={team.track} score={score} />
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Tile icon="💵" label="Cash" tone="ring-phosphor">
           <span data-testid="home-cash">{money(team.cash)}</span>
@@ -132,6 +140,8 @@ export default async function TeamHome() {
           )}
         </Tile>
       </div>
+
+      {badges ? <BadgesCard badges={badges} /> : null}
 
       <Card icon="⏭️" title="Coming up this round">
         {comingUp.length === 0 ? (
@@ -211,6 +221,35 @@ export default async function TeamHome() {
 
       {status.paused ? <Notice tone="amber">While the event is paused, countdowns keep running but no deadline passes; each moves later on resume.</Notice> : null}
     </div>
+  );
+}
+
+/** The team's own value now and how it has moved since its start (a consultancy shows what it has earned). */
+function ScoreNow({ track, score }: { track: string; score: ReturnType<typeof scoreNow> }) {
+  if (score.value === null) return null;
+  const up = score.changeBp !== null && score.changeBp >= 0;
+  return (
+    <section className="mx-panel glow-box flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4" aria-label="Your score now" data-testid="score-now">
+      <div>
+        <p className="flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-wide text-muted">
+          <span className="text-base text-phosphor" aria-hidden>
+            <Glyph e="📈" />
+          </span>
+          {track === "CONSULTING" ? "Earned so far" : "Your score now"}
+        </p>
+        <p className="mt-1 font-mono text-3xl font-extrabold tabular-nums text-phosphor glow" data-testid="score-now-value">
+          {money(score.value)}
+        </p>
+      </div>
+      {score.changeBp !== null ? (
+        <p className={`rounded-xl px-3 py-2 font-mono text-lg font-extrabold tabular-nums ring-1 ${up ? "text-phosphor ring-phosphor" : "text-danger-soft ring-danger"}`} data-testid="score-now-change">
+          {up ? "▲ +" : "▼ "}
+          {(score.changeBp / 100).toFixed(2)}% <span className="text-xs font-normal text-muted">since the start</span>
+        </p>
+      ) : (
+        <p className="text-sm text-muted">Only your own score: who is winning stays a secret until the awards!</p>
+      )}
+    </section>
   );
 }
 
