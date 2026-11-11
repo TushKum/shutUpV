@@ -86,12 +86,11 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                 <span className="text-lg text-[var(--term-amber)]" aria-hidden>
                   <Glyph e={TRACK_EMOJI[team.track]} />
                 </span>
-                <h1 className="text-lg font-bold text-[var(--term-amber)]">
-                  {team.code}
-                  <span className="term-cursor ml-0.5" aria-hidden>
-                    ▮
-                  </span>
-                </h1>
+                {/* The cursor sits beside the heading, so the heading reads exactly the team code. */}
+                <h1 className="text-lg font-bold text-[var(--term-amber)]">{team.code}</h1>
+                <span className="term-cursor -ml-1.5 text-lg text-[var(--term-amber)]" aria-hidden>
+                  ▮
+                </span>
                 <Badge tone="slate">{portal ? PORTAL_TITLES[portal] : TRACK_LABELS[team.track]}</Badge>
                 <span className="hidden truncate text-sm uppercase text-muted sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
@@ -107,7 +106,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             <dl className="grid grid-cols-2 gap-px bg-line text-sm sm:grid-cols-4">
               <div className="bg-ink px-4 py-1.5">
                 <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Phase</dt>
-                <dd className="font-semibold text-paper" data-testid="team-phase">
+                <dd className="font-semibold text-paper" data-testid="header-phase">
                   {PHASE_LABELS[status.phase]}
                   {status.phase_ends_at ? (
                     <span className="ml-1 text-muted">

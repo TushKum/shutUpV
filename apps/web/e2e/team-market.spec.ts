@@ -150,8 +150,8 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
   await expect(page.getByTestId("verdict-PITCH")).toContainText("Problem and target user20/20");
   await expect(page.getByTestId("verdict-PITCH")).toContainText("One. Two. Three.");
   await expect(history(page)).toHaveCount(2);
-  // The chart draws the same two steps, the IPO tagged.
-  await expect(page.getByTestId("price-chart").locator("circle")).toHaveCount(2);
+  // The chart draws the same two steps (its candles describe themselves in the accessible label).
+  await expect(page.getByTestId("price-chart").getByRole("img").first()).toHaveAttribute("aria-label", /2 steps\.$/);
   await expect(page.getByTestId("price-chart").getByRole("img")).toHaveAttribute("aria-label", /price by step: IPO price \$10\.50, Round 1 \$10\.82/);
   await expect(history(page).nth(0).getByRole("cell")).toHaveText(["IPO price", /^\d\d:\d\d$/, "$10.50", "—", "$10.50", "Pitch tier +5% on $10.00"]);
   await expect(history(page).nth(1).getByRole("cell")).toHaveText([
