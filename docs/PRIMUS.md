@@ -56,7 +56,7 @@ Trading rounds run all through `PRESSURE` and `SATURATION` (15-minute windows, Â
 
 ## Three team portals
 
-One app, deployed three times. Each deployment sets `TEAM_PORTAL` to `PRODUCT`, `CONSULTING` or `FINANCE`: its sign-in
+One app. A deployment picks its portal from `TEAM_PORTAL`, or else from its host name (a first label containing `product`, `consulting` or `finance`, so one deployment can serve three aliases). It sets `TEAM_PORTAL` to `PRODUCT`, `CONSULTING` or `FINANCE`: its sign-in
 page names the portal, it admits only that track's teams (a team at the wrong portal is signed out and told where to
 go; set `PORTAL_URL_PRODUCT`, `PORTAL_URL_CONSULTING` and `PORTAL_URL_FINANCE` to name the addresses), and its pages are
 that track's only. A deployment without `TEAM_PORTAL` admits every team (the organisers' console and rehearsals).

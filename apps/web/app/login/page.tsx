@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
   const viewer = await getViewer();
-  const portal = teamPortal();
+  const portal = await teamPortal();
   if (viewer) redirect(safeNext(nextPath, viewer.role));
 
   return (

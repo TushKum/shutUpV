@@ -10,9 +10,23 @@ export function parsePortal(value: string | undefined): Track | null {
   return v && (TRACKS as readonly string[]).includes(v) ? (v as Track) : null;
 }
 
-/** This deployment's track, or null when it serves every track. */
-export function teamPortal(): Track | null {
-  return parsePortal(process.env.TEAM_PORTAL ?? process.env.NEXT_PUBLIC_TEAM_PORTAL);
+/**
+ * The portal a host name names: its first label contains "product", "consulting" or "finance" (so one deployment can
+ * serve three addresses, e.g. primus-product.vercel.app, primus-finance.vercel.app), or null.
+ */
+export function portalOfHost(host: string | null | undefined): Track | null {
+  const label = (host ?? "").toLowerCase().split(":")[0]!.split(".")[0]!;
+  const hits = TRACKS.filter((t) => label.includes(t.toLowerCase()));
+  return hits.length === 1 ? hits[0]! : null;
+}
+
+/** This deployment's track (TEAM_PORTAL, else the request's host name), or null when it serves every track. */
+export async function teamPortal(): Promise<Track | null> {
+  const fixed = parsePortal(process.env.TEAM_PORTAL ?? process.env.NEXT_PUBLIC_TEAM_PORTAL);
+  if (fixed) return fixed;
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  return portalOfHost(h.get("x-forwarded-host") ?? h.get("host"));
 }
 
 /** May a team of this track use this deployment? */

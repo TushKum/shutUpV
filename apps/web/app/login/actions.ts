@@ -55,7 +55,7 @@ export async function signIn(_prev: LoginState, form: FormData): Promise<LoginSt
     return { error: "This login is not set up for the event. Please go to the technical support desk.", login };
   }
   // A track's portal admits only that track's teams (organisers can sign in everywhere).
-  const portal = teamPortal();
+  const portal = await teamPortal();
   if (portal && viewer.team && !portalAdmits(portal, viewer.team.track)) {
     await sb.auth.signOut();
     return { error: wrongPortalMessage(portal, viewer.team.track, portalUrl(viewer.team.track)), login };

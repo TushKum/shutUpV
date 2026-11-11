@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { parsePortal, portalAdmits, portalUrl, teamPortal, wrongPortalMessage } from "./portal";
+import { parsePortal, portalAdmits, portalOfHost, portalUrl, teamPortal, wrongPortalMessage } from "./portal";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -10,7 +10,14 @@ describe("team portals", () => {
     expect(parsePortal("")).toBeNull();
     expect(parsePortal("ADMIN")).toBeNull();
     vi.stubEnv("TEAM_PORTAL", "CONSULTING");
-    expect(teamPortal()).toBe("CONSULTING");
+    return expect(teamPortal()).resolves.toBe("CONSULTING");
+  });
+  test("or the host name says which portal it is", () => {
+    expect(portalOfHost("primus-finance.vercel.app")).toBe("FINANCE");
+    expect(portalOfHost("primus-product-team.vercel.app:443")).toBe("PRODUCT");
+    expect(portalOfHost("primus.vercel.app")).toBeNull();
+    expect(portalOfHost("product-finance.example.com")).toBeNull();
+    expect(portalOfHost(null)).toBeNull();
   });
   test("a track's portal admits only that track", () => {
     expect(portalAdmits(null, "FINANCE")).toBe(true);

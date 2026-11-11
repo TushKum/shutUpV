@@ -40,7 +40,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const ctx = await loadTeamContext();
   const { team, event, status } = ctx;
   // A track's portal shows only that track's pages: a team of another track (an old session) is sent to its own.
-  const portal = teamPortal();
+  const portal = await teamPortal();
   if (portal && !portalAdmits(portal, team.track)) {
     return (
       <main className="term flex min-h-dvh items-center justify-center px-4">
