@@ -6,6 +6,7 @@
 import {
   DEADLINE_LABELS,
   LOT_TYPES,
+  subroundDeadlineLabels,
   phaseIndex,
   phaseReached,
   value,
@@ -43,7 +44,7 @@ export interface HomeProgress {
   /** One case for every squad: a single card was dealt and chosen at the draw, so there is no pick. */
   oneCase?: boolean;
   /** The squad has a current (on-time) submission of this type. */
-  submitted: Record<SubmissionType, boolean>;
+  submitted: Partial<Record<SubmissionType, boolean>>;
   fee: FeeProgress | null;
   deal: DealProgress | null;
   /** Consulting: calls made and call slots, per window. */
@@ -66,7 +67,7 @@ export interface HomeFacts {
   ipoAllocated: boolean;
   marketClosed: boolean;
   flashBulletinPublished: boolean;
-  released: Record<SubmissionType, boolean>;
+  released: Partial<Record<SubmissionType, boolean>>;
   deadlines: readonly HomeDeadline[];
   /** Planned start of each phase. */
   phaseStarts: Partial<Record<PhaseCode, string>>;
@@ -119,6 +120,7 @@ const TRADE = "/team/trade";
 const IPO = "/team/trade/ipo";
 /** Each submission's own form. */
 const FORM: Record<"PITCH" | "PLAN" | "FLASH", string> = { PITCH, PLAN, FLASH };
+const CRISIS_ROOM = "/team/crisis";
 const QA = "/team/qa";
 const BOOK = "/team/market/book";
 
@@ -140,14 +142,20 @@ export function deadlinePassed(f: Pick<HomeFacts, "deadlines" | "paused" | "paus
   return f.nowMs > t;
 }
 
+/** A PRIMUS event's sub-round deadlines of these kinds (k = 1–5; there is no REVEAL_5). */
+function subroundCodes(kinds: string[]): DeadlineCode[] {
+  return [1, 2, 3, 4, 5].flatMap((k) => kinds.map((d) => `${d}_${k}`)).filter((c) => c !== "REVEAL_5") as DeadlineCode[];
+}
+
 /** Deadlines that concern each track (FLASH_TIER is a price event, not something a team does). */
 export const TRACK_DEADLINES: Record<Track, readonly DeadlineCode[]> = {
-  PRODUCT: ["PROBLEM_PICK", "PITCH", "FEE", "DEAL", "PLAN", "FLASH_BULLETIN", "FLASH"],
-  CONSULTING: ["PROBLEM_PICK", "PITCH", "CALL_1", "FEE", "DEAL_BONUS", "DEAL", "PLAN", "CALL_2", "FLASH_BULLETIN", "FLASH", "CALL_3"],
-  FINANCE: ["IPO_BIDS", "DEAL", "FLASH_BULLETIN"],
+  PRODUCT: ["PROBLEM_PICK", "PITCH", "FEE", "DEAL", "PLAN", "FLASH_BULLETIN", "FLASH", ...subroundCodes(["REVEAL", "HIRE", "DUE", "RATE"]), "DRAFT"],
+  CONSULTING: ["PROBLEM_PICK", "PITCH", "CALL_1", "FEE", "DEAL_BONUS", "DEAL", "PLAN", "CALL_2", "FLASH_BULLETIN", "FLASH", "CALL_3", ...subroundCodes(["HIRE", "DUE"])],
+  FINANCE: ["IPO_BIDS", "DEAL", "FLASH_BULLETIN", ...subroundCodes(["REVEAL"])],
 };
 
 const UPCOMING_TITLES: Record<DeadlineCode, string> = {
+  ...subroundDeadlineLabels(),
   PROBLEM_PICK: "Problem card pick closes",
   PITCH: "PRD due",
   CALL_1: "Call 1 due",
@@ -185,6 +193,8 @@ function hrefFor(track: Track, code: DeadlineCode): string | null {
     case "FLASH_BULLETIN":
     case "FLASH_TIER":
       return "/team/bulletins";
+    default: // PRIMUS sub-rounds: the crisis room
+      return track === "FINANCE" ? null : CRISIS_ROOM;
   }
 }
 
@@ -197,7 +207,7 @@ function closedEarly(f: HomeFacts, code: DeadlineCode): boolean {
     case "PITCH":
       return phaseIndex(f.phase) > phaseIndex("BUILD");
     case "CALL_1":
-      return f.released.PITCH;
+      return !!f.released.PITCH;
     case "IPO_BIDS":
       return phaseIndex(f.phase) > phaseIndex("IPO") || f.ipoAllocated;
     case "DEAL_BONUS":
@@ -207,11 +217,13 @@ function closedEarly(f: HomeFacts, code: DeadlineCode): boolean {
     case "CALL_2":
     case "FLASH":
     case "FLASH_TIER":
-      return f.released.FLASH;
+      return !!f.released.FLASH;
     case "FLASH_BULLETIN":
       return f.flashBulletinPublished;
     case "CALL_3":
       return f.marketClosed;
+    default:
+      return false;
   }
 }
 
@@ -235,14 +247,16 @@ export function windowOpen(f: HomeFacts, code: DeadlineCode): boolean {
     case "PLAN":
       return f.drawn && open && between(f.phase, "CRISIS", "RESCUE_2");
     case "CALL_2":
-      return f.released.PLAN && open && !f.released.FLASH;
+      return !!f.released.PLAN && open && !f.released.FLASH;
     case "FLASH":
       return f.flashBulletinPublished && !f.released.FLASH && open;
     case "CALL_3":
-      return f.released.FLASH && open && !f.marketClosed;
+      return !!f.released.FLASH && open && !f.marketClosed;
     case "FLASH_BULLETIN":
     case "FLASH_TIER":
       return false;
+    default: // PRIMUS sub-rounds
+      return open && (f.phase === "PRESSURE" || f.phase === "SATURATION");
   }
 }
 
@@ -264,6 +278,7 @@ const LINK_LABELS: Record<string, string> = {
   [PITCH]: "Open the PRD",
   [MEMO]: "Open the crisis memo",
   [PLAN]: "Open the rescue plan",
+  [CRISIS_ROOM]: "Open the crisis room",
   [FLASH]: "Open the flash answer",
   [IPO]: "Open IPO bids",
   [RESCUE]: "Open Rescue",

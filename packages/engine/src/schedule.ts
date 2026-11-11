@@ -1,7 +1,7 @@
 // The default timetable of the night, in event minutes after 20:00 (Asia/Kolkata).
 // Real time = startsAt + minutes ÷ clockSpeed (clockSpeed 10 in rehearsal: 1 real minute = 10 event minutes).
 
-import type { DeadlineCode, PhaseCode, TradingPhase } from "./types";
+import { planOf, type DeadlineCode, type EventFormat, type PhaseCode, type SubmissionType, type TradingPhase } from "./types";
 
 export interface PhaseSlot {
   code: PhaseCode;
@@ -14,6 +14,8 @@ export interface RoundSlot {
   phase: TradingPhase;
   start: number;
   end: number;
+  /** The round does not open until these scores are released (PRIMUS: the sub-round's plan scores). */
+  waitsFor?: SubmissionType;
 }
 
 export interface DeadlineSlot {
@@ -94,19 +96,96 @@ export function formatEventMinute(minute: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+// ───────────────────────────── PRIMUS (docs/PRIMUS.md) ─────────────────────────────
+
+/** Round 2 starts at 22:45 (minute 165): four 90-minute sub-rounds; Round 3 (105 minutes) follows at 04:45. */
+export const PRIMUS_SUBROUND_MINUTES = 90;
+const R2_START = 165;
+const R3_START = R2_START + 4 * PRIMUS_SUBROUND_MINUTES; // 525, 04:45
+const R3_END = R3_START + 105; // 630, 06:30
+
+export const PRIMUS_PHASES: readonly PhaseSlot[] = [
+  { code: "SETUP", start: -60, end: 0 },
+  { code: "CHECKIN", start: 0, end: 30 },
+  { code: "BRIEFING", start: 30, end: 60 },
+  { code: "SQUAD_DRAW", start: 60, end: 70 },
+  { code: "BUILD", start: 70, end: 120 }, // Round 1: the PRD and the crisis memo
+  { code: "READING", start: 120, end: 150 },
+  { code: "IPO", start: 150, end: R2_START },
+  { code: "PRESSURE", start: R2_START, end: R3_START },
+  { code: "SATURATION", start: R3_START, end: R3_END },
+  { code: "CLOSE", start: R3_END, end: R3_END },
+  { code: "SETTLEMENT", start: R3_END, end: R3_END + 30 },
+  { code: "APPEALS", start: R3_END + 30, end: R3_END + 40 },
+  { code: "AWARDS", start: R3_END + 40, end: R3_END + 60 },
+];
+
+/** Start of sub-round k (1–4: Round 2, 5: Round 3), in event minutes. */
+export function subroundStart(k: number): number {
+  return k === 5 ? R3_START : R2_START + (k - 1) * PRIMUS_SUBROUND_MINUTES;
+}
+
+/**
+ * Each Round 2 sub-round: crisis revealed at 0 (trading halted for 5 minutes), hiring until 20, plans and memos due at
+ * 65, ratings until 80, then the release; rounds every 15 minutes from 5, the last (80–90) waiting for the release.
+ * Round 3: the draft until 15, negotiation until 30, solutions and memos due at 75, ratings until 90, the release,
+ * then the last round (90–105).
+ */
+export const PRIMUS_ROUNDS: readonly RoundSlot[] = (() => {
+  const out: RoundSlot[] = [];
+  for (let k = 1; k <= 4; k++) {
+    const s = subroundStart(k);
+    const starts = [5, 20, 35, 50, 65];
+    for (const m of starts) out.push({ number: out.length + 1, phase: "PRESSURE", start: s + m, end: s + m + 15 });
+    out.push({ number: out.length + 1, phase: "PRESSURE", start: s + 80, end: s + 90, waitsFor: planOf(k) });
+  }
+  const s = subroundStart(5);
+  for (const m of [0, 15, 30, 45, 60, 75]) out.push({ number: out.length + 1, phase: "SATURATION", start: s + m, end: s + m + 15 });
+  out.push({ number: out.length + 1, phase: "SATURATION", start: s + 90, end: s + 105, waitsFor: "SOLUTION" });
+  return out;
+})();
+
+export const PRIMUS_DEADLINES: readonly DeadlineSlot[] = (() => {
+  const out: DeadlineSlot[] = [
+    { code: "PROBLEM_PICK", at: 80 }, // 21:20
+    { code: "PITCH", at: 120 }, // 22:00: the PRD and the crisis memo
+    { code: "CALL_1", at: 150 }, // 22:30
+    { code: "IPO_BIDS", at: R2_START }, // 22:45
+  ];
+  for (let k = 1; k <= 4; k++) {
+    const s = subroundStart(k);
+    out.push(
+      { code: `REVEAL_${k}` as DeadlineCode, at: s },
+      { code: `HIRE_${k}` as DeadlineCode, at: s + 20 },
+      { code: `DUE_${k}` as DeadlineCode, at: s + 65 },
+      { code: `RATE_${k}` as DeadlineCode, at: s + 80 },
+    );
+  }
+  const s = subroundStart(5);
+  out.push({ code: "DRAFT", at: s + 15 }, { code: "HIRE_5", at: s + 30 }, { code: "DUE_5", at: s + 75 }, { code: "RATE_5", at: s + 90 });
+  return out;
+})();
+
 export interface BuiltSchedule {
   phases: { seq: number; code: PhaseCode; starts_at: string; ends_at: string }[];
-  rounds: { number: number; phase: TradingPhase; opens_at: string; closes_at: string }[];
+  rounds: { number: number; phase: TradingPhase; opens_at: string; closes_at: string; waits_for: SubmissionType | null }[];
   deadlines: { code: DeadlineCode; at: string }[];
 }
 
 /** Concrete timestamps for an event that starts (event 20:00) at `startsAt`. */
-export function buildSchedule(startsAt: Date, clockSpeed = 1): BuiltSchedule {
+export function buildSchedule(startsAt: Date, clockSpeed = 1, format: EventFormat = "CLASSIC"): BuiltSchedule {
   const at = (m: number) => eventMinuteToReal(startsAt, m, clockSpeed).toISOString();
+  const primus = format === "PRIMUS";
   return {
-    phases: DEFAULT_PHASES.map((p, seq) => ({ seq, code: p.code, starts_at: at(p.start), ends_at: at(p.end) })),
-    rounds: DEFAULT_ROUNDS.map((r) => ({ number: r.number, phase: r.phase, opens_at: at(r.start), closes_at: at(r.end) })),
-    deadlines: DEFAULT_DEADLINES.map((d) => ({ code: d.code, at: at(d.at) })),
+    phases: (primus ? PRIMUS_PHASES : DEFAULT_PHASES).map((p, seq) => ({ seq, code: p.code, starts_at: at(p.start), ends_at: at(p.end) })),
+    rounds: (primus ? PRIMUS_ROUNDS : DEFAULT_ROUNDS).map((r) => ({
+      number: r.number,
+      phase: r.phase,
+      opens_at: at(r.start),
+      closes_at: at(r.end),
+      waits_for: r.waitsFor ?? null,
+    })),
+    deadlines: (primus ? PRIMUS_DEADLINES : DEFAULT_DEADLINES).map((d) => ({ code: d.code, at: at(d.at) })),
   };
 }
 

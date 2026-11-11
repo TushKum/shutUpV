@@ -4,17 +4,26 @@
 // status of each submission for the overview, and the plan's cap when the deal is not signed in time
 // (app.deal_signed_in_time). The database decides; this is for showing the state and for guidance.
 
-import { phaseIndex, phaseReached, submissionWords, type DeadlineCode, type PhaseCode, type SubmissionType, type Track } from "@msim/engine";
+import { perType, phaseIndex, phaseReached, submissionDeadline, submissionKind, subroundName, subroundOf, submissionWords, type DeadlineCode, type PhaseCode, type SubmissionType, type Track } from "@msim/engine";
 import type { Tone } from "@/components/ui/ui";
 import { clock } from "@/lib/format";
 
-export const SUBMISSION_LABELS: Record<SubmissionType, string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer", MEMO: "Crisis memo" };
+const CLASSIC_LABELS: Record<"PITCH" | "PLAN" | "FLASH" | "MEMO", string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer", MEMO: "Crisis memo" };
+
+export const SUBMISSION_LABELS: Record<SubmissionType, string> = perType((t) => {
+  const k = subroundOf(t);
+  if (k === null) return CLASSIC_LABELS[t as keyof typeof CLASSIC_LABELS];
+  if (t === "SOLUTION") return "Round 3 solution";
+  return submissionKind(t) === "CRISIS" ? `${subroundName(k)} response plan` : `Advice memo (${subroundName(k)})`;
+});
 
 /** The deadline that closes each submission. */
-export const SUBMISSION_DEADLINE: Record<SubmissionType, DeadlineCode> = { PITCH: "PITCH", PLAN: "PLAN", FLASH: "FLASH", MEMO: "PITCH" };
+export const SUBMISSION_DEADLINE: Record<SubmissionType, DeadlineCode> = perType(submissionDeadline);
 
 /** Where each submission is edited. */
-export const SUBMISSION_PATHS: Record<SubmissionType, string> = { PITCH: "/team/squad/pitch", PLAN: "/team/squad/plan", FLASH: "/team/squad/flash", MEMO: "/team/squad/memo" };
+export const SUBMISSION_PATHS: Record<SubmissionType, string> = perType((t) =>
+  subroundOf(t) === null ? `/team/squad/${t.toLowerCase()}` : "/team/crisis",
+);
 
 export interface PauseState {
   paused: boolean;
@@ -71,6 +80,9 @@ export function otherSaver(s: SquadTeams, me: string, teamId: string | null | un
 export function mayWrite(type: SubmissionType, track: Track): boolean {
   if (type === "PITCH") return track === "PRODUCT";
   if (type === "MEMO") return track === "CONSULTING";
+  if (submissionKind(type) === "ADVICE") return track === "CONSULTING"; // the hired firm, for its client
+  if (submissionKind(type) === "CRISIS") return track === "PRODUCT";
+  if (type === "SOLUTION") return track === "PRODUCT" || track === "CONSULTING"; // co-edited by the hired firm
   return track === "PRODUCT" || track === "CONSULTING";
 }
 
@@ -117,6 +129,14 @@ function stageOf(type: SubmissionType, w: WindowInput): Stage {
       const published = w.flashPublishedAt !== null && Date.parse(w.flashPublishedAt) <= w.nowMs;
       return published && w.drawn ? "OPEN" : "BEFORE";
     }
+    default: {
+      // PRIMUS: open from the sub-round's reveal (Round 3: the end of the draft) until its due time.
+      const k = subroundOf(type) ?? 0;
+      const opens = w.deadlines[k === 5 ? "DRAFT" : (`REVEAL_${k}` as DeadlineCode)];
+      const live = w.phase === (k === 5 ? "SATURATION" : "PRESSURE") || (k < 5 && w.phase === "SATURATION");
+      if (!opens || Date.parse(opens) > w.nowMs || !phaseReached(w.phase, k === 5 ? "SATURATION" : "PRESSURE")) return "BEFORE";
+      return passed || !live ? "CLOSED" : "OPEN";
+    }
   }
 }
 
@@ -128,15 +148,16 @@ export function submissionWindow(type: SubmissionType, track: Track, w: WindowIn
   let note = "";
   if (stage === "BEFORE") {
     const bulletin = w.deadlines.FLASH_BULLETIN;
-    note = {
-      PITCH: "The PRD opens at the squad draw.",
-      MEMO: "The crisis memo opens at the squad draw.",
-      PLAN: "The rescue plan opens when the crisis is published.",
-      FLASH: `The flash answer opens when the flash bulletin is published${bulletin ? ` (planned for ${clock(bulletin)})` : ""}.`,
-    }[type];
+    note =
+      {
+        PITCH: "The PRD opens at the squad draw.",
+        MEMO: "The crisis memo opens at the squad draw.",
+        PLAN: "The rescue plan opens when the crisis is published.",
+        FLASH: `The flash answer opens when the flash bulletin is published${bulletin ? ` (planned for ${clock(bulletin)})` : ""}.`,
+      }[type as string] ?? `The ${SUBMISSION_LABELS[type].toLowerCase()} opens when its ${subroundOf(type) === 5 ? "problem statement is drafted" : "crisis card is revealed"}.`;
   } else if (stage === "CLOSED") {
     const at = deadline ? ` at ${clock(deadline)}` : "";
-    note = { PITCH: `The PRD closed${at}.`, PLAN: `The rescue plan closed${at}.`, FLASH: `The flash answer closed${at}.`, MEMO: `The crisis memo closed${at}.` }[type];
+    note = `The ${type === "PITCH" ? "PRD" : SUBMISSION_LABELS[type].replace(/^[A-Z]/, (c) => c.toLowerCase())} closed${at}.`;
   } else if (!may) {
     note = type === "MEMO" ? "The Consulting team writes the crisis memo; you can read it here." : "The Product team writes the PRD; you can read it here.";
   }

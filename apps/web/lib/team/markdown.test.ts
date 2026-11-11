@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { RUBRICS, SUBMISSION_TYPES } from "@msim/engine";
+import { PROMPT_TYPES, RUBRICS, submissionKind } from "@msim/engine";
 import { inlineText, parseInline, parseMarkdown, type Block, type Inline } from "./markdown";
 
 const PROMPTS = path.resolve(__dirname, "../../../../prompts");
@@ -187,7 +187,7 @@ describe("plain-text safety: anything else is text, character for character", ()
 });
 
 describe("the published prompts", () => {
-  test.each(SUBMISSION_TYPES)("%s.md: title, sections, the rubric table, anchors and the JSON shape", (type) => {
+  test.each(PROMPT_TYPES.map(submissionKind))("%s.md: title, sections, the rubric table, anchors and the JSON shape", (type) => {
     const blocks = parseMarkdown(read(`${type}.md`));
     const headings = blocks.flatMap((b) => (b.kind === "heading" ? [`h${b.level} ${inlineText(b.content)}`] : []));
     expect(headings[0]).toMatch(/^h1 Judging a /);
@@ -197,19 +197,19 @@ describe("the published prompts", () => {
     expect(tables).toHaveLength(1);
     const table = tables[0]!;
     expect(table.head.map(inlineText)).toEqual(["Key", "What earns points", "Max"]);
-    expect(table.rows.map((r) => r[0])).toEqual(RUBRICS[type].map((l) => [code(l.key)]));
-    expect(table.rows.map((r) => Number(inlineText(r[2]!)))).toEqual(RUBRICS[type].map((l) => l.max));
+    expect(table.rows.map((r) => r[0])).toEqual(RUBRICS[PROMPT_TYPES.find((t) => submissionKind(t) === type)!].map((l) => [code(l.key)]));
+    expect(table.rows.map((r) => Number(inlineText(r[2]!)))).toEqual(RUBRICS[PROMPT_TYPES.find((t) => submissionKind(t) === type)!].map((l) => l.max));
 
     // The anchors: one bullet per rubric line, each starting with its key in code.
     const anchors = blocks[blocks.indexOf(table) + 2]!;
     expect(anchors.kind).toBe("list");
     if (anchors.kind !== "list") return;
-    expect(anchors.items.map((item) => (item[0]!.kind === "paragraph" ? item[0]!.content[0] : null))).toEqual(RUBRICS[type].map((l) => code(l.key)));
+    expect(anchors.items.map((item) => (item[0]!.kind === "paragraph" ? item[0]!.content[0] : null))).toEqual(RUBRICS[PROMPT_TYPES.find((t) => submissionKind(t) === type)!].map((l) => code(l.key)));
 
     const codes = blocks.filter((b) => b.kind === "code");
     expect(codes).toHaveLength(1);
     expect(codes[0]!.text).toMatch(/^\{"breakdown": \{.*\}, "total": <sum of the \w+>, "rationale": "<three sentences>"\}$/);
-    for (const l of RUBRICS[type]) expect(codes[0]!.text).toContain(`"${l.key}": <0–${l.max}>`);
+    for (const l of RUBRICS[PROMPT_TYPES.find((t) => submissionKind(t) === type)!]) expect(codes[0]!.text).toContain(`"${l.key}": <0–${l.max}>`);
   });
 
   test("PLAN.md: What you receive is a list whose first item holds a nested list", () => {
@@ -226,7 +226,7 @@ describe("the published prompts", () => {
     ]);
   });
 
-  test.each([...SUBMISSION_TYPES.map((t) => `${t}.md`), "README.md"])("%s: every word of the file is shown, once, in order", (file) => {
+  test.each([...PROMPT_TYPES.map((t) => `${submissionKind(t)}.md`), "README.md"])("%s: every word of the file is shown, once, in order", (file) => {
     const source = read(file);
     // Markdown's own marks (#, -, |, backticks, asterisks) hold no letters or digits, so the words must match exactly.
     expect(words(parseMarkdown(source))).toEqual(source.match(/[\p{L}\p{N}]+/gu));

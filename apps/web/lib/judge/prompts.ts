@@ -7,14 +7,10 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import type { SubmissionType } from "@msim/engine";
+import { perType, submissionKind, type SubmissionType } from "@msim/engine";
 
-export const PROMPT_FILES: Record<SubmissionType, string> = {
-  PITCH: "PITCH.md",
-  PLAN: "PLAN.md",
-  FLASH: "FLASH.md",
-  MEMO: "MEMO.md",
-};
+/** One prompt per kind: CRISIS_1…4 share CRISIS.md, ADVICE_1…5 share ADVICE.md. */
+export const PROMPT_FILES: Record<SubmissionType, string> = perType((t) => `${submissionKind(t)}.md`);
 
 export interface JudgePrompt {
   type: SubmissionType;

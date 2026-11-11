@@ -9,6 +9,9 @@ can read how its PRD, crisis memo, rescue plan and flash answer will be scored.
 | `PLAN.md` | The system prompt for judging a rescue plan (at most 500 words). |
 | `FLASH.md` | The system prompt for judging a flash news answer (at most 100 words). |
 | `MEMO.md` | The system prompt for judging a Consulting team's Round 1 crisis memo (at most 500 words). It holds the case itself, which every firm gets; organisers replace the case before the event. Its score sets the firm's reputation bonus and moves no price. |
+| `CRISIS.md` | PRIMUS Round 2: the system prompt for a company's crisis response plan (`CRISIS_1` to `CRISIS_4`, at most 500 words), with its PRD, the crisis card and its hired firm's memo as context. Moves the price by the plan tier. |
+| `SOLUTION.md` | PRIMUS Round 3: the system prompt for a company's solution to its problem statement (at most 600 words). Moves the price by the plan tier, scaled by its rank among the companies on the same statement. |
+| `ADVICE.md` | PRIMUS Rounds 2 and 3: the system prompt for a hired firm's memo to its client (`ADVICE_1` to `ADVICE_5`, at most 500 words). Sets the firm's reputation bonus; moves no price. |
 | `calibration/pitches.json` | Ten sample pitches, from very weak to excellent, scored on the calibration page before the event. |
 
 ## How the judge uses them

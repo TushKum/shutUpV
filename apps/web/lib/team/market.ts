@@ -6,6 +6,8 @@
 import type { ChartPoint } from "@/lib/chart";
 import {
   RUBRICS,
+  perType,
+  submissionKind,
   TEMPLATES,
   divRoundHalfUp,
   phaseReached,
@@ -14,6 +16,7 @@ import {
   type SubmissionType,
 } from "@msim/engine";
 import { bp, clock, count, money, signedCount } from "@/lib/format";
+import { SUBMISSION_LABELS } from "./squad";
 
 /** after − before as basis points of before (rounded half-up, ties away from zero). */
 export function changeBp(before: number, after: number): number {
@@ -177,7 +180,7 @@ export function chartPoints(lines: readonly HistoryLine[]): ChartPoint[] {
 
 // ───────────────────────────── What is public ─────────────────────────────
 
-export type Released = Record<SubmissionType, boolean>;
+export type Released = Partial<Record<SubmissionType, boolean>>;
 
 /**
  * Which submissions are public now (the same rule as the submissions policy): the pitch from Reading, the rescue
@@ -192,20 +195,25 @@ export function publicTypes(phase: PhaseCode, released: Released): SubmissionTyp
   return out;
 }
 
-export const SUBMISSION_TITLES: Record<SubmissionType, string> = { PITCH: "PRD", PLAN: "Rescue plan", FLASH: "Flash answer", MEMO: "Crisis memo" };
+export const SUBMISSION_TITLES: Record<SubmissionType, string> = SUBMISSION_LABELS;
 
 /** When each kind of submission goes public, for a page that is waiting for it. */
-export const PUBLIC_FROM: Record<SubmissionType, string> = {
+const CLASSIC_PUBLIC_FROM: Partial<Record<SubmissionType, string>> = {
   PITCH: "The pitch book goes public when Reading starts.",
   PLAN: "Rescue plans go public when Plans published starts.",
   FLASH: "Flash answers go public once the flash scores are released.",
   MEMO: "Crisis memos stay with the firm that wrote them; their scores are published.",
 };
+export const PUBLIC_FROM: Record<SubmissionType, string> = perType(
+  (t) =>
+    CLASSIC_PUBLIC_FROM[t] ??
+    (submissionKind(t) === "ADVICE" ? "Advice memos stay with the client; their scores are published." : "Response plans go public at their due time; scores stay sealed until release."),
+);
 
 // ───────────────────────────── Books ─────────────────────────────
 
 /** A book: every company's public submission of one type, or every company's crisis card. */
-export type BookKind = Exclude<SubmissionType, "MEMO"> | "CRISIS";
+export type BookKind = "PITCH" | "PLAN" | "FLASH" | "CRISIS";
 export const BOOK_KINDS: readonly BookKind[] = ["PITCH", "CRISIS", "PLAN", "FLASH"];
 export const BOOK_TITLES: Record<BookKind, string> = { PITCH: "Pitch book", CRISIS: "Crisis cards", PLAN: "Rescue plans", FLASH: "Flash answers" };
 
@@ -222,7 +230,7 @@ export function parseBookKind(raw: string | string[] | undefined): BookKind {
 }
 
 /** When a book goes public, for a page that is waiting for it. */
-export const BOOK_PUBLIC_FROM: Record<BookKind, string> = { ...PUBLIC_FROM, CRISIS: "Crisis cards go public at the crisis, when every company gets one." };
+export const BOOK_PUBLIC_FROM: Record<BookKind, string> = { PITCH: PUBLIC_FROM.PITCH, PLAN: PUBLIC_FROM.PLAN, FLASH: PUBLIC_FROM.FLASH, CRISIS: "Crisis cards go public at the crisis, when every company gets one." };
 
 /** The template sections of a submission, in order, with the text as submitted ("" when a section was left empty). */
 export function submissionSections(type: SubmissionType, content: Readonly<Record<string, unknown>>): { key: string; label: string; text: string }[] {

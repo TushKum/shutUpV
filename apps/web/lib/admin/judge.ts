@@ -14,14 +14,19 @@ import {
   type DeadlineCode,
   type PhaseCode,
   type SubmissionType,
+  perType,
+  submissionDeadline,
+  subroundOf,
 } from "@msim/engine";
+import { SUBMISSION_LABELS } from "@/lib/team/squad";
 import { bp, clock, money } from "@/lib/format";
 
 export const JUDGE_TYPES = SUBMISSION_TYPES;
 
 /** Used in sentences and button labels ("Release pitch scores"). */
-export const TYPE_NAMES: Record<SubmissionType, string> = { PITCH: "pitch", PLAN: "plan", FLASH: "flash", MEMO: "crisis memo" };
-export const TYPE_TITLES: Record<SubmissionType, string> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash", MEMO: "Crisis memo" };
+const CLASSIC_TITLES: Partial<Record<SubmissionType, string>> = { PITCH: "Pitch", PLAN: "Plan", FLASH: "Flash", MEMO: "Crisis memo" };
+export const TYPE_TITLES: Record<SubmissionType, string> = perType((t) => CLASSIC_TITLES[t] ?? SUBMISSION_LABELS[t]);
+export const TYPE_NAMES: Record<SubmissionType, string> = perType((t) => (t === "PITCH" ? "pitch" : TYPE_TITLES[t].replace(/^[A-Z]/, (c) => c.toLowerCase())));
 
 export type RunStatus = "QUEUED" | "RUNNING" | "DONE" | "FAILED";
 export const RUN_STATUSES: readonly RunStatus[] = ["QUEUED", "RUNNING", "DONE", "FAILED"];
@@ -489,8 +494,7 @@ export const TARGET_TONE: Record<TargetState, StatusTone> = { MET: "green", ON_P
 
 /** The deadline after which a type is judged and sealed: plans after both the plan and the deal deadline. */
 export function scoringClosesAt(type: SubmissionType, deadlines: Partial<Record<DeadlineCode, string>>): string | null {
-  if (type === "MEMO") return deadlines.PITCH ?? null; // the memo closes with the PRD
-  if (type !== "PLAN") return deadlines[type] ?? null;
+  if (type !== "PLAN") return deadlines[submissionDeadline(type)] ?? null; // the memo closes with the PRD
   const plan = deadlines.PLAN;
   const deal = deadlines.DEAL;
   return plan && deal ? (plan > deal ? plan : deal) : null;
@@ -505,10 +509,12 @@ function deadlinePassed(at: string | undefined, now: number, pausedAt: string | 
 
 /** As app.scoring_closed: the type's deadline has passed (plans: the plan and the deal deadlines). */
 export function scoringClosed(type: SubmissionType, deadlines: Partial<Record<DeadlineCode, string>>, now: number, pausedAt: string | null): boolean {
-  return deadlinePassed(deadlines[type === "MEMO" ? "PITCH" : type], now, pausedAt) && (type !== "PLAN" || deadlinePassed(deadlines.DEAL, now, pausedAt));
+  return deadlinePassed(deadlines[submissionDeadline(type)], now, pausedAt) && (type !== "PLAN" || deadlinePassed(deadlines.DEAL, now, pausedAt));
 }
 
-const DEADLINE_NAMES: Record<SubmissionType, string> = { PITCH: "PRD deadline", PLAN: "plan and deal deadlines", FLASH: "flash deadline", MEMO: "PRD deadline" };
+const DEADLINE_NAMES: Record<SubmissionType, string> = perType((t) =>
+  t === "PLAN" ? "plan and deal deadlines" : t === "FLASH" ? "flash deadline" : subroundOf(t) === null ? "PRD deadline" : "due time",
+);
 
 /** Why Start judging is off for a type (null when it is on): before its deadline, and once its scores are released. */
 export function startBlock(type: SubmissionType, s: { closed: boolean; released: boolean; closesAt: string | null }): string | null {

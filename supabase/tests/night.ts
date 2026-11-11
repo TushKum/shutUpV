@@ -29,8 +29,9 @@ export class Night {
     this.fairness = user(ev.staff.get("fairness@example.org")!);
   }
 
-  static async create(pool: pg.Pool, squads: number): Promise<Night> {
+  static async create(pool: pg.Pool, squads: number, format: "CLASSIC" | "PRIMUS" = "CLASSIC"): Promise<Night> {
     const ev = await seedEvent(pool, {
+      format,
       teamsPerTrack: squads,
       problemCards: Array.from({ length: squads + 2 }, (_, i) => ({
         number: i + 1,

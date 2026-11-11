@@ -5,6 +5,7 @@ import {
   TRACKS,
   parseCsvObjects,
   buildSchedule,
+  type EventFormat,
   teamCode,
   teamEmail,
   type BuiltSchedule,
@@ -54,6 +55,8 @@ export interface SeedOptions {
   seedCommitment?: string;
   /** Letter before every team code. Default: none for the live event, "X" for a rehearsal. */
   codePrefix?: string;
+  /** CLASSIC (the one-night game) or PRIMUS (three rounds; docs/PRIMUS.md). Default CLASSIC. */
+  format?: EventFormat;
 }
 
 export interface PlannedTeam {
@@ -78,6 +81,7 @@ export interface SeedPlan {
     timezone: "Asia/Kolkata";
     starts_at: string;
     seed_commitment: string | null;
+    format: EventFormat;
   };
   schedule: BuiltSchedule;
   teams: PlannedTeam[];
@@ -148,8 +152,9 @@ export function buildSeedPlan(o: SeedOptions): SeedPlan {
       timezone: "Asia/Kolkata",
       starts_at: o.startsAt.toISOString(),
       seed_commitment: o.seedCommitment ?? null,
+      format: o.format ?? "CLASSIC",
     },
-    schedule: buildSchedule(o.startsAt, o.clockSpeed),
+    schedule: buildSchedule(o.startsAt, o.clockSpeed, o.format ?? "CLASSIC"),
     teams,
     staff,
     problem_cards: o.problemCards ?? [],

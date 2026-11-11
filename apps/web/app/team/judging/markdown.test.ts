@@ -3,7 +3,7 @@ import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
-import { SUBMISSION_TYPES } from "@msim/engine";
+import { PROMPT_TYPES, submissionKind } from "@msim/engine";
 import { parseMarkdown } from "@/lib/team/markdown";
 import { Markdown } from "./markdown";
 
@@ -43,15 +43,15 @@ describe("Markdown", () => {
     expect(html).not.toMatch(/<(script|img|a|i|b)[\s>]/);
   });
 
-  test.each(SUBMISSION_TYPES)("prompts/%s.md renders with one table, one code block and no raw HTML", (type) => {
+  test.each(PROMPT_TYPES.map(submissionKind))("prompts/%s.md renders with one table, one code block and no raw HTML", (type) => {
     const source = readFileSync(path.resolve(__dirname, `../../../../../prompts/${type}.md`), "utf8");
     const html = render(source, 2);
     expect(html.match(/<table/g)).toHaveLength(1);
     expect(html.match(/<pre/g)).toHaveLength(1);
     expect(html.match(/<h3/g)).toHaveLength(1);
     expect(html.match(/<h4/g)).toHaveLength(type === "MEMO" ? 6 : 5); // MEMO.md also holds the case
-    expect(html).toContain(`<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800">&lt;submission type=&quot;${type}&quot; ticker=&quot;…&quot;&gt;</code>`);
-    expect(html).not.toMatch(/<(submission|context|pitch_card|crisis_card|deal|bulletin)[\s>]/);
+    expect(html).toContain(`<code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.85em] text-slate-800">&lt;submission type=&quot;${type === "CRISIS" || type === "ADVICE" ? `${type}_n` : type}&quot; ticker=&quot;…&quot;&gt;</code>`);
+    expect(html).not.toMatch(/<(submission|context|pitch_card|crisis_card|deal|bulletin|advice|statement)[\s>]/);
   });
 
   test("the renderer never sets HTML directly", () => {

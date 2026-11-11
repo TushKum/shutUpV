@@ -59,14 +59,17 @@ describe("grants", () => {
        where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'EXECUTE')
        order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
-      "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "chat_summary", "close_round_now", "confirm_fee",
-      "decide_correction", "decide_flag", "dismiss_appeal", "draw_summary", "edit_deal", "edit_order", "event_status",
-      "extend_event", "lottery_record_rows", "make_call", "pause_event", "pick_problem_card", "ping", "place_ipo_bid",
-      "place_order", "post_question", "post_squad_message", "prepare_flash_bulletin", "propose_fee", "publish_bulletin", "publish_flash_bulletin",
-      "rankings", "release_scores", "request_correction", "rerun_judging", "resume_event", "retry_failed_runs",
-      "run_lottery", "save_draft", "seal_missing_scores", "server_time", "set_auto_advance", "set_judge_model",
-      "set_seed_commitment", "sign_deal", "start_calibration", "start_judging", "submit_submission", "team_badge_facts", "team_plan_facts", "tick",
-      "upload_crisis_deck", "upload_problem_deck",
+      "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "chat_summary",
+      "close_round_now", "confirm_fee", "decide_correction", "decide_flag", "dismiss_appeal", "draw_summary",
+      "edit_deal", "edit_order", "event_status", "extend_event", "firm_values", "lottery_record_rows", "make_call",
+      "make_offer", "pause_event", "pick_problem_card", "pick_statement", "ping", "place_ipo_bid", "place_order",
+      "post_question", "post_squad_message", "prepare_flash_bulletin", "propose_fee", "publish_bulletin",
+      "publish_flash_bulletin", "rankings", "rate_firm", "release_scores", "request_correction", "rerun_judging",
+      "respond_offer", "resume_event", "retry_failed_runs", "run_lottery", "save_draft", "save_draft_for",
+      "save_firm_profile", "seal_missing_scores", "server_time", "set_auto_advance", "set_judge_model",
+      "set_problem_statements", "set_seed_commitment", "sign_deal", "start_calibration", "start_judging",
+      "submit_for", "submit_submission", "team_badge_facts", "team_plan_facts", "tick", "upload_crisis_deck",
+      "upload_problem_deck",
     ]);
     for (const r of rows) {
       // The lottery record is public once the seed is revealed (anyone may check the draw); nothing else is.

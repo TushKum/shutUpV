@@ -1,7 +1,7 @@
 // Shared between seed.ts and login-cards.ts so both derive exactly the same plan (and passwords).
 
 import { readFileSync } from "node:fs";
-import { eventStartIST } from "@msim/engine";
+import { EVENT_FORMATS, eventStartIST, type EventFormat } from "@msim/engine";
 import { required } from "./args";
 import {
   crisisCardsFromCsv,
@@ -23,8 +23,15 @@ export const USAGE = `Options:
   --staff <csv>            organiser, fairness officer and display logins (optional)
   --problems <csv>         problem deck (default seed/problem-cards.csv)
   --crises <csv>           crisis deck (default seed/crisis-cards.csv)
+  --format <CLASSIC|PRIMUS> CLASSIC: the one-night game; PRIMUS: three rounds (docs/PRIMUS.md). Default PRIMUS
   --commitment <sha256>    published SHA-256 of the secret lottery seed (pnpm new-seed; can be set in /admin until the event starts)
 Environment: CARD_SECRET, TEAM_EMAIL_DOMAIN`;
+
+function parseFormat(raw: string | undefined): EventFormat {
+  const f = (raw ?? "PRIMUS").toUpperCase();
+  if (!(EVENT_FORMATS as readonly string[]).includes(f)) throw new Error(`--format is CLASSIC or PRIMUS (got ${raw})`);
+  return f as EventFormat;
+}
 
 export function optionsFromArgs(args: Record<string, string | true>): SeedOptions {
   const str = (k: string) => (typeof args[k] === "string" ? (args[k] as string) : undefined);
@@ -52,5 +59,6 @@ export function optionsFromArgs(args: Record<string, string | true>): SeedOption
     problemCards: problemCardsFromCsv(read(str("problems") ?? "seed/problem-cards.csv")),
     crisisCards: crisisCardsFromCsv(read(str("crises") ?? "seed/crisis-cards.csv")),
     seedCommitment: str("commitment"),
+    format: parseFormat(str("format")),
   };
 }

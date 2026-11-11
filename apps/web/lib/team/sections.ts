@@ -12,6 +12,8 @@ const HOME = { path: "", label: "Home" };
 const RESCUE = { path: "/rescue", label: "Rescue" };
 /** The squad chat, for all three teams of a squad. */
 const CHAT = { path: "/chat", label: "Chat" };
+/** PRIMUS Rounds 2 and 3: crisis cards, hiring, the response plan, the advice memo and the Round 3 draft. */
+const CRISIS_ROOM = { path: "/crisis", label: "Crisis room" };
 const COMMON: TeamSection[] = [
   { path: "/market", label: "Market" },
   { path: "/qa", label: "Q&A" },
@@ -21,10 +23,11 @@ const COMMON: TeamSection[] = [
 ];
 
 export const TEAM_SECTIONS: Record<Track, readonly TeamSection[]> = {
-  PRODUCT: [HOME, { path: "/squad", label: "Squad" }, RESCUE, CHAT, ...COMMON],
+  PRODUCT: [HOME, { path: "/squad", label: "Squad" }, CRISIS_ROOM, RESCUE, CHAT, ...COMMON],
   CONSULTING: [
     HOME,
     { path: "/squad", label: "Squad" },
+    CRISIS_ROOM,
     RESCUE,
     CHAT,
     { path: "/calls", label: "Calls" },

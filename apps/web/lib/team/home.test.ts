@@ -8,7 +8,7 @@ const at = (hhmm: string) => {
   const day = h < 12 ? 9 : 8;
   return new Date(Date.UTC(2026, 9, day, h, m) - 330 * 60_000).toISOString();
 };
-const DEADLINES: Record<DeadlineCode, string> = {
+const DEADLINES: Partial<Record<DeadlineCode, string>> = {
   PROBLEM_PICK: "21:10",
   PITCH: "22:30",
   CALL_1: "23:15",
