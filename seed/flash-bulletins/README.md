@@ -13,6 +13,7 @@ published at 04:00.
 | 04-free-competitor.csv | A free government app | Every company must answer "why pay us". |
 | 05-payment-fee.csv | 1.5% on every digital payment | Small numbers to reason with; tests pricing answers. |
 | 06-heatwave.csv | Heatwave and power cuts | Operations and demand shift for six weeks; physical businesses suffer most. |
+| 07-cooking-gas.csv | Commercial LPG up 25% for three months | Made for the practice case *The Hostel Kitchen* (docs/case-studies); hard on food and canteen ideas. |
 
 Write your own in the same format if you prefer. A good bulletin affects every company, can be answered in 100 words,
 and names numbers and dates teams can use. Avoid news that obviously favours one sector of the problem deck (Water,
