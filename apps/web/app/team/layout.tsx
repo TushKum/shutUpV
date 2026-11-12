@@ -87,7 +87,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const sections = focusSections(team.track, status.phase, taskHref);
   return (
     <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
-      <EventChannel eventId={event.id}>
+      <EventChannel eventId={event.id} teamId={team.id} spreadMs={1200}>
         <SquadChannel squadId={ctx.squad?.id ?? null}>
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />

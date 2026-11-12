@@ -26,16 +26,34 @@ interface ChannelValue {
 
 const ChannelContext = createContext<ChannelValue>({ status: "CONNECTING", last: null });
 
+/**
+ * Does this message concern this team's screen? A hiring offer names the Product team and the firm it is between:
+ * the other teams' screens show nothing of it, so they do not re-read (with 150 teams, every offer would otherwise
+ * make every screen load its page again). Everything else concerns everyone.
+ */
+export function concerns(msg: { event: string; payload?: unknown }, teamId: string | null | undefined): boolean {
+  if (!teamId || msg.event !== "offers") return true;
+  const p = (msg.payload ?? {}) as Record<string, unknown>;
+  if (typeof p.firm !== "string" && typeof p.product !== "string") return true; // an older database: no names
+  return p.firm === teamId || p.product === teamId;
+}
+
 export function EventChannel({
   eventId,
   staff = false,
   children,
   refreshDelayMs = 250,
+  teamId = null,
+  spreadMs = 0,
 }: {
   eventId: string;
   staff?: boolean;
   children: ReactNode;
   refreshDelayMs?: number;
+  /** A team's screen: messages about other teams' offers are ignored. */
+  teamId?: string | null;
+  /** Each screen waits a random extra time up to this before re-reading, so hundreds of screens do not all load at once. */
+  spreadMs?: number;
 }) {
   const router = useRouter();
   const [eventStatus, setEventStatus] = useState<ChannelStatus>("CONNECTING");
@@ -50,10 +68,11 @@ export function EventChannel({
     const sb = supabaseBrowser();
     let cancelled = false;
     const onMessage = (msg: { event: string; payload?: unknown }) => {
+      if (!concerns(msg, teamId)) return;
       setLast({ event: msg.event, payload: (msg.payload ?? {}) as Record<string, unknown>, receivedAt: Date.now() });
       // Several messages arrive together on a clearing; refresh once.
       if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => router.refresh(), refreshDelayMs);
+      timer.current = setTimeout(() => router.refresh(), refreshDelayMs + Math.random() * spreadMs);
     };
     const channel = sb.channel(`event:${eventId}`, { config: { private: true } }).on("broadcast", { event: "*" }, onMessage);
     const staffChannel = staff ? sb.channel(`staff:${eventId}`, { config: { private: true } }).on("broadcast", { event: "*" }, onMessage) : null;
@@ -73,7 +92,7 @@ export function EventChannel({
       void sb.removeChannel(channel);
       if (staffChannel) void sb.removeChannel(staffChannel);
     };
-  }, [eventId, staff, router, refreshDelayMs]);
+  }, [eventId, staff, router, refreshDelayMs, teamId, spreadMs]);
 
   // Joined (first, or back after a drop): whatever was broadcast before was missed, so read the page again once. The
   // "caught up" mark is set in the same transition as that read, so it lands with the refreshed page (or after 5 s at

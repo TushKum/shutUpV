@@ -219,7 +219,119 @@ describe("PRIMUS rounds 2 and 3", () => {
     expect(post3[b.company_id]).toBe(Math.round(pre3[b.company_id]! * 1.15));
     expect(post3[a.company_id]).toBe(Math.round(pre3[a.company_id]! * 0.8)); // alone on statement 2: full (negative) tier
 
+    // The firm co-wrote the solution but sent no Round 3 memo: its fee went back to the client.
+    expect((await n.one("select escrow from engagements where company_id = $1 and k = 5", [c.company_id])).escrow).toBe("REFUNDED");
+
     await n.advanceTo("CLOSE");
     await n.checkInvariants();
   });
+
+  test("Round 3 without statements waits for them; too little room is refused; the draft's deadline fits every company", async () => {
+    const n = await Night.create(db.pool, 3, "PRIMUS");
+    const seed = sha256Hex("primus-late");
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(seed));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, seed, "3");
+    await n.advanceTo("BUILD");
+    await n.deadlinePassed("PITCH");
+    await n.advanceTo("READING");
+    await n.org("seal_missing_scores", n.eventId, "PITCH");
+    await n.deadlinePassed("CALL_1");
+    await n.org("release_scores", n.eventId, "PITCH");
+    await n.advanceTo("IPO");
+    await n.advanceTo("PRESSURE");
+    // Entering Round 3 with no statements: the injection is paid, but no draft starts.
+    await n.advanceTo("SATURATION");
+    expect((await n.one("select count(*)::int as c from draft_picks where event_id = $1", [n.eventId])).c).toBe(0);
+    expect((await n.one("select count(*)::int as c from ledger_entries where event_id = $1 and kind = 'INJECTION' and team_id is not null", [n.eventId])).c).toBe(3);
+    // Room for 2 companies only: refused with the numbers.
+    expect(await n.call(n.lead, "set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A", body: "a", cap: 2 }]))).toMatchObject({
+      ok: false,
+      code: "NOT_ENOUGH_ROOM",
+    });
+    // The draft's planned end is too early for three picks of 20 seconds: it moves later when the draft starts.
+    await n.q("update deadlines set at = now() + interval '10 seconds' where event_id = $1 and code = 'DRAFT'", [n.eventId]);
+    const up = await n.ok(n.lead, "set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A", body: "a", cap: 2 }, { number: 2, title: "B", body: "b" }]));
+    expect(up.draft_started).toBe(true);
+    expect((await n.one("select count(*)::int as c from draft_picks where event_id = $1", [n.eventId])).c).toBe(3);
+    const t = await n.one("select extract(epoch from (select at from deadlines where event_id = $1 and code = 'DRAFT') - now())::int as draft, extract(epoch from (select at from deadlines where event_id = $1 and code = 'HIRE_5') - (select at from deadlines where event_id = $1 and code = 'DRAFT'))::int as gap", [n.eventId]);
+    expect(t.draft).toBeGreaterThanOrEqual(75);
+    expect(t.gap).toBeGreaterThanOrEqual(600);
+    // Still replaceable until the first pick; then fixed.
+    await n.ok(n.lead, "set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A2", body: "a" }]));
+    const first = await n.one("select c.product_team_id, t.code from draft_picks d join companies c on c.id = d.company_id join teams t on t.id = c.product_team_id where d.event_id = $1 and d.pick_no = 1", [n.eventId]);
+    const st = await n.one("select id from problem_statements where event_id = $1", [n.eventId]);
+    await n.ok(n.team(first.code), "pick_statement", st.id);
+    expect(await n.call(n.lead, "set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "C", body: "c" }]))).toMatchObject({ ok: false, code: "DRAFT_STARTED" });
+  });
+  test("a full-size night: 50 companies through a crisis, hiring, the draft and the close", async () => {
+    const N = 50;
+    const n = await Night.create(db.pool, N, "PRIMUS");
+    const seed = sha256Hex("primus-full");
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(seed));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, seed, "5");
+    const squads = [];
+    for (let i = 1; i <= N; i++) squads.push(await n.squad(i));
+    await n.advanceTo("BUILD");
+    for (const [i, s] of squads.entries()) {
+      const t = `Q${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`;
+      await n.ok(n.team(s.p_code), "save_draft", "PITCH", { company_name: `Full Co ${i}`, ticker: t, problem: "A real problem." }, 0);
+      await n.ok(n.team(s.p_code), "submit_submission", "PITCH");
+    }
+    await n.deadlinePassed("PITCH");
+    await n.advanceTo("READING");
+    for (const [i, s] of squads.entries()) await n.judge(s.company_id, "PITCH", [40 + i, 40 + i, 40 + i]);
+    await n.deadlinePassed("CALL_1");
+    await n.org("release_scores", n.eventId, "PITCH");
+    await n.advanceTo("IPO");
+    await n.advanceTo("PRESSURE");
+    await n.deadlinePassed("REVEAL_1");
+    await n.ok(n.lead, "tick", n.eventId);
+    expect((await n.one("select count(*)::int as c from subround_crises where event_id = $1 and k = 1", [n.eventId])).c).toBe(N);
+
+    // Every company hires its squad's firm; each firm also gets a second offer it must refuse as full after two.
+    for (const s of squads) {
+      const o = (await n.ok(n.team(s.p_code), "make_offer", n.teamId(s.c_code), 30000, 0, "")).offer;
+      await n.ok(n.team(s.c_code), "respond_offer", o.id, "ACCEPT");
+      await n.ok(n.team(s.p_code), "save_draft", "CRISIS_1", crisisPlan, 0);
+      await n.ok(n.team(s.p_code), "submit_submission", "CRISIS_1");
+      await n.ok(n.team(s.c_code), "save_draft_for", s.company_id, "ADVICE_1", advice, 0);
+      await n.ok(n.team(s.c_code), "submit_for", s.company_id, "ADVICE_1");
+    }
+    expect((await n.one("select count(*)::int as c from engagements where event_id = $1 and k = 1", [n.eventId])).c).toBe(N);
+    await n.deadlinePassed("HIRE_1");
+    await n.deadlinePassed("DUE_1");
+    await n.ok(n.lead, "tick", n.eventId);
+    expect((await n.one("select count(*)::int as c from engagements where event_id = $1 and escrow = 'RELEASED'", [n.eventId])).c).toBe(N);
+    await n.deadlinePassed("RATE_1");
+    await n.ok(n.lead, "tick", n.eventId);
+    for (const [i, s] of squads.entries()) {
+      await n.judge(s.company_id, "CRISIS_1", [30 + i, 30 + i, 30 + i]);
+      await n.judge(s.company_id, "ADVICE_1", [70, 70, 70]);
+    }
+    await n.org("release_scores", n.eventId, "CRISIS_1");
+    await n.org("release_scores", n.eventId, "ADVICE_1");
+
+    // Round 3: ten statements of five; the draft's deadline leaves every company its 20 seconds.
+    await n.org("set_problem_statements", n.eventId, JSON.stringify(Array.from({ length: 10 }, (_, i) => ({ number: i + 1, title: `Statement ${i + 1}`, body: "A problem." }))));
+    await n.advanceTo("SATURATION");
+    expect((await n.one("select count(*)::int as c from draft_picks where event_id = $1", [n.eventId])).c).toBe(N);
+    const left = await n.one("select extract(epoch from (select at from deadlines where event_id = $1 and code = 'DRAFT') - now())::int as s", [n.eventId]);
+    expect(left.s).toBeGreaterThanOrEqual(N * 20);
+    // Nobody picks: once the draft's time is up, the heartbeat spreads the companies over the statements.
+    await n.deadlinePassed("DRAFT");
+    await n.ok(n.lead, "tick", n.eventId);
+    const spread = await n.q("select count(*)::int as c from draft_picks where event_id = $1 group by statement_id", [n.eventId]);
+    expect(spread).toHaveLength(10);
+    expect(spread.every((r) => r.c === 5)).toBe(true);
+    await n.deadlinePassed("HIRE_5");
+    await n.deadlinePassed("DUE_5");
+    await n.ok(n.lead, "tick", n.eventId);
+    await n.org("seal_missing_scores", n.eventId, "SOLUTION");
+    await n.q("update rounds set status = 'CLEARED' where event_id = $1 and phase = 'SATURATION' and waits_for is null", [n.eventId]);
+    await n.org("release_scores", n.eventId, "SOLUTION");
+    await n.advanceTo("CLOSE");
+    await n.checkInvariants();
+  }, 240_000);
 });
