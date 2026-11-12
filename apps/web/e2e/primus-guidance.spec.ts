@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedE2eEvent, type E2eEvent } from "./support/event";
+import { STAFF, seedE2eEvent, type E2eEvent } from "./support/event";
 import { pitchesReleased } from "./support/game";
-import { loginAsTeam } from "./support/login";
+import { loginAsStaff, loginAsTeam } from "./support/login";
 
 // A PRIMUS event's Round 2 as each track sees it: the banner names the crisis and shows its steps with the one that
 // is on now, "Do this now" follows the team through hiring, writing and rating, and the crisis room is numbered steps.
@@ -149,6 +149,18 @@ test("Round 3: the draft says whose pick it is, alerts the team on the clock, an
   expect(order[2]!.code).toBe(a.p_code);
   const st = Object.fromEntries((await n.q("select number, id from problem_statements where event_id = $1", [n.eventId])).map((r) => [r.number, r.id]));
 
+  // The big screen shows the draft live; the organiser's overview shows who is on the clock.
+  const screen = await page.context().browser()!.newPage({ viewport: { width: 1920, height: 1080 } });
+  await loginAsStaff(screen, ev, STAFF.display);
+  await screen.goto(`/display/${ev.slug}`);
+  await expect(screen.getByTestId("display-draft-current")).toHaveText(order[0]!.ticker);
+  await expect(screen.getByTestId("display-draft")).toContainText("pick 1 of 3");
+  await shot(screen, "15-display-draft");
+  const org = await page.context().browser()!.newPage();
+  await loginAsStaff(org, ev, STAFF.lead);
+  await org.goto(`/admin/${ev.slug}`);
+  await expect(org.getByTestId("admin-draft-clock")).toContainText(order[0]!.ticker);
+
   await loginAsTeam(page, ev, a.p_code);
   await expect(page.getByTestId("round-banner").getByRole("heading", { level: 2 })).toHaveText("The final problem");
   await expect(page.getByTestId("task-DRAFT")).toContainText("The draft: wait for your pick");
@@ -164,6 +176,7 @@ test("Round 3: the draft says whose pick it is, alerts the team on the clock, an
   await expect(page.getByTestId("on-the-clock")).toContainText("pick 2 of 3");
   await n.ok(n.team(order[1]!.code), "pick_statement", st[1]);
   await expect(page.getByText("Your pick! Choose a problem statement now: you have 20 seconds.")).toBeVisible();
+  await expect(screen.getByTestId("display-statement-1")).toContainText("2/3"); // the big screen follows the picks
   await expect(page.getByTestId("step-draft")).toHaveAttribute("data-state", "now");
   await expect(page.getByTestId("crowd-1")).toContainText("2 companies share: best 100% · 2nd 75%");
   await shot(page, "12-draft-your-pick");
@@ -176,6 +189,17 @@ test("Round 3: the draft says whose pick it is, alerts the team on the clock, an
   await expect(page.getByTestId("on-the-clock")).toContainText("The draft is over");
   await expect(page.getByTestId("step-hire")).toHaveAttribute("data-state", "now");
   await shot(page, "13-draft-done");
+  // Draft over: the big screen goes back to the board.
+  await expect(screen.getByTestId("display-draft")).toHaveCount(0);
+  await screen.close();
+  await org.close();
+  // The Round 3 offer starts inside the fee band (5–20% of the company's cash), not at the firm's asking fee.
+  const firm3 = page.getByTestId(`firm-${a.c_code}`);
+  await firm3.getByText("Make an offer").click();
+  const cashNow = Number((await n.one("select cash_cents from teams where code = $1", [a.p_code])).cash_cents);
+  await expect(firm3.getByLabel("Cash ($)")).toHaveValue((Math.ceil(cashNow * 0.05) / 100).toFixed(2));
+  await firm3.getByRole("button", { name: "Send offer" }).click();
+  await expect(page.getByTestId("step-hire")).toContainText("Offer sent");
 
   // A fund sees who competes with whom.
   await page.context().clearCookies();

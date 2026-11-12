@@ -245,7 +245,11 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
                       <details className="mt-2">
                         <summary className="cursor-pointer text-sm font-semibold text-[var(--term-amber)]">Make an offer</summary>
                         <ActionForm action={makeOffer.bind(null, f.team_id, f.code)} submit="Send offer" className="mt-2" resetOnSuccess>
-                          <TermsFields cash={p?.asking_cents ?? 0} />
+                          {/* In Round 3 the fee must be worth 5–20% of the company's cash: start inside that band. */}
+                          <TermsFields
+                            cash={band ? Math.min(band.max, Math.max(band.min, p?.asking_cents ?? 0)) : (p?.asking_cents ?? 0)}
+                            hint={band ? `Round 3: worth ${money(band.min)} to ${money(band.max)} in cash and shares.` : undefined}
+                          />
                           <label className="mt-2 block text-sm">
                             <span className="font-semibold text-paper">Note (optional)</span>
                             <input name="note" maxLength={300} className={`${inputClass} mt-1`} />

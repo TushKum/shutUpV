@@ -13,6 +13,7 @@ import { NewsTicker } from "./ticker";
 import { TakeoverView } from "./takeovers";
 import { ScreenSwitch } from "./screen-switch";
 import { FallbackRefresh } from "./fallback-refresh";
+import { DraftBoard, loadLiveDraft } from "./draft-board";
 
 export const metadata: Metadata = { title: "Big screen" };
 
@@ -23,6 +24,10 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
   const { slug } = await params;
   const { event, status, bulletin, moments } = await loadDisplayFrame(slug);
   const takeover = activeTakeover(moments, Date.parse(status.server_time), event.clock_speed);
+  // A PRIMUS event's Round 3 draft takes the screen while it runs: it comes before a results screen still showing from
+  // Round 2 (nothing else can start while companies are picking).
+  const draft = status.phase === "SATURATION" ? await loadLiveDraft(event.id) : null;
+  const current = draft?.picks.find((p) => p.statement_id === null) ?? null;
   return (
     <ClockProvider serverTime={status.server_time} pausedAt={status.paused ? status.paused_at : null}>
       <EventChannel eventId={event.id}>
@@ -31,11 +36,15 @@ export default async function DisplayScreen({ params }: PageProps<"/display/[slu
         <RefreshAt at={takeover?.until} afterMs={250} />
         <RefreshAt at={status.open_round?.closes_at} />
         <RefreshAt at={status.next_round?.opens_at} />
+        {/* A pick that runs out is given by the heartbeat: look again just after it. */}
+        <RefreshAt at={current?.closes_at} afterMs={2500} />
         <Stage>
           <ScreenSwitch
-            until={takeover?.until ?? null}
+            until={draft ? null : (takeover?.until ?? null)}
             takeover={
-              takeover ? (
+              draft ? (
+                <DraftBoard data={draft} />
+              ) : takeover ? (
                 <>
                   <TakeoverView event={event} takeover={takeover} />
                   {/* A pause must show in the hall during a takeover too. */}

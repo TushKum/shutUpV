@@ -30,13 +30,24 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   const status = await loadEventStatus(event.id);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
-  const [phases, deadlines, rounds, subrounds, engagements] = await Promise.all([
+  const [phases, deadlines, rounds, subrounds, engagements, picks, statements, companies] = await Promise.all([
     sb.from("phases").select("code, seq, starts_at, ends_at, started_at, ended_at").eq("event_id", event.id).order("seq"),
     sb.from("deadlines").select("code, at").eq("event_id", event.id).order("at"),
     sb.from("rounds").select("number, phase, status, opens_at, closes_at, cleared_at").eq("event_id", event.id).order("number"),
     sb.from("subrounds").select("k, revealed_at, hiring_closed_at, due_closed_at, rated_at").eq("event_id", event.id).order("k"),
     sb.from("engagements").select("k, escrow, rating").eq("event_id", event.id),
+    sb.from("draft_picks").select("company_id, pick_no, closes_at, statement_id, by_default").eq("event_id", event.id).order("pick_no"),
+    sb.from("problem_statements").select("id, number, title, cap").eq("event_id", event.id).order("number"),
+    sb.from("companies").select("id, ticker, squad_id").eq("event_id", event.id),
   ]);
+  // Round 3's draft, for the panel below.
+  const draftPicks = (picks.data ?? []) as { company_id: string; pick_no: number; closes_at: string; statement_id: string | null; by_default: boolean }[];
+  const stRows = (statements.data ?? []) as { id: string; number: number; title: string; cap: number }[];
+  const coRows = (companies.data ?? []) as { id: string; ticker: string | null; squad_id: string | null }[];
+  const ticker = new Map(coRows.map((c) => [c.id, c.ticker ?? "—"]));
+  const playing = coRows.filter((c) => c.squad_id !== null).length;
+  const room = stRows.reduce((s, x) => s + x.cap, 0);
+  const onClock = draftPicks.find((p) => p.statement_id === null) ?? null;
   const next = status.next_phase;
   const blocked = status.gate ?? (status.paused ? "Resume the event before advancing." : null);
 
@@ -166,6 +177,52 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
               The heartbeat reveals each crisis at its time, closes hiring, settles escrow at the due time and fills missing ratings with 3. Judge and
               release each crisis plan, advice memo and the solution under Judge.
             </p>
+          </Panel>
+        ) : null}
+
+        {event.format === "PRIMUS" ? (
+          <Panel title="Round 3 · the draft" actions={<a href={`/admin/${slug}/content`} className="text-sm underline">Statements</a>}>
+            {stRows.length === 0 ? (
+              <Notice tone={status.phase === "SATURATION" ? "red" : "amber"}>
+                {status.phase === "SATURATION"
+                  ? "Round 3 has started but there are no problem statements: the draft is waiting. Upload them under Content now; the draft starts at once."
+                  : "No problem statements yet. Upload them under Content before Round 3: the draft starts with Round 3 only if they are there."}
+              </Notice>
+            ) : room < playing ? (
+              <Notice tone="red">
+                The statements have room for {room} companies, but {playing} companies play. Raise the caps or add statements under Content.
+              </Notice>
+            ) : draftPicks.length === 0 ? (
+              <p className="text-sm text-paper">
+                {stRows.length} statements, room for {room} companies ({playing} play). The draft starts with Round 3: lowest score so far first, 20 seconds each.
+              </p>
+            ) : onClock ? (
+              <p className="text-sm text-paper" data-testid="admin-draft-clock">
+                On the clock: <strong className="font-mono">{ticker.get(onClock.company_id)}</strong> (pick {onClock.pick_no} of {draftPicks.length}) ·{" "}
+                <Countdown to={onClock.closes_at} passed="given by default on the next heartbeat" /> · {draftPicks.filter((p) => p.statement_id).length} picked.
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-phosphor">
+                The draft is over: every company has its statement ({draftPicks.filter((p) => p.by_default).length} given by default). Hiring for Round 3 is open.
+              </p>
+            )}
+            {draftPicks.length ? (
+              <Table head={["#", "Statement", "Companies"]} className="mt-3">
+                {stRows.map((s) => {
+                  const on = draftPicks.filter((p) => p.statement_id === s.id);
+                  return (
+                    <tr key={s.id}>
+                      <Td mono>{s.number}</Td>
+                      <Td>{s.title}</Td>
+                      <Td mono>
+                        {on.length}/{s.cap} {on.map((p) => `${ticker.get(p.company_id)}${p.by_default ? "*" : ""}`).join(" ")}
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </Table>
+            ) : null}
+            <p className="mt-2 text-xs text-muted">* given by default (no pick in time). The big screen shows the draft live while it runs.</p>
           </Panel>
         ) : null}
 

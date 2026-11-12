@@ -28,7 +28,8 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
     sb.from("bulletins").select("title, body, published_at, created_at").eq("event_id", event.id).eq("kind", "FLASH").order("created_at", { ascending: false }),
     sb.from("teams").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("track", "PRODUCT"),
     sb.from("problem_statements").select("number, title, body, cap").eq("event_id", event.id).order("number"),
-    sb.from("draft_picks").select("company_id", { count: "exact", head: true }).eq("event_id", event.id),
+    // The statements can be replaced until the first company has picked one.
+    sb.from("draft_picks").select("company_id", { count: "exact", head: true }).eq("event_id", event.id).not("statement_id", "is", null),
   ]);
   for (const r of [problems, crises, flashes, products, statements, picks]) if (r.error) throw new Error(`Could not read the content: ${r.error.message}`);
   const flash = (flashes.data ?? []).find((b) => b.published_at) ?? flashes.data?.[0] ?? null;
@@ -37,7 +38,7 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
   const problemRows = problems.data ?? [];
   const crisisRows = crises.data ?? [];
   const categories = new Set(crisisRows.map((c) => c.category)).size;
-  const statementLock = (picks.count ?? 0) > 0 ? "The Round 3 draft has started: the statements can no longer change." : null;
+  const statementLock = (picks.count ?? 0) > 0 ? "A company has picked in the Round 3 draft: the statements can no longer change." : null;
 
   return (
     <div className="space-y-6">
@@ -88,7 +89,8 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
         <Panel title="Round 3 problem statements" actions={<LockBadge lock={statementLock} />}>
           <Summary>
             {(statements.data ?? []).length} statements. At the start of Round 3 the Product teams pick one each, lowest score so far first, 20 seconds a
-            pick; each statement takes at most its cap of companies (5 if left empty). The statements lock when the draft starts.
+            pick; each statement takes at most its cap of companies (5 if left empty), and together they must have room for every company. The draft
+            starts with Round 3, or the moment they are uploaded if Round 3 has already started. They lock at the first pick.
           </Summary>
           <Upload kind="statements" lock={statementLock} organiser={organiser} action={uploadStatements.bind(null, event.id)} label="Upload the statements" />
           <Table head={["#", "Title", "Cap", "Body"]} empty="No problem statements yet." className="mt-4">
