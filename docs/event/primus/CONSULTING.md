@@ -6,7 +6,8 @@ earn: **fees + bonuses + the value of any shares you were paid in.**
 ## How you earn
 
 1. **Round 1 · Prove yourself (21:10–22:00).** Every firm writes a memo on the same case. A good memo earns a
-   bonus and builds your name.
+   bonus and builds your name. Then, by 22:30, make **Call 1**: for each of the two companies you follow, guess
+   whether its price will go up (BUY) or down (SELL) after the IPO. Each correct call earns $2,500.
 2. **Round 2 · Win clients (22:45–04:45).** In each of the four crises:
    - companies send you **offers**: money, shares or both. Accept, decline or ask for more. You can take **two
      clients** per crisis;

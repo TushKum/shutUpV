@@ -318,7 +318,8 @@ function primusActions(add: (a: Action) => void, s: Snapshot, r: () => number) {
         args: { p_headline: `Turnarounds by firm ${s.team.code}`, p_specialities: ["operations", "pricing"], p_rate_card: "From $500 per crisis", p_asking_cents: 50_000, p_about: "A bot firm in a rehearsal." },
       });
     }
-    if (p === "BUILD" || p === "SQUAD_DRAW") submission(add, s, "MEMO", memoContent);
+    // The memo opens with the draw: before it the firm is in no squad and the save is refused.
+    if ((p === "BUILD" || p === "SQUAD_DRAW") && s.squad) submission(add, s, "MEMO", memoContent);
     if (P) {
       const clients = P.clients ?? [];
       for (const o of s.offersToAnswer ?? []) {

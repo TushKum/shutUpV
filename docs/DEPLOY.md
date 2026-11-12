@@ -208,6 +208,13 @@ own team channel), so a busy hiring minute adds little. Check the plan's message
 concurrent clients. A local stack allows 100 messages a second: `scripts/local-load-limits.sh` raises that too, and
 restarts Realtime's rate counters, which otherwise keep the limit they started with.
 
+In November 2026 Supabase's [Realtime limits](https://supabase.com/docs/guides/realtime/limits) page lists, per
+project: Free 200 concurrent connections and 100 messages a second; Pro 500 and 500; Pro without the spend cap and
+Team 10,000 and 2,500 (channel joins per second match the messages). It counts a message each time one is "delivered
+to, or sent from a client", as above. A 600-screen night therefore needs **Pro with the spend cap off, or Team**:
+on Pro with the cap on, a hundred screens cannot connect. Each team screen joins three channels (the event, its team
+and its squad chat), so a venue-wide reconnect of 600 screens is about 1,800 joins.
+
 Then unset `JUDGE_FAKE`, redeploy and run a real calibration batch under `/admin/<slug>/judge/calibration`.
 Use two organiser consoles and check every median against the expected band; record model, prompt hashes, timing,
 tokens, outliers and any 429/529 failures. Repeat if needed and investigate unexpected results before scoring
