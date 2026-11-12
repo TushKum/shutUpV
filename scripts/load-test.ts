@@ -2,7 +2,7 @@
 // the plan's targets (a clearing under 5 s, every screen updated within 2 s of it).
 //
 //   1. Signs in every team of a rehearsal event and opens --connections realtime connections (default 500) on the
-//      event's private channel, as the team screens do.
+//      event's private channel and the team's own channel, as the team screens do.
 //   2. Waits for an open round with --window seconds (default 60) or less to go, then every fund places
 //      --orders-per-fund orders (default 6) at random moments in that window, while the other teams re-read their
 //      pages every 5 s.
@@ -77,14 +77,25 @@ async function main() {
   }
   const serverNow = () => Date.now() + offset;
 
-  // 2. Realtime connections (each its own socket, like a phone), on the event's private channel and, once the squads
-  //    are drawn, the team's squad chat channel.
+  // 2. Realtime connections (each its own socket, like a phone), on the event's private channel, the team's own
+  //    channel (its hiring offers) and, once the squads are drawn, the team's squad chat channel.
   type Screen = { sb: SupabaseClient; channel: RealtimeChannel; heard: Map<number, number> };
   // The clearing transaction's start (the broadcast's "at"), per round, from the first screen that hears it.
   const txnStarts = new Map<number, number>();
   const screens: Screen[] = [];
   const joinFailures: Record<string, number> = {};
   const squadJoins = { ok: 0, failed: 0 };
+  const teamJoins = { ok: 0, failed: 0 };
+  const join = (ch: RealtimeChannel) =>
+    new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), 30_000);
+      ch.subscribe((st) => {
+        if (st === "SUBSCRIBED" || st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED") {
+          clearTimeout(timer);
+          resolve(st === "SUBSCRIBED");
+        }
+      });
+    });
   t0 = Date.now();
   const joined = await pool(Array.from({ length: connections }, (_, i) => i), 25, async (i) => {
     const token = tokens[i % tokens.length]!;
@@ -112,21 +123,19 @@ async function main() {
       });
     });
     if (ok) screens.push(screen);
-    // A team screen also listens on its squad's chat channel once the squads are drawn (RLS shows only its own).
+    // A team screen also listens on its own team channel, and on its squad's chat channel once the squads are drawn
+    // (RLS shows only its own).
     if (ok) {
-      const { data: squad } = await sb.from("squads").select("id").maybeSingle<{ id: string }>();
+      if (await join(sb.channel(`team:${teams[i % teams.length]!.id}`, { config: { private: true } }))) teamJoins.ok++;
+      else teamJoins.failed++;
+      const me = teams[i % teams.length]!.id;
+      const { data: squad } = await sb
+        .from("squads")
+        .select("id")
+        .or(`product_team_id.eq.${me},consulting_team_id.eq.${me},finance_team_id.eq.${me}`)
+        .maybeSingle<{ id: string }>();
       if (squad) {
-        const chat = sb.channel(`squad:${squad.id}`, { config: { private: true } });
-        const joinedChat = await new Promise<boolean>((resolve) => {
-          const timer = setTimeout(() => resolve(false), 30_000);
-          chat.subscribe((st) => {
-            if (st === "SUBSCRIBED" || st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED") {
-              clearTimeout(timer);
-              resolve(st === "SUBSCRIBED");
-            }
-          });
-        });
-        if (joinedChat) squadJoins.ok++;
+        if (await join(sb.channel(`squad:${squad.id}`, { config: { private: true } }))) squadJoins.ok++;
         else squadJoins.failed++;
       }
     }
@@ -134,7 +143,7 @@ async function main() {
   });
   const joinMs = Date.now() - t0;
   const failedJoins = joined.filter((x) => !x).length;
-  console.log(`${time()}  ${screens.length} of ${connections} screens joined in ${(joinMs / 1000).toFixed(1)} s (${failedJoins} failed${failedJoins ? `: ${JSON.stringify(joinFailures)}` : ""}); squad chat channels: ${squadJoins.ok} joined, ${squadJoins.failed} failed`);
+  console.log(`${time()}  ${screens.length} of ${connections} screens joined in ${(joinMs / 1000).toFixed(1)} s (${failedJoins} failed${failedJoins ? `: ${JSON.stringify(joinFailures)}` : ""}); team channels: ${teamJoins.ok} joined, ${teamJoins.failed} failed; squad chat channels: ${squadJoins.ok} joined, ${squadJoins.failed} failed`);
 
   // 3. Wait for an open round with at most the window left.
   let round: { number: number; closes_at: string } | null = null;
@@ -236,7 +245,7 @@ async function main() {
     at: new Date().toISOString(),
     teams: teams.length,
     signInMs,
-    screens: { requested: connections, joined: screens.length, failed: failedJoins, failures: joinFailures, joinMs, squadChannels: squadJoins },
+    screens: { requested: connections, joined: screens.length, failed: failedJoins, failures: joinFailures, joinMs, teamChannels: teamJoins, squadChannels: squadJoins },
     round: round.number,
     orders: { placed: orderMs.length, outcomes, latencyMs: summary(orderMs) },
     pageReadsMs: summary(readMs),

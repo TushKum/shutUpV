@@ -3,7 +3,7 @@
 // baseline, the judged price, whether it was correct and the $2,500 it earned). Calls are private (PLAN Q5): only the
 // consultant reads its own rows.
 
-import { callEarnings, judgeCall, type CallDirection, type DeadlineCode, type SubmissionType } from "@msim/engine";
+import { callEarnings, judgeCall, type CallDirection, type DeadlineCode, type EventFormat, type SubmissionType } from "@msim/engine";
 import { cents } from "@/lib/format";
 import { deadlineState, type Deadlines, type PauseState } from "./rescue";
 
@@ -24,6 +24,10 @@ export const CALL_WINDOWS: readonly CallWindowSpec[] = [
   { no: 2, deadline: "CALL_2", baseline: "price after the plan tier", judgedAt: "price after the flash tier", opens: "when the plan scores are released", judged: "when the flash tier is applied" },
   { no: 3, deadline: "CALL_3", baseline: "price after the flash tier", judgedAt: "closing price", opens: "when the flash scores are released", judged: "at the close" },
 ];
+
+/** The night's call windows: all three on the classic night; PRIMUS has Call 1 only (no plan or flash releases). */
+export const callWindowsFor = (format: EventFormat): readonly CallWindowSpec[] =>
+  format === "PRIMUS" ? CALL_WINDOWS.filter((w) => w.no === 1) : CALL_WINDOWS;
 
 export interface CallsInput extends PauseState {
   nowMs: number;

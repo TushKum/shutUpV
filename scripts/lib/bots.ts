@@ -356,10 +356,14 @@ function primusActions(add: (a: Action) => void, s: Snapshot, r: () => number) {
   }
 }
 
+// The classic drafts exist from the draw, so one missing from the snapshot is not open to this team yet. The others
+// (the memo, the PRIMUS crisis plans and the solution) are created by their first save, at version 0.
+const CREATED_AT_DRAW: ReadonlySet<SubmissionType> = new Set(["PITCH", "PLAN", "FLASH"]);
+
 function submission(add: (a: Action) => void, s: Snapshot, type: SubmissionType, content: () => Record<string, string>) {
   if (s.submitted[type]) return;
-  // A draft row may not exist yet (the PRIMUS types): version 0 creates it.
-  const version = s.drafts[type] ?? 0;
+  const version = s.drafts[type] ?? (CREATED_AT_DRAW.has(type) ? undefined : 0);
+  if (version === undefined) return;
   add({ key: `save-${type}`, fn: "save_draft", args: { p_type: type, p_content: content(), p_expected_version: version } });
   add({ key: `submit-${type}`, fn: "submit_submission", args: { p_type: type } });
 }

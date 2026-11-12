@@ -6,5 +6,8 @@ set -euo pipefail
 DB=${DB_URL:-postgres://supabase_admin:postgres@127.0.0.1:54322/postgres}
 psql "$DB" -q -c "update _realtime.tenants set max_concurrent_users = 2000, max_events_per_second = 10000, max_joins_per_second = 1000"
 docker exec supabase_realtime_market-sim /app/bin/realtime rpc 'Realtime.Tenants.Cache.distributed_invalidate_tenant_cache("realtime-dev")' >/dev/null
+# A running rate counter keeps the limit it started with (the old 100 messages a second, which 600 screens pass with
+# one broadcast: every delivery counts): stop the tenant's counters, and Realtime starts them again with the new one.
+docker exec supabase_realtime_market-sim /app/bin/realtime rpc 'for {id, pid} <- Registry.select(Realtime.Registry.Unique, [{{{Realtime.RateCounter, :rate_counter, :"$1"}, :"$2", :_}, [], [{{:"$1", :"$2"}}]}]), elem(id, tuple_size(id) - 1) == "realtime-dev", do: GenServer.stop(pid)' >/dev/null
 docker exec supabase_kong_market-sim sh -c 'KONG_NGINX_EVENTS_WORKER_CONNECTIONS=8192 KONG_NGINX_WORKER_RLIMIT_NOFILE=20000 kong reload' >/dev/null
 echo "Local limits raised: Realtime 2,000 users and 10,000 events/s; Kong 8,192 connections."

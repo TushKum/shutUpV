@@ -54,6 +54,8 @@ describe("PRIMUS rounds 2 and 3", () => {
     await n.advanceTo("SQUAD_DRAW");
     await n.org("run_lottery", n.eventId, seed, "3");
     const [a, b, c] = [await n.squad(1), await n.squad(2), await n.squad(3)];
+    // PRIMUS has one consultant call: the draw creates only the Call 1 slots (two per firm).
+    expect(await n.q("select call_no, count(*)::int as c from calls where event_id = $1 group by 1", [n.eventId])).toEqual([{ call_no: 1, c: 6 }]);
     await n.advanceTo("BUILD");
     for (const [i, s] of [a, b, c].entries()) {
       await n.ok(n.team(s.p_code), "save_draft", "PITCH", { company_name: `Pri Co ${i}`, ticker: ["PRA", "PRB", "PRC"][i], problem: "A real problem." }, 0);
@@ -98,6 +100,18 @@ describe("PRIMUS rounds 2 and 3", () => {
     await n.ok(firmCaller, "respond_offer", offerB.id, "ACCEPT");
     expect(await n.call(n.team(c.p_code), "make_offer", firm, 30000, 0, "")).toMatchObject({ ok: false, code: "FIRM_FULL" });
     expect(await n.call(n.team(a.p_code), "make_offer", n.teamId(c.c_code), 30000, 0, "")).toMatchObject({ ok: false, code: "ALREADY_HIRED" });
+
+    // ── Offers go only to the two teams' own channels and to the staff, never to every screen of the night.
+    const offerMessages = async (topic: string) =>
+      (await n.q("select payload from realtime.messages where topic = $1 and event = 'offers' order by inserted_at, id", [topic])).map((m) => m.payload);
+    expect(await offerMessages(`event:${n.eventId}`)).toEqual([]);
+    const toFirm = await offerMessages(`team:${firm}`); // A's offer, X's counter, A's accept, B's offer, X's accept
+    expect(toFirm).toHaveLength(5);
+    expect(toFirm[0]).toMatchObject({ kind: "offers", firm, product: n.teamId(a.p_code) });
+    expect(toFirm.at(-1)).toMatchObject({ kind: "offers", accepted: true, offer: offerB.id, firm, product: n.teamId(b.p_code) });
+    expect(await offerMessages(`team:${n.teamId(a.p_code)}`)).toHaveLength(3);
+    expect(await offerMessages(`team:${n.teamId(c.p_code)}`)).toEqual([]);
+    expect(await offerMessages(`staff:${n.eventId}`)).toHaveLength(5);
 
     // ── The firm's profile carries an "about" text; the hire chat is one on one per company–firm pair: A and X read
     // their thread, B (X's other client) reads only its own, and teams that hired no one cannot post or read.
@@ -249,14 +263,25 @@ describe("PRIMUS rounds 2 and 3", () => {
       ok: false,
       code: "NOT_ENOUGH_ROOM",
     });
-    // The draft's planned end is too early for three picks of 20 seconds: it moves later when the draft starts.
-    await n.q("update deadlines set at = now() + interval '10 seconds' where event_id = $1 and code = 'DRAFT'", [n.eventId]);
+    // A fast rehearsal clock: the draft's planned end is too early for three picks of 20 seconds, and hiring, the due
+    // time and the rating follow within minutes. When the draft starts, all of Round 3 moves later together, in order.
+    await n.q(
+      `update deadlines set at = now() + case code when 'DRAFT' then interval '10 seconds' when 'HIRE_5' then interval '55 seconds'
+                                                  when 'DUE_5' then interval '190 seconds' else interval '235 seconds' end
+        where event_id = $1 and code in ('DRAFT', 'HIRE_5', 'DUE_5', 'RATE_5')`,
+      [n.eventId],
+    );
     const up = await n.ok(n.lead, "set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A", body: "a", cap: 2 }, { number: 2, title: "B", body: "b" }]));
     expect(up.draft_started).toBe(true);
     expect((await n.one("select count(*)::int as c from draft_picks where event_id = $1", [n.eventId])).c).toBe(3);
-    const t = await n.one("select extract(epoch from (select at from deadlines where event_id = $1 and code = 'DRAFT') - now())::int as draft, extract(epoch from (select at from deadlines where event_id = $1 and code = 'HIRE_5') - (select at from deadlines where event_id = $1 and code = 'DRAFT'))::int as gap", [n.eventId]);
+    const t = await n.one(
+      `select extract(epoch from (select at from deadlines where event_id = $1 and code = 'DRAFT') - now())::int as draft,
+              (select array_agg(extract(epoch from d.at - (select at from deadlines where event_id = $1 and code = 'DRAFT'))::int order by d.at)
+                 from deadlines d where d.event_id = $1 and d.code in ('HIRE_5', 'DUE_5', 'RATE_5')) as after_draft`,
+      [n.eventId],
+    );
     expect(t.draft).toBeGreaterThanOrEqual(75);
-    expect(t.gap).toBeGreaterThanOrEqual(600);
+    expect(t.after_draft).toEqual([45, 180, 225]); // hiring, due, rating: the planned gaps, in order
     // Still replaceable until the first pick; then fixed.
     await n.ok(n.lead, "set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A2", body: "a" }]));
     const first = await n.one("select c.product_team_id, t.code from draft_picks d join companies c on c.id = d.company_id join teams t on t.id = c.product_team_id where d.event_id = $1 and d.pick_no = 1", [n.eventId]);

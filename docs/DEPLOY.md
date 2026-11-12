@@ -198,6 +198,16 @@ room. A local stack (and Supabase's free plan) allows 200; `scripts/local-load-l
 before a local load test. On the hosted project, check the plan's Realtime limits (step 8 of section 2) and raise them
 before the night: every screen that cannot connect stops updating by itself.
 
+**The message limit.** The second sign is a report where few or none of the screens "heard" the clearing, with
+`UnableToBroadcastChanges: too_many_requests` or `MessagePerSecondRateLimitReached` in the Realtime logs. Realtime
+counts a message once for every screen that receives it, against the project's messages-per-second limit averaged
+over the last minute, and while that average is over the limit it drops broadcasts for everyone. In the PRIMUS
+rehearsal with 600 screens, a round change costs about 1,800 deliveries (three messages × 600 screens), about 30 a
+second averaged over the minute. Hiring offers go only to the two teams concerned (each team screen also joins its
+own team channel), so a busy hiring minute adds little. Check the plan's messages per second as well as its
+concurrent clients. A local stack allows 100 messages a second: `scripts/local-load-limits.sh` raises that too, and
+restarts Realtime's rate counters, which otherwise keep the limit they started with.
+
 Then unset `JUDGE_FAKE`, redeploy and run a real calibration batch under `/admin/<slug>/judge/calibration`.
 Use two organiser consoles and check every median against the expected band; record model, prompt hashes, timing,
 tokens, outliers and any 429/529 failures. Repeat if needed and investigate unexpected results before scoring

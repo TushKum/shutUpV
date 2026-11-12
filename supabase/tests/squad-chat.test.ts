@@ -83,6 +83,10 @@ describe("squad chat", () => {
     // The older topics still work.
     expect(await hears(n.team(a.f_code), `event:${n.eventId}`)).toBe(true);
     expect(await hears(n.team(a.f_code), `staff:${n.eventId}`)).toBe(false);
+    // A team hears its own team channel (its hiring offers) and no other team's; the staff hear offers on theirs.
+    expect(await hears(n.team(a.f_code), `team:${n.teamId(a.f_code)}`)).toBe(true);
+    expect(await hears(n.team(a.f_code), `team:${n.teamId(b.f_code)}`)).toBe(false);
+    expect(await hears(n.lead, `team:${n.teamId(a.f_code)}`)).toBe(false);
   });
 
   test("the staff's summary: messages and the latest per squad; teams may not call it", async () => {

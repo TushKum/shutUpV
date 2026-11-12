@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CALL_WINDOWS, callCell, callSentText, callsSummary, coveredLabels, findCall, windowStage, type CallRow, type CallsInput } from "./calls";
+import { CALL_WINDOWS, callCell, callSentText, callWindowsFor, callsSummary, coveredLabels, findCall, windowStage, type CallRow, type CallsInput } from "./calls";
 
 const T = (iso: string) => Date.parse(iso);
 // 23:15 IST = 17:45Z; 03:40 IST = 22:10Z; 04:30 IST = 23:00Z.
@@ -23,6 +23,11 @@ describe("call windows (make_call)", () => {
       [2, "CALL_2", "price after the plan tier", "price after the flash tier"],
       [3, "CALL_3", "price after the flash tier", "closing price"],
     ]);
+  });
+
+  test("a PRIMUS night has Call 1 only", () => {
+    expect(callWindowsFor("PRIMUS").map((w) => w.no)).toEqual([1]);
+    expect(callWindowsFor("CLASSIC").map((w) => w.no)).toEqual([1, 2, 3]);
   });
 
   test("call 1: from the draw until 23:15, and never after the IPO prices are released", () => {

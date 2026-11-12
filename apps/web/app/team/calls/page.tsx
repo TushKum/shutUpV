@@ -5,7 +5,7 @@ import { loadTeamContext } from "@/lib/team/context";
 import { sectionAllowed } from "@/lib/team/sections";
 import { supabaseServer } from "@/lib/supabase/server";
 import { callsInput, loadCalls } from "@/lib/team/calls-data";
-import { CALL_WINDOWS, callCell, callsSummary, coveredLabels, findCall, windowStage, type CallCell } from "@/lib/team/calls";
+import { callCell, callWindowsFor, callsSummary, coveredLabels, findCall, windowStage, type CallCell } from "@/lib/team/calls";
 import { pauseOf } from "@/lib/team/rescue-data";
 import { clock, money } from "@/lib/format";
 import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
@@ -23,10 +23,10 @@ const STAGE_BADGE = {
   JUDGED: { tone: "blue", text: "Judged" },
 } as const;
 
-// A Consulting team's calls: BUY or SELL on each of its two covered companies in three windows, editable until each
-// is due, then read-only; once judged, the baseline, the judged price, right or wrong and the $2,500 earned. The
-// windows open and close at releases and the close (broadcast, which refreshes the page) and at their due times (the
-// page re-reads itself then). Calls are private: no other team sees them.
+// A Consulting team's calls: BUY or SELL on each of its two covered companies in three windows (one on a PRIMUS
+// night), editable until each is due, then read-only; once judged, the baseline, the judged price, right or wrong and
+// the $2,500 earned. The windows open and close at releases and the close (broadcast, which refreshes the page) and at
+// their due times (the page re-reads itself then). Calls are private: no other team sees them.
 export default async function CallsPage() {
   const ctx = await loadTeamContext();
   if (!sectionAllowed(ctx.team.track, "/calls")) {
@@ -47,7 +47,7 @@ export default async function CallsPage() {
   const input = callsInput(ctx, data);
   const pause = pauseOf(ctx);
   const companies = coveredLabels(data.coverage, data.companies);
-  const windows = CALL_WINDOWS.map((w) => {
+  const windows = callWindowsFor(ctx.event.format).map((w) => {
     const stage = windowStage(w.no, input);
     return { ...w, stage, due: data.deadlines[w.deadline] ?? null, cells: companies.map((c) => ({ company: c, cell: callCell(findCall(data.calls, c.id, w.no), stage) })) };
   });

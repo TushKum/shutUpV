@@ -265,7 +265,10 @@ test("the flash answer: opens with the bulletin shown next to it, up to 100 word
   const theirs = consulting.getByRole("form", { name: "Flash answer editor" });
   await expect(theirs.getByRole("button", { name: "Submitted" })).toBeDisabled();
   await expect(consulting.getByTestId("submitted-versions")).toContainText("by Product · 15 words Current · judged");
+  // Type only once the page is live (hydrated and caught up), or the text typed into the server-rendered box is lost.
+  await expect(consulting.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
   await theirs.getByLabel("Our answer").fill("We cut costs and sell yearly plans to councils.");
+  await expect(theirs.getByLabel("Our answer")).toHaveValue("We cut costs and sell yearly plans to councils.");
   await theirs.getByRole("button", { name: "Save draft" }).click();
   await expect(theirs.getByRole("status").filter({ hasText: /^Saved version 2 at/ })).toBeVisible();
 
