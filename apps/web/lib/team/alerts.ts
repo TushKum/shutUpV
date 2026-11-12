@@ -11,7 +11,8 @@ export function nextAction(plan: HomePlan): HomeTask | null {
 
 /** The open tasks with a deadline, which get the 5- and 1-minute alerts. */
 export function alertTasks(plan: HomePlan): { key: string; title: string; due: string; href: string | null }[] {
-  return plan.now.filter((t) => t.state === "todo" && t.due !== null).map((t) => ({ key: t.key, title: t.title, due: t.due!, href: t.href }));
+  // The draft pick lasts 20 seconds and has its own "Your pick!" alert: no "under a minute left" on top of it.
+  return plan.now.filter((t) => t.state === "todo" && t.due !== null && t.key !== "DRAFT").map((t) => ({ key: t.key, title: t.title, due: t.due!, href: t.href }));
 }
 
 export const ALERT_AT_MS = [5 * 60_000, 60_000] as const;
@@ -41,10 +42,12 @@ export interface EventToast {
   href: string | null;
   /** Worth a sound and a buzz (deadlines and big moments), or only a quiet toast. */
   loud: boolean;
+  /** How long it stays, when not the usual 10 seconds. */
+  ms?: number;
 }
 
 /** What a broadcast tells a team, in a few words; null for the ones that need no toast. */
-export function eventToast(kind: string, payload: Record<string, unknown>, track: Track): EventToast | null {
+export function eventToast(kind: string, payload: Record<string, unknown>, track: Track, teamId: string | null = null): EventToast | null {
   const round = typeof payload.round === "number" ? `Round ${payload.round}` : "A round";
   switch (kind) {
     case "round_cleared":
@@ -93,6 +96,10 @@ export function eventToast(kind: string, payload: Record<string, unknown>, track
       if (typeof payload.offer !== "string") return track === "CONSULTING" ? { text: "A company sent you an offer.", tone: "good", href: "/team/crisis", loud: true } : null;
       return { text: "One of your offers changed: have a look.", tone: "info", href: "/team/crisis", loud: false };
     case "draft":
+      // The team now on the clock has 20 seconds: the loudest alert of the night.
+      if (teamId && payload.next_product === teamId) {
+        return { text: "Your pick! Choose a problem statement now: you have 20 seconds.", tone: "warn", href: "/team/crisis", loud: true, ms: 4000 };
+      }
       if (payload.step === "start") return { text: "Round 3: the draft has started.", tone: "good", href: "/team/crisis", loud: true };
       return null;
     case "paused":

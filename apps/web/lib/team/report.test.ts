@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { companyReport, firmReport, moveText } from "./report";
+import { companyReport, firmReport, moveText, statementRank } from "./report";
 
 const eng = (k: number, o: Partial<{ cash_cents: number; shares: number; escrow: "HELD" | "RELEASED" | "REFUNDED"; rating: number | null; bonus_cents: number | null }> = {}) => ({
   k,
@@ -36,6 +36,13 @@ describe("your crises so far", () => {
     expect(rows[0]).toMatchObject({ state: "scored", clients: 2, feesCents: 100_000, feeShares: 200, avgRating: 4, bonusCents: 1_100_000 });
     expect(rows[1]).toMatchObject({ state: "now", clients: 1, feesCents: 0, bonusCents: null });
     expect(rows[2]!.state).toBe("later");
+  });
+
+  test("a company's place on its statement", () => {
+    const rivals = [{ companyId: "a", ticker: "AAA", score: 70 }, { companyId: "b", ticker: "BBB", score: 90 }, { companyId: "c", ticker: "CCC", score: 70 }];
+    expect(statementRank("b", rivals)).toEqual({ place: 1, of: 3 });
+    expect(statementRank("c", rivals)).toEqual({ place: 3, of: 3 }); // a tie goes to the lower ticker
+    expect(statementRank("x", rivals)).toBeNull();
   });
 
   test("price moves in words", () => {

@@ -19,7 +19,7 @@ import { Badge, Notice, inputClass } from "@/components/ui/ui";
 import { ContentView } from "../squad/parts";
 import { DraftEditor } from "../squad/draft-editor";
 import { saveFirmProfile } from "./actions";
-import { CardsOf, EngagementTable, FirmLeague, OfferCard, Step, companyLabel, type StepState } from "./parts";
+import { CardsOf, EngagementTable, FirmLeague, OfferCard, StatementBoard, Step, companyLabel, type StepState } from "./parts";
 
 const EMPTY = { version: 0, content: {}, updatedAt: null, updatedBy: null };
 
@@ -235,6 +235,8 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
           <p>After the due time the client rates you 1 to 5 stars, and the judge scores your memo. A good memo and a good rating add a bonus; poor ones take money away.</p>
         </HowItWorks>
       </Step>
+
+      {r3 ? <StatementBoard data={data} /> : null}
 
       <details className="mx-panel rounded-lg" data-testid="firm-results">
         <summary className="cursor-pointer px-4 py-3 text-base font-bold text-phosphor">Your results: clients, ratings and the firm league</summary>

@@ -176,11 +176,65 @@ export function draftState(picks: readonly DraftPickRow[], myCompanyId: string |
   return { current, mine, myTurn: !!current && !!mine && current.company_id === mine.company_id, ahead, done: ordered.length > 0 && current === null };
 }
 
+/**
+ * The draft can end before its deadline (every company has picked). Hiring and writing for Round 3 open at that
+ * moment (app.subround_open), so the screens count the draft's end from then: the deadlines with DRAFT brought
+ * forward to just before now.
+ */
+export function withDraftEnd(deadlines: Deadlines, picks: readonly DraftPickRow[], nowMs: number): Deadlines {
+  const over = picks.length > 0 && picks.every((p) => p.statement_id !== null);
+  if (!over || !deadlines.DRAFT || Date.parse(deadlines.DRAFT) <= nowMs) return deadlines;
+  return { ...deadlines, DRAFT: new Date(nowMs - 1000).toISOString() };
+}
+
 /** How many companies picked each statement. */
 export function statementCounts(picks: readonly DraftPickRow[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const p of picks) if (p.statement_id) m.set(p.statement_id, (m.get(p.statement_id) ?? 0) + 1);
   return m;
+}
+
+export interface StatementGroup {
+  id: string;
+  number: number;
+  title: string;
+  cap: number;
+  /** The companies on this statement, the highest score so far first. */
+  companies: { id: string; label: string; scoreAvg: number; mine: boolean }[];
+}
+
+/** Who competes with whom: each statement with the companies that picked it (or were given it). */
+export function statementGroups(
+  statements: readonly { id: string; number: number; title: string; cap: number }[],
+  picks: readonly DraftPickRow[],
+  label: (companyId: string) => string,
+  myCompanyId: string | null = null,
+): StatementGroup[] {
+  return statements.map((s) => ({
+    id: s.id,
+    number: s.number,
+    title: s.title,
+    cap: s.cap,
+    companies: picks
+      .filter((p) => p.statement_id === s.id)
+      .map((p) => ({ id: p.company_id, label: label(p.company_id), scoreAvg: p.score_avg, mine: p.company_id === myCompanyId }))
+      .sort((a, b) => b.scoreAvg - a.scoreAvg || a.label.localeCompare(b.label)),
+  }));
+}
+
+/** How a statement's price moves are shared among n companies (app.release_tier_bp), in words. */
+export function shareText(n: number): string {
+  if (n <= 0) return "Nobody here yet: alone, a company keeps its full price move.";
+  if (n === 1) return "Alone here: the full price move.";
+  const parts = ["best 100%", "2nd 75%", "3rd 50%", "others 25%"].slice(0, Math.min(n, 4));
+  return `${n} companies share: ${parts.join(" · ")} of a rise (a fall counts in full).`;
+}
+
+/** 1 → "1st", 2 → "2nd"… */
+export function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }
 
 /** The sub-rounds to list in the history: every one before k that has started. */

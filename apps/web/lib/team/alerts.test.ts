@@ -74,5 +74,8 @@ describe("eventToast", () => {
     expect(eventToast("offers", { offer: "o", accepted: true }, "CONSULTING")!.loud).toBe(true);
     expect(eventToast("draft", { step: "start" }, "PRODUCT")!.text).toBe("Round 3: the draft has started.");
     expect(eventToast("draft", { step: "pick", pick_no: 3 }, "PRODUCT")).toBeNull();
+    expect(eventToast("draft", { step: "pick", next_product: "p7" }, "PRODUCT", "p7")).toMatchObject({ text: "Your pick! Choose a problem statement now: you have 20 seconds.", loud: true });
+    expect(eventToast("draft", { step: "pick", next_product: "p7" }, "PRODUCT", "p8")).toBeNull();
+    expect(eventToast("draft", { step: "start", next_product: "p7" }, "PRODUCT", "p7")!.text).toContain("Your pick!");
   });
 });

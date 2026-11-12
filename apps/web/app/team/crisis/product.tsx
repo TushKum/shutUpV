@@ -15,7 +15,9 @@ import {
   pastSubrounds,
   ratingOpen,
   statementCounts,
+  statementGroups,
   stepAt,
+  withDraftEnd,
   subroundTitle,
   termsText,
 } from "@/lib/team/crisis";
@@ -27,7 +29,7 @@ import { DoThis, HowItWorks } from "@/components/ui/how-it-works";
 import { Badge, Notice, inputClass } from "@/components/ui/ui";
 import { SubmissionEditor } from "../squad/submission";
 import { makeOffer, pickStatement, rateFirm } from "./actions";
-import { CardsOf, EngagementTable, OfferCard, Step, TermsFields, companyLabel, type StepState } from "./parts";
+import { CardsOf, EngagementTable, OfferCard, OnTheClock, StatementCrowd, Step, TermsFields, companyLabel, type StepState } from "./parts";
 
 export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data: CrisisRoomData; k: number | null; nowMs: number }) {
   const pause = pauseOf(ctx);
@@ -37,6 +39,7 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
   const firmById = new Map(data.firms.map((f) => [f.team_id, f]));
   const myOffers = mine && k !== null ? data.offers.filter((o) => o.company_id === mine.id && o.k === k) : [];
   const ws = ctx.squad ? await loadSquadWorkspace(ctx) : null;
+  if (ws) ws.deadlines = withDraftEnd(ws.deadlines, data.picks, nowMs);
   const planType: SubmissionType | null = k === null ? null : planOf(k);
   const win = ws && planType ? submissionWindow(planType, "PRODUCT", windowInput(ctx, ws)) : null;
   const sent = ws && planType ? currentSubmission(ws.submissions, planType) : null;
@@ -47,6 +50,8 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
   const band = k === 5 ? feeBand(ctx.team.cash) : null;
   const clientsThisRound = (firmId: string) => data.engagements.filter((e) => e.firm_team_id === firmId && e.k === k).length;
   if (k === null || !mine) return null;
+  const tickerOf = new Map(data.companies.map((c) => [c.id, c.ticker ?? "—"]));
+  const groups = new Map(statementGroups(data.statements, data.picks, (id) => tickerOf.get(id) ?? "—", mine.id).map((g) => [g.id, g]));
 
   const r3 = k === 5;
   const hireAt = clock(stepAt(data.deadlines, "HIRE", k));
@@ -133,6 +138,9 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
           ) : (
             <Notice>The draft order appears when Round 3 starts.</Notice>
           )}
+          <div className="mt-2">
+            <OnTheClock data={data} />
+          </div>
           <HowItWorks testId="draft-rules">
             <p>Companies pick one at a time, the lowest score so far first, with 20 seconds each. No pick in time: you get the statement with the fewest companies.</p>
             <p>
@@ -161,6 +169,7 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
                     ) : null}
                   </div>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{s.body}</p>
+                  {groups.get(s.id) ? <StatementCrowd group={groups.get(s.id)!} /> : null}
                 </li>
               );
             })}

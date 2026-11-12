@@ -131,3 +131,58 @@ test("Round 2: the banner, the tasks and the crisis room lead each track through
   await expect(page.getByTestId("fund-todo")).toContainText("Read each company's crisis card");
   await shot(page, "09-fund-crisis-room");
 });
+
+test("Round 3: the draft says whose pick it is, alerts the team on the clock, and shows who competes with whom", async ({ page }) => {
+  test.setTimeout(180_000);
+  const n = ev.n;
+  const a = await n.squad(1);
+  await n.org("set_problem_statements", n.eventId, JSON.stringify([
+    { number: 1, title: "Clinic waits", body: "Patients wait for hours.", cap: 3 },
+    { number: 2, title: "Farm credit", body: "Farmers lack credit." },
+  ]));
+  await n.advanceTo("SATURATION");
+  // Lowest score so far first: squad 1's company scored 85 in crisis 1, so it picks last.
+  const order = await n.q<{ code: string; ticker: string; company_id: string }>(
+    "select t.code, c.ticker, c.id as company_id from draft_picks d join companies c on c.id = d.company_id join teams t on t.id = c.product_team_id where d.event_id = $1 order by d.pick_no",
+    [n.eventId],
+  );
+  expect(order[2]!.code).toBe(a.p_code);
+  const st = Object.fromEntries((await n.q("select number, id from problem_statements where event_id = $1", [n.eventId])).map((r) => [r.number, r.id]));
+
+  await loginAsTeam(page, ev, a.p_code);
+  await expect(page.getByTestId("round-banner").getByRole("heading", { level: 2 })).toHaveText("The final problem");
+  await expect(page.getByTestId("task-DRAFT")).toContainText("The draft: wait for your pick");
+  await expect(page.getByTestId("task-DRAFT")).toContainText("2 companies pick before you");
+  await page.goto("/team/crisis");
+  await expect(page.locator("[data-realtime=SUBSCRIBED]")).toBeVisible();
+  await expect(page.getByTestId("on-the-clock")).toContainText(`${order[0]!.ticker}`);
+  await expect(page.getByTestId("on-the-clock")).toContainText("pick 1 of 3");
+  await shot(page, "11-draft-waiting");
+
+  // The two before it pick statement 1: its screen follows, and its own turn is announced.
+  await n.ok(n.team(order[0]!.code), "pick_statement", st[1]);
+  await expect(page.getByTestId("on-the-clock")).toContainText("pick 2 of 3");
+  await n.ok(n.team(order[1]!.code), "pick_statement", st[1]);
+  await expect(page.getByText("Your pick! Choose a problem statement now: you have 20 seconds.")).toBeVisible();
+  await expect(page.getByTestId("step-draft")).toHaveAttribute("data-state", "now");
+  await expect(page.getByTestId("crowd-1")).toContainText("2 companies share: best 100% · 2nd 75%");
+  await shot(page, "12-draft-your-pick");
+  const one = page.getByTestId("statement-1");
+  await one.getByRole("button", { name: "Pick" }).click();
+  await one.getByRole("button", { name: "Click again to pick #1" }).click();
+  await expect(page.getByTestId("step-draft")).toHaveAttribute("data-state", "done");
+  await expect(page.getByTestId("crowd-1")).toContainText("(you)");
+  await expect(page.getByTestId("crowd-1")).toContainText("3 companies share: best 100% · 2nd 75% · 3rd 50%");
+  await expect(page.getByTestId("on-the-clock")).toContainText("The draft is over");
+  await expect(page.getByTestId("step-hire")).toHaveAttribute("data-state", "now");
+  await shot(page, "13-draft-done");
+
+  // A fund sees who competes with whom.
+  await page.context().clearCookies();
+  await loginAsTeam(page, ev, a.f_code);
+  await page.goto("/team/crisis");
+  await expect(page.getByTestId("board-1")).toContainText("Clinic waits");
+  await expect(page.getByTestId("board-1")).toContainText("3/3");
+  await expect(page.getByTestId("board-2")).toContainText("Nobody here yet");
+  await shot(page, "14-fund-statement-board");
+});

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { loadTeamContext } from "@/lib/team/context";
 import { loadCrisisRoom } from "@/lib/team/crisis-data";
-import { currentSubround, subroundTimeline } from "@/lib/team/crisis";
+import { currentSubround, subroundTimeline, withDraftEnd } from "@/lib/team/crisis";
 import { sectionAllowed } from "@/lib/team/sections";
 import { pauseOf } from "@/lib/team/squad-data";
 import { RefreshAt } from "@/lib/live/refresh-at";
@@ -23,6 +23,7 @@ export default async function CrisisRoomPage() {
   if (data.format !== "PRIMUS") return <Notice>Tonight&apos;s event plays the classic format: there is no crisis room. See Squad and Rescue.</Notice>;
   const k = currentSubround(ctx.status.phase, data.subrounds);
   const nowMs = new Date(ctx.status.server_time).getTime();
+  data.deadlines = withDraftEnd(data.deadlines, data.picks, nowMs);
   const steps = k === null ? [] : subroundTimeline(k, data.deadlines, nowMs, pauseOf(ctx));
   const nextAt = steps.find((s) => !s.passed && s.at)?.at ?? null;
   return (

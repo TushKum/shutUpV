@@ -10,9 +10,13 @@ import {
   parseShares,
   pastSubrounds,
   ratingOpen,
+  ordinal,
+  shareText,
   statementCounts,
+  statementGroups,
   subroundTimeline,
   termsText,
+  withDraftEnd,
   type DraftPickRow,
   type OfferRow,
   type SubroundRow,
@@ -120,5 +124,41 @@ describe("the Round 3 draft", () => {
     expect(draftState(picks, "c")).toMatchObject({ myTurn: false, ahead: 1 });
     expect(draftState([pick("a", 1, "s1")], "a")).toMatchObject({ current: null, done: true });
     expect(statementCounts([pick("a", 1, "s1"), pick("b", 2, "s1"), pick("c", 3, "s2")])).toEqual(new Map([["s1", 2], ["s2", 1]]));
+  });
+});
+
+describe("who competes with whom in Round 3", () => {
+  const pick = (company_id: string, statement_id: string | null, score_avg: number): DraftPickRow => ({
+    company_id,
+    pick_no: 1,
+    score_avg,
+    opens_at: "",
+    closes_at: "",
+    statement_id,
+    picked_at: null,
+    by_default: false,
+  });
+  test("each statement lists its companies, the highest score so far first", () => {
+    const g = statementGroups(
+      [{ id: "s1", number: 1, title: "Clinic waits", cap: 5 }, { id: "s2", number: 2, title: "Farm credit", cap: 5 }],
+      [pick("a", "s1", 40), pick("b", "s1", 70), pick("c", null, 55)],
+      (id) => id.toUpperCase(),
+      "a",
+    );
+    expect(g[0]!.companies).toEqual([{ id: "b", label: "B", scoreAvg: 70, mine: false }, { id: "a", label: "A", scoreAvg: 40, mine: true }]);
+    expect(g[1]!.companies).toEqual([]);
+  });
+  test("how a statement's price moves are shared", () => {
+    expect(shareText(1)).toBe("Alone here: the full price move.");
+    expect(shareText(2)).toBe("2 companies share: best 100% · 2nd 75% of a rise (a fall counts in full).");
+    expect(shareText(5)).toContain("best 100% · 2nd 75% · 3rd 50% · others 25%");
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd"]);
+  });
+  test("a draft that ends early opens hiring and writing at once", () => {
+    const later = new Date(Date.now() + 600_000).toISOString();
+    const now = Date.now();
+    expect(withDraftEnd({ DRAFT: later }, [pick("a", "s1", 1)], now).DRAFT).not.toBe(later);
+    expect(withDraftEnd({ DRAFT: later }, [pick("a", "s1", 1), pick("b", null, 2)], now).DRAFT).toBe(later);
+    expect(withDraftEnd({ DRAFT: later }, [], now).DRAFT).toBe(later);
   });
 });

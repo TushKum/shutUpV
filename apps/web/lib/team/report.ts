@@ -15,6 +15,8 @@ export interface CompanyReportRow {
   moveBp: number | null;
   hired: boolean;
   rating: number | null;
+  /** Round 3, once the solutions are scored: this company's place among those on its statement. */
+  rank?: { place: number; of: number } | null;
 }
 
 export interface FirmReportRow {
@@ -69,6 +71,13 @@ export function companyReport(
       rating: e?.rating ?? null,
     };
   });
+}
+
+/** A company's place among the solutions on its statement (the highest score first; ties: the lower ticker). */
+export function statementRank(mine: string, rivals: readonly { companyId: string; ticker: string; score: number }[]): { place: number; of: number } | null {
+  const order = [...rivals].sort((a, b) => b.score - a.score || (a.ticker < b.ticker ? -1 : a.ticker > b.ticker ? 1 : 0));
+  const i = order.findIndex((r) => r.companyId === mine);
+  return i < 0 ? null : { place: i + 1, of: order.length };
 }
 
 /** A firm's line per crisis. */

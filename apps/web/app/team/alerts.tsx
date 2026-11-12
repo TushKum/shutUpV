@@ -114,9 +114,9 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
   useEffect(() => {
     if (!last || seen.current === last.receivedAt) return;
     seen.current = last.receivedAt;
-    const t = eventToast(last.event, last.payload, track);
-    if (t) push({ text: t.text, tone: t.tone, href: t.href }, 10_000, t.loud);
-  }, [last, track]);
+    const t = eventToast(last.event, last.payload, track, teamId);
+    if (t) push({ text: t.text, tone: t.tone, href: t.href }, t.ms ?? 10_000, t.loud);
+  }, [last, track, teamId]);
 
   // A squad chat message from another team, unless the chat is already open.
   const path = usePathname();

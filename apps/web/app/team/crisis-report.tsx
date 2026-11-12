@@ -2,6 +2,7 @@ import Link from "next/link";
 import { money } from "@/lib/format";
 import type { CrisisReport } from "@/lib/team/report-data";
 import { moveText, type ReportState } from "@/lib/team/report";
+import { ordinal } from "@/lib/team/crisis";
 import { BentoItem, BentoTitle } from "@/components/ui/terminal-bento-grid";
 import { Glyph } from "@/components/ui/matrix/glyph";
 
@@ -52,6 +53,11 @@ export function CrisisReportCard({ report }: { report: CrisisReport }) {
                           <span className="text-phosphor">{c.score}</span>
                           <span className="text-xs font-normal text-muted">/100</span>{" "}
                           {c.moveBp !== null ? <span className={c.moveBp < 0 ? "text-danger-soft" : "text-phosphor"}>price {moveText(c.moveBp)}</span> : null}
+                        </p>
+                      ) : null}
+                      {c.rank ? (
+                        <p className="mt-1 text-xs font-semibold text-[var(--term-amber)]" data-testid="report-rank">
+                          {c.rank.of === 1 ? "Alone on your statement: the full move" : `${ordinal(c.rank.place)} of ${c.rank.of} on your statement`}
                         </p>
                       ) : null}
                       {c.state !== "later" ? (

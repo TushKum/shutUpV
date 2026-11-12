@@ -9,7 +9,11 @@ import type { CrisisRoomData, RoomCompany } from "@/lib/team/crisis-data";
 import {
   OFFER_STATUS_TONE,
   countersLeft,
+  draftState,
   offerMoves,
+  shareText,
+  statementGroups,
+  type StatementGroup,
   subroundTitle,
   termsText,
   type EngagementRow,
@@ -132,6 +136,72 @@ export function CardsOf({ data, k, only }: { data: CrisisRoomData; k: number; on
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The companies on one statement as chips (this team's own marked), and how its price moves are shared. */
+export function StatementCrowd({ group }: { group: StatementGroup }) {
+  return (
+    <div className="mt-2" data-testid={`crowd-${group.number}`}>
+      {group.companies.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label={`Companies on statement ${group.number}`}>
+          {group.companies.map((c) => (
+            <li
+              key={c.id}
+              className={`rounded border px-2 py-0.5 font-mono text-xs ${c.mine ? "border-[var(--term-amber)] bg-[var(--term-amber)] font-bold text-black" : "border-line text-paper"}`}
+            >
+              {c.label}
+              {c.mine ? " (you)" : ""} <span className={c.mine ? "" : "text-muted"}>· {c.scoreAvg.toFixed(0)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-1 text-xs text-muted">{shareText(group.companies.length)}</p>
+    </div>
+  );
+}
+
+/** Whose pick it is in the draft, with its 20 seconds counting down; nothing once the draft is over. */
+export function OnTheClock({ data }: { data: CrisisRoomData }) {
+  const d = draftState(data.picks, null);
+  if (!d.current) return data.picks.length ? <p className="text-sm font-semibold text-phosphor" data-testid="on-the-clock">The draft is over: every company has its statement.</p> : null;
+  const c = data.companies.find((x) => x.id === d.current!.company_id);
+  const left = data.picks.filter((p) => p.statement_id === null).length;
+  return (
+    <p className="text-sm font-semibold text-paper" data-testid="on-the-clock">
+      <span className="mr-2 rounded bg-[var(--term-amber)] px-1.5 py-0.5 text-xs font-black uppercase tracking-wide text-black">On the clock</span>
+      <span className="font-mono text-[var(--term-amber)]">{companyLabel(c)}</span> · pick {d.current.pick_no} of {data.picks.length} ·{" "}
+      <Countdown to={d.current.closes_at} passed="time is up" className="font-mono text-[var(--term-amber)]" /> · {left} still to pick
+    </p>
+  );
+}
+
+/** Round 3 for those who watch: every statement with the companies competing on it (score so far beside each). */
+export function StatementBoard({ data, title = "Round 3 · who competes with whom" }: { data: CrisisRoomData; title?: string }) {
+  if (data.statements.length === 0) return null;
+  const label = new Map(data.companies.map((c) => [c.id, c.ticker ?? "—"]));
+  const groups = statementGroups(data.statements, data.picks, (id) => label.get(id) ?? "—");
+  return (
+    <Panel title={title}>
+      <OnTheClock data={data} />
+      <p className="mb-3 mt-1 text-sm text-paper">
+        Companies on the same statement compete: the best solution gets its full price rise, the others less. The number beside each company is its average score so far.
+      </p>
+      <ul className="grid gap-3 md:grid-cols-2" aria-label="Statements and their companies">
+        {groups.map((g) => (
+          <li key={g.id} className="border border-line bg-panel p-3" data-testid={`board-${g.number}`}>
+            <p className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[var(--term-amber)]">#{g.number}</span>
+              <span className="font-semibold text-paper">{g.title}</span>
+              <Badge tone={g.companies.length >= g.cap ? "red" : "slate"}>
+                {g.companies.length}/{g.cap}
+              </Badge>
+            </p>
+            <StatementCrowd group={g} />
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 

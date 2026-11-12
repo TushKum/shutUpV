@@ -9,7 +9,7 @@ import type { CrisisRoomData } from "@/lib/team/crisis-data";
 import { pastSubrounds, statementCounts, subroundTitle } from "@/lib/team/crisis";
 import { DoThis } from "@/components/ui/how-it-works";
 import { Badge, Notice, Panel, Table, Td, buttonClass } from "@/components/ui/ui";
-import { CardsOf, EngagementTable, FirmLeague, companyLabel } from "./parts";
+import { CardsOf, EngagementTable, FirmLeague, StatementBoard, companyLabel } from "./parts";
 
 export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRoomData; k: number | null }) {
   const company = new Map(data.companies.map((c) => [c.id, c]));
@@ -47,8 +47,10 @@ export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRo
         </Panel>
       ) : null}
 
+      {k === 5 || data.picks.length ? <StatementBoard data={data} /> : null}
+
       {k === 5 || data.picks.length ? (
-        <Panel title="Round 3 · draft board">
+        <Panel title="Round 3 · draft order">
           <Table head={["Pick", "Company", "Score so far", "Statement"]} empty={data.picks.length === 0 ? "The draft has not started." : undefined}>
             {data.picks.map((p) => {
               const s = p.statement_id ? statement.get(p.statement_id) : undefined;
