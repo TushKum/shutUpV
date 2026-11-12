@@ -63,7 +63,8 @@ export async function snapshot(sb: SupabaseClient, eventId: string, team: TeamLo
   const squadQ = sb.from("squads").select("id, number, dealt_card_ids, chosen_card_id").maybeSingle();
   const teamQ = sb.from("teams").select("cash_cents").eq("id", team.id).single();
   const companiesQ = sb.from("companies").select("id, ticker, squad_id, ipo_price, market_price, post_crisis_price").eq("event_id", eventId);
-  const [squad, me, companies] = await Promise.all([squadQ, teamQ, companiesQ]);
+  const factsQ = sb.rpc("team_plan_facts");
+  const [squad, me, companies, facts] = await Promise.all([squadQ, teamQ, companiesQ, factsQ]);
   const s: Snapshot = {
     phase: status.phase,
     trading: status.trading,
@@ -81,6 +82,8 @@ export async function snapshot(sb: SupabaseClient, eventId: string, team: TeamLo
     pendingOrders: [],
     ipoBids: 0,
     flashPublished: false,
+    format: (facts.data as { format?: "CLASSIC" | "PRIMUS" } | null)?.format ?? "CLASSIC",
+    primus: (facts.data as { primus?: Snapshot["primus"] } | null)?.primus ?? null,
   };
   s.companyId = s.companies.find((c) => c.squad_id === s.squad?.id)?.id ?? null;
   const reads: PromiseLike<unknown>[] = [];
@@ -112,6 +115,52 @@ export async function snapshot(sb: SupabaseClient, eventId: string, team: TeamLo
   }
   if (team.track === "CONSULTING") {
     reads.push(sb.from("calls").select("company_id, call_no, direction").then(({ data }) => void (s.calls = (data ?? []) as Snapshot["calls"])));
+  }
+  // PRIMUS Rounds 2 and 3: the offers to answer, the firms to hire, the draft's statements, the clients' drafts.
+  const P = s.primus;
+  if (s.format === "PRIMUS" && P) {
+    const mine = s.companyId;
+    if (team.track === "PRODUCT" && mine) {
+      reads.push(
+        sb.from("offers").select("id").eq("company_id", mine).eq("status", "OPEN").eq("turn", "COMPANY").then(({ data }) => void (s.offersToAnswer = data ?? [])),
+        sb.rpc("firm_values", { p_event: eventId }).then(async ({ data }) => {
+          const firms = (data ?? []) as { team_id: string }[];
+          const { data: prof } = await sb.from("firm_profiles").select("team_id, asking_cents").eq("event_id", eventId);
+          const asking = new Map(((prof ?? []) as { team_id: string; asking_cents: number }[]).map((x) => [x.team_id, Number(x.asking_cents)]));
+          s.firms = firms.map((f) => ({ id: f.team_id, asking: asking.get(f.team_id) ?? 0 }));
+        }),
+      );
+      if (status.phase === "SATURATION") {
+        reads.push(
+          (async () => {
+            const [st, picks, card] = await Promise.all([
+              sb.from("problem_statements").select("id, cap, sector").eq("event_id", eventId),
+              sb.from("draft_picks").select("statement_id").eq("event_id", eventId),
+              s.squad?.chosen_card_id ? sb.from("problem_cards").select("sector").eq("id", s.squad.chosen_card_id).maybeSingle() : Promise.resolve({ data: null }),
+            ]);
+            const norm = (x: string | null | undefined) => (x ?? "").trim().toLowerCase();
+            const mySector = norm((card.data as { sector?: string } | null)?.sector);
+            const rows = (st.data ?? []) as { id: string; cap: number; sector: string | null }[];
+            const sectored = rows.some((x) => x.sector);
+            const taken = new Map<string, number>();
+            for (const pk of (picks.data ?? []) as { statement_id: string | null }[]) if (pk.statement_id) taken.set(pk.statement_id, (taken.get(pk.statement_id) ?? 0) + 1);
+            s.statements = rows.filter((x) => !sectored || norm(x.sector) === mySector).map((x) => ({ id: x.id, cap: x.cap, taken: taken.get(x.id) ?? 0 }));
+          })(),
+        );
+      }
+    }
+    if (team.track === "CONSULTING") {
+      reads.push(sb.from("offers").select("id").eq("firm_team_id", team.id).eq("status", "OPEN").eq("turn", "FIRM").then(({ data }) => void (s.offersToAnswer = data ?? [])));
+      const clients = (P.clients ?? []).map((c) => c.company_id);
+      if (clients.length && P.k !== null) {
+        const type = P.k === 5 ? "ADVICE_5" : `ADVICE_${P.k}`;
+        reads.push(
+          sb.from("submission_drafts").select("company_id, version").in("company_id", clients).eq("type", type).then(({ data }) => {
+            s.clientDrafts = Object.fromEntries(((data ?? []) as { company_id: string; version: number }[]).map((d) => [d.company_id, d.version]));
+          }),
+        );
+      }
+    }
   }
   if (team.track === "FINANCE") {
     reads.push(

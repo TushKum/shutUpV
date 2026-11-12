@@ -13,7 +13,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { sha256Hex, type PhaseCode, type SubmissionType } from "@msim/engine";
+import { adviceOf, planOf, sha256Hex, type PhaseCode, type SubmissionType } from "@msim/engine";
 import { createJudge, judgeConfig, promptLoader, runWorker, supabaseJudgeDb } from "../apps/web/lib/judge/index";
 import { parseArgs, required } from "./lib/args";
 import { Bot, emptyStats, pool, signInTeam, sleep, type Env, type TeamLogin } from "./lib/bot-runner";
@@ -95,6 +95,8 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
   const seedFile = `out/${slug}-rehearsal-seed.txt`;
   let seed = existsSync(seedFile) ? readFileSync(seedFile, "utf8").trim() : "";
   const started = new Set<string>();
+  const released = new Set<string>();
+  let statementsSet = false;
   let over = false; // the awards are up: the judge loop stops too
   const finished = () => over || done();
   const say = (m: string) => console.log(`${time()}  [autopilot] ${m}`);
@@ -117,7 +119,7 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
   })();
 
   while (!done()) {
-    const { data: ev, error: evError } = await sb.from("events").select("current_phase, seed_commitment, drawn_at, auto_advance").eq("id", eventId).single();
+    const { data: ev, error: evError } = await sb.from("events").select("current_phase, seed_commitment, drawn_at, auto_advance, format").eq("id", eventId).single();
     if (evError || !ev) {
       say(`could not read the event (${evError?.message ?? "no answer"}); trying again`);
       await sleep(2000);
@@ -157,10 +159,51 @@ async function autopilot(sb: SupabaseClient, eventId: string, slug: string, done
       }
     }
     const release = async (type: SubmissionType) => {
+      if (released.has(type)) return;
       await rpc("seal_missing_scores", { p_event: eventId, p_type: type });
       const r = await rpc("release_scores", { p_event: eventId, p_type: type });
-      if (r.ok) say(`released ${type}`);
+      if (r.ok) {
+        released.add(type);
+        say(`released ${type}`);
+      }
     };
+    const judge = async (type: SubmissionType) => {
+      if (started.has(type)) return;
+      const r = await rpc("start_judging", { p_event: eventId, p_type: type });
+      if (r.ok || r.code === "ALREADY_RELEASED") {
+        started.add(type);
+        say(`start judging ${type}: ${r.ok ? "queued" : r.code}`);
+      }
+    };
+    if (ev.format === "PRIMUS") {
+      // Round 1: the firms' crisis memo is judged with the PRDs and released at Reading.
+      if (await passed("PITCH")) await judge("MEMO");
+      if (phase === "READING") await release("MEMO");
+      // Round 3's statements, once, before Round 3: ten per sector when the problem cards have 2–6 sectors.
+      if ((phase === "PRESSURE" || phase === "SATURATION") && !statementsSet) {
+        const { count } = await sb.from("problem_statements").select("id", { count: "exact", head: true }).eq("event_id", eventId);
+        if (count) statementsSet = true;
+        else {
+          const { data: cards } = await sb.from("problem_cards").select("sector").eq("event_id", eventId);
+          const sectors = [...new Set(((cards ?? []) as { sector: string | null }[]).map((c) => (c.sector ?? "").trim()).filter(Boolean))];
+          const rows = sectors.length >= 2 && sectors.length <= 6
+            ? sectors.flatMap((sector, i) => Array.from({ length: 10 }, (_, j) => ({ number: i * 10 + j + 1, sector, title: `${sector} problem ${j + 1}`, body: `A Round 3 problem in ${sector}.`, cap: 5 })))
+            : Array.from({ length: 12 }, (_, j) => ({ number: j + 1, title: `Problem ${j + 1}`, body: "A Round 3 problem.", cap: 5 }));
+          const r = await rpc("set_problem_statements", { p_event: eventId, p_rows: rows });
+          statementsSet = r.ok;
+          say(`Round 3 statements: ${r.ok ? `${rows.length} uploaded` : r.message}`);
+        }
+      }
+      // Each crisis (1–4) and Round 3 (5): judge the plans and memos at the due time; release the plans then (the
+      // last trading round of each waits for them) and the memos once ratings close.
+      for (let k = 1; k <= 5; k++) {
+        if (!(await passed(`DUE_${k}`))) continue;
+        await judge(planOf(k));
+        await judge(adviceOf(k));
+        await release(planOf(k));
+        if (await passed(`RATE_${k}`)) await release(adviceOf(k));
+      }
+    }
     if (phase === "READING") await release("PITCH");
     if (phase === "VERDICTS") await release("PLAN");
     if (phase === "ROUNDS_13_21") {

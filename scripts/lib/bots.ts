@@ -3,7 +3,7 @@
 // (a closed window, a limit, a rate limit) is the game's own answer; a bot simply tries again later or moves on.
 // The runner (scripts/lib/bot-runner.ts) reads the snapshot through RLS as the team and executes the actions.
 
-import type { PhaseCode, SubmissionType, Track } from "@msim/engine";
+import { adviceOf, planOf, type PhaseCode, type SubmissionType, type Track } from "@msim/engine";
 
 // ───────────────────────────── Randomness (deterministic per team) ─────────────────────────────
 
@@ -89,6 +89,31 @@ export interface Snapshot {
   ipoBids: number;
   /** The flash bulletin is out (flash answers open with it). */
   flashPublished: boolean;
+  /** CLASSIC or PRIMUS. */
+  format?: "CLASSIC" | "PRIMUS";
+  /** PRIMUS Rounds 2 and 3: team_plan_facts' `primus` object (the crisis under way, windows, offers, clients, draft). */
+  primus?: PrimusView | null;
+  /** PRIMUS: open offers waiting for this team's answer. */
+  offersToAnswer?: { id: string }[];
+  /** PRIMUS, Product: the firms it can hire (team id and asking fee in cents). */
+  firms?: { id: string; asking: number }[];
+  /** PRIMUS, Round 3: the statements this company may draft, with how many picked each. */
+  statements?: { id: string; cap: number; taken: number }[];
+  /** PRIMUS, Consulting: the version of its advice draft for each client (company id → version). */
+  clientDrafts?: Record<string, number>;
+}
+
+export interface PrimusView {
+  k: number | null;
+  hiring_k: number | null;
+  work_open: boolean;
+  engagement?: { firm: string } | null;
+  offers_my_turn?: number;
+  offers_waiting?: number;
+  rate?: { k: number; rating: number | null }[];
+  draft?: { my_turn: boolean; picked: boolean } | null;
+  profile_set?: boolean;
+  clients?: { company_id: string; submitted: boolean }[];
 }
 
 /** What a bot remembers between turns. */
@@ -113,7 +138,14 @@ export type Action =
   | { key: string; fn: "make_call"; args: { p_company: string; p_call_no: number; p_direction: "BUY" | "SELL" } }
   | { key: string; fn: "place_ipo_bid"; args: { p_company: string; p_qty: number } }
   | { key: string; fn: "place_order"; args: { p_company: string; p_type: "BUY" | "SELL" | "SHORT" | "COVER"; p_qty: number; p_client_ref: string } }
-  | { key: string; fn: "post_squad_message"; args: { p_body: string } };
+  | { key: string; fn: "post_squad_message"; args: { p_body: string } }
+  | { key: string; fn: "save_firm_profile"; args: { p_headline: string; p_specialities: string[]; p_rate_card: string; p_asking_cents: number; p_about: string } }
+  | { key: string; fn: "make_offer"; args: { p_firm: string; p_cash: number; p_shares: number; p_note: string } }
+  | { key: string; fn: "respond_offer"; args: { p_offer: string; p_action: "ACCEPT" | "DECLINE" } }
+  | { key: string; fn: "rate_firm"; args: { p_k: number; p_rating: number } }
+  | { key: string; fn: "pick_statement"; args: { p_statement: string } }
+  | { key: string; fn: "save_draft_for"; args: { p_company: string; p_type: SubmissionType; p_content: Record<string, string>; p_expected_version: number } }
+  | { key: string; fn: "submit_for"; args: { p_company: string; p_type: SubmissionType } };
 
 // ───────────────────────────── Content ─────────────────────────────
 
@@ -153,6 +185,45 @@ export function planContent(): Record<string, string> {
 }
 
 export const flashContent = (): Record<string, string> => ({ answer: "We cut costs and reach profit within 12 months with no new loans." });
+
+/** PRIMUS: the consulting firm's Round 1 crisis memo. */
+export const memoContent = (): Record<string, string> => ({
+  diagnosis: "The festival forecast ignored town-level demand, so metros were over-stocked and towns ran out.",
+  options: "Discount and donate the sweets; divert them to modern trade; rebuild the forecast with retailer data.",
+  recommendation: "Divert half the stock to modern trade at 15% off and donate the rest before expiry.",
+  numbers: "Recovers Rs 1.9 crore of the Rs 3.2 crore at risk; the donation earns tax relief.",
+  risks: "Retailers may resist late deliveries: offer them the first discount.",
+  next_steps: "Call the five largest chains this week.",
+});
+
+/** PRIMUS: a company's response plan to a crisis (CRISIS_k). */
+export const crisisPlanContent = (): Record<string, string> => ({
+  impact: "The crisis cuts a third of our sales for two months.",
+  response: "Protect the best customers first and fix the failing step this week.",
+  money: "The fix costs Rs 12 lakh and protects Rs 40 lakh of monthly sales.",
+  advice_used: "We follow our firm's advice to phase the fix.",
+  time_to_recovery: "Eight weeks.",
+  risks: "A second shock before the fix: we keep a month of cash in reserve.",
+  next_steps: "Start the fix on Monday and report weekly.",
+});
+
+/** PRIMUS: the hired firm's advice memo to its client (ADVICE_k). */
+export const adviceContent = (): Record<string, string> => ({
+  diagnosis: "The crisis hits the client's busiest channel.",
+  advice: "Phase the fix: protect the top customers now, rebuild the rest next month.",
+  evidence: "The top fifth of customers bring half the sales.",
+  fit: "The client's cash covers the first phase without new funding.",
+});
+
+/** PRIMUS Round 3: the company's solution to its problem statement. */
+export const solutionContent = (): Record<string, string> => ({
+  solution: "A low-cost service run from a phone app with local partners.",
+  fit: "It answers the statement's core problem for small towns first.",
+  differentiation: "Half the price of today's options and ready in a week.",
+  plan: "Pilot in two towns, then ten within six months.",
+  impact: "Cuts the problem by half for 50,000 people in the first year.",
+  risks: "Partners may drop out: we sign two per town.",
+});
 
 // ───────────────────────────── Decisions ─────────────────────────────
 
@@ -216,6 +287,8 @@ export function decide(s: Snapshot, m: Memory, r: () => number, now: number, pha
     }
   }
 
+  if (s.format === "PRIMUS") primusActions(add, s, r);
+
   if (track === "FINANCE") {
     const others = s.companies.filter((c) => c.squad_id !== null && c.squad_id !== s.squad?.id);
     if (p === "IPO" && s.ipoBids === 0 && !m.done.has("ipo")) {
@@ -228,10 +301,65 @@ export function decide(s: Snapshot, m: Memory, r: () => number, now: number, pha
   return out;
 }
 
+/**
+ * A PRIMUS night's moves. Consulting: its profile, the Round 1 memo, answering offers (accept while it has room),
+ * an advice memo for each client. Product: hire a firm (an offer, then accept a counter), write the plan or the
+ * solution, rate the firm, pick a statement in the draft.
+ */
+function primusActions(add: (a: Action) => void, s: Snapshot, r: () => number) {
+  const track = s.team.track;
+  const p = s.phase;
+  const P = s.primus ?? null;
+  if (track === "CONSULTING") {
+    if (s.squad) {
+      add({
+        key: "profile",
+        fn: "save_firm_profile",
+        args: { p_headline: `Turnarounds by firm ${s.team.code}`, p_specialities: ["operations", "pricing"], p_rate_card: "From $500 per crisis", p_asking_cents: 50_000, p_about: "A bot firm in a rehearsal." },
+      });
+    }
+    if (p === "BUILD" || p === "SQUAD_DRAW") submission(add, s, "MEMO", memoContent);
+    if (P) {
+      const clients = P.clients ?? [];
+      for (const o of s.offersToAnswer ?? []) {
+        add({ key: `answer-${o.id}`, fn: "respond_offer", args: { p_offer: o.id, p_action: clients.length < 2 ? "ACCEPT" : "DECLINE" } });
+      }
+      if (P.work_open && P.k !== null) {
+        const type = adviceOf(P.k);
+        for (const c of clients) {
+          if (c.submitted) continue;
+          add({ key: `advice-save-${P.k}-${c.company_id}`, fn: "save_draft_for", args: { p_company: c.company_id, p_type: type, p_content: adviceContent(), p_expected_version: s.clientDrafts?.[c.company_id] ?? 0 } });
+          add({ key: `advice-submit-${P.k}-${c.company_id}`, fn: "submit_for", args: { p_company: c.company_id, p_type: type } });
+        }
+      }
+    }
+  }
+  if (track === "PRODUCT" && P) {
+    const k = P.k;
+    if (P.draft?.my_turn) {
+      const open = (s.statements ?? []).filter((st) => st.taken < st.cap);
+      if (open.length) add({ key: `draft-pick-${open[0]!.id}`, fn: "pick_statement", args: { p_statement: pick(r, open).id } });
+    }
+    if (k !== null && P.hiring_k === k && !P.engagement) {
+      for (const o of s.offersToAnswer ?? []) add({ key: `accept-${o.id}`, fn: "respond_offer", args: { p_offer: o.id, p_action: "ACCEPT" } });
+      if ((P.offers_waiting ?? 0) === 0 && (P.offers_my_turn ?? 0) === 0 && s.firms?.length) {
+        const firm = pick(r, s.firms);
+        // Round 3: the fee is worth 5–20% of the company's cash; Round 2: about the firm's asking fee.
+        const cash = k === 5 ? Math.floor(s.team.cash_cents * 0.1) : Math.max(30_000, firm.asking || between(r, 3, 9) * 10_000);
+        add({ key: `offer-${k}-${firm.id}`, fn: "make_offer", args: { p_firm: firm.id, p_cash: cash, p_shares: 0, p_note: "Help us through this." } });
+      }
+    }
+    if (k !== null && P.work_open) submission(add, s, planOf(k), k === 5 ? solutionContent : crisisPlanContent);
+    for (const rt of P.rate ?? []) {
+      if (rt.rating === null) add({ key: `rate-${rt.k}`, fn: "rate_firm", args: { p_k: rt.k, p_rating: between(r, 3, 5) } });
+    }
+  }
+}
+
 function submission(add: (a: Action) => void, s: Snapshot, type: SubmissionType, content: () => Record<string, string>) {
   if (s.submitted[type]) return;
-  const version = s.drafts[type];
-  if (version === undefined) return;
+  // A draft row may not exist yet (the PRIMUS types): version 0 creates it.
+  const version = s.drafts[type] ?? 0;
   add({ key: `save-${type}`, fn: "save_draft", args: { p_type: type, p_content: content(), p_expected_version: version } });
   add({ key: `submit-${type}`, fn: "submit_submission", args: { p_type: type } });
 }
@@ -293,7 +421,11 @@ export function roundOrders(s: Snapshot, companies: BotCompany[], r: () => numbe
 }
 
 /** Refusal codes that mean "not now" (try again later) rather than "never". */
-export const LATER = new Set(["RATE_LIMITED", "NOT_OPEN", "WINDOW_CLOSED", "TRADING_HALTED", "TRADING_PAUSED", "NOT_YET", "WRONG_PHASE", "STALE_VERSION", "VERSION_CONFLICT"]);
+export const LATER = new Set([
+  "RATE_LIMITED", "NOT_OPEN", "WINDOW_CLOSED", "TRADING_HALTED", "TRADING_PAUSED", "NOT_YET", "WRONG_PHASE", "STALE_VERSION", "VERSION_CONFLICT",
+  // PRIMUS: hiring, the draft and ratings move on; the bot looks again next turn.
+  "HIRING_CLOSED", "NOT_YOUR_TURN", "FIRM_FULL", "OFFER_OPEN", "RATING_CLOSED", "STATEMENT_FULL",
+]);
 
 /** What a refusal means for the memory: done (never again), or wait and retry. */
 export function remember(m: Memory, a: Action, result: { ok: boolean; code?: string }, now: number, s: Snapshot) {

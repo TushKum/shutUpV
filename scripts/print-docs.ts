@@ -29,6 +29,14 @@ const DOCS: Doc[] = [
   { source: "docs/event/simple/PRODUCT.md", file: "simple-product.pdf", title: "Product, explained simply" },
   { source: "docs/event/simple/CONSULTING.md", file: "simple-consulting.pdf", title: "Consulting, explained simply" },
   { source: "docs/event/simple/ORGANISER.md", file: "simple-organiser.pdf", title: "Organisers, explained simply" },
+  // PRIMUS (three rounds, four crises, the draft, sectors).
+  { source: "docs/event/primus/PRODUCT-card.md", file: "primus-card-product.pdf", title: "PRIMUS · Product team card", card: true },
+  { source: "docs/event/primus/CONSULTING-card.md", file: "primus-card-consulting.pdf", title: "PRIMUS · Consulting firm card", card: true },
+  { source: "docs/event/primus/FINANCE-card.md", file: "primus-card-finance.pdf", title: "PRIMUS · Finance fund card", card: true },
+  { source: "docs/event/primus/PRODUCT.md", file: "primus-simple-product.pdf", title: "PRIMUS for Product teams" },
+  { source: "docs/event/primus/CONSULTING.md", file: "primus-simple-consulting.pdf", title: "PRIMUS for Consulting firms" },
+  { source: "docs/event/primus/FINANCE.md", file: "primus-simple-finance.pdf", title: "PRIMUS for Finance funds" },
+  { source: "docs/event/primus/ORGANISER.md", file: "primus-simple-organiser.pdf", title: "PRIMUS for organisers" },
 ];
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
