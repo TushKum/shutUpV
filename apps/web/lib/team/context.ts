@@ -65,6 +65,8 @@ export interface TeamContext {
   /** Null before the 21:00 draw. */
   squad: SquadRow | null;
   company: SquadCompany | null;
+  /** The squad's sector (on its chosen problem card), or null before the draw or with no sector. */
+  sector: string | null;
 }
 
 export const loadTeamContext = cache(async (): Promise<TeamContext> => {
@@ -89,6 +91,11 @@ export const loadTeamContext = cache(async (): Promise<TeamContext> => {
   if (event.error) throw new Error(`Could not read the event: ${event.error.message}`);
   if (squad.error) throw new Error(`Could not read your squad: ${squad.error.message}`);
   let company: SquadCompany | null = null;
+  let sector: string | null = null;
+  if (squad.data?.chosen_card_id) {
+    const { data } = await sb.from("problem_cards").select("sector").eq("id", squad.data.chosen_card_id).maybeSingle<{ sector: string | null }>();
+    sector = data?.sector?.trim() || null;
+  }
   if (squad.data) {
     const { data, error } = await sb
       .from("companies")
@@ -115,5 +122,6 @@ export const loadTeamContext = cache(async (): Promise<TeamContext> => {
     status,
     squad: squad.data,
     company,
+    sector,
   };
 });

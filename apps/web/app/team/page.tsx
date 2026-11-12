@@ -25,6 +25,8 @@ import { BIG_MOVE_BP } from "@/lib/team/pulse";
 import { BentoGrid, BentoItem, BentoTitle } from "@/components/ui/terminal-bento-grid";
 import { loadCrisisReport } from "@/lib/team/report-data";
 import { CrisisReportCard } from "./crisis-report";
+import { HowToPlayCard } from "./how-to-play";
+import { stageOf } from "@/lib/team/focus";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -71,6 +73,8 @@ export default async function TeamHome() {
     <div className="space-y-5">
       <RefreshAt at={times[0] ?? null} />
       <AutoRefresh everyMs={15_000} active={squadWork} />
+
+      <HowToPlayCard track={team.track} format={ctx.event.format} open={stageOf(status.phase) === "BEFORE"} sector={ctx.sector} />
 
       <section className="space-y-3">
         {main ? (

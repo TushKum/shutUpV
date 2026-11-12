@@ -27,6 +27,8 @@ import { FocusGate } from "./focus-gate";
 import { focusSections } from "@/lib/team/focus";
 import { BootSequence } from "@/components/ui/matrix/boot-sequence";
 import { Glyph } from "@/components/ui/matrix/glyph";
+import { sectorStyle } from "@/lib/team/sectors";
+import { CrisisSplash, type SplashCard } from "./crisis-splash";
 
 const TRACK_EMOJI: Record<Track, string> = { PRODUCT: "🏢", CONSULTING: "🧠", FINANCE: "💼" };
 
@@ -83,6 +85,22 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
     .limit(1)
     .maybeSingle<{ id: string; kind: string; title: string; published_at: string }>();
   const finance = team.track === "FINANCE";
+  // PRIMUS Round 2: the latest crisis card dealt to the squad's company, for the reveal moment.
+  let splash: SplashCard | null = null;
+  if (event.format === "PRIMUS" && status.phase === "PRESSURE" && ctx.company) {
+    const { data: dealt } = await sb
+      .from("subround_crises")
+      .select("k, crisis_cards(category, title, body)")
+      .eq("company_id", ctx.company.id)
+      .order("k", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ k: number; crisis_cards: { category: string; title: string; body: string } | { category: string; title: string; body: string }[] | null }>();
+    const c = dealt ? (Array.isArray(dealt.crisis_cards) ? dealt.crisis_cards[0] : dealt.crisis_cards) : null;
+    if (dealt && c) {
+      const { data: sr } = await sb.from("subrounds").select("revealed_at").eq("event_id", event.id).eq("k", dealt.k).maybeSingle<{ revealed_at: string | null }>();
+      if (sr?.revealed_at) splash = { eventId: event.id, teamId: team.id, k: dealt.k, category: c.category, title: c.title, body: c.body, revealedAt: sr.revealed_at };
+    }
+  }
   const taskHref = next?.href ?? null;
   const sections = focusSections(team.track, status.phase, taskHref);
   return (
@@ -92,6 +110,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <BootSequence who={team.code} />
+        <CrisisSplash card={splash} own={team.track === "PRODUCT"} />
         <div className="terminal-theme-scope term min-h-screen">
           <header className="border-b border-line bg-ink">
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-[var(--term-amber-dim)] px-4 py-1.5">
@@ -106,6 +125,12 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                   ▮
                 </span>
                 <Badge tone="slate">{portal ? PORTAL_TITLES[portal] : TRACK_LABELS[team.track]}</Badge>
+                {ctx.sector ? (
+                  // The squad's sector, in its own colour on every page.
+                  <span className={`rounded px-2 py-0.5 text-xs font-black uppercase tracking-wider ${sectorStyle(ctx.sector).chip}`} data-testid="team-sector">
+                    <Glyph e={sectorStyle(ctx.sector).icon} /> {ctx.sector}
+                  </span>
+                ) : null}
                 <span className="hidden truncate text-sm uppercase text-muted sm:inline">{team.name}</span>
                 {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
               </div>
@@ -149,7 +174,11 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                 <div className="bg-ink px-4 py-1.5">
                   <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">{team.track === "PRODUCT" ? "Your company" : "Your squad's company"}</dt>
                   <dd className="font-mono text-base text-[var(--term-cyan)]" data-testid="team-company">
-                    {ctx.company ? `${ctx.company.ticker ?? "—"} · ${money(ctx.company.market_price)}` : "—"}
+                    {ctx.company?.ticker
+                      ? `${ctx.company.ticker} · ${money(ctx.company.market_price)}`
+                      : ctx.company
+                        ? <span className="font-sans text-sm text-muted">Named on the PRD</span>
+                        : <span className="font-sans text-sm text-muted">After the squad draw</span>}
                   </dd>
                 </div>
               )}

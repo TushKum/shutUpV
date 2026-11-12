@@ -30,8 +30,17 @@ test("Round 2: the banner, the tasks and the crisis room lead each track through
   await n.ok(n.lead, "tick", n.eventId);
   await n.ok(n.team(a!.c_code), "save_firm_profile", "Food and campus operations", ["operations", "food safety"], "From $500 per crisis", 50000, "");
 
-  // ── Product: Home says to hire a firm; the banner shows crisis 1 and its steps.
+  // ── Product: the crisis is revealed with the company's card full-screen; "Got it" closes it for good.
   await loginAsTeam(page, ev, a!.p_code);
+  const splash = page.getByTestId("crisis-splash");
+  await expect(splash).toContainText("Crisis 1 of 4");
+  await expect(splash).toContainText("This is your company's card.");
+  await shot(page, "00-crisis-reveal");
+  await splash.getByRole("button", { name: "Got it" }).click();
+  await expect(splash).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByTestId("crisis-splash")).toHaveCount(0);
+  // Home says to hire a firm; the banner shows crisis 1 and its steps.
   await expect(page.getByTestId("round-label")).toHaveText("Round 2 of 3 · Four crises");
   await expect(page.getByTestId("round-banner").getByRole("heading", { level: 2 })).toHaveText("Crisis 1 of 4");
   await expect(page.getByTestId("your-job")).toContainText("In each crisis: hire a firm, write your plan, then rate the firm.");
@@ -65,6 +74,7 @@ test("Round 2: the banner, the tasks and the crisis room lead each track through
   // ── Consulting: an offer to answer; accepting makes the memo the task.
   await page.context().clearCookies();
   await loginAsTeam(page, ev, a!.c_code);
+  await page.getByTestId("crisis-splash").getByRole("button", { name: "Got it" }).click();
   await expect(page.getByTestId("your-job")).toContainText("In each crisis: win clients, then write an advice memo for each one.");
   await expect(step(page, "HIRE")).toContainText("Win clients");
   await expect(page.getByTestId("task-OFFERS")).toContainText("Answer 1 offer");
@@ -125,6 +135,8 @@ test("Round 2: the banner, the tasks and the crisis room lead each track through
   // ── Finance: reads the cards and trades.
   await page.context().clearCookies();
   await loginAsTeam(page, ev, a!.f_code);
+  await expect(page.getByTestId("crisis-splash")).toContainText("This is your squad's company's card.");
+  await page.getByTestId("crisis-splash").getByRole("button", { name: "Got it" }).click();
   await expect(page.getByTestId("your-job")).toContainText("Read each crisis, then trade");
   await expect(page.getByTestId("task-CARDS")).toContainText("Read the crisis 1 cards");
   await page.goto("/team/crisis");

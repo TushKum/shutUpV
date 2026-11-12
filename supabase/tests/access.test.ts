@@ -61,7 +61,7 @@ describe("grants", () => {
        order by p.proname`);
     expect(rows.map((r) => r.proname)).toEqual([
       "admin_health", "advance_phase", "answer_question", "apply_appeal", "cancel_order", "chat_summary",
-      "close_round_now", "confirm_fee", "decide_correction", "decide_flag", "dismiss_appeal", "draft_sectors", "draw_summary",
+      "close_round_now", "company_sectors", "confirm_fee", "decide_correction", "decide_flag", "dismiss_appeal", "draft_sectors", "draw_summary",
       "edit_deal", "edit_order", "event_status", "extend_event", "firm_values", "lottery_record_rows", "make_call",
       "make_offer", "pause_event", "pick_problem_card", "pick_statement", "ping", "place_ipo_bid", "place_order",
       "post_hire_message", "post_question", "post_squad_message", "prepare_flash_bulletin", "propose_fee", "publish_bulletin",

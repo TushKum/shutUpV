@@ -610,3 +610,7 @@
 @media (prefers-reduced-motion: reduce) {
   .term-cursor, .msim-live-candle { animation: none; }
 }
+
+/* The crisis reveal: the card turns over once (no motion when reduced motion is asked for: motion-safe only). */
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cardflip { from { transform: perspective(900px) rotateY(80deg) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }

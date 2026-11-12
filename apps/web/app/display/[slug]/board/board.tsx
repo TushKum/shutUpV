@@ -13,6 +13,8 @@ import { BoardPages } from "./pages";
 import { marketPulse, MOODS } from "@/lib/team/pulse";
 import { count } from "@/lib/format";
 import { Glyph } from "@/components/ui/matrix";
+import { loadSectorRace } from "@/lib/team/sectors-data";
+import { pctText, sectorStyle } from "@/lib/team/sectors";
 
 export async function Board({ event, status, compact = false }: { event: DisplayEvent; status: EventStatus; compact?: boolean }) {
   if (!phaseReached(status.phase, "READING")) {
@@ -33,7 +35,7 @@ export async function Board({ event, status, compact = false }: { event: Display
     );
   }
 
-  const { companies, round } = await loadBoard(event.id);
+  const [{ companies, round }, race] = await Promise.all([loadBoard(event.id), loadSectorRace(event.id)]);
   const tiles = boardTiles(companies, round?.round_prices ?? [], event.market_closed_at !== null);
   if (tiles.length === 0) {
     return (
@@ -80,6 +82,18 @@ export async function Board({ event, status, compact = false }: { event: Display
           <span className="text-paper">
             <Glyph e={MOODS[pulse.mood].icon} /> {MOODS[pulse.mood].label}
           </span>
+        </p>
+      ) : null}
+      {race ? (
+        // The sector race in one line: each sector's average change since the IPO, best first.
+        <p className="mx-6 mt-3 flex shrink-0 flex-wrap items-center gap-x-10 gap-y-1 rounded-xl border border-line px-6 py-2 text-[28px] leading-tight" data-testid="board-race">
+          <span className="font-mono font-bold text-muted">SECTOR RACE</span>
+          {race.map((r, i) => (
+            <span key={r.sector} className={`font-bold ${sectorStyle(r.sector).text}`}>
+              <span className="font-mono text-muted">{i + 1}.</span> <Glyph e={sectorStyle(r.sector).icon} /> {r.sector}{" "}
+              <span className={`font-mono ${r.avgBp >= 0 ? "text-phosphor" : "text-danger-soft"}`}>{pctText(r.avgBp)}</span>
+            </span>
+          ))}
         </p>
       ) : null}
       <BoardPages

@@ -9,6 +9,8 @@ import { bp, money } from "@/lib/format";
 import { Badge, Notice, Panel, Table, Td } from "@/components/ui/ui";
 import { Sparkline } from "@/components/ui/line-chart";
 import { BookTabs } from "./tabs";
+import { loadSectorRace } from "@/lib/team/sectors-data";
+import { SectorRace } from "@/components/ui/sector-race";
 
 export const metadata: Metadata = { title: "Market" };
 
@@ -30,12 +32,19 @@ export default async function MarketPage() {
       </Panel>
     );
   }
-  const [list, released] = await Promise.all([loadMarketList(event.id), loadReleased(sb, event.id)]);
+  const [list, released, race] = await Promise.all([loadMarketList(event.id), loadReleased(sb, event.id), loadSectorRace(event.id)]);
+  const ctx = await loadTeamContext();
   const lines = marketLines(list.companies, list.lastRound?.rows ?? []);
 
   return (
     <div className="space-y-6">
       <BookTabs open={openBooks(status.phase, released)} current="PRICES" />
+      {race ? (
+        <Panel title="Sector race">
+          <p className="mb-3 text-sm text-paper">Each sector&apos;s average share-price change since its companies&apos; IPO. Which sector is winning?</p>
+          <SectorRace race={race} mine={ctx.sector} />
+        </Panel>
+      ) : null}
       <Panel title={`Listed companies (${lines.length})`}>
         {!released.PITCH ? (
           <p className="mb-3 text-sm text-paper">IPO prices are released at the IPO, with the pitch scores. Until then, read the pitch book.</p>
