@@ -12,8 +12,8 @@ export function LoginForm({ next }: { next?: string }) {
       type="button"
       onClick={() => setMode(m)}
       aria-pressed={mode === m}
-      className={`flex-1 rounded-md px-3 py-2 font-mono text-sm font-bold ${
-        mode === m ? "bg-phosphor text-ink" : "text-muted hover:text-phosphor"
+      className={`matrix-login-tab flex-1 rounded-md px-3 py-2 font-mono text-sm font-bold ${
+        mode === m ? "matrix-login-tab-active bg-phosphor text-ink" : "matrix-login-tab-idle text-muted hover:text-phosphor"
       }`}
     >
       {label}
@@ -22,7 +22,7 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <form action={action} className="space-y-4">
-      <div className="flex gap-1 rounded-lg border border-line bg-ink p-1">
+      <div className="matrix-login-tabs flex gap-1 rounded-lg border border-line bg-ink p-1">
         {tab("team", "Team")}
         {tab("staff", "Organiser")}
       </div>
@@ -39,7 +39,7 @@ export function LoginForm({ next }: { next?: string }) {
             autoComplete="username"
             autoCapitalize="characters"
             placeholder="P07"
-            className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 text-lg uppercase tracking-wider"
+            className="matrix-login-input mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 text-lg uppercase tracking-wider"
           />
         </label>
       ) : (
@@ -51,7 +51,7 @@ export function LoginForm({ next }: { next?: string }) {
             defaultValue={mode === "staff" ? state.login : undefined}
             required
             autoComplete="username"
-            className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 text-lg"
+            className="matrix-login-input mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 text-lg"
           />
         </label>
       )}
@@ -64,7 +64,7 @@ export function LoginForm({ next }: { next?: string }) {
           required
           autoComplete="current-password"
           placeholder={mode === "team" ? "XXXX-XXXX-XXXX" : undefined}
-          className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 font-mono text-lg tracking-wider"
+          className="matrix-login-input mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 font-mono text-lg tracking-wider"
         />
       </label>
 
@@ -77,7 +77,7 @@ export function LoginForm({ next }: { next?: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="mx-key mx-key-solid w-full rounded-md px-4 py-3 text-base"
+        className="matrix-login-submit mx-key mx-key-solid w-full rounded-md px-4 py-3 text-base"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>
