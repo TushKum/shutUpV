@@ -113,3 +113,28 @@ team size and prizes are not modelled by the platform.
 - **Hire chat** (`/team/messages`): once an engagement exists (an offer or counter accepted), the company's Product
   team and the firm get a private one-on-one thread (`hire_messages`, written only through `post_hire_message`). Only the
   two teams and the staff read it; it closes at the awards. A firm has one thread per client.
+
+## Guidance on the team screens
+
+- **Do this now.** `team_plan_facts` returns the event's format and, in Rounds 2 and 3, a `primus` object (the crisis
+  under way, whether hiring and writing are open, the team's offers, firm, clients, ratings to give and its place in
+  the draft). `lib/team/home.ts` (`primusTasks`) turns it into the Home task card, the action bar and the alerts:
+  hire a firm, write the plan, rate the firm, pick a statement (Product); fill in the profile, answer offers, write a
+  memo per client (Consulting); read the cards (Finance).
+- **Step row.** The round banner names the crisis ("Crisis 2 of 4") and shows its steps in the track's own words with
+  the one on now and its time left (`lib/team/crisis-steps.ts`). Home shows the banner big; other pages one line.
+- **Crisis rooms** are numbered steps (card or draft, hire, write, rate), open when there is something to do. In
+  Round 3 a firm writes its memo (`ADVICE_5`, which releases its fee) and can also edit the client's solution.
+- **Your crises so far** (Home): one line per crisis with the team's own score, price move, firm and stars, or a
+  firm's clients, fees, stars and bonus. Badges have a PRIMUS set; pop-up alerts announce a crisis, an offer, a hire.
+
+## Running it with 50 companies
+
+- The Round 3 draft starts only when there are problem statements with room for every company (at the start of
+  Round 3, or when they are uploaded); statements can be replaced until the first pick. When it starts, the `DRAFT`
+  deadline moves later if needed so that each company gets its 20 seconds.
+- The heartbeat broadcasts when hiring closes, when escrow is settled and when ratings close.
+- An offer's broadcast names its Product team and firm; other teams' screens ignore it, and every team screen waits
+  a random moment (up to 1.2 s) before re-reading after a broadcast, so the pages do not all load at once.
+- `supabase/tests/primus.test.ts` plays a full-size night (50 companies) through a crisis, hiring, the draft and the
+  close, and checks the money invariants.

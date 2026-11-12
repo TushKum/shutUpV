@@ -63,4 +63,16 @@ describe("eventToast", () => {
     expect(eventToast("qa", {}, "PRODUCT")).toBeNull();
     expect(eventToast("correction", {}, "FINANCE")).toBeNull();
   });
+
+  test("a PRIMUS crisis, an offer and a hire are announced to the teams they concern", () => {
+    expect(eventToast("subround", { k: 2, step: "reveal" }, "FINANCE")).toMatchObject({ text: "Crisis 2! Every company has a new crisis card and every price fell 5%.", loud: true, href: "/team/crisis" });
+    expect(eventToast("subround", { k: 2, step: "due" }, "PRODUCT")!.text).toBe("Time is up for crisis 2. Now rate your firm.");
+    expect(eventToast("subround", { k: 2, step: "hiring_closed" }, "FINANCE")).toBeNull();
+    expect(eventToast("offers", { firm: "f", product: "p" }, "CONSULTING")!.text).toBe("A company sent you an offer.");
+    expect(eventToast("offers", { firm: "f", product: "p" }, "PRODUCT")).toBeNull(); // its own offer
+    expect(eventToast("offers", { offer: "o", accepted: true }, "PRODUCT")!.text).toBe("Deal! You have hired a firm.");
+    expect(eventToast("offers", { offer: "o", accepted: true }, "CONSULTING")!.loud).toBe(true);
+    expect(eventToast("draft", { step: "start" }, "PRODUCT")!.text).toBe("Round 3: the draft has started.");
+    expect(eventToast("draft", { step: "pick", pick_no: 3 }, "PRODUCT")).toBeNull();
+  });
 });

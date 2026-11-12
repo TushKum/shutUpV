@@ -67,6 +67,34 @@ export function eventToast(kind: string, payload: Record<string, unknown>, track
       return { text: "The squads are drawn: meet your squad.", tone: "good", href: track === "FINANCE" ? "/team/chat" : "/team/squad", loud: true };
     case "closing_bell":
       return { text: "The market is closed. Results at the awards.", tone: "info", href: null, loud: true };
+    // A PRIMUS event's Rounds 2 and 3.
+    case "subround": {
+      const k = typeof payload.k === "number" ? payload.k : null;
+      const what = k === 5 ? "Round 3" : `crisis ${k ?? ""}`.trim();
+      if (payload.step === "reveal") {
+        return { text: `Crisis ${k ?? ""}! Every company has a new crisis card and every price fell 5%.`.replace("  ", " "), tone: "warn", href: "/team/crisis", loud: true };
+      }
+      if (payload.step === "hiring_closed") return track === "FINANCE" ? null : { text: `Hiring for ${what} is closed.`, tone: "info", href: "/team/crisis", loud: false };
+      if (payload.step === "due") {
+        return track === "PRODUCT"
+          ? { text: `Time is up for ${what}. Now rate your firm.`, tone: "info", href: "/team/crisis", loud: true }
+          : { text: `Time is up for ${what}: writing is closed.`, tone: "info", href: "/team/crisis", loud: track === "CONSULTING" };
+      }
+      return null;
+    }
+    // Only the two teams of an offer hear of it (lib/live/channel.tsx).
+    case "offers":
+      if (track === "FINANCE") return null;
+      if (payload.accepted === true) {
+        return track === "PRODUCT"
+          ? { text: "Deal! You have hired a firm.", tone: "good", href: "/team/crisis", loud: true }
+          : { text: "Deal! You have a new client: write its memo.", tone: "good", href: "/team/crisis", loud: true };
+      }
+      if (typeof payload.offer !== "string") return track === "CONSULTING" ? { text: "A company sent you an offer.", tone: "good", href: "/team/crisis", loud: true } : null;
+      return { text: "One of your offers changed: have a look.", tone: "info", href: "/team/crisis", loud: false };
+    case "draft":
+      if (payload.step === "start") return { text: "Round 3: the draft has started.", tone: "good", href: "/team/crisis", loud: true };
+      return null;
     case "paused":
       return { text: "The event is paused: the clock is frozen.", tone: "warn", href: null, loud: false };
     case "resumed":

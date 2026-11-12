@@ -23,6 +23,8 @@ import { PulseCard } from "./pulse-card";
 import { Celebrations } from "./celebrations";
 import { BIG_MOVE_BP } from "@/lib/team/pulse";
 import { BentoGrid, BentoItem, BentoTitle } from "@/components/ui/terminal-bento-grid";
+import { loadCrisisReport } from "@/lib/team/report-data";
+import { CrisisReportCard } from "./crisis-report";
 
 export const metadata: Metadata = { title: "Home" };
 
@@ -59,6 +61,11 @@ export default async function TeamHome() {
   // Coming up: only this round's deadlines (later rounds stay out of sight until they start).
   const comingUp = plan.next.filter((n) => inThisRound(status.phase, n.key));
   const rest = plan.now.filter((t) => t !== main);
+  // A PRIMUS event from Round 2: the team's own line per crisis (its scores, price moves, firm and stars).
+  const primusOn = ctx.event.format === "PRIMUS" && phaseReached(status.phase, "PRESSURE") && team.track !== "FINANCE";
+  const report = primusOn
+    ? await loadCrisisReport(ctx, data.facts.primus?.k ?? (phaseReached(status.phase, "CLOSE") ? 5 : null), data.facts.primus?.draft?.statement?.title ?? null)
+    : null;
 
   return (
     <div className="space-y-5">
@@ -148,6 +155,12 @@ export default async function TeamHome() {
           )}
         </Tile>
       </BentoGrid>
+
+      {report ? (
+        <BentoGrid>
+          <CrisisReportCard report={report} />
+        </BentoGrid>
+      ) : null}
 
       {pulse ? <PulseCard pulse={pulse} mine={company?.ticker ?? null} /> : null}
       <Celebrations

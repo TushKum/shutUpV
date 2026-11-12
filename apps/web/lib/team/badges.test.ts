@@ -94,4 +94,14 @@ describe("score now", () => {
     expect(scoreNow("CONSULTING", 1_500_000, null, null)).toEqual({ value: 1_500_000, start: 0, changeBp: null });
     expect(scoreNow("CONSULTING", 1_500_000, 1_717_500, null)).toEqual({ value: 3_217_500, start: 0, changeBp: null });
   });
+
+  test("a PRIMUS event has its own badges: crises, hiring and stars instead of the rescue and the flash", () => {
+    const p: BadgeFacts = { ...base, format: "PRIMUS" };
+    expect(keys(p)).toEqual(["TEAM_TALK", "LAUNCH", "STAR_PITCH", "GOOD_LISTENER", "VALUE_MAKER", "FIRST_HIRE", "CRISIS_TAMER", "UNBREAKABLE", "PROBLEM_SOLVER"]);
+    expect(earned({ ...p, hires: 1, scores: { CRISIS_2: 84 }, submitted: ["CRISIS_1", "CRISIS_2", "CRISIS_3", "CRISIS_4"] })).toEqual(["FIRST_HIRE", "CRISIS_TAMER", "UNBREAKABLE"]);
+    const firm: BadgeFacts = { ...p, track: "CONSULTING" };
+    expect(keys(firm)).not.toContain("FAIR_FEE");
+    expect(earned({ ...firm, clients: 5, fiveStars: 1, ratings: 3, ratingAvg: 4.33 })).toEqual(["FIRST_CLIENT", "IN_DEMAND", "FIVE_STARS", "TRUSTED"]);
+    expect(earned({ ...firm, clients: 2, ratings: 2, ratingAvg: 5 })).toEqual(["FIRST_CLIENT"]);
+  });
 });

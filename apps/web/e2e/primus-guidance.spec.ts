@@ -105,6 +105,23 @@ test("Round 2: the banner, the tasks and the crisis room lead each track through
   await expect(page.getByTestId("step-rate")).toHaveAttribute("data-state", "done");
   await shot(page, "08-product-rated");
 
+  // Scores released: Home's report card shows the plan's score, the price move and the stars given.
+  await expect(page.getByTestId("crisis-report")).toHaveCount(0); // not on the crisis room
+  await n.deadlinePassed("RATE_1");
+  await n.ok(n.lead, "tick", n.eventId);
+  await n.judge(a!.company_id, "CRISIS_1", [85, 85, 85]);
+  await n.org("seal_missing_scores", n.eventId, "CRISIS_1");
+  await n.org("release_scores", n.eventId, "CRISIS_1");
+  await page.goto("/team");
+  const line = page.getByTestId("report-1");
+  await expect(line).toHaveAttribute("data-state", "scored");
+  await expect(line).toContainText("85/100");
+  await expect(line).toContainText("price +20%");
+  await expect(line).toContainText("Your firm: ★★★★★");
+  await expect(page.getByTestId("report-2")).toHaveAttribute("data-state", "later");
+  await line.scrollIntoViewIfNeeded();
+  await shot(page, "10-product-report-card");
+
   // ── Finance: reads the cards and trades.
   await page.context().clearCookies();
   await loginAsTeam(page, ev, a!.f_code);
