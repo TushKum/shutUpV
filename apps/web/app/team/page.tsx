@@ -50,7 +50,7 @@ export default async function TeamHome() {
   const times = [...plan.now.map((t) => t.due), ...plan.next.map((n) => n.at)]
     .filter((t): t is string => !!t && new Date(t).getTime() > nowMs)
     .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-  const squadWork = plan.now.some((t) => ["PROBLEM_PICK", "PITCH", "FEE", "DEAL", "PLAN", "FLASH"].includes(t.key) && t.state !== "done");
+  const squadWork = plan.now.some((t) => ["PROBLEM_PICK", "PITCH", "FEE", "DEAL", "PLAN", "FLASH", "HIRE", "OFFERS", "DRAFT"].includes(t.key) && t.state !== "done");
   const marketOpen = phaseReached(status.phase, "READING");
   // The last trading round's headline (public prices only), once the market is open.
   const pulse = marketOpen ? await loadPulse(ctx.event.id) : null;
@@ -359,7 +359,7 @@ function SmallTask({ t }: { t: HomeTask }) {
       <div className="min-w-[12rem] flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-bold text-phosphor">{t.title}</h3>
-          {st ? <span className={`mx-tag text-xs ${st.chip}`}>{st.label}</span> : null}
+          {st ? <span className={`mx-tag text-xs ${st.chip}`}>{t.stateLabel ?? st.label}</span> : null}
         </div>
         <p className="text-sm text-paper">{t.detail}</p>
       </div>

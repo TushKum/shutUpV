@@ -4,16 +4,28 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { PhaseCode, Track } from "@msim/engine";
-import { STAGES, inFocus, opensIn } from "@/lib/team/focus";
+import { inFocus, opensIn, stageInfo, type EventFormat } from "@/lib/team/focus";
 import { Glyph } from "@/components/ui/matrix/glyph";
 
 // Only this round's pages: a page from another round shows a friendly "not now" card instead (an old link, a
 // bookmark or a typed address). The game functions still decide every action on the server.
-export function FocusGate({ track, phase, taskHref, children }: { track: Track; phase: PhaseCode; taskHref: string | null; children: ReactNode }) {
+export function FocusGate({
+  track,
+  phase,
+  taskHref,
+  format = "CLASSIC",
+  children,
+}: {
+  track: Track;
+  phase: PhaseCode;
+  taskHref: string | null;
+  format?: EventFormat;
+  children: ReactNode;
+}) {
   const path = usePathname();
   if (inFocus(track, phase, path, taskHref)) return <>{children}</>;
   const later = opensIn(track, phase, path);
-  const when = later ? STAGES[later] : null;
+  const when = later ? stageInfo(later, format) : null;
   return (
     <div className="mx-panel glow-box mx-auto max-w-md rounded-2xl p-6 text-center" data-testid="not-now">
       <p className="text-6xl text-phosphor" aria-hidden>

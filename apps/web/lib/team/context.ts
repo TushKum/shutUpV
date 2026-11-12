@@ -29,6 +29,8 @@ export interface TeamEvent {
   clock_speed: number;
   drawn_at: string | null;
   crisis_applied_at: string | null;
+  /** CLASSIC (one crisis and the rescue) or PRIMUS (four crises, hiring and the draft). */
+  format: "CLASSIC" | "PRIMUS";
 }
 
 export interface SquadRow {
@@ -75,7 +77,7 @@ export const loadTeamContext = cache(async (): Promise<TeamContext> => {
       .select("id, code, track, name, cash_cents, collateral_cents, disqualified, disqualified_reason")
       .eq("id", viewer.team!.id)
       .single(),
-    sb.from("events").select("id, name, is_rehearsal, clock_speed, drawn_at, crisis_applied_at").eq("id", eventId).single<TeamEvent>(),
+    sb.from("events").select("id, name, is_rehearsal, clock_speed, drawn_at, crisis_applied_at, format").eq("id", eventId).single<TeamEvent>(),
     sb
       .from("squads")
       .select("id, number, product_team_id, consulting_team_id, finance_team_id, dealt_card_ids, chosen_card_id, chosen_at, chosen_by_default")

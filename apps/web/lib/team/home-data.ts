@@ -9,7 +9,7 @@ import { type DeadlineCode, type LotType, type PhaseCode, type SubmissionType } 
 import type { TeamContext } from "@/lib/team/context";
 import { supabaseServer } from "@/lib/supabase/server";
 import { cents } from "@/lib/format";
-import type { HomeFacts, HomeProgress, HoldingRow, PricedCompany } from "./home";
+import type { HomeFacts, HomeProgress, HoldingRow, PricedCompany, PrimusFacts } from "./home";
 
 export interface HomeBulletin {
   id: string;
@@ -33,7 +33,62 @@ function must<T>(r: { data: T | null; error: { message: string } | null }, what:
 
 const NONE: Partial<Record<SubmissionType, boolean>> = { PITCH: false, PLAN: false, FLASH: false, MEMO: false };
 
+/** team_plan_facts' `primus` object (a PRIMUS event's Rounds 2 and 3). */
+interface PrimusRow {
+  k: number | null;
+  hiring_k: number | null;
+  work_open: boolean;
+  engagement?: { firm: string; cash_cents: number | string; shares: number; escrow: "HELD" | "RELEASED" | "REFUNDED" } | null;
+  offers_my_turn?: number;
+  offers_waiting?: number;
+  rate?: { k: number; firm: string; rating: number | null }[];
+  draft?: {
+    pick_no: number;
+    picked: boolean;
+    by_default: boolean;
+    statement: { number: number; title: string } | null;
+    my_turn: boolean;
+    closes_at: string | null;
+    ahead: number;
+  } | null;
+  profile_set?: boolean;
+  clients?: { company_id: string; ticker: string | null; name: string | null; submitted: boolean }[];
+}
+
+/** Turns team_plan_facts' `primus` object into the plan's facts. Pure. */
+export function primusFacts(row: PrimusRow | null | undefined): PrimusFacts | null {
+  if (!row) return null;
+  const out: PrimusFacts = { k: row.k, hiringK: row.hiring_k, workOpen: !!row.work_open };
+  if (row.engagement !== undefined) {
+    out.engagement = row.engagement
+      ? { firm: row.engagement.firm, cash: cents(row.engagement.cash_cents), shares: Number(row.engagement.shares), escrow: row.engagement.escrow }
+      : null;
+  }
+  if (row.offers_my_turn !== undefined) out.offersMyTurn = Number(row.offers_my_turn);
+  if (row.offers_waiting !== undefined) out.offersWaiting = Number(row.offers_waiting);
+  if (row.rate) out.rate = row.rate.map((r) => ({ k: Number(r.k), firm: r.firm, rating: r.rating === null ? null : Number(r.rating) }));
+  if (row.draft !== undefined) {
+    out.draft = row.draft
+      ? {
+          pickNo: Number(row.draft.pick_no),
+          picked: row.draft.picked,
+          byDefault: row.draft.by_default,
+          statement: row.draft.statement,
+          myTurn: row.draft.my_turn,
+          closesAt: row.draft.closes_at,
+          ahead: Number(row.draft.ahead),
+        }
+      : null;
+  }
+  if (row.profile_set !== undefined) out.profileSet = row.profile_set;
+  if (row.clients) out.clients = row.clients.map((c) => ({ companyId: c.company_id, ticker: c.ticker, name: c.name, submitted: c.submitted }));
+  return out;
+}
+
 interface PlanFactsRow {
+  /** Absent on a database older than the app (before the PRIMUS guidance migration). */
+  format?: "CLASSIC" | "PRIMUS";
+  primus?: PrimusRow | null;
   deadlines: { code: DeadlineCode; at: string }[];
   phases: { code: PhaseCode; starts_at: string }[];
   ipo_allocated_at: string | null;
@@ -102,6 +157,8 @@ export function planFacts(ctx: Pick<TeamContext, "team" | "event" | "status" | "
   };
 
   return {
+    format: row.format ?? "CLASSIC",
+    primus: primusFacts(row.primus),
     track: team.track,
     phase: status.phase,
     paused: status.paused,

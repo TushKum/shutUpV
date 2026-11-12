@@ -7,6 +7,7 @@ import { money } from "@/lib/format";
 import type { TeamContext } from "@/lib/team/context";
 import type { CrisisRoomData } from "@/lib/team/crisis-data";
 import { pastSubrounds, statementCounts, subroundTitle } from "@/lib/team/crisis";
+import { DoThis } from "@/components/ui/how-it-works";
 import { Badge, Notice, Panel, Table, Td, buttonClass } from "@/components/ui/ui";
 import { CardsOf, EngagementTable, FirmLeague, companyLabel } from "./parts";
 
@@ -16,6 +17,13 @@ export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRo
   const statement = new Map(data.statements.map((s) => [s.id, s]));
   return (
     <div className="space-y-6">
+      <DoThis testId="fund-todo">
+        {k === 5
+          ? "Round 3: watch which problem statement each company picks, then invest your fresh capital."
+          : k !== null
+            ? "Read each company's crisis card and see who hired a firm. Then trade: plan scores move prices after the due time."
+            : "The first crisis card arrives soon. Until then, keep trading."}
+      </DoThis>
       {data.injectionCents !== null ? (
         <Notice tone="green">
           Round 3 capital injection received: <strong className="font-mono">{money(data.injectionCents)}</strong> (half your starting capital). Your return is

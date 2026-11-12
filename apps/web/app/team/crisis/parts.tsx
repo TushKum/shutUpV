@@ -1,5 +1,8 @@
-// Pieces shared by the three tracks' crisis rooms: the sub-round's timeline, the crisis cards, the firm league table,
-// the engagements (who hired whom) and an offer with the moves open to this side.
+// Pieces shared by the three tracks' crisis rooms: a numbered step (what to do, in order), the sub-round's timeline,
+// the crisis cards, the firm league table, the engagements (who hired whom) and an offer with the moves open to
+// this side.
+
+import type { ReactNode } from "react";
 
 import { clock, money } from "@/lib/format";
 import type { CrisisRoomData, RoomCompany } from "@/lib/team/crisis-data";
@@ -21,6 +24,76 @@ import { CrisisCard } from "../market/crisis-card";
 import { answerOffer, counterOffer } from "./actions";
 
 export const companyLabel = (c: RoomCompany | undefined) => (c ? `${c.ticker ?? "—"}${c.name ? ` · ${c.name}` : ""}` : "—");
+
+/** now: this team should do it; done; later: not open yet; closed: its time has passed; read: nothing to press. */
+export type StepState = "now" | "done" | "later" | "closed" | "read";
+
+const STEP_CHIP: Record<StepState, { text: string; cls: string } | null> = {
+  now: { text: "Do this now", cls: "bg-[var(--term-amber)] text-black" },
+  done: { text: "Done", cls: "text-phosphor ring-1 ring-phosphor-dim" },
+  later: { text: "Later", cls: "text-muted ring-1 ring-line" },
+  closed: { text: "Closed", cls: "text-muted ring-1 ring-line" },
+  read: null,
+};
+
+/**
+ * One numbered step of the crisis room: its number (a tick once done), a title, one plain line about where it
+ * stands, and its content, folded away unless there is something to do in it (a tap opens any step).
+ */
+export function Step({
+  n,
+  title,
+  state,
+  summary,
+  open,
+  id,
+  testId,
+  children,
+}: {
+  n: number;
+  title: string;
+  state: StepState;
+  summary?: ReactNode;
+  /** Open by default? (Otherwise: the steps to do now and the ones to read.) */
+  open?: boolean;
+  id?: string;
+  testId?: string;
+  children: ReactNode;
+}) {
+  const chip = STEP_CHIP[state];
+  const hot = state === "now";
+  return (
+    <section
+      id={id}
+      className={`mx-panel min-w-0 scroll-mt-32 rounded-lg ${hot ? "border-[var(--term-amber)]" : ""}`}
+      aria-label={`Step ${n}: ${title}`}
+      data-testid={testId}
+      data-state={state}
+    >
+      <details open={open ?? (state === "now" || state === "read")} className="group">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-3 px-4 py-3">
+          <span
+            aria-hidden
+            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border font-mono text-sm font-extrabold ${
+              hot ? "border-[var(--term-amber)] bg-[var(--term-amber)] text-black" : state === "done" ? "border-phosphor-dim text-phosphor" : "border-line text-muted"
+            }`}
+          >
+            {state === "done" ? "✓" : n}
+          </span>
+          <span className="min-w-[10rem] flex-1">
+            <h2 className={`text-base font-bold ${hot ? "text-[var(--term-amber)]" : "text-phosphor"}`}>{title}</h2>
+            {summary ? <span className="block text-sm text-paper">{summary}</span> : null}
+          </span>
+          {chip ? <span className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${chip.cls}`}>{chip.text}</span> : null}
+          <span aria-hidden className="text-muted transition-transform group-open:rotate-90">
+            ▸
+          </span>
+        </summary>
+        <div className="border-t border-line p-4 [overflow-wrap:anywhere]">{children}</div>
+      </details>
+    </section>
+  );
+}
 
 export function Timeline({ k, steps }: { k: number; steps: TimelineStep[] }) {
   const next = steps.find((s) => !s.passed && s.at);

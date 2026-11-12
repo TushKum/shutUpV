@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PHASE_LABELS, TRACK_LABELS, type Track } from "@msim/engine";
+import { TRACK_LABELS, type Track } from "@msim/engine";
 import { loadTeamContext } from "@/lib/team/context";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, money } from "@/lib/format";
@@ -20,6 +20,7 @@ import { ActionBar } from "./action-bar";
 import { Alerts, SoundToggle } from "./alerts";
 import { loadPlanFacts } from "@/lib/team/home-data";
 import { homePlan } from "@/lib/team/home";
+import { crisisSteps } from "@/lib/team/crisis-steps";
 import { alertTasks, nextAction } from "@/lib/team/alerts";
 import { RoundBanner } from "./round-banner";
 import { FocusGate } from "./focus-gate";
@@ -54,11 +55,24 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   }
   // The bar and the alerts are guidance: if the plan cannot be read (say, the database is older than the app), every
   // page still works, without them.
-  const plan = await loadPlanFacts(ctx).then(homePlan, (err: unknown) => {
+  const facts = await loadPlanFacts(ctx).catch((err: unknown) => {
     console.error("team layout: no plan for the bar and alerts:", err);
     return null;
   });
+  const plan = facts ? homePlan(facts) : null;
   const next = plan ? nextAction(plan) : null;
+  // A PRIMUS event's Rounds 2 and 3: the crisis under way and its steps, for the banner's "you are here" row.
+  const k = facts?.primus?.k ?? null;
+  const crisis =
+    event.format === "PRIMUS" && facts && (status.phase === "PRESSURE" || status.phase === "SATURATION")
+      ? {
+          k,
+          steps:
+            k === null
+              ? []
+              : crisisSteps(team.track, k, Object.fromEntries(facts.deadlines.map((d) => [d.code, d.at])), k === 5 && (facts.primus?.workOpen === true || facts.primus?.hiringK === 5)),
+        }
+      : null;
   const sb = await supabaseServer();
   const { data: latest } = await sb
     .from("bulletins")
@@ -103,48 +117,42 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
                 <SignOutButton />
               </div>
             </div>
-            <dl className="grid grid-cols-2 gap-px bg-line text-sm sm:grid-cols-4">
+            {/* Two facts only: the team's cash, and its own thing (a fund: the trading round; the others: their
+                company and its share price). The round and the time left are in the banner below. */}
+            <dl className="grid grid-cols-2 gap-px bg-line text-sm">
               <div className="bg-ink px-4 py-1.5">
-                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Phase</dt>
-                <dd className="font-semibold text-paper" data-testid="header-phase">
-                  {PHASE_LABELS[status.phase]}
-                  {status.phase_ends_at ? (
-                    <span className="ml-1 text-muted">
-                      · <Countdown to={status.phase_ends_at} passed="ending" className="text-[var(--term-amber)]" />
-                    </span>
-                  ) : null}
-                </dd>
-              </div>
-              <div className="bg-ink px-4 py-1.5">
-                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Trading</dt>
-                <dd>
-                  <Badge tone={status.trading === "OPEN" ? "green" : status.trading === "PAUSED" ? "amber" : "slate"}>{status.trading}</Badge>
-                  {status.trading === "OPEN" && status.open_round ? (
-                    <span className="ml-1 text-muted">
-                      R{status.open_round.number} · <Countdown to={status.open_round.closes_at} passed="clearing" className="text-[var(--term-amber)]" />
-                    </span>
-                  ) : status.next_round ? (
-                    <span className="ml-1 text-muted">
-                      R{status.next_round.number} at {clock(status.next_round.opens_at)}
-                    </span>
-                  ) : null}
-                </dd>
-              </div>
-              <div className="bg-ink px-4 py-1.5">
-                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">Cash</dt>
-                <dd className="font-mono font-semibold tabular-nums text-[var(--term-green)]" data-testid="team-cash">
+                <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">Your cash</dt>
+                <dd className="font-mono text-base font-semibold tabular-nums text-[var(--term-green)]" data-testid="team-cash">
                   {money(team.cash)}
                   {finance && team.collateral > 0 ? (
                     <span className="ml-1 text-xs font-normal text-muted">locked {money(team.collateral)}</span>
                   ) : null}
                 </dd>
               </div>
-              <div className="bg-ink px-4 py-1.5">
-                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">{finance ? "Desk" : "Company"}</dt>
-                <dd className="font-mono text-[var(--term-cyan)]" data-testid="team-company">
-                  {finance ? TRACK_LABELS[team.track] : ctx.company ? `${ctx.company.ticker ?? "—"} · ${money(ctx.company.market_price)}` : "—"}
-                </dd>
-              </div>
+              {finance ? (
+                <div className="bg-ink px-4 py-1.5">
+                  <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">Trading</dt>
+                  <dd className="text-base">
+                    <Badge tone={status.trading === "OPEN" ? "green" : status.trading === "PAUSED" ? "amber" : "slate"}>{status.trading}</Badge>
+                    {status.trading === "OPEN" && status.open_round ? (
+                      <span className="ml-1 text-muted">
+                        Round {status.open_round.number} · <Countdown to={status.open_round.closes_at} passed="clearing" className="text-[var(--term-amber)]" />
+                      </span>
+                    ) : status.next_round ? (
+                      <span className="ml-1 text-muted">
+                        Round {status.next_round.number} at {clock(status.next_round.opens_at)}
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+              ) : (
+                <div className="bg-ink px-4 py-1.5">
+                  <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">{team.track === "PRODUCT" ? "Your company" : "Your squad's company"}</dt>
+                  <dd className="font-mono text-base text-[var(--term-cyan)]" data-testid="team-company">
+                    {ctx.company ? `${ctx.company.ticker ?? "—"} · ${money(ctx.company.market_price)}` : "—"}
+                  </dd>
+                </div>
+              )}
             </dl>
             <MarketStrip eventId={event.id} />
           </header>
@@ -155,6 +163,8 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             gate={status.gate}
             next={status.next_phase}
             openRound={status.trading === "OPEN" ? status.open_round : null}
+            format={event.format}
+            crisis={crisis}
           />
           <div className="sticky top-0 z-40 border-b border-line bg-ink">
             <TeamNav sections={sections} />
@@ -184,7 +194,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
           ) : null}
           <FeedbackBar className="mx-auto max-w-5xl px-4 pt-3" />
           <main className="mx-auto max-w-5xl px-4 py-4">
-            <FocusGate track={team.track} phase={status.phase} taskHref={taskHref}>
+            <FocusGate track={team.track} phase={status.phase} taskHref={taskHref} format={event.format}>
               {children}
             </FocusGate>
           </main>
