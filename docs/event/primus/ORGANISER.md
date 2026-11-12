@@ -15,6 +15,9 @@
   closes hiring, pays or refunds fees and fills missing ratings by itself.
 - **Judge** page, after each crisis's due time: judge and **release the crisis plans**. The last trading round of the
   crisis waits for them; the Rounds page says so. Release the advice memos once ratings close.
+- **Round 3**: after 06:00, judge and **release the solutions** the same way: the last trading round waits for them,
+  and with auto-advance on the night waits too (the market does not close without that round). The round then opens
+  with its full 15 minutes and everything after it moves later. Release the Round 3 advice memos once ratings close.
 - **Round 3**: the overview shows the draft live (who is on the clock, each sector's statements) and warns in red if
   statements are missing or a sector lacks room. The big screen shows the draft by itself.
 - Something wrong? **Pause** freezes every deadline; **Extend** adds minutes to everything after now.
