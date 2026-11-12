@@ -1,0 +1,30 @@
+name: Keep the server awake
+
+# A free Render server sleeps after 15 minutes without a visitor (the next visitor waits about a minute), and a free
+# Supabase project is paused after a week without use. This job visits /api/health every 10 minutes, which keeps
+# both awake. Set the repository variable SITE_URL (Settings → Secrets and variables → Actions → Variables) to change
+# the address. GitHub runs scheduled jobs from the default branch only, and may delay a run by a few minutes.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Visit the health page
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://shutupv.onrender.com' }}
+        run: |
+          # A sleeping server can take up to a minute to wake: retry a few times before failing.
+          for i in 1 2 3 4; do
+            code=$(curl -s -o body.txt -w "%{http_code}" --max-time 90 "$SITE_URL/api/health" || true)
+            echo "Attempt $i: HTTP $code $(head -c 200 body.txt 2>/dev/null)"
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          echo "::error::$SITE_URL/api/health did not answer 200 (the app is down, or it cannot reach Supabase)."
+          exit 1
