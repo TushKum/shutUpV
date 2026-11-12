@@ -381,3 +381,19 @@ select app.patch_functions(
 select app.patch_functions(
   'The deck needs exactly 1 card (every squad plays the same case) or at least %s cards (squads + 2), and at most 999.',
   'The deck needs 1 card (every squad plays the same case), 2 to 6 cards (one per sector) or at least %s cards (squads + 2), and at most 999.');
+
+-- Each drafting company's sector, for the big screen's draft board (the display account may not read the squads'
+-- problem cards). Only what the draft already makes public: the companies in the draft and their sectors.
+create or replace function public.draft_sectors(p_event uuid)
+returns table (company_id uuid, sector text)
+language sql stable security definer set search_path = ''
+as $$
+  select d.company_id, coalesce(pc.sector, '')
+    from public.draft_picks d
+    join public.companies c on c.id = d.company_id
+    join public.squads s on s.id = c.squad_id
+    left join public.problem_cards pc on pc.id = s.chosen_card_id
+   where d.event_id = p_event and (app.sees_all_events() or p_event = app.my_event_id())
+$$;
+revoke all on function public.draft_sectors(uuid) from public, anon;
+grant execute on function public.draft_sectors(uuid) to authenticated;
