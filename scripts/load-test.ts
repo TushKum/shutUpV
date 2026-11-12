@@ -181,10 +181,12 @@ async function main() {
     } else {
       while (serverNow() < end) {
         const a = Date.now();
+        // What every team page reads: the status, the prices, the team's own row and its "Do this now" facts.
         await Promise.all([
           sb.rpc("event_status", { p_event: event.id }),
           sb.from("companies").select("id, ticker, market_price").eq("event_id", event.id),
           sb.from("teams").select("cash_cents").eq("id", t.id),
+          sb.rpc("team_plan_facts"),
         ]);
         readMs.push(Date.now() - a);
         await sleep(5000 * (0.8 + Math.random() * 0.4));
@@ -221,6 +223,7 @@ async function main() {
     await Promise.all([
       x.sb.rpc("event_status", { p_event: event.id }),
       x.sb.from("companies").select("id, ticker, market_price").eq("event_id", event.id),
+      x.sb.rpc("team_plan_facts"),
     ]);
     rereadMs.push(Date.now() - a);
   });
