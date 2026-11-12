@@ -33,11 +33,12 @@ export default async function RoundsPage({ params }: PageProps<"/admin/[slug]/ro
   const ipo = data.bids ? ipoBook(data.companies, data.bids, data.teams) : null;
   const history = roundHistory(data.clearings, data.rounds, data.companies);
   const funds = new Set(data.orders.map((o) => o.team_id)).size;
-  // Round 18 opens only once the flash scores are out (they set the flash tier).
-  const flashReleased =
-    focus?.kind === "NEXT" && focus.round.number === 18
-      ? !!(await (await supabaseServer()).from("scores").select("id").eq("event_id", event.id).eq("type", "FLASH").eq("status", "RELEASED").limit(1)).data?.length
-      : true;
+  // A round can wait for scores: the classic round 18 for the flash scores (they set the flash tier); in a PRIMUS
+  // event the last round of each crisis for that crisis's plan scores, and Round 3's last for the solutions.
+  const waitsFor = focus?.kind === "NEXT" ? (focus.round.waits_for ?? (focus.round.number === 18 && focus.round.phase === "ROUNDS_13_21" ? "FLASH" : null)) : null;
+  const flashReleased = waitsFor
+    ? !!(await (await supabaseServer()).from("scores").select("id").eq("event_id", event.id).eq("type", waitsFor).eq("status", "RELEASED").limit(1)).data?.length
+    : true;
   const wait = roundWait(
     focus,
     { nowMs: new Date(status.server_time).getTime(), paused: status.paused, phase: status.phase, autoAdvance: status.auto_advance, flashReleased },
@@ -239,7 +240,7 @@ function IpoBookPanel({ ipo }: { ipo: ReturnType<typeof ipoBook> }) {
       <p className="text-sm text-paper">
         Bids per company against the {count(RULES.IPO_SHARES)} shares on offer. The allocation preview is what each bid would receive if the IPO
         were allocated now: everything requested when the book fits, otherwise pro rata, rounded down to 10 shares. The IPO is allocated when
-        the phase advances to {PHASE_LABELS.ROUNDS_1_4}.
+        the event advances from the IPO to its first trading phase.
       </p>
       <div className="mt-3">
         <Table head={["Ticker", "IPO price", "Bidders", "Requested", `Of ${count(RULES.IPO_SHARES)}`, "Allocation preview", "Unallocated"]} empty="No company has an IPO price.">

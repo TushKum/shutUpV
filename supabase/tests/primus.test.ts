@@ -334,4 +334,61 @@ describe("PRIMUS rounds 2 and 3", () => {
     await n.advanceTo("CLOSE");
     await n.checkInvariants();
   }, 240_000);
+  test("trading through Round 2 into Round 3: orders fill, a crisis's last round waits for its plan scores, leaving Round 2 clears it", async () => {
+    const n = await Night.create(db.pool, 3, "PRIMUS");
+    const seed = sha256Hex("primus-trading");
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(seed));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, seed, "2");
+    const [a, b, c] = [await n.squad(1), await n.squad(2), await n.squad(3)];
+    await n.advanceTo("BUILD");
+    for (const [i, s] of [a, b, c].entries()) {
+      await n.ok(n.team(s.p_code), "save_draft", "PITCH", { company_name: `Trade Co ${i}`, ticker: ["TRA", "TRB", "TRC"][i], problem: "A real problem." }, 0);
+      await n.ok(n.team(s.p_code), "submit_submission", "PITCH");
+    }
+    await n.deadlinePassed("PITCH");
+    await n.advanceTo("READING");
+    for (const s of [a, b, c]) await n.judge(s.company_id, "PITCH", [60, 60, 60]);
+    await n.deadlinePassed("CALL_1");
+    await n.org("release_scores", n.eventId, "PITCH");
+    await n.advanceTo("IPO");
+    await n.advanceTo("PRESSURE");
+    await n.deadlinePassed("REVEAL_1");
+    await n.ok(n.lead, "tick", n.eventId);
+
+    // Round 1 of crisis 1: two funds buy squad 1's company; it clears and the price rises as the engine says.
+    const before = (await n.prices())[a.company_id]!;
+    await n.openRound(1);
+    await n.orderNet(a.company_id, 3000, [b.f_code, c.f_code]);
+    const cleared = await n.clearRound(1);
+    expect(cleared.companies[a.company_id]!.newPrice).toBeGreaterThan(before);
+    // The own squad's fund may not trade its company.
+    await n.openRound(2);
+    expect(await n.call(n.team(a.f_code), "place_order", a.company_id, "BUY", 100)).toMatchObject({ ok: false });
+    for (const r of [2, 3, 4, 5]) {
+      if (r > 2) await n.openRound(r);
+      await n.clearRound(r);
+    }
+
+    // Round 6 is due but waits for the crisis 1 plan scores.
+    await n.q("update rounds set opens_at = now() - interval '1 second', closes_at = now() + interval '1 hour' where event_id = $1 and number = 6", [n.eventId]);
+    await n.ok(n.lead, "tick", n.eventId);
+    expect((await n.one("select status, waits_for from rounds where event_id = $1 and number = 6", [n.eventId]))).toEqual({ status: "SCHEDULED", waits_for: "CRISIS_1" });
+    await n.deadlinePassed("DUE_1");
+    await n.org("seal_missing_scores", n.eventId, "CRISIS_1"); // no plan submitted: 0, the lowest tier
+    await n.org("release_scores", n.eventId, "CRISIS_1");
+    expect(await n.roundReaches(6, "OPEN")).toBe("OPEN");
+    await n.clearRound(6);
+
+    // Round 12 (crisis 2's last) is left waiting when Round 2 ends: leaving the phase clears every unfinished round,
+    // so Round 3's first round opens.
+    await n.org("set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A", body: "a" }]));
+    await n.advanceTo("SATURATION");
+    expect((await n.one("select count(*)::int as c from rounds where event_id = $1 and phase = 'PRESSURE' and status <> 'CLEARED'", [n.eventId])).c).toBe(0);
+    const first3 = (await n.one("select min(number)::int as n from rounds where event_id = $1 and phase = 'SATURATION'", [n.eventId])).n;
+    await n.openRound(first3);
+    await n.orderNet(b.company_id, -1000, [c.f_code, a.f_code]);
+    await n.clearRound(first3);
+    await n.checkInvariants();
+  }, 120_000);
 });

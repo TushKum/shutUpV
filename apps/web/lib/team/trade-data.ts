@@ -61,7 +61,7 @@ export async function loadTradeData(ctx: TeamContext, opts: { orders: "pending" 
           .then((r) => must(r, "your orders") as OrderRow[]),
     sb
       .from("rounds")
-      .select("id, number, phase, status, opens_at, closes_at")
+      .select("id, number, phase, status, opens_at, closes_at, waits_for")
       .eq("event_id", event.id)
       .order("number")
       .then((r) => must(r, "the rounds") as RoundRow[]),
@@ -87,7 +87,7 @@ export async function loadTradeData(ctx: TeamContext, opts: { orders: "pending" 
       .from("phases")
       .select("code, starts_at")
       .eq("event_id", event.id)
-      .in("code", ["READING", "IPO", "ROUNDS_1_4", "CLOSE"])
+      .in("code", ["READING", "IPO", "ROUNDS_1_4", "PRESSURE", "CLOSE"])
       .then((r) => must(r, "the schedule") as { code: PhaseCode; starts_at: string }[]),
     opts.ipo
       ? sb

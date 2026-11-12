@@ -425,4 +425,19 @@ describe("open orders and history", () => {
     expect(h[1]!.lines[0]).toMatchObject({ type: "BUY", fillPrice: 1050, cash: -1_050_000, status: "FILLED" });
     expect(h[0]!.lines[0]).toMatchObject({ status: "CANCELLED", cash: null });
   });
+
+  it("a PRIMUS event trades through Rounds 2 and 3, and says when a round waits for scores", () => {
+    const p = { phase: "PRESSURE" as const, trading: "HALTED" as const, paused: false, marketClosed: false, nowMs: new Date("2026-10-08T18:20:00Z").getTime() };
+    const r = (n: number, status: "SCHEDULED" | "CLEARED", opens: string, extra: object = {}) => ({ id: `p${n}`, number: n, phase: "PRESSURE" as const, status, opens_at: opens, closes_at: opens, ...extra });
+    // Between rounds: never "Trading starts with round 1".
+    expect(tradingNotice(p, [r(1, "CLEARED", "2026-10-08T18:00:00Z"), r(2, "SCHEDULED", "2026-10-08T18:30:00Z")])?.text).toBe("Trading is closed between rounds.");
+    // The last round of a crisis waits for that crisis's plan scores.
+    const waiting = [r(5, "CLEARED", "2026-10-08T18:00:00Z"), r(6, "SCHEDULED", "2026-10-08T18:10:00Z", { waits_for: "CRISIS_1" })];
+    expect(tradingNotice(p, waiting)?.text).toBe("Round 6 opens once the crisis 1 plan scores are released: prices move first, then you trade on them.");
+    // Round 18 of a PRIMUS event has nothing to do with the flash scores.
+    expect(tradingNotice(p, [r(17, "CLEARED", "2026-10-08T18:00:00Z"), r(18, "SCHEDULED", "2026-10-08T18:10:00Z")])?.text).toBe("Round 18 opens in a moment.");
+    // Round 2's rounds are done; the next one belongs to Round 3.
+    const done = [r(24, "CLEARED", "2026-10-08T18:00:00Z"), { ...r(25, "SCHEDULED", "2026-10-08T19:00:00Z"), phase: "SATURATION" as const }];
+    expect(tradingNotice(p, done)?.text).toBe("Trading in this round is over. Round 25 opens in Round 3: Saturation.");
+  });
 });

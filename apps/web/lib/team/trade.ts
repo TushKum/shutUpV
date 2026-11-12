@@ -22,6 +22,9 @@ import {
   type PhaseCode,
   type Track,
   type TradingState,
+  subroundOf,
+  PHASE_LABELS,
+  type SubmissionType,
 } from "@msim/engine";
 import { cents } from "@/lib/format";
 
@@ -71,6 +74,14 @@ export interface RoundRow {
   status: RoundStatus;
   opens_at: string;
   closes_at: string;
+  /** PRIMUS: the round opens only once these scores are released (the last round of each crisis, and of Round 3). */
+  waits_for?: SubmissionType | null;
+}
+
+/** "the crisis 2 plan scores" / "the Round 3 solution scores": what a waiting round waits for. */
+export function waitsForText(type: SubmissionType): string {
+  const k = subroundOf(type);
+  return k === null ? `the ${type.toLowerCase()} scores` : k === 5 ? "the Round 3 solution scores" : `the crisis ${k} plan scores`;
 }
 
 export interface IpoBidRow {
@@ -485,6 +496,8 @@ export function tradingNotice(
   if (s.trading === "OPEN" && !s.paused) return null;
   const nx = nextRound(rounds);
   const next = nx ? { number: nx.number, opensAt: nx.opens_at, phase: nx.phase } : null;
+  // A PRIMUS event trades all through Rounds 2 and 3 (PRESSURE and SATURATION come before ROUNDS_1_4 in the phase order).
+  const primus = s.phase === "PRESSURE" || s.phase === "SATURATION";
   if (s.marketClosed || phaseReached(s.phase, "CLOSE")) {
     return { tone: "slate", text: "The market has closed. Every short was covered at the closing price; no more orders.", next: null };
   }
@@ -504,14 +517,20 @@ export function tradingNotice(
         };
   }
   if (s.phase === "BREAK") return { tone: "amber", text: "Trading is paused for the break.", next };
-  if (!phaseReached(s.phase, "ROUNDS_1_4")) return { tone: "blue", text: "Trading starts with round 1.", next };
+  if (!primus && !phaseReached(s.phase, "ROUNDS_1_4")) return { tone: "blue", text: "Trading starts with round 1.", next };
   if (s.phase === "CRISIS") return { tone: "amber", text: "Trading is halted for the crisis: every price takes the −15% shock.", next };
   if (s.phase === "PLANS_PUBLISHED" || s.phase === "VERDICTS") {
     return { tone: "amber", text: "Trading is halted while the rescue plans are scored.", next };
   }
   const closing = rounds.find((r) => (r.status === "OPEN" || r.status === "CLOSED") && new Date(r.closes_at).getTime() <= s.nowMs);
   if (closing) return { tone: "blue", text: `Round ${closing.number} has closed and is being cleared.`, next };
-  if (next && next.number === 18 && new Date(next.opensAt).getTime() <= s.nowMs) {
+  if (nx?.waits_for && new Date(nx.opens_at).getTime() <= s.nowMs) {
+    return { tone: "blue", text: `Round ${nx.number} opens once ${waitsForText(nx.waits_for)} are released: prices move first, then you trade on them.`, next };
+  }
+  if (primus && nx && nx.phase !== s.phase) {
+    return { tone: "blue", text: `Trading in this round is over. Round ${nx.number} opens in ${PHASE_LABELS[nx.phase]}.`, next };
+  }
+  if (!primus && next && next.number === 18 && new Date(next.opensAt).getTime() <= s.nowMs) {
     return { tone: "blue", text: "Round 18 opens once the flash scores are released (the flash tier applies after round 17 clears).", next };
   }
   if (next && new Date(next.opensAt).getTime() <= s.nowMs) {

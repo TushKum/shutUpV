@@ -153,6 +153,10 @@ describe("why a round waits", () => {
     );
     expect(roundWait({ kind: "NEXT", round: r(18, "SCHEDULED") }, state, label)?.text).toMatch(/^Round 18 waits for the flash scores/);
     expect(roundWait({ kind: "NEXT", round: r(18, "SCHEDULED") }, { ...state, flashReleased: true }, label)?.text).toMatch(/opens on the next heartbeat/);
+    // PRIMUS: the last round of a crisis waits for that crisis's plan scores; its round 18 has no flash scores.
+    expect(roundWait({ kind: "NEXT", round: { ...r(6, "SCHEDULED"), waits_for: "CRISIS_1" } }, state, label)?.text).toMatch(/^Round 6 waits for the crisis 1 plan scores: judge and release them under Judge/);
+    expect(roundWait({ kind: "NEXT", round: { ...r(31, "SCHEDULED"), waits_for: "SOLUTION" } }, state, label)?.text).toMatch(/^Round 31 waits for the Round 3 solution scores/);
+    expect(roundWait({ kind: "NEXT", round: r(18, "SCHEDULED", "PRESSURE") }, { ...state, phase: "PRESSURE" }, label)?.text).toMatch(/opens on the next heartbeat/);
   });
 });
 

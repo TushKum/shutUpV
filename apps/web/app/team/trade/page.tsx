@@ -30,7 +30,11 @@ export default async function TradePage() {
   if (gate) return gate;
   const { status, company: own } = ctx;
   const data = await loadTradeData(ctx, { orders: "pending" });
-  const at = (code: "READING" | "IPO" | "ROUNDS_1_4") => (data.phaseStarts[code] ? clock(data.phaseStarts[code]) : null);
+  const at = (code: "READING" | "IPO" | "ROUNDS_1_4") => {
+    // A PRIMUS event's first trading round is in Round 2 (PRESSURE).
+    const t = data.phaseStarts[code] ?? (code === "ROUNDS_1_4" ? data.phaseStarts.PRESSURE : undefined);
+    return t ? clock(t) : null;
+  };
 
   if (!phaseReached(status.phase, "READING")) {
     return (

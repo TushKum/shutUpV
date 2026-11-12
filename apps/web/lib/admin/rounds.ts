@@ -31,6 +31,8 @@ export interface RoundRow {
   opens_at: string;
   closes_at: string;
   cleared_at: string | null;
+  /** PRIMUS: the round opens only once these scores are released. */
+  waits_for?: string | null;
 }
 
 export interface CompanyRow {
@@ -177,7 +179,12 @@ export function roundWait(
       }`,
     };
   }
-  if (focus.round.number === 18 && !state.flashReleased) {
+  if (focus.round.waits_for && !state.flashReleased) {
+    const m = /^CRISIS_(\d)$/.exec(focus.round.waits_for);
+    const what = m ? `the crisis ${m[1]} plan scores` : focus.round.waits_for === "SOLUTION" ? "the Round 3 solution scores" : `the ${focus.round.waits_for} scores`;
+    return { tone: "amber", text: `Round ${focus.round.number} waits for ${what}: judge and release them under Judge (they move the prices before the round opens).` };
+  }
+  if (!focus.round.waits_for && focus.round.phase === "ROUNDS_13_21" && focus.round.number === 18 && !state.flashReleased) {
     return { tone: "amber", text: "Round 18 waits for the flash scores: release them under Judge (the flash tier applies before round 18 opens)." };
   }
   return { tone: "blue", text: "The opening time has passed: the round opens on the next heartbeat (every 2 seconds)." };

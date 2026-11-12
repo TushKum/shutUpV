@@ -40,7 +40,7 @@ export async function loadRoundsData(eventId: string, phase: PhaseCode, nowMs: n
   const [rounds, companies, teams, clearings] = await Promise.all([
     sb
       .from("rounds")
-      .select("id, number, phase, status, opens_at, closes_at, cleared_at")
+      .select("id, number, phase, status, opens_at, closes_at, cleared_at, waits_for")
       .eq("event_id", eventId)
       .order("number")
       .then((r) => must(r, "rounds") as RoundRow[]),
