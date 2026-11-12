@@ -416,4 +416,51 @@ describe("PRIMUS rounds 2 and 3", () => {
     await n.clearRound(first3);
     await n.checkInvariants();
   }, 120_000);
+  test("the clock never skips a round held for scores: Round 3 waits for the solution release, then its last round trades in full", async () => {
+    const n = await Night.create(db.pool, 3, "PRIMUS");
+    const seed = sha256Hex("primus-held");
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(seed));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, seed, "2");
+    const squads = [await n.squad(1), await n.squad(2), await n.squad(3)];
+    await n.advanceTo("BUILD");
+    for (const [i, s] of squads.entries()) {
+      await n.ok(n.team(s.p_code), "save_draft", "PITCH", { company_name: `Held Co ${i}`, ticker: ["HLA", "HLB", "HLC"][i], problem: "A real problem." }, 0);
+      await n.ok(n.team(s.p_code), "submit_submission", "PITCH");
+    }
+    await n.deadlinePassed("PITCH");
+    await n.advanceTo("READING");
+    for (const s of squads) await n.judge(s.company_id, "PITCH", [60, 60, 60]);
+    await n.deadlinePassed("CALL_1");
+    await n.org("release_scores", n.eventId, "PITCH");
+    await n.advanceTo("IPO");
+    await n.advanceTo("PRESSURE");
+    await n.org("set_problem_statements", n.eventId, JSON.stringify([{ number: 1, title: "A", body: "a" }]));
+    await n.advanceTo("SATURATION");
+
+    // Round 3's planned end has passed, and so has its last round's planned close; the earlier rounds are done, but the
+    // solution scores are not out. With auto-advance on, the heartbeat holds the phase instead of skipping the round.
+    const last = (await n.one("select max(number)::int as n from rounds where event_id = $1 and phase = 'SATURATION'", [n.eventId])).n;
+    await n.q("update rounds set status = 'CLEARED', cleared_at = now() where event_id = $1 and phase = 'SATURATION' and number < $2", [n.eventId, last]);
+    await n.q("update rounds set opens_at = now() - interval '20 minutes', closes_at = now() - interval '5 minutes' where event_id = $1 and number = $2", [n.eventId, last]);
+    await n.q("update phases set starts_at = now() - interval '110 minutes', ends_at = now() - interval '5 minutes' where event_id = $1 and code = 'SATURATION'", [n.eventId]);
+    await n.q("update events set auto_advance = true where id = $1", [n.eventId]);
+    await n.ok(n.lead, "tick", n.eventId);
+    expect((await n.one("select current_phase from events where id = $1", [n.eventId])).current_phase).toBe("SATURATION");
+    expect(await n.one("select status, waits_for from rounds where event_id = $1 and number = $2", [n.eventId, last])).toEqual({ status: "SCHEDULED", waits_for: "SOLUTION" });
+
+    // The solutions come out 20 minutes late: the round opens with its full 15 minutes, and Round 3 ends after it.
+    await n.deadlinePassed("DUE_5");
+    await n.org("seal_missing_scores", n.eventId, "SOLUTION");
+    await n.org("release_scores", n.eventId, "SOLUTION");
+    await n.ok(n.lead, "tick", n.eventId);
+    expect(await n.one("select status, extract(epoch from closes_at - opened_at)::int as secs from rounds where event_id = $1 and number = $2", [n.eventId, last])).toEqual({
+      status: "OPEN",
+      secs: 900,
+    });
+    expect(
+      (await n.one("select ends_at >= (select closes_at from rounds where event_id = $1 and number = $2) as after from phases where event_id = $1 and code = 'SATURATION'", [n.eventId, last])).after,
+    ).toBe(true);
+    expect((await n.one("select current_phase from events where id = $1", [n.eventId])).current_phase).toBe("SATURATION");
+  }, 120_000);
 });
