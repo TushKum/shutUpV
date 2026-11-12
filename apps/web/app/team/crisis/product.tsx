@@ -15,6 +15,7 @@ import {
   pastSubrounds,
   ratingOpen,
   statementCounts,
+  draftableStatements,
   statementGroups,
   stepAt,
   withDraftEnd,
@@ -148,8 +149,13 @@ export async function ProductRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; d
               A statement you have to yourself gives you the full move.
             </p>
           </HowItWorks>
+          {data.mySector && data.statements.some((s) => s.sector) ? (
+            <p className="mt-2 text-sm font-semibold text-paper" data-testid="my-sector">
+              Your sector: <span className="text-[var(--term-amber)]">{data.mySector}</span>. You pick from its statements only.
+            </p>
+          ) : null}
           <ul className="mt-3 space-y-2" aria-label="Problem statements">
-            {data.statements.map((s) => {
+            {draftableStatements(data.statements, data.mySector).map((s) => {
               const n = counts.get(s.id) ?? 0;
               const full = n >= s.cap;
               return (

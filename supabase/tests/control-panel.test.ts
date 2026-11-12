@@ -24,8 +24,8 @@ describe("content", () => {
   test("the problem deck is replaced before the draw, validated, and fixed after it", async () => {
     const n = await Night.create(db.pool, 4);
     const upload = (cards: unknown) => n.call(n.lead, "upload_problem_deck", n.eventId, JSON.stringify(cards));
-    expect(await upload(deck(5))).toMatchObject({ ok: false, code: "BAD_DECK" }); // 4 squads need 6 cards, or exactly 1
-    expect(await upload(deck(2))).toMatchObject({ ok: false, code: "BAD_DECK" });
+    expect(await upload([])).toMatchObject({ ok: false, code: "BAD_DECK" });
+    expect(await upload(deck(3))).toMatchObject({ ok: true, cards: 3 }); // 2 to 6 cards: one per sector, split by lottery
     expect(await upload(deck(1))).toMatchObject({ ok: true, cards: 1 }); // one case for every squad
     expect(await upload([...deck(5), { number: 5, sector: "x", title: "dup", body: "dup" }])).toMatchObject({ ok: false, code: "BAD_DECK" });
     expect(await upload([...deck(6), { number: 7.5, sector: "x", title: "t", body: "b" }])).toMatchObject({ ok: false, code: "BAD_DECK" });
@@ -102,7 +102,7 @@ describe("setup gate and console refresh", () => {
     await n.q("insert into problem_cards (event_id, number, sector, title, body) values ($1, 1, 'Test', 'One', 'Only one card.')", [n.eventId]); // as a seed could
     expect(await gate()).toBe("Upload the crisis deck before the event starts."); // one card: every squad plays the same case
     await n.q("insert into problem_cards (event_id, number, sector, title, body) values ($1, 2, 'Test', 'Two', 'A second card.')", [n.eventId]);
-    expect(await gate()).toBe("The problem deck needs exactly 1 card (one case for every squad) or at least 5 cards (squads + 2) before the event starts.");
+    expect(await gate()).toBe("Upload the crisis deck before the event starts."); // two cards: two sectors
     await n.org("upload_problem_deck", n.eventId, JSON.stringify(deck(5)));
     expect(await gate()).toBe("Upload the crisis deck before the event starts.");
     expect(await n.call(n.lead, "advance_phase", n.eventId, "SETUP")).toMatchObject({ ok: false });

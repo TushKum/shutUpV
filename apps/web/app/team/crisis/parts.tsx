@@ -181,6 +181,7 @@ export function StatementBoard({ data, title = "Round 3 · who competes with who
   if (data.statements.length === 0) return null;
   const label = new Map(data.companies.map((c) => [c.id, c.ticker ?? "—"]));
   const groups = statementGroups(data.statements, data.picks, (id) => label.get(id) ?? "—");
+  const sectorOf = new Map(data.statements.map((s) => [s.id, s.sector]));
   return (
     <Panel title={title}>
       <OnTheClock data={data} />
@@ -193,6 +194,7 @@ export function StatementBoard({ data, title = "Round 3 · who competes with who
             <p className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[var(--term-amber)]">#{g.number}</span>
               <span className="font-semibold text-paper">{g.title}</span>
+              {sectorOf.get(g.id) ? <Badge tone="blue">{sectorOf.get(g.id)}</Badge> : null}
               <Badge tone={g.companies.length >= g.cap ? "red" : "slate"}>
                 {g.companies.length}/{g.cap}
               </Badge>

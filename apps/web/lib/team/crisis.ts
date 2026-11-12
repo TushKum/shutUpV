@@ -187,6 +187,16 @@ export function withDraftEnd(deadlines: Deadlines, picks: readonly DraftPickRow[
   return { ...deadlines, DRAFT: new Date(nowMs - 1000).toISOString() };
 }
 
+/** Same sector, ignoring case and spaces (as app.norm_sector). */
+export const sameSector = (a: string | null | undefined, b: string | null | undefined) =>
+  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** The statements this company may draft: its own sector's when the statements have sectors, else all. */
+export function draftableStatements<T extends { sector: string | null }>(statements: readonly T[], mySector: string | null): T[] {
+  if (!statements.some((s) => s.sector)) return [...statements];
+  return statements.filter((s) => sameSector(s.sector, mySector));
+}
+
 /** How many companies picked each statement. */
 export function statementCounts(picks: readonly DraftPickRow[]): Map<string, number> {
   const m = new Map<string, number>();

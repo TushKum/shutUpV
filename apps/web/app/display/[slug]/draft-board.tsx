@@ -17,7 +17,7 @@ interface Pick {
 
 export interface DraftBoardData {
   picks: Pick[];
-  statements: { id: string; number: number; title: string; cap: number }[];
+  statements: { id: string; number: number; title: string; cap: number; sector: string | null }[];
   tickers: Map<string, string>;
 }
 
@@ -32,7 +32,7 @@ export async function loadLiveDraft(eventId: string): Promise<DraftBoardData | n
   const rows = (picks ?? []) as Pick[];
   if (rows.length === 0 || rows.every((p) => p.statement_id !== null)) return null;
   const [st, co] = await Promise.all([
-    sb.from("problem_statements").select("id, number, title, cap").eq("event_id", eventId).order("number"),
+    sb.from("problem_statements").select("id, number, title, cap, sector").eq("event_id", eventId).order("sector").order("number"),
     sb.from("companies").select("id, ticker").eq("event_id", eventId),
   ]);
   return {
@@ -69,6 +69,7 @@ export function DraftBoard({ data }: { data: DraftBoardData }) {
                 <p className="flex items-baseline gap-4 text-[34px] font-bold leading-tight">
                   <span className="font-mono text-warn">#{s.number}</span>
                   <span className="min-w-0 flex-1 truncate text-paper">{s.title}</span>
+                  {s.sector ? <span className="text-[24px] uppercase tracking-wider text-muted">{s.sector}</span> : null}
                   <span className={`font-mono text-[28px] ${full ? "text-danger" : "text-muted"}`}>
                     {on.length}/{s.cap}
                   </span>

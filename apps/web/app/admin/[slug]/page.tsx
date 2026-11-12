@@ -30,24 +30,42 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   const status = await loadEventStatus(event.id);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
-  const [phases, deadlines, rounds, subrounds, engagements, picks, statements, companies] = await Promise.all([
+  const [phases, deadlines, rounds, subrounds, engagements, picks, statements, companies, squadCards] = await Promise.all([
     sb.from("phases").select("code, seq, starts_at, ends_at, started_at, ended_at").eq("event_id", event.id).order("seq"),
     sb.from("deadlines").select("code, at").eq("event_id", event.id).order("at"),
     sb.from("rounds").select("number, phase, status, opens_at, closes_at, cleared_at").eq("event_id", event.id).order("number"),
     sb.from("subrounds").select("k, revealed_at, hiring_closed_at, due_closed_at, rated_at").eq("event_id", event.id).order("k"),
     sb.from("engagements").select("k, escrow, rating").eq("event_id", event.id),
     sb.from("draft_picks").select("company_id, pick_no, closes_at, statement_id, by_default").eq("event_id", event.id).order("pick_no"),
-    sb.from("problem_statements").select("id, number, title, cap").eq("event_id", event.id).order("number"),
+    sb.from("problem_statements").select("id, number, title, cap, sector").eq("event_id", event.id).order("number"),
     sb.from("companies").select("id, ticker, squad_id").eq("event_id", event.id),
+    sb.from("squads").select("id, problem_cards!squads_chosen_card_id_fkey(sector)").eq("event_id", event.id),
   ]);
   // Round 3's draft, for the panel below.
   const draftPicks = (picks.data ?? []) as { company_id: string; pick_no: number; closes_at: string; statement_id: string | null; by_default: boolean }[];
-  const stRows = (statements.data ?? []) as { id: string; number: number; title: string; cap: number }[];
+  const stRows = (statements.data ?? []) as { id: string; number: number; title: string; cap: number; sector: string | null }[];
   const coRows = (companies.data ?? []) as { id: string; ticker: string | null; squad_id: string | null }[];
   const ticker = new Map(coRows.map((c) => [c.id, c.ticker ?? "—"]));
   const playing = coRows.filter((c) => c.squad_id !== null).length;
   const room = stRows.reduce((s, x) => s + x.cap, 0);
   const onClock = draftPicks.find((p) => p.statement_id === null) ?? null;
+  // An event split across sectors: each sector's statements need room for that sector's companies.
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  const sectorOfSquad = new Map(
+    ((squadCards.data ?? []) as unknown as { id: string; problem_cards: { sector: string | null } | { sector: string | null }[] | null }[]).map((s) => [
+      s.id,
+      (Array.isArray(s.problem_cards) ? s.problem_cards[0]?.sector : s.problem_cards?.sector) ?? null,
+    ]),
+  );
+  const sectorShort = stRows.some((s) => s.sector)
+    ? [...new Set(coRows.map((c) => (c.squad_id ? sectorOfSquad.get(c.squad_id) : null)).filter((s): s is string => !!s))]
+        .map((sec) => ({
+          sec,
+          n: coRows.filter((c) => c.squad_id && norm(sectorOfSquad.get(c.squad_id)) === norm(sec)).length,
+          room: stRows.filter((s) => norm(s.sector) === norm(sec)).reduce((t, s) => t + s.cap, 0),
+        }))
+        .filter((x) => x.room < x.n)
+    : [];
   const next = status.next_phase;
   const blocked = status.gate ?? (status.paused ? "Resume the event before advancing." : null);
 
@@ -188,6 +206,11 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
                   ? "Round 3 has started but there are no problem statements: the draft is waiting. Upload them under Content now; the draft starts at once."
                   : "No problem statements yet. Upload them under Content before Round 3: the draft starts with Round 3 only if they are there."}
               </Notice>
+            ) : sectorShort.length ? (
+              <Notice tone="red">
+                Not enough room in {sectorShort.map((x) => `${x.sec} (room for ${x.room}, ${x.n} companies)`).join(", ")}. Each sector&apos;s statements must
+                fit its companies: raise the caps or add statements under Content.
+              </Notice>
             ) : room < playing ? (
               <Notice tone="red">
                 The statements have room for {room} companies, but {playing} companies play. Raise the caps or add statements under Content.
@@ -207,12 +230,13 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
               </p>
             )}
             {draftPicks.length ? (
-              <Table head={["#", "Statement", "Companies"]} className="mt-3">
+              <Table head={["#", "Sector", "Statement", "Companies"]} className="mt-3">
                 {stRows.map((s) => {
                   const on = draftPicks.filter((p) => p.statement_id === s.id);
                   return (
                     <tr key={s.id}>
                       <Td mono>{s.number}</Td>
+                      <Td>{s.sector ?? "—"}</Td>
                       <Td>{s.title}</Td>
                       <Td mono>
                         {on.length}/{s.cap} {on.map((p) => `${ticker.get(p.company_id)}${p.by_default ? "*" : ""}`).join(" ")}

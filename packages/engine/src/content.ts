@@ -58,6 +58,8 @@ export interface ProblemCard {
 }
 
 export interface CrisisCard {
+  /** Optional: the sector whose companies get this card (its number is the crisis it is used in, 1–4). */
+  sector?: string;
   category: string;
   number: number;
   title: string;
@@ -81,7 +83,7 @@ export function problemCardsFromCsv(text: string): ProblemCard[] {
 export function crisisCardsFromCsv(text: string): CrisisCard[] {
   return parseCsvObjects(text).map((r, i) => {
     if (!r.category || !r.title || !r.body) throw new Error(`crisis CSV row ${i + 2}: category, title and body are required`);
-    return { category: r.category, number: Number(r.number || 1), title: r.title, body: r.body };
+    return { ...(r.sector ? { sector: r.sector } : {}), category: r.category, number: Number(r.number || 1), title: r.title, body: r.body };
   });
 }
 

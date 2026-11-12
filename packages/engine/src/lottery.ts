@@ -97,9 +97,19 @@ export function formSquads(
 export function dealProblemCards(root: string, squadCount: number, cards: readonly string[]): string[][] {
   if (new Set(cards).size !== cards.length) throw new Error("duplicate card ids");
   if (cards.length === 1) return Array.from({ length: squadCount }, () => [cards[0]!]);
+  // Sector mode: 2 to 6 cards (fewer than squads + 2) are sectors. Squads are shuffled and dealt round the cards, so
+  // each card gets an equal share (counts differ by at most one); each squad gets one card.
+  if (cards.length >= 2 && cards.length <= 6 && cards.length < squadCount + 2) {
+    const order = new Rng(root, "problems").shuffle(Array.from({ length: squadCount }, (_, i) => i));
+    const hands: string[][] = new Array(squadCount);
+    order.forEach((squad, pos) => {
+      hands[squad] = [cards[pos % cards.length]!];
+    });
+    return hands;
+  }
   // With at least squads + 2 cards, every hand (including the last) still has 3 distinct cards to choose from:
   // before the last hand 3 × (cards − squads + 1) uses remain, spread over at least cards − squads + 1 ≥ 3 cards.
-  if (cards.length < squadCount + 2) throw new Error("the deck needs exactly 1 card, or at least 2 more cards than there are squads");
+  if (cards.length < squadCount + 2) throw new Error("the deck needs 1 card, 2 to 6 sector cards, or at least 2 more cards than there are squads");
   const rng = new Rng(root, "problems");
   const left = new Map(cards.map((c) => [c, 3]));
   const hands: string[][] = [];

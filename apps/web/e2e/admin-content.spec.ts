@@ -54,10 +54,10 @@ test("the problem deck: expected columns, parse errors by row, the database's re
   await expect(problems.getByRole("alert")).toHaveText("BAD_FILE: The file is 1,201 KB; the limit is 512 KB.");
   await expect(page.getByRole("heading", { name: "Problem deck", exact: true })).toBeVisible();
 
-  // Parses, but 4 cards are too few for 3 squads: the game function refuses it.
+  // 4 cards for 3 squads: a sector deck (the lottery splits the squads between the 4 sectors), so it is stored.
+  expect(before.length).toBeGreaterThan(0);
   await upload(page, "Problem deck", "Upload the problem deck", csvFile("deck.csv", PROBLEMS.split("\n").slice(0, 5).join("\n")));
-  await expect(problems.getByRole("alert")).toHaveText("BAD_DECK: The deck needs exactly 1 card (every squad plays the same case) or at least 5 cards (squads + 2), and at most 999.");
-  expect(await ev.n.q("select number, title from problem_cards where event_id = $1 order by number", [ev.n.eventId])).toEqual(before);
+  await expect(problems.getByRole("status")).toHaveText("Uploaded 4 problem cards; the previous deck was replaced.");
 
   await upload(page, "Problem deck", "Upload the problem deck", csvFile("problem-cards.csv", `﻿${PROBLEMS}\r\n`));
   await expect(problems.getByRole("status")).toHaveText("Uploaded 6 problem cards; the previous deck was replaced.");
@@ -76,11 +76,11 @@ test("the crisis deck: a repeated category and number is named by row; a good de
   await loginAsStaff(page, ev, STAFF.lead);
   await contentPage(page);
   const crisis = panel(page, "Crisis deck");
-  await expect(crisis.getByText("category,number,title,body", { exact: true })).toBeVisible();
+  await expect(crisis.getByText("sector,category,number,title,body", { exact: true })).toBeVisible();
   await expect(crisis.getByText("10 cards in 10 categories.", { exact: false })).toBeVisible(); // the seeded deck
 
   await upload(page, "Crisis deck", "Upload the crisis deck", csvFile("crisis.csv", "category,number,title,body\nRegulation,1,A ban,Stop.\nRegulation,,Another ban,Stop again.\n"));
-  await expect(crisis.getByRole("alert")).toHaveText("BAD_CSV: Row 3: “Regulation #1” is already on row 2; each category and number pair must be unique.");
+  await expect(crisis.getByRole("alert")).toHaveText("BAD_CSV: Row 3: “Regulation #1” is already on row 2; each category and number must be unique.");
 
   const deck = [
     "category,number,title,body",

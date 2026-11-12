@@ -44,6 +44,8 @@ export interface StatementRow {
   title: string;
   body: string;
   cap: number;
+  /** The sector it belongs to (an event split across sectors), or null. */
+  sector: string | null;
 }
 
 export interface ClientDraft extends DraftRow {
@@ -72,6 +74,8 @@ export interface CrisisRoomData {
   clientSubmissions: ClientSubmission[];
   /** The Round 3 capital injection this team received (funds), in cents, or null. */
   injectionCents: number | null;
+  /** This team's squad's sector (the sector on its chosen problem card), or null. */
+  mySector: string | null;
 }
 
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
@@ -89,7 +93,7 @@ export async function loadCrisisRoom(ctx: TeamContext): Promise<CrisisRoomData> 
     sb.from("firm_profiles").select("team_id, headline, specialities, rate_card, about, asking_cents").eq("event_id", eventId),
     sb.from("offers").select("id, k, company_id, firm_team_id, cash_cents, shares, note, status, turn, company_counters, firm_counters, updated_at").eq("event_id", eventId).order("updated_at", { ascending: false }),
     sb.from("engagements").select("id, k, company_id, firm_team_id, cash_cents, shares, escrow, rating, rating_default, bonus_cents").eq("event_id", eventId).order("k"),
-    sb.from("problem_statements").select("id, number, title, body, cap").eq("event_id", eventId).order("number"),
+    sb.from("problem_statements").select("id, number, title, body, cap, sector").eq("event_id", eventId).order("number"),
     sb.from("draft_picks").select("company_id, pick_no, score_avg, opens_at, closes_at, statement_id, picked_at, by_default").eq("event_id", eventId).order("pick_no"),
     sb.from("ledger_entries").select("cash_delta_cents").eq("team_id", ctx.team.id).eq("kind", "INJECTION"),
   ]);
@@ -128,6 +132,9 @@ export async function loadCrisisRoom(ctx: TeamContext): Promise<CrisisRoomData> 
     : [{ data: [], error: null }, { data: [], error: null }];
   if (cd.error) throw new Error(`Could not read your clients' drafts: ${cd.error.message}`);
   if (cs.error) throw new Error(`Could not read your clients' submissions: ${cs.error.message}`);
+  const chosen = ctx.squad?.chosen_card_id
+    ? await sb.from("problem_cards").select("sector").eq("id", ctx.squad.chosen_card_id).maybeSingle<{ sector: string | null }>()
+    : null;
   const injected = ((injection.data ?? []) as { cash_delta_cents: number }[]).reduce((s, r) => s + Number(r.cash_delta_cents), 0);
   return {
     format: event.data?.format ?? "CLASSIC",
@@ -154,6 +161,7 @@ export async function loadCrisisRoom(ctx: TeamContext): Promise<CrisisRoomData> 
     clientDrafts: (cd.data ?? []) as ClientDraft[],
     clientSubmissions: (cs.data ?? []) as ClientSubmission[],
     injectionCents: injected > 0 ? injected : null,
+    mySector: chosen?.data?.sector?.trim() || null,
   };
 }
 

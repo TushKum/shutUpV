@@ -17,9 +17,9 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
 /** The columns of each file: required ones first; optional ones may be left out. */
 export const CSV_FORMATS = {
   problem: { required: ["number", "title", "body"], optional: ["sector"], columns: ["number", "sector", "title", "body"] },
-  crisis: { required: ["category", "title", "body"], optional: ["number"], columns: ["category", "number", "title", "body"] },
+  crisis: { required: ["category", "title", "body"], optional: ["number", "sector"], columns: ["sector", "category", "number", "title", "body"] },
   flash: { required: ["title", "body"], optional: [], columns: ["title", "body"] },
-  statements: { required: ["number", "title", "body"], optional: ["cap"], columns: ["number", "title", "body", "cap"] },
+  statements: { required: ["number", "title", "body"], optional: ["cap", "sector"], columns: ["sector", "number", "title", "body", "cap"] },
 } as const;
 export type CsvKind = keyof typeof CSV_FORMATS;
 
@@ -113,11 +113,17 @@ export function parseCrisisDeck(text: string): Parsed<CrisisCard[]> {
       return { ok: false, message: `${row}: the number must be a whole number from 1 to ${LIMITS.number} (or left empty for 1).` };
     }
     if (tooLong(c.category, LIMITS.category)) return { ok: false, message: `${row}: the category is longer than ${LIMITS.category} characters.` };
+    if (c.sector && tooLong(c.sector, LIMITS.sector)) return { ok: false, message: `${row}: the sector is longer than ${LIMITS.sector} characters.` };
     if (tooLong(c.title, LIMITS.title)) return { ok: false, message: `${row}: the title is longer than ${LIMITS.title} characters.` };
     if (tooLong(c.body, LIMITS.body)) return { ok: false, message: `${row}: the body is longer than ${LIMITS.body} characters.` };
-    const key = `${c.category}\u0000${c.number}`;
+    const key = `${(c.sector ?? "").trim().toLowerCase()}\u0000${c.category}\u0000${c.number}`;
     const first = seen.get(key);
-    if (first !== undefined) return { ok: false, message: `${row}: “${c.category} #${c.number}” is already on row ${first}; each category and number pair must be unique.` };
+    if (first !== undefined) {
+      return {
+        ok: false,
+        message: `${row}: “${c.sector ? `${c.sector} ` : ""}${c.category} #${c.number}” is already on row ${first}; each ${c.sector ? "sector, " : ""}category and number must be unique.`,
+      };
+    }
     seen.set(key, i + 2);
   }
   return { ok: true, value: cards };
@@ -142,6 +148,7 @@ export interface ProblemStatement {
   title: string;
   body: string;
   cap: number;
+  sector?: string;
 }
 
 export function parseStatements(text: string): Parsed<ProblemStatement[]> {
@@ -149,7 +156,7 @@ export function parseStatements(text: string): Parsed<ProblemStatement[]> {
   if (header) return { ok: false, message: header };
   const [head, ...rows] = parseCsv(text);
   const col = (name: string) => head!.findIndex((h) => h.trim().toLowerCase() === name);
-  const [iNum, iTitle, iBody, iCap] = ["number", "title", "body", "cap"].map(col);
+  const [iNum, iTitle, iBody, iCap, iSector] = ["number", "title", "body", "cap", "sector"].map(col);
   const out: ProblemStatement[] = [];
   const seen = new Set<number>();
   for (const [i, r] of rows.entries()) {
@@ -159,6 +166,8 @@ export function parseStatements(text: string): Parsed<ProblemStatement[]> {
     const title = (r[iTitle!] ?? "").trim();
     const body = (r[iBody!] ?? "").trim();
     const capText = iCap! >= 0 ? (r[iCap!] ?? "").trim() : "";
+    const sector = iSector! >= 0 ? (r[iSector!] ?? "").trim() : "";
+    if (tooLong(sector, LIMITS.sector)) return { ok: false, message: `${row}: the sector is longer than ${LIMITS.sector} characters.` };
     const cap = capText === "" ? 5 : Number(capText);
     if (!Number.isInteger(number) || number < 1 || number > 99) return { ok: false, message: `${row}: the number must be a whole number from 1 to 99.` };
     if (seen.has(number)) return { ok: false, message: `${row}: statement ${number} appears twice.` };
@@ -166,7 +175,7 @@ export function parseStatements(text: string): Parsed<ProblemStatement[]> {
     if (!body || tooLong(body, LIMITS.body)) return { ok: false, message: `${row}: the body must be 1 to ${LIMITS.body} characters.` };
     if (!Number.isInteger(cap) || cap < 1 || cap > 50) return { ok: false, message: `${row}: the cap must be a whole number from 1 to 50 (or empty for 5).` };
     seen.add(number);
-    out.push({ number, title, body, cap });
+    out.push({ number, title, body, cap, ...(sector ? { sector } : {}) });
   }
   if (out.length === 0) return { ok: false, message: "The file has no statements." };
   return { ok: true, value: out };

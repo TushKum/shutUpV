@@ -24,10 +24,10 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
   const sb = await supabaseServer();
   const [problems, crises, flashes, products, statements, picks] = await Promise.all([
     sb.from("problem_cards").select("number, sector, title, body").eq("event_id", event.id).order("number").limit(1000),
-    sb.from("crisis_cards").select("category, number, title, body").eq("event_id", event.id).order("category").order("number").limit(1000),
+    sb.from("crisis_cards").select("sector, category, number, title, body").eq("event_id", event.id).order("sector").order("number").order("category").limit(1000),
     sb.from("bulletins").select("title, body, published_at, created_at").eq("event_id", event.id).eq("kind", "FLASH").order("created_at", { ascending: false }),
     sb.from("teams").select("id", { count: "exact", head: true }).eq("event_id", event.id).eq("track", "PRODUCT"),
-    sb.from("problem_statements").select("number, title, body, cap").eq("event_id", event.id).order("number"),
+    sb.from("problem_statements").select("number, title, body, cap, sector").eq("event_id", event.id).order("number"),
     // The statements can be replaced until the first company has picked one.
     sb.from("draft_picks").select("company_id", { count: "exact", head: true }).eq("event_id", event.id).not("statement_id", "is", null),
   ]);
@@ -47,8 +47,8 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
       <Panel title="Problem deck" actions={<LockBadge lock={locks.problem} />}>
         <Summary>
           {problemRows.length} {problemRows.length === 1 ? "card: every squad plays this same case (nothing to pick)." : "cards."} Upload exactly
-          one card to give every squad the same case. Otherwise the draw deals 3 distinct cards to each squad and uses no card more
-          than 3 times, so the deck needs at least {needed} (squads + 2).
+          one card to give every squad the same case, or 2 to 6 cards (one per sector) to split the squads equally between the sectors by lottery.
+          Otherwise the draw deals 3 distinct cards to each squad and uses no card more than 3 times, so the deck needs at least {needed} (squads + 2).
         </Summary>
         <Upload kind="problem" lock={locks.problem} organiser={organiser} action={uploadProblemDeck.bind(null, event.id)} label="Upload the problem deck" />
         <Table head={["#", "Sector", "Title", "Body"]} empty="No problem cards yet." className="mt-4">
@@ -67,13 +67,14 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
 
       <Panel title="Crisis deck" actions={<LockBadge lock={locks.crisis} />}>
         <Summary>
-          {crisisRows.length} cards in {categories} categories. At 00:30 the companies are dealt round the categories (10 categories × 5 companies
-          for 50 squads); in a category with several cards, the same generator picks one for each company.
+          {crisisRows.length} cards in {categories} categories. With a sector on a card, every company of that sector gets it in the crisis its
+          number names (1 to 4). Cards without a sector are dealt round the categories by the lottery (10 categories × 5 companies for 50 squads).
         </Summary>
         <Upload kind="crisis" lock={locks.crisis} organiser={organiser} action={uploadCrisisDeck.bind(null, event.id)} label="Upload the crisis deck" />
-        <Table head={["Category", "#", "Title", "Body"]} empty="No crisis cards yet." className="mt-4">
+        <Table head={["Sector", "Category", "#", "Title", "Body"]} empty="No crisis cards yet." className="mt-4">
           {crisisRows.map((c) => (
-            <tr key={`${c.category}#${c.number}`}>
+            <tr key={`${c.sector ?? ""}${c.category}#${c.number}`}>
+              <Td>{c.sector ?? "—"}</Td>
               <Td>{c.category}</Td>
               <Td mono>{c.number}</Td>
               <Td>{c.title}</Td>
@@ -90,13 +91,15 @@ export default async function ContentPage({ params }: { params: Promise<{ slug: 
           <Summary>
             {(statements.data ?? []).length} statements. At the start of Round 3 the Product teams pick one each, lowest score so far first, 20 seconds a
             pick; each statement takes at most its cap of companies (5 if left empty), and together they must have room for every company. The draft
-            starts with Round 3, or the moment they are uploaded if Round 3 has already started. They lock at the first pick.
+            starts with Round 3, or the moment they are uploaded if Round 3 has already started. They lock at the first pick. With a sector on each
+            statement, a company drafts only its own sector&apos;s statements, and each sector needs room for its companies.
           </Summary>
           <Upload kind="statements" lock={statementLock} organiser={organiser} action={uploadStatements.bind(null, event.id)} label="Upload the statements" />
-          <Table head={["#", "Title", "Cap", "Body"]} empty="No problem statements yet." className="mt-4">
+          <Table head={["#", "Sector", "Title", "Cap", "Body"]} empty="No problem statements yet." className="mt-4">
             {(statements.data ?? []).map((st) => (
               <tr key={st.number}>
                 <Td mono>{st.number}</Td>
+                <Td>{st.sector ?? "—"}</Td>
                 <Td>{st.title}</Td>
                 <Td mono>{st.cap}</Td>
                 <Td className="text-paper">

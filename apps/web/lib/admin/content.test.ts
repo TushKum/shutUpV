@@ -27,7 +27,7 @@ describe("reading the uploaded file", () => {
 describe("the header row", () => {
   test("names missing columns and lists the expected ones", () => {
     expect(checkHeader("number,sector,title\n1,a,b\n", "problem")).toBe("Missing column: body. Expected columns: number, sector, title, body.");
-    expect(checkHeader("category;title;body\nx;y;z\n", "crisis")).toBe("Missing columns: category, title, body. Expected columns: category, number, title, body.");
+    expect(checkHeader("category;title;body\nx;y;z\n", "crisis")).toBe("Missing columns: category, title, body. Expected columns: sector, category, number, title, body.");
     expect(checkHeader("", "flash")).toBe("The file is empty. Expected columns: title, body.");
     expect(checkHeader("title,body\n", "flash")).toBe("The file has a header row but no bulletin.");
     expect(checkHeader("number,title,body\n", "problem")).toBe("The file has a header row but no cards.");
@@ -90,7 +90,7 @@ describe("the crisis deck", () => {
     expect(parseCrisisDeck("category,number,title,body\nRegulation,1.5,t,b\n").ok).toBe(false);
     expect(parseCrisisDeck("category,number,title,body\nA,1,t,b\nB,1,t,b\nA,,t,b\n")).toEqual({
       ok: false,
-      message: "Row 4: “A #1” is already on row 2; each category and number pair must be unique.",
+      message: "Row 4: “A #1” is already on row 2; each category and number must be unique.",
     });
     expect(parseCrisisDeck("category,number,title,body\n,1,t,b\n")).toEqual({ ok: false, message: "Crisis CSV row 2: category, title and body are required" });
     expect(parseCrisisDeck(`category,number,title,body\n${"c".repeat(101)},1,t,b\n`)).toEqual({ ok: false, message: "Row 2: the category is longer than 100 characters." });

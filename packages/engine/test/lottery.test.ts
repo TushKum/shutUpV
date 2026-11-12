@@ -122,9 +122,29 @@ describe("the 21:00 draw", () => {
 
   test("refuses impossible inputs", () => {
     expect(() => assignCoverage("r", 2)).toThrow();
-    expect(() => dealProblemCards("r", 3, ["a", "b", "c", "d"])).toThrow(/2 more cards/);
-    expect(() => dealProblemCards("r", 3, ["a", "b"])).toThrow(/exactly 1 card/);
+    // 7 to 11 cards for 10 squads: too many for sectors, too few for 3 cards each.
+    expect(() => dealProblemCards("r", 10, ["a", "b", "c", "d", "e", "f", "g"])).toThrow(/2 more cards/);
+    expect(() => dealProblemCards("r", 3, [])).toThrow(/2 to 6 sector cards/);
     expect(() => formSquads("r", { product: ["a"], consulting: [], finance: ["c"] })).toThrow();
+  });
+});
+
+describe("sector mode: 2 to 6 cards split the squads equally between the sectors", () => {
+  test("50 squads over 3 sectors: 17, 17 and 16, one card each, fixed by the seed and the dice", () => {
+    const root = rootSeed("market-night", "4");
+    const hands = dealProblemCards(root, 50, ["luxury", "fmcg", "energy"]);
+    expect(hands.every((h) => h.length === 1)).toBe(true);
+    const counts = new Map<string, number>();
+    for (const [c] of hands) counts.set(c!, (counts.get(c!) ?? 0) + 1);
+    expect([...counts.values()].sort()).toEqual([16, 17, 17]);
+    expect(dealProblemCards(root, 50, ["luxury", "fmcg", "energy"])).toEqual(hands);
+    expect(dealProblemCards(rootSeed("market-night", "5"), 50, ["luxury", "fmcg", "energy"])).not.toEqual(hands);
+  });
+  test("a small rehearsal: 3 squads and 3 sectors give one squad each; the draw records the sector card", () => {
+    const hands = dealProblemCards("r", 3, ["a", "b", "c"]);
+    expect(hands.map((h) => h[0]).sort()).toEqual(["a", "b", "c"]);
+    const draw = drawLottery("seed", "2", { product: ["P1", "P2", "P3"], consulting: ["C1", "C2", "C3"], finance: ["F1", "F2", "F3"] }, ["a", "b", "c"]);
+    expect(draw.squads.every((s) => s.cards.length === 1)).toBe(true);
   });
 });
 
