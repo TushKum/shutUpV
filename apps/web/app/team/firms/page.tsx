@@ -85,41 +85,41 @@ export default async function FirmsPage({ searchParams }: { searchParams: Promis
             const openOffer = mine && k !== null ? data.offers.some((o) => o.company_id === mine.id && o.firm_team_id === f.team_id && o.k === k && o.status === "OPEN") : false;
             const complete = profileCompleteness(p);
             return (
-              <li key={f.team_id} className="flex flex-col border border-line bg-panel p-3" data-testid={`directory-${f.code}`}>
+              <li key={f.team_id} className="mx-panel flex flex-col p-4" data-testid={`directory-${f.code}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-lg font-semibold text-[var(--term-amber)]">{f.code}</span>
-                  <span className="text-paper">{f.name}</span>
+                  <span className="font-mono text-lg font-bold text-amber-300">{f.code}</span>
+                  <span className="font-medium text-white">{f.name}</span>
                   {f.team_id === ctx.team.id ? <Badge tone="violet">You</Badge> : null}
                   {hiredByMe ? <Badge tone="green">Hired by you</Badge> : null}
                   {openOffer ? <Badge tone="amber">Offer open</Badge> : null}
                   {k !== null && taken >= FIRM_CLIENTS_PER_SUBROUND ? <Badge tone="red">Full this sub-round</Badge> : null}
                 </div>
-                <p className="mt-1 text-sm font-semibold text-paper">{p?.headline || <span className="font-normal text-muted">No headline yet.</span>}</p>
-                {p?.specialities.length ? <p className="mt-1 text-xs text-[var(--term-cyan)]">{p.specialities.join(" · ")}</p> : null}
-                {p?.about ? <p className="mt-1 line-clamp-2 text-xs text-muted">{p.about}</p> : null}
-                <dl className="mt-2 grid grid-cols-4 gap-2 text-xs">
+                <p className="mt-1.5 text-sm font-semibold text-slate-100">{p?.headline || <span className="font-normal text-slate-400">No headline yet.</span>}</p>
+                {p?.specialities.length ? <p className="mt-1 text-xs text-sky-300">{p.specialities.join(" · ")}</p> : null}
+                {p?.about ? <p className="mt-1.5 line-clamp-2 text-xs text-slate-400">{p.about}</p> : null}
+                <dl className="mt-3 grid grid-cols-4 gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
                   <div>
-                    <dt className="text-muted">Value</dt>
-                    <dd className="font-mono text-[var(--term-green)]">{money(f.value_cents)}</dd>
+                    <dt className="text-slate-400">Value</dt>
+                    <dd className="mx-accent-text font-mono font-semibold">{money(f.value_cents)}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted">Asking</dt>
-                    <dd className="font-mono text-paper">{p && p.asking_cents > 0 ? money(p.asking_cents) : "—"}</dd>
+                    <dt className="text-slate-400">Asking</dt>
+                    <dd className="font-mono text-slate-100">{p && p.asking_cents > 0 ? money(p.asking_cents) : "—"}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted">Clients</dt>
-                    <dd className="font-mono text-paper">{f.clients}</dd>
+                    <dt className="text-slate-400">Clients</dt>
+                    <dd className="font-mono text-slate-100">{f.clients}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted">Rating</dt>
-                    <dd className="font-mono text-paper">{f.avg_rating === null ? "—" : `★ ${f.avg_rating.toFixed(1)}`}</dd>
+                    <dt className="text-slate-400">Rating</dt>
+                    <dd className="font-mono text-amber-300">{f.avg_rating === null ? "—" : `★ ${f.avg_rating.toFixed(1)}`}</dd>
                   </div>
                 </dl>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3.5 flex items-center gap-2">
                   <Link href={`/team/firms/${encodeURIComponent(f.code)}`} className={buttonClass.primary}>
                     {product && hiring && !hiredNow && f.team_id !== ctx.team.id ? "View profile & hire" : "View profile"}
                   </Link>
-                  <span className="ml-auto text-[11px] text-muted">Profile {complete}/5</span>
+                  <span className="ml-auto text-[11px] text-slate-400">Profile {complete}/5</span>
                 </div>
               </li>
             );

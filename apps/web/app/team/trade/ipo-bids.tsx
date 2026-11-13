@@ -32,7 +32,7 @@ export function IpoBids({ view, items, deadline }: { view: IpoView; items: IpoRo
   const now = useServerNow(1000);
   const closed = deadline !== null && now > new Date(deadline).getTime();
   return (
-    <ul className="divide-y divide-line" aria-label="IPO bids">
+    <ul className="divide-y divide-white/10" aria-label="IPO bids">
       {items.map((c) => {
         const saved = view.bids[c.id] ?? 0;
         return <IpoRow key={`${c.id}:${saved}`} view={view} item={c} saved={saved} closed={closed} />;
@@ -101,20 +101,20 @@ function IpoRow({ view, item, saved, closed }: { view: IpoView; item: IpoRowItem
             {pending ? "Saving…" : preview.state === "OK" && preview.withdraw && saved > 0 ? "Withdraw bid" : "Save bid"}
           </button>
         </div>
-        <div aria-live="polite" className="mt-1 text-sm">
+        <div aria-live="polite" className="mt-1.5 text-sm">
           {preview.state === "REFUSED" ? (
-            <p className="text-danger-soft">The exchange would refuse this bid: {preview.message}</p>
+            <p className="text-rose-400">The exchange would refuse this bid: {preview.message}</p>
           ) : preview.state === "OK" && !unchanged ? (
-            <p className="text-paper">
+            <p className="text-slate-200">
               {preview.withdraw ? (
                 "Withdraws your bid."
               ) : (
                 <>
-                  {count(preview.qty)} × {money(item.ipoPrice)} = <span className="font-mono font-semibold">{money(preview.cost)}</span>.
+                  {count(preview.qty)} × {money(item.ipoPrice)} = <span className="mx-accent-text font-mono font-semibold">{money(preview.cost)}</span>.
                 </>
               )}{" "}
-              All your bids: <span className="font-mono font-semibold">{money(preview.total)}</span>; cash left at IPO prices{" "}
-              <span className="font-mono font-semibold">{money(preview.remaining)}</span>.
+              All your bids: <span className="font-mono font-semibold text-white">{money(preview.total)}</span>; cash left at IPO prices{" "}
+              <span className="mx-accent-text font-mono font-semibold">{money(preview.remaining)}</span>.
             </p>
           ) : null}
         </div>

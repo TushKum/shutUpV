@@ -94,29 +94,29 @@ export default async function EarningsPage() {
       </Panel>
 
       <Panel title="Breakdown">
-        <ul className="divide-y divide-line" aria-label="Earnings breakdown">
+        <ul className="divide-y divide-white/10" aria-label="Earnings breakdown">
           {e.lines.map((l) => (
-            <li key={l.key} className="py-3" data-testid={`earnings-${l.key}`} data-status={l.status}>
+            <li key={l.key} className="py-3.5" data-testid={`earnings-${l.key}`} data-status={l.status}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <span className="font-semibold text-phosphor">{l.label}</span>
+                <span className="font-semibold text-white">{l.label}</span>
                 <span className="flex items-center gap-2">
                   <Badge tone={STATUS[l.status].tone}>{STATUS[l.status].text}</Badge>
-                  <span className="font-mono font-semibold tabular-nums" data-testid="amount">
+                  <span className="mx-accent-text font-mono font-semibold tabular-nums" data-testid="amount">
                     {l.amount === null ? "—" : money(l.amount)}
                   </span>
                 </span>
               </div>
-              <p className="mt-1 text-sm text-paper">{l.note}</p>
+              <p className="mt-1 text-sm text-slate-300">{l.note}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-xs text-muted">
+        <p className="mt-3 text-xs text-slate-400">
           The fee and the deal are agreed under{" "}
-          <Link href="/team/rescue" className="underline">
+          <Link href="/team/rescue" className="text-sky-300 underline-offset-2 hover:text-white hover:underline">
             Rescue
           </Link>
           ; your calls are under{" "}
-          <Link href="/team/calls" className="underline">
+          <Link href="/team/calls" className="text-sky-300 underline-offset-2 hover:text-white hover:underline">
             Calls
           </Link>
           .

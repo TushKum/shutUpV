@@ -1,0 +1,663 @@
+/* PRIMUS Team Workspace — Apple Liquid Glass × Matrix theme (scoped to .mx-team-shell so /admin and /display stay untouched). */
+
+.mx-team-shell {
+  --mx-shell-bg: #020704;
+  --mx-accent: #46f097;
+  --mx-accent-bright: #a7ffd2;
+  --mx-accent-mid: #16c76d;
+  --mx-accent-rgb: 70, 240, 151;
+  --mx-accent-deep-rgb: 16, 86, 46;
+  --mx-accent-spec-rgb: 167, 255, 210;
+  --mx-tint-rgb: 6, 15, 11;
+  --mx-accent-ink: #021a0d;
+  --mx-select-bg: #0b1410;
+  --mx-beam: linear-gradient(90deg, transparent 5%, #34eb8b 30%, #60d7ff 65%, #ffbd59 90%, transparent 98%);
+
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--mx-shell-bg);
+  color: #edf4f0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", var(--font-sans);
+}
+
+/* Consulting track: predominantly bluish glass & atmosphere, with restrained green & subtle yellow */
+.mx-team-shell[data-track="CONSULTING"] {
+  --mx-shell-bg: #02070d;
+  --mx-accent: #5ec8ff;
+  --mx-accent-bright: #bde8ff;
+  --mx-accent-mid: #2898ea;
+  --mx-accent-rgb: 94, 200, 255;
+  --mx-accent-deep-rgb: 16, 56, 110;
+  --mx-accent-spec-rgb: 170, 228, 255;
+  --mx-tint-rgb: 7, 19, 36;
+  --mx-accent-ink: #031526;
+  --mx-select-bg: #061324;
+  --mx-beam: linear-gradient(90deg, transparent 5%, #48b8ff 28%, #67d8ff 56%, #34eb8b 78%, #ffbd59 94%, transparent 99%);
+  color: #edf5fb;
+}
+
+/* Finance track: predominantly yellowish/gold glass & atmosphere, with restrained green & subtle blue */
+.mx-team-shell[data-track="FINANCE"] {
+  --mx-shell-bg: #070602;
+  --mx-accent: #ffd44d;
+  --mx-accent-bright: #fff0ad;
+  --mx-accent-mid: #d9a216;
+  --mx-accent-rgb: 255, 212, 77;
+  --mx-accent-deep-rgb: 96, 72, 10;
+  --mx-accent-spec-rgb: 255, 238, 162;
+  --mx-tint-rgb: 26, 20, 5;
+  --mx-accent-ink: #1a1202;
+  --mx-select-bg: #171206;
+  --mx-beam: linear-gradient(90deg, transparent 5%, #ffd44d 28%, #f5b427 56%, #34eb8b 78%, #60d7ff 94%, transparent 99%);
+  color: #f6f3e8;
+}
+
+/* Balanced Matrix + Liquid Glass tokens overriding legacy .term #000 while keeping green Matrix core */
+.mx-team-shell.term {
+  --term-bg: var(--mx-shell-bg);
+  --term-amber: #ffbd59;
+  --term-amber-dim: #9fb0bc;
+  --term-green: #34eb8b;
+  --term-red: #ff6b6b;
+  --term-cyan: #60d7ff;
+  --term-line: rgba(255, 255, 255, 0.12);
+
+  --mx-black: var(--mx-shell-bg);
+  --mx-green: #34eb8b;
+  --mx-green-mid: #60d7ff;
+  --mx-green-dim: rgba(70, 240, 151, 0.55);
+  --mx-green-deep: rgba(18, 72, 46, 0.52);
+  --color-emerald-400: #34d399;
+  --color-emerald-600: #059669;
+  --mx-paper: #eef4f1;
+  --mx-muted: #93a7b4;
+  --mx-amber: #ffbd59;
+  --mx-red: #ff5c5c;
+  --mx-red-soft: #ff9c96;
+  --mx-panel: rgba(255, 255, 255, 0.055);
+  --mx-raised: rgba(255, 255, 255, 0.085);
+  --mx-line: rgba(255, 255, 255, 0.13);
+  --mx-glow-text: 0 0 14px rgba(52, 235, 139, 0.24);
+  --mx-glow-box: 0 0 0 1px rgba(var(--mx-accent-rgb), 0.34), 0 14px 36px rgba(0, 0, 0, 0.42);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 22px;
+  --radius-2xl: 26px;
+
+  --chart-up: #34eb8b;
+  --chart-down: #ff6b6b;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-axis: #93a7b4;
+  --chart-marker: rgba(255, 255, 255, 0.22);
+  --chart-marker-text: #ffbd59;
+  --chart-second: #60d7ff;
+  --chart-volume: rgba(147, 167, 180, 0.45);
+  --chart-average: #ffbd59;
+  --chart-tag-text: #031109;
+
+  background: var(--mx-shell-bg);
+}
+
+.mx-team-shell.term ::selection {
+  background: rgba(52, 235, 139, 0.32);
+  color: #ffffff;
+}
+
+/* Balanced tri-tint atmospheres: all three hues present, shifted in weight per track */
+.mx-team-atmosphere {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(46rem 34rem at 82% 14%, rgba(79, 195, 255, 0.08) 0%, transparent 72%),
+    radial-gradient(42rem 32rem at 84% 84%, rgba(255, 196, 72, 0.068) 0%, transparent 72%),
+    radial-gradient(ellipse 88% 70% at 50% 24%, rgba(16, 86, 46, 0.32) 0%, rgba(6, 34, 19, 0.2) 52%, transparent 84%),
+    linear-gradient(160deg, rgba(12, 54, 30, 0.18) 0%, rgba(3, 12, 8, 0.14) 55%, rgba(2, 6, 4, 0.42) 100%);
+}
+
+/* Consulting: more blue bloom + lighter green Matrix base + faint yellow prism */
+.mx-team-shell[data-track="CONSULTING"] .mx-team-atmosphere {
+  background:
+    radial-gradient(50rem 36rem at 80% 14%, rgba(64, 184, 255, 0.21) 0%, transparent 72%),
+    radial-gradient(44rem 34rem at 16% 24%, rgba(56, 138, 255, 0.14) 0%, transparent 72%),
+    radial-gradient(40rem 30rem at 86% 86%, rgba(255, 196, 72, 0.036) 0%, transparent 72%),
+    radial-gradient(ellipse 84% 66% at 50% 62%, rgba(16, 86, 46, 0.16) 0%, rgba(7, 32, 28, 0.16) 52%, transparent 84%),
+    linear-gradient(160deg, rgba(12, 46, 92, 0.2) 0%, rgba(4, 14, 28, 0.18) 55%, rgba(2, 7, 13, 0.44) 100%);
+}
+
+/* Finance: more yellow bloom + lighter green Matrix base + faint blue prism */
+.mx-team-shell[data-track="FINANCE"] .mx-team-atmosphere {
+  background:
+    radial-gradient(50rem 36rem at 80% 14%, rgba(255, 206, 56, 0.2) 0%, transparent 72%),
+    radial-gradient(44rem 34rem at 16% 24%, rgba(232, 168, 28, 0.13) 0%, transparent 72%),
+    radial-gradient(40rem 30rem at 86% 86%, rgba(79, 195, 255, 0.04) 0%, transparent 72%),
+    radial-gradient(ellipse 84% 66% at 50% 62%, rgba(16, 86, 46, 0.14) 0%, rgba(18, 30, 12, 0.15) 52%, transparent 84%),
+    linear-gradient(160deg, rgba(72, 54, 12, 0.2) 0%, rgba(16, 13, 4, 0.18) 55%, rgba(7, 6, 2, 0.44) 100%);
+}
+
+.mx-team-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse 90% 85% at 50% 45%, transparent 55%, rgba(1, 4, 3, 0.65) 100%);
+}
+
+.mx-team-chrome {
+  position: relative;
+  z-index: 10;
+}
+
+/* ── Editorial Apple Typography inside Team Workspace ──────────────────────────────────────────── */
+.mx-team-shell h1,
+.mx-team-shell h2,
+.mx-team-shell h3 {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-sans);
+  letter-spacing: -0.02em;
+  color: #f4f8f6;
+  text-shadow: none;
+}
+
+.mx-team-shell .font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Restore crisp light slate ink for text-slate-100 without altering globals.css --color-slate-100 badge hook */
+.mx-team-shell .text-slate-100 {
+  color: #f1f5f9;
+}
+
+.mx-team-shell :focus-visible {
+  outline: 2px solid #46f097;
+  outline-offset: 2px;
+}
+
+/* ── Track Tint Chrome Utilities & Matrix Green Readout Anchors ────────────────────────────────── */
+.mx-team-shell .mx-accent-text {
+  color: var(--mx-accent);
+}
+
+.mx-team-shell .mx-accent-bright {
+  color: var(--mx-accent-bright);
+}
+
+.mx-team-shell .mx-accent-dot {
+  background: var(--mx-accent);
+  box-shadow: 0 0 10px rgba(var(--mx-accent-rgb), 0.78);
+}
+
+.mx-team-shell .mx-accent-link-hover:hover {
+  color: var(--mx-accent);
+}
+
+.mx-team-shell .mx-accent-hover-row:hover {
+  border-color: rgba(var(--mx-accent-rgb), 0.42);
+  background: rgba(var(--mx-accent-rgb), 0.085);
+}
+
+.mx-team-shell .mx-accent-chip {
+  border-color: rgba(var(--mx-accent-rgb), 0.42);
+  background: rgba(var(--mx-accent-rgb), 0.12);
+  color: var(--mx-accent);
+}
+
+.mx-team-shell .mx-accent-badge-solid {
+  border-color: rgba(var(--mx-accent-rgb), 0.78);
+  background: var(--mx-accent);
+  color: var(--mx-accent-ink);
+  box-shadow: 0 0 16px rgba(var(--mx-accent-rgb), 0.32);
+}
+
+.mx-team-shell .mx-accent-pill-active {
+  border-color: rgba(var(--mx-accent-rgb), 0.52);
+  background: rgba(var(--mx-accent-rgb), 0.18);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(var(--mx-accent-spec-rgb), 0.34),
+    0 6px 18px rgba(var(--mx-accent-rgb), 0.18);
+}
+
+.mx-team-shell .mx-accent-callout {
+  border-color: rgba(var(--mx-accent-rgb), 0.38);
+  background: rgba(var(--mx-accent-rgb), 0.095);
+  color: var(--mx-accent-bright);
+}
+
+.mx-team-shell .mx-accent-bubble {
+  border-color: rgba(var(--mx-accent-rgb), 0.34);
+  background: rgba(var(--mx-accent-rgb), 0.13);
+}
+
+.mx-team-shell .mx-accent-tab-left {
+  border-left-color: var(--mx-accent);
+  background: rgba(var(--mx-accent-rgb), 0.13);
+  color: #ffffff;
+}
+
+.mx-team-shell .mx-accent-quick {
+  color: #46f097;
+}
+
+.mx-team-shell .mx-accent-quick:hover {
+  border-color: rgba(var(--mx-accent-rgb), 0.5);
+  background: rgba(var(--mx-accent-rgb), 0.12);
+}
+
+.mx-team-shell .mx-accent-bar {
+  background: linear-gradient(90deg, #46f097 0%, var(--mx-accent) 100%);
+}
+
+.mx-team-shell .mx-accent-focus:has(:focus-visible) {
+  outline: 2px solid #46f097;
+  outline-offset: 2px;
+}
+
+/* ── Frosted Top Command Chrome & Sticky Nav ───────────────────────────────────────────────────── */
+.mx-team-topbar {
+  border-bottom: 1px solid rgba(var(--mx-accent-rgb), 0.16);
+  background: linear-gradient(
+    180deg,
+    rgba(var(--mx-tint-rgb), 0.78) 0%,
+    rgba(var(--mx-tint-rgb), 0.58) 100%
+  );
+  -webkit-backdrop-filter: blur(28px) saturate(175%);
+  backdrop-filter: blur(28px) saturate(175%);
+}
+
+.mx-team-brand-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.58rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 189, 89, 0.45);
+  background: rgba(255, 189, 89, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #ffd188;
+}
+
+.mx-team-shell[data-track="CONSULTING"] .mx-team-brand-pill,
+.mx-team-shell[data-track="FINANCE"] .mx-team-brand-pill {
+  border-color: rgba(var(--mx-accent-rgb), 0.45);
+  background: rgba(var(--mx-accent-rgb), 0.15);
+  color: var(--mx-accent-bright);
+}
+
+.mx-team-topbar .mx-tag.text-muted {
+  border-color: rgba(var(--mx-accent-rgb), 0.34);
+  background: rgba(var(--mx-accent-rgb), 0.11);
+  color: var(--mx-accent-bright);
+}
+
+.mx-team-kpi-well {
+  border-radius: 14px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.18);
+  background: linear-gradient(
+    155deg,
+    rgba(var(--mx-accent-rgb), 0.08) 0%,
+    rgba(255, 255, 255, 0.025) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(var(--mx-accent-spec-rgb), 0.2);
+  padding: 0.55rem 0.9rem;
+}
+
+.mx-team-nav-shell {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(var(--mx-accent-rgb), 0.16);
+  background: rgba(var(--mx-tint-rgb), 0.72);
+  -webkit-backdrop-filter: blur(32px) saturate(185%);
+  backdrop-filter: blur(32px) saturate(185%);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.34);
+}
+
+.mx-team-actionbar {
+  position: sticky;
+  top: 49px;
+  z-index: 30;
+  border-bottom: 1px solid rgba(var(--mx-accent-rgb), 0.32);
+  background: linear-gradient(
+    90deg,
+    rgba(var(--mx-accent-deep-rgb), 0.78) 0%,
+    rgba(var(--mx-tint-rgb), 0.82) 100%
+  );
+  -webkit-backdrop-filter: blur(24px) saturate(175%);
+  backdrop-filter: blur(24px) saturate(175%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+}
+
+/* ── Shared Apple Liquid Glass Surfaces (.mx-panel, .bento-item, subpage panels) ────────────────── */
+.mx-team-shell .mx-panel,
+.mx-team-shell .bento-item {
+  position: relative;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.2);
+  border-radius: 20px;
+  background: linear-gradient(
+    152deg,
+    rgba(var(--mx-accent-rgb), 0.078) 0%,
+    rgba(255, 255, 255, 0.03) 44%,
+    rgba(var(--mx-tint-rgb), 0.56) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 0 rgba(var(--mx-accent-spec-rgb), 0.24),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.04),
+    0 20px 52px -14px rgba(0, 0, 0, 0.58);
+  -webkit-backdrop-filter: blur(30px) saturate(175%);
+  backdrop-filter: blur(30px) saturate(175%);
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.mx-team-shell .bento-item::before {
+  top: 0;
+  height: 44%;
+  animation: none;
+  background: radial-gradient(ellipse 85% 65% at 50% 0%, rgba(var(--mx-accent-spec-rgb), 0.075) 0%, transparent 72%);
+}
+
+.mx-team-shell .bento-item:hover,
+.mx-team-shell .bento-item:focus-within {
+  border-color: rgba(var(--mx-accent-rgb), 0.36);
+  box-shadow:
+    inset 0 1px 0 0 rgba(var(--mx-accent-spec-rgb), 0.32),
+    0 24px 60px -12px rgba(0, 0, 0, 0.65);
+}
+
+.mx-team-shell .bento-item-hot {
+  border-color: rgba(var(--mx-accent-rgb), 0.42);
+  background:
+    radial-gradient(ellipse 85% 55% at 50% 0%, rgba(var(--mx-accent-rgb), 0.11) 0%, transparent 72%),
+    linear-gradient(152deg, rgba(var(--mx-accent-rgb), 0.095) 0%, rgba(255, 255, 255, 0.035) 44%, rgba(var(--mx-tint-rgb), 0.58) 100%);
+  box-shadow:
+    inset 0 1px 0 0 rgba(var(--mx-accent-spec-rgb), 0.34),
+    0 22px 54px -14px rgba(0, 0, 0, 0.62);
+}
+
+.mx-team-shell .bento-item-hot:hover,
+.mx-team-shell .bento-item-hot:focus-within {
+  border-color: rgba(var(--mx-accent-rgb), 0.58);
+}
+
+/* ── Glass Buttons (.mx-key across Home and every /team subpage) ──────────────────────────────── */
+.mx-team-shell .mx-key {
+  border-radius: 12px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.24);
+  background: linear-gradient(180deg, rgba(var(--mx-accent-rgb), 0.13) 0%, rgba(255, 255, 255, 0.06) 100%);
+  color: #f4f8f6;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: -0.005em;
+  text-shadow: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 6px 18px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 80ms ease;
+}
+
+.mx-team-shell .mx-key:hover:not(:disabled) {
+  border-color: rgba(var(--mx-accent-rgb), 0.42);
+  background: linear-gradient(180deg, rgba(var(--mx-accent-rgb), 0.2) 0%, rgba(255, 255, 255, 0.09) 100%);
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.mx-team-shell .mx-key:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+/* Keep primary Matrix CTA buttons crisp emerald green across all tracks */
+.mx-team-shell .mx-key-solid {
+  border-color: rgba(134, 255, 191, 0.55);
+  background: linear-gradient(180deg, rgba(72, 242, 152, 0.95) 0%, rgba(22, 199, 109, 0.92) 100%);
+  color: #021a0d;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.58),
+    0 10px 26px rgba(24, 206, 114, 0.28);
+}
+
+.mx-team-shell .mx-key-solid:hover:not(:disabled) {
+  filter: brightness(1.06);
+  background: linear-gradient(180deg, rgba(90, 248, 165, 0.98) 0%, rgba(30, 212, 120, 0.94) 100%);
+  color: #021a0d;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.68),
+    0 14px 32px rgba(46, 224, 127, 0.36);
+}
+
+.mx-team-shell .mx-key-quiet {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.mx-team-shell .mx-key-quiet:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.mx-team-shell .mx-key-danger {
+  border-color: rgba(255, 108, 108, 0.48);
+  background: rgba(255, 69, 58, 0.18);
+  color: #ffc2be;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 8px 22px rgba(255, 59, 59, 0.18);
+}
+
+.mx-team-shell .mx-key-danger:hover:not(:disabled) {
+  background: rgba(255, 69, 58, 0.28);
+  border-color: rgba(255, 128, 128, 0.65);
+  color: #ffffff;
+}
+
+/* ── Apple Glass Pill Tags replacing [ BRACKETS ] cleanly ─────────────────────────────────────── */
+.mx-team-shell .mx-tag {
+  padding: 0.16rem 0.58rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.24);
+  background: rgba(var(--mx-accent-rgb), 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+}
+
+.mx-team-shell .mx-tag::before,
+.mx-team-shell .mx-tag::after {
+  content: none;
+}
+
+/* ── Glass Inputs, Selects & Textareas across Trade / Squad / Q&A / Rescue / Crisis ─────────────── */
+.mx-team-shell input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]),
+.mx-team-shell select,
+.mx-team-shell textarea {
+  border-radius: 12px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.2);
+  background: rgba(var(--mx-accent-rgb), 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f4f8f6;
+  caret-color: #46f097;
+  caret-shape: auto;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.mx-team-shell input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="range"]):focus,
+.mx-team-shell select:focus,
+.mx-team-shell textarea:focus {
+  border-color: rgba(70, 240, 151, 0.72);
+  background: rgba(var(--mx-accent-rgb), 0.085);
+  box-shadow: 0 0 0 3px rgba(52, 235, 139, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  outline: none;
+}
+
+.mx-team-shell input::placeholder,
+.mx-team-shell textarea::placeholder {
+  color: rgba(185, 202, 214, 0.45);
+}
+
+.mx-team-shell select option {
+  background: var(--mx-select-bg);
+  color: #f4f8f6;
+}
+
+/* Tables inside glass cards */
+.mx-team-shell table tbody tr {
+  transition: background-color 130ms ease;
+}
+
+.mx-team-shell table tbody tr:hover {
+  background: rgba(var(--mx-accent-rgb), 0.045);
+}
+
+/* Subpage shared ui.tsx / how-it-works.tsx glass refinements (without touching shared /admin & /display components) */
+.mx-team-shell .glow {
+  text-shadow: none;
+}
+
+.mx-team-shell .mx-panel > header > h2 {
+  color: #f4f8f6;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.mx-team-shell .mx-panel > header + div.h-1\.5 {
+  height: 1px;
+  border-top: none;
+  background: linear-gradient(90deg, rgba(var(--mx-accent-rgb), 0.28) 0%, rgba(255, 255, 255, 0.06) 100%);
+  overflow: hidden;
+}
+
+.mx-team-shell .mx-panel > header + div.h-1\.5 > * {
+  display: none;
+}
+
+.mx-team-shell .bg-raised {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.mx-team-shell .rounded-md.bg-raised {
+  border-radius: 14px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.16);
+  background: linear-gradient(155deg, rgba(var(--mx-accent-rgb), 0.07) 0%, rgba(255, 255, 255, 0.025) 100%);
+  box-shadow: inset 0 1px 0 rgba(var(--mx-accent-spec-rgb), 0.16);
+}
+
+.mx-team-shell details.rounded-lg {
+  border-radius: 16px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.18);
+  background: rgba(var(--mx-accent-rgb), 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.mx-team-shell .rounded-md.ring-1 {
+  border-radius: 14px;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.mx-team-shell p[data-testid$="-todo"] {
+  color: #e6faf0;
+  font-weight: 600;
+}
+
+/* Clean rounded alerts, stat cards & banners */
+.mx-team-shell .mx-team-hero-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.25);
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(var(--mx-accent-rgb), 0.085) 0%, transparent 72%),
+    linear-gradient(
+      148deg,
+      rgba(var(--mx-accent-rgb), 0.09) 0%,
+      rgba(255, 255, 255, 0.036) 44%,
+      rgba(var(--mx-tint-rgb), 0.58) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(var(--mx-accent-spec-rgb), 0.3),
+    0 24px 64px -14px rgba(0, 0, 0, 0.65);
+  -webkit-backdrop-filter: blur(36px) saturate(185%);
+  backdrop-filter: blur(36px) saturate(185%);
+}
+
+.mx-team-shell .mx-team-hero-card--danger {
+  border-color: rgba(255, 108, 108, 0.45);
+  background:
+    radial-gradient(ellipse 85% 55% at 50% 0%, rgba(255, 69, 58, 0.14) 0%, transparent 72%),
+    linear-gradient(148deg, rgba(255, 255, 255, 0.1) 0%, rgba(38, 14, 14, 0.48) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 188, 188, 0.28),
+    0 24px 64px -14px rgba(0, 0, 0, 0.68);
+}
+
+.mx-team-shell .mx-team-compact-banner {
+  border-bottom: 1px solid rgba(var(--mx-accent-rgb), 0.16);
+  background: rgba(var(--mx-tint-rgb), 0.58);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  backdrop-filter: blur(22px) saturate(165%);
+}
+
+.mx-team-shell .mx-team-compact-banner--danger {
+  border-bottom-color: rgba(255, 108, 108, 0.45);
+  background: rgba(30, 10, 12, 0.56);
+}
+
+.mx-team-shell .mx-team-big-task {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.4);
+  background:
+    radial-gradient(ellipse 90% 52% at 50% 0%, rgba(var(--mx-accent-rgb), 0.12) 0%, transparent 72%),
+    linear-gradient(150deg, rgba(var(--mx-accent-rgb), 0.095) 0%, rgba(255, 255, 255, 0.032) 45%, rgba(var(--mx-tint-rgb), 0.58) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(var(--mx-accent-spec-rgb), 0.34),
+    0 24px 60px -14px rgba(0, 0, 0, 0.64);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
+  backdrop-filter: blur(34px) saturate(180%);
+}
+
+.mx-team-shell .mx-team-big-task::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--mx-beam);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.mx-team-shell .mx-team-small-task {
+  border-radius: 18px;
+  border: 1px solid rgba(var(--mx-accent-rgb), 0.18);
+  background: linear-gradient(155deg, rgba(var(--mx-accent-rgb), 0.068) 0%, rgba(var(--mx-tint-rgb), 0.5) 100%);
+  box-shadow: inset 0 1px 0 rgba(var(--mx-accent-spec-rgb), 0.2), 0 12px 30px -12px rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(26px) saturate(165%);
+  backdrop-filter: blur(26px) saturate(165%);
+}
+
+/* Track-tinted frosted bootscreen overlay */
+.mx-boot {
+  background: rgba(var(--mx-tint-rgb, 2, 7, 4), 0.92);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}

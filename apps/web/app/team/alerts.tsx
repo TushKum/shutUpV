@@ -79,9 +79,9 @@ function remember(key: string, thresholds: number[]) {
 }
 
 const TONE = {
-  info: "border-line bg-panel text-phosphor",
-  good: "border-phosphor-dim bg-phosphor/10 text-phosphor",
-  warn: "border-warn/60 bg-warn/10 text-warn",
+  info: "border-white/20 bg-[rgba(var(--mx-tint-rgb),0.92)] text-slate-100 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_18px_42px_rgba(0,0,0,0.58)]",
+  good: "border-[#46f097]/40 bg-[rgba(var(--mx-tint-rgb),0.92)] text-emerald-100 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(167,255,210,0.26),0_18px_42px_rgba(0,0,0,0.58)]",
+  warn: "border-amber-400/45 bg-[#1b1407]/92 text-amber-100 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,220,140,0.24),0_18px_42px_rgba(0,0,0,0.58)]",
 } as const;
 
 export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Track; teamId: string }) {
@@ -137,15 +137,15 @@ export function Alerts({ tasks, track, teamId }: { tasks: AlertTask[]; track: Tr
       {toasts.map((t, i) => (
         <div
           key={t.id}
-          className={`pointer-events-auto ${i < toasts.length - 1 ? "hidden sm:flex" : "flex"} w-full items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg ${TONE[t.tone]}`}
+          className={`pointer-events-auto ${i < toasts.length - 1 ? "hidden sm:flex" : "flex"} w-full items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${TONE[t.tone]}`}
         >
           <span className="flex-1 font-medium [overflow-wrap:anywhere]">{t.text}</span>
           {t.href && t.href !== path ? (
-            <Link href={t.href} className="whitespace-nowrap font-semibold underline underline-offset-2">
+            <Link href={t.href} className="mx-accent-text whitespace-nowrap font-semibold underline-offset-2 hover:underline">
               Open
             </Link>
           ) : null}
-          <button type="button" aria-label="Dismiss" className="text-muted hover:text-phosphor" onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))}>
+          <button type="button" aria-label="Dismiss" className="text-slate-400 hover:text-white" onClick={() => setToasts((all) => all.filter((x) => x.id !== t.id))}>
             ×
           </button>
         </div>
@@ -188,7 +188,7 @@ export function SoundToggle() {
       onClick={toggle}
       aria-pressed={on}
       title={on ? "Alert sound and vibration on" : "Alert sound and vibration off"}
-      className="rounded px-1.5 py-0.5 text-xs font-medium text-paper hover:bg-raised"
+      className="rounded-full px-1.5 py-0.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
       data-testid="sound-toggle"
     >
       {/* On a phone only the bell shows; the words stay for screen readers. */}

@@ -6,7 +6,7 @@ import { changeSinceIpoBp, toneOf } from "@/lib/display/board";
 import { bp, money } from "@/lib/format";
 import { supabaseServer } from "@/lib/supabase/server";
 
-const TONE = { up: "text-[var(--term-green)]", down: "text-[var(--term-red)]", flat: "text-muted" } as const;
+const TONE = { up: "text-[#46f097]", down: "text-rose-400", flat: "text-slate-400" } as const;
 const ARROW = { up: "▲", down: "▼", flat: "▬" } as const;
 
 export interface StripQuote {
@@ -46,8 +46,8 @@ export function QuoteStrip({ quotes }: { quotes: StripQuote[] }) {
     const tone = toneOf(q.changeBp);
     return (
       <span key={q.ticker} className="mr-6 inline-flex items-baseline gap-1.5 whitespace-nowrap">
-        <span className="font-bold text-[var(--term-amber)]">{q.ticker}</span>
-        <span className="text-paper tabular-nums">{money(q.price)}</span>
+        <span className="font-bold text-amber-300">{q.ticker}</span>
+        <span className="text-slate-100 tabular-nums">{money(q.price)}</span>
         <span className={`tabular-nums ${TONE[tone]}`}>
           {ARROW[tone]}
           {bp(q.changeBp)}
@@ -57,7 +57,7 @@ export function QuoteStrip({ quotes }: { quotes: StripQuote[] }) {
   });
   const seconds = Math.max(40, quotes.length * 3);
   return (
-    <div className="h-7 overflow-hidden border-t border-line bg-ink text-xs" role="marquee" aria-label="Prices since the IPO price" data-testid="market-strip">
+    <div className="h-7 overflow-hidden border-t border-white/10 bg-black/25 text-xs backdrop-blur-md" role="marquee" aria-label="Prices since the IPO price" data-testid="market-strip">
       <div className="msim-ticker-track flex h-full w-max items-center" style={{ ["--ticker-seconds" as string]: `${seconds}s` }}>
         <div className="flex min-w-[100vw] items-center pl-4">{strip}</div>
         <div className="flex min-w-[100vw] items-center pl-4" aria-hidden>

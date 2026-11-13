@@ -66,7 +66,7 @@ function HistoryRow({ l, clearing }: { l: OrderLine; clearing: boolean }) {
   const tone = l.status === "FILLED" ? "green" : l.status === "CANCELLED" ? "slate" : "amber";
   return (
     <tr data-testid="history-order">
-      <Td mono className="font-semibold">
+      <Td mono className="font-semibold text-white">
         {l.type} {l.ticker}
       </Td>
       <Td mono className="text-right">
@@ -75,7 +75,7 @@ function HistoryRow({ l, clearing }: { l: OrderLine; clearing: boolean }) {
       <Td mono className="text-right">
         {l.fillPrice === null ? "—" : money(l.fillPrice)}
       </Td>
-      <Td mono className={`text-right ${l.cash !== null && l.cash < 0 ? "text-danger-soft" : ""}`}>
+      <Td mono className={`text-right ${l.cash !== null && l.cash < 0 ? "text-rose-400" : l.cash !== null && l.cash > 0 ? "text-[#46f097]" : ""}`}>
         {l.cash === null ? "—" : signedMoney(l.cash)}
       </Td>
       <Td>

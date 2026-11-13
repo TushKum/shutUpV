@@ -10,21 +10,27 @@ import { stepStates, type CrisisStep } from "@/lib/team/crisis-steps";
 export function CrisisSteps({ steps, label, danger = false }: { steps: readonly CrisisStep[]; label: string; danger?: boolean }) {
   const now = useDeadlineNow();
   const states = stepStates(steps, now);
-  const on = danger ? "border-danger bg-danger text-ink" : "border-phosphor bg-phosphor text-ink";
+  const on = danger
+    ? "border-rose-400/75 bg-rose-500 text-white shadow-[0_0_16px_rgba(255,92,92,0.35)]"
+    : "mx-accent-badge-solid";
   return (
-    <ol className="flex flex-wrap items-center gap-x-1 gap-y-1.5 text-sm" aria-label={label} data-testid="crisis-steps" suppressHydrationWarning>
+    <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-sm" aria-label={label} data-testid="crisis-steps" suppressHydrationWarning>
       {steps.map((s, i) => {
         const st = states[i]!;
         return (
-          <li key={s.key} className="flex items-center gap-1" aria-current={st === "now" ? "step" : undefined} data-step={s.key} data-state={st} suppressHydrationWarning>
+          <li key={s.key} className="flex items-center gap-1.5" aria-current={st === "now" ? "step" : undefined} data-step={s.key} data-state={st} suppressHydrationWarning>
             {i > 0 ? (
-              <span aria-hidden className="text-muted">
+              <span aria-hidden className="text-slate-500">
                 →
               </span>
             ) : null}
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${
-                st === "now" ? on : st === "done" ? "border-phosphor-dim text-phosphor-mid" : "border-line text-muted"
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-semibold ${
+                st === "now"
+                  ? on
+                  : st === "done"
+                    ? "mx-accent-chip"
+                    : "border-white/12 bg-white/[0.04] text-slate-400"
               }`}
               suppressHydrationWarning
             >

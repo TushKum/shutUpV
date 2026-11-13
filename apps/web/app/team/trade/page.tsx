@@ -39,7 +39,7 @@ export default async function TradePage() {
   if (!phaseReached(status.phase, "READING")) {
     return (
       <Panel title="Trading">
-        <p className="text-sm text-paper" data-testid="trading-notice">
+        <p className="text-sm text-slate-200" data-testid="trading-notice">
           Trading starts with round 1{at("ROUNDS_1_4") ? ` at ${at("ROUNDS_1_4")}` : ""}. The companies are listed at Reading
           {at("READING") ? ` (${at("READING")})` : ""}, and IPO bids open with the IPO{at("IPO") ? ` at ${at("IPO")}` : ""}.
         </p>
@@ -151,7 +151,7 @@ export default async function TradePage() {
           ) : null}
 
           <Panel title="Cash and limits">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <dl className="grid grid-cols-2 gap-2.5 text-sm">
               {/* What a fund can spend now comes first. */}
               <Fact label="Available to spend" value={money(summary.available)} hint="Cash − collateral − reserves" testId="available" />
               <Fact label="Cash" value={money(summary.cash)} />
@@ -164,9 +164,9 @@ export default async function TradePage() {
                 testId="exposure"
               />
             </dl>
-            <p className="mt-3 text-xs text-muted">
+            <p className="mt-3 text-xs text-slate-400">
               Holdings, profit and loss and the limits per company are under{" "}
-              <Link href="/team/trade/positions" className="underline">
+              <Link href="/team/trade/positions" className="text-sky-300 underline-offset-2 hover:text-white hover:underline">
                 Positions
               </Link>
               .
@@ -207,12 +207,12 @@ function ClosedNotice({ notice, nowMs, ipo }: { notice: TradingNotice; nowMs: nu
 
 function Fact({ label, value, hint, testId }: { label: string; value: string; hint?: string; testId?: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="font-mono font-semibold tabular-nums text-phosphor" data-testid={testId}>
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
+      <dt className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{label}</dt>
+      <dd className="mx-accent-text mt-0.5 font-mono text-base font-semibold tabular-nums" data-testid={testId}>
         {value}
       </dd>
-      {hint ? <dd className="text-xs text-muted">{hint}</dd> : null}
+      {hint ? <dd className="mt-0.5 text-[11px] text-slate-400">{hint}</dd> : null}
     </div>
   );
 }

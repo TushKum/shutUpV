@@ -27,8 +27,11 @@ import { FocusGate } from "./focus-gate";
 import { focusSections } from "@/lib/team/focus";
 import { BootSequence } from "@/components/ui/matrix/boot-sequence";
 import { Glyph } from "@/components/ui/matrix/glyph";
+import { MatrixRain, type MatrixRainTint } from "../login/matrix-rain";
+import "./team.css";
 
 const TRACK_EMOJI: Record<Track, string> = { PRODUCT: "🏢", CONSULTING: "🧠", FINANCE: "💼" };
+const TRACK_TINT: Record<Track, MatrixRainTint> = { PRODUCT: "green", CONSULTING: "blue", FINANCE: "yellow" };
 
 export const metadata: Metadata = { title: { template: "%s · Team", default: "Team" } };
 
@@ -42,12 +45,16 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
   const { team, event, status } = ctx;
   // A track's portal shows only that track's pages: a team of another track (an old session) is sent to its own.
   const portal = await teamPortal();
+  const tint = TRACK_TINT[team.track];
   if (portal && !portalAdmits(portal, team.track)) {
     return (
-      <main className="term flex min-h-dvh items-center justify-center px-4">
-        <div className="max-w-md space-y-4 border border-line bg-panel p-6" data-testid="wrong-portal">
-          <p className="bg-[var(--term-amber)] px-1.5 text-xs font-black tracking-widest text-black">PRIMUS</p>
-          <p className="text-paper">{wrongPortalMessage(portal, team.track, portalUrl(team.track))}</p>
+      <main className="term mx-team-shell flex min-h-dvh items-center justify-center px-4" data-track={team.track}>
+        <MatrixRain opacity={0.42} tint={tint} />
+        <div className="mx-team-atmosphere" aria-hidden="true" />
+        <div className="mx-team-vignette" aria-hidden="true" />
+        <div className="mx-panel relative z-10 max-w-md space-y-4 p-6" data-testid="wrong-portal">
+          <p className="mx-team-brand-pill">PRIMUS</p>
+          <p className="text-sm leading-relaxed text-slate-200">{wrongPortalMessage(portal, team.track, portalUrl(team.track))}</p>
           <SignOutButton />
         </div>
       </main>
@@ -92,63 +99,71 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
         <FeedbackProvider>
         <Heartbeat eventId={event.id} area="team" />
         <BootSequence who={team.code} />
-        <div className="terminal-theme-scope term min-h-screen">
-          <header className="border-b border-line bg-ink">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-[var(--term-amber-dim)] px-4 py-1.5">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="bg-[var(--term-amber)] px-1.5 text-xs font-black tracking-widest text-black">PRIMUS</span>
-                <span className="text-lg text-[var(--term-amber)]" aria-hidden>
-                  <Glyph e={TRACK_EMOJI[team.track]} />
-                </span>
-                {/* The cursor sits beside the heading, so the heading reads exactly the team code. */}
-                <h1 className="text-lg font-bold text-[var(--term-amber)]">{team.code}</h1>
-                <span className="term-cursor -ml-1.5 text-lg text-[var(--term-amber)]" aria-hidden>
-                  ▮
-                </span>
-                <Badge tone="slate">{portal ? PORTAL_TITLES[portal] : TRACK_LABELS[team.track]}</Badge>
-                <span className="hidden truncate text-sm uppercase text-muted sm:inline">{team.name}</span>
-                {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <RealtimeDot />
-                <SoundToggle />
-                <ServerClock className="font-semibold text-[var(--term-amber)]" />
-                <span className="text-xs text-muted">IST</span>
-                <SignOutButton />
+        <div className="terminal-theme-scope term mx-team-shell min-h-screen" data-track={team.track}>
+          <MatrixRain opacity={0.42} tint={tint} />
+          <div className="mx-team-atmosphere" aria-hidden="true" />
+          <div className="mx-team-vignette" aria-hidden="true" />
+          <div className="mx-team-chrome">
+          <header className="mx-team-topbar">
+            <div className="border-b border-white/10">
+              <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5 sm:px-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="mx-team-brand-pill">PRIMUS</span>
+                  <span className="mx-accent-text text-lg" aria-hidden>
+                    <Glyph e={TRACK_EMOJI[team.track]} />
+                  </span>
+                  {/* The cursor sits beside the heading, so the heading reads exactly the team code. */}
+                  <h1 className="text-lg font-bold tracking-tight text-white">{team.code}</h1>
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#46f097] shadow-[0_0_10px_#46f097]" aria-hidden />
+                  <Badge tone="slate">{portal ? PORTAL_TITLES[portal] : TRACK_LABELS[team.track]}</Badge>
+                  <span className="hidden truncate text-sm font-medium text-slate-400 sm:inline">{team.name}</span>
+                  {event.is_rehearsal ? <Badge tone="violet">Rehearsal ×{event.clock_speed}</Badge> : null}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-2.5 py-1 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
+                    <RealtimeDot />
+                    <SoundToggle />
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs">
+                    <ServerClock className="font-mono font-semibold text-amber-300" />
+                    <span className="text-[11px] font-medium text-slate-400">IST</span>
+                  </div>
+                  <SignOutButton />
+                </div>
               </div>
             </div>
             {/* Two facts only: the team's cash, and its own thing (a fund: the trading round; the others: their
                 company and its share price). The round and the time left are in the banner below. */}
-            <dl className="grid grid-cols-2 gap-px bg-line text-sm">
-              <div className="bg-ink px-4 py-1.5">
-                <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">Your cash</dt>
-                <dd className="font-mono text-base font-semibold tabular-nums text-[var(--term-green)]" data-testid="team-cash">
+            <dl className="mx-auto grid max-w-5xl grid-cols-2 gap-2.5 px-3 py-2.5 text-sm sm:px-4">
+              <div className="mx-team-kpi-well">
+                <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Your cash</dt>
+                <dd className="mt-0.5 font-mono text-base font-semibold tabular-nums text-[#46f097] sm:text-lg" data-testid="team-cash">
                   {money(team.cash)}
                   {finance && team.collateral > 0 ? (
-                    <span className="ml-1 text-xs font-normal text-muted">locked {money(team.collateral)}</span>
+                    <span className="ml-1.5 text-xs font-normal text-slate-400">locked {money(team.collateral)}</span>
                   ) : null}
                 </dd>
               </div>
               {finance ? (
-                <div className="bg-ink px-4 py-1.5">
-                  <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">Trading</dt>
-                  <dd className="text-base">
+                <div className="mx-team-kpi-well">
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Trading</dt>
+                  <dd className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm sm:text-base">
                     <Badge tone={status.trading === "OPEN" ? "green" : status.trading === "PAUSED" ? "amber" : "slate"}>{status.trading}</Badge>
                     {status.trading === "OPEN" && status.open_round ? (
-                      <span className="ml-1 text-muted">
-                        Round {status.open_round.number} · <Countdown to={status.open_round.closes_at} passed="clearing" className="text-[var(--term-amber)]" />
+                      <span className="text-xs text-slate-300 sm:text-sm">
+                        Round {status.open_round.number} · <Countdown to={status.open_round.closes_at} passed="clearing" className="text-amber-300" />
                       </span>
                     ) : status.next_round ? (
-                      <span className="ml-1 text-muted">
+                      <span className="text-xs text-slate-300 sm:text-sm">
                         Round {status.next_round.number} at {clock(status.next_round.opens_at)}
                       </span>
                     ) : null}
                   </dd>
                 </div>
               ) : (
-                <div className="bg-ink px-4 py-1.5">
-                  <dt className="text-xs uppercase tracking-wider text-[var(--term-amber-dim)]">{team.track === "PRODUCT" ? "Your company" : "Your squad's company"}</dt>
-                  <dd className="font-mono text-base text-[var(--term-cyan)]" data-testid="team-company">
+                <div className="mx-team-kpi-well">
+                  <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">{team.track === "PRODUCT" ? "Your company" : "Your squad's company"}</dt>
+                  <dd className="mt-0.5 font-mono text-base font-semibold text-sky-300 sm:text-lg" data-testid="team-company">
                     {ctx.company ? `${ctx.company.ticker ?? "—"} · ${money(ctx.company.market_price)}` : "—"}
                   </dd>
                 </div>
@@ -166,38 +181,41 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             format={event.format}
             crisis={crisis}
           />
-          <div className="sticky top-0 z-40 border-b border-line bg-ink">
+          <div className="mx-team-nav-shell">
             <TeamNav sections={sections} />
           </div>
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
           <Alerts tasks={plan ? alertTasks(plan) : []} track={team.track} teamId={team.id} />
           {status.paused ? (
-            <p className="border-y border-warn/60 bg-ink px-4 py-2 text-center text-sm font-medium text-warn">
+            <p className="border-y border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm font-medium text-amber-200 backdrop-blur-md">
               The event is paused. Deadlines move later by the length of the pause.
             </p>
           ) : null}
           {team.disqualified ? (
-            <p className="border-y border-danger/70 bg-ink px-4 py-2 text-center text-sm font-medium text-danger-soft">
+            <p className="border-y border-rose-400/35 bg-rose-500/12 px-4 py-2 text-center text-sm font-medium text-rose-200 backdrop-blur-md">
               Your team has been disqualified by the fairness officer{team.disqualified_reason ? `: ${team.disqualified_reason}` : "."}
             </p>
           ) : null}
           {latest ? (
             <Link
               href="/team/bulletins"
-              className="mx-auto block max-w-5xl px-4 pt-3 text-sm [overflow-wrap:anywhere]"
+              className="mx-auto mt-3 block max-w-5xl px-3 text-sm [overflow-wrap:anywhere] sm:px-4"
               data-testid="latest-bulletin"
             >
-              <span className="mx-tag text-xs text-phosphor">{latest.kind}</span>{" "}
-              <span className="font-mono text-xs text-muted">{clock(latest.published_at)}</span>{" "}
-              <span className="font-semibold text-phosphor underline-offset-2 hover:underline">{latest.title}</span>
+              <span className="mx-accent-hover-row flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-2xl border border-white/12 bg-white/[0.045] px-3.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur-md transition">
+                <span className="mx-tag mx-accent-text">{latest.kind}</span>
+                <span className="font-mono text-xs text-slate-400">{clock(latest.published_at)}</span>
+                <span className="mx-accent-text font-semibold underline-offset-2 hover:underline">{latest.title}</span>
+              </span>
             </Link>
           ) : null}
-          <FeedbackBar className="mx-auto max-w-5xl px-4 pt-3" />
-          <main className="mx-auto max-w-5xl px-4 py-4">
+          <FeedbackBar className="mx-auto max-w-5xl px-3 pt-3 sm:px-4" />
+          <main className="mx-auto max-w-5xl px-3 py-5 sm:px-4">
             <FocusGate track={team.track} phase={status.phase} taskHref={taskHref} format={event.format}>
               {children}
             </FocusGate>
           </main>
+          </div>
         </div>
       </FeedbackProvider>
         </SquadChannel>

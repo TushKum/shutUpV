@@ -86,32 +86,32 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
         summary={profileDone ? `“${profile!.headline}” · asking ${profile!.asking_cents > 0 ? money(profile!.asking_cents) : "—"}. Tap to edit.` : "Companies read it to choose a firm. Fill it in first."}
       >
         <DoThis testId="profile-todo">Say what your firm is good at and what it asks for, then press Save profile.</DoThis>
-        <p className="mb-3 mt-1 text-sm text-paper">
+        <p className="mb-3 mt-1 text-sm text-slate-300">
           Every Product team sees this in the firm directory.{" "}
-          <Link href={`/team/firms/${encodeURIComponent(ctx.team.code)}`} className="text-[var(--term-amber)] hover:underline">
+          <Link href={`/team/firms/${encodeURIComponent(ctx.team.code)}`} className="text-sky-300 underline-offset-2 hover:text-white hover:underline">
             See your public profile →
           </Link>
         </p>
         <ActionForm action={saveFirmProfile} submit="Save profile">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-sm sm:col-span-2">
-              <span className="font-semibold text-paper">Headline</span>
+              <span className="font-medium text-slate-200">Headline</span>
               <input name="headline" maxLength={140} defaultValue={profile?.headline ?? ""} placeholder="Turnarounds for hardware start-ups" className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-sm">
-              <span className="font-semibold text-paper">Specialities (comma-separated, up to 8)</span>
+              <span className="font-medium text-slate-200">Specialities (comma-separated, up to 8)</span>
               <input name="specialities" defaultValue={profile?.specialities.join(", ") ?? ""} placeholder="supply chain, pricing, PR" className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-sm">
-              <span className="font-semibold text-paper">Asking fee ($)</span>
+              <span className="font-medium text-slate-200">Asking fee ($)</span>
               <input name="asking" inputMode="decimal" defaultValue={profile ? (profile.asking_cents / 100).toFixed(2) : ""} className={`${inputClass} mt-1 font-mono`} />
             </label>
             <label className="block text-sm sm:col-span-2">
-              <span className="font-semibold text-paper">Rate card</span>
+              <span className="font-medium text-slate-200">Rate card</span>
               <textarea name="rate_card" maxLength={600} rows={3} defaultValue={profile?.rate_card ?? ""} className={`${inputClass} mt-1`} />
             </label>
             <label className="block text-sm sm:col-span-2">
-              <span className="font-semibold text-paper">About the firm (who you are, how you work, past wins)</span>
+              <span className="font-medium text-slate-200">About the firm (who you are, how you work, past wins)</span>
               <textarea name="about" maxLength={1000} rows={4} defaultValue={profile?.about ?? ""} className={`${inputClass} mt-1`} />
             </label>
           </div>
@@ -154,12 +154,18 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
               const cur = memoSent(e.company_id);
               const squadOf = { product_team_id: c?.product_team_id ?? "", consulting_team_id: me, finance_team_id: "" };
               return (
-                <section key={e.id} id={`client-${e.company_id}`} className="scroll-mt-32 border border-line bg-panel p-3" aria-label={`Client ${label}`} data-testid="client">
+                <section
+                  key={e.id}
+                  id={`client-${e.company_id}`}
+                  className="scroll-mt-32 rounded-2xl border border-white/14 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]"
+                  aria-label={`Client ${label}`}
+                  data-testid="client"
+                >
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-mono text-base font-bold text-[var(--term-amber)]">Client {label}</h3>
-                    <span className="font-mono text-sm text-paper">fee {termsText(money(e.cash_cents), e.shares)}</span>
+                    <h3 className="font-mono text-base font-bold text-white">Client {label}</h3>
+                    <span className="mx-accent-text font-mono text-sm">fee {termsText(money(e.cash_cents), e.shares)}</span>
                     {cur ? <Badge tone="green">Memo sent {clock(cur.submitted_at)}</Badge> : <Badge tone="amber">Memo not sent</Badge>}
-                    <Link href={`/team/messages?c=${e.company_id}&f=${me}`} className="ml-auto text-sm font-semibold text-[var(--term-amber)] hover:underline">
+                    <Link href={`/team/messages?c=${e.company_id}&f=${me}`} className="ml-auto text-sm font-medium text-sky-300 underline-offset-2 hover:text-white hover:underline">
                       Chat with this client →
                     </Link>
                   </div>
@@ -169,16 +175,16 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
                     </div>
                   )}
                   {r3 ? null : (
-                    <details className="mt-3 border border-line p-3" open={!!(planSub ?? planDraft)}>
-                      <summary className="cursor-pointer text-sm font-semibold text-[var(--term-amber)]">
+                    <details className="mt-3 rounded-2xl border border-white/12 bg-white/[0.03] p-3.5" open={!!(planSub ?? planDraft)}>
+                      <summary className="cursor-pointer text-sm font-semibold text-white">
                         The client&apos;s response plan {planSub ? <Badge tone="green">Submitted {clock(planSub.submitted_at)}</Badge> : planDraft ? <Badge tone="amber">Draft v{planDraft.version}</Badge> : <Badge tone="slate">Not started</Badge>}
                       </summary>
                       <div className="mt-2">
-                        {planSub ?? planDraft ? <ContentView type={plan} content={(planSub ?? planDraft)!.content} /> : <p className="text-sm text-muted">Nothing written yet.</p>}
+                        {planSub ?? planDraft ? <ContentView type={plan} content={(planSub ?? planDraft)!.content} /> : <p className="text-sm text-slate-400">Nothing written yet.</p>}
                       </div>
                     </details>
                   )}
-                  <h4 className="mb-2 mt-4 text-sm font-bold uppercase tracking-wider text-[var(--term-amber)]">Your advice memo · up to {RULES.WORD_LIMIT[memo]} words</h4>
+                  <h4 className="mb-2 mt-4 text-xs font-bold uppercase tracking-wider text-sky-300">Your advice memo · up to {RULES.WORD_LIMIT[memo]} words</h4>
                   <DraftEditor
                     type={memo}
                     draft={toSnapshot(draftRow) ?? EMPTY}
@@ -194,13 +200,13 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
                     companyId={e.company_id}
                   />
                   {cur ? (
-                    <p className="mt-2 text-xs text-muted">
+                    <p className="mt-2 text-xs text-slate-400">
                       Submitted at {clock(cur.submitted_at, true)} ({cur.word_count} words). You can submit again until the due time.
                     </p>
                   ) : null}
                   {r3 ? (
-                    <details className="mt-4 border border-line p-3" data-testid="solution-coedit">
-                      <summary className="cursor-pointer text-sm font-semibold text-[var(--term-amber)]">
+                    <details className="mt-4 rounded-2xl border border-white/12 bg-white/[0.03] p-3.5" data-testid="solution-coedit">
+                      <summary className="cursor-pointer text-sm font-semibold text-white">
                         The solution, written with your client · up to {RULES.WORD_LIMIT.SOLUTION} words
                       </summary>
                       <p className="my-2 text-sm text-paper">You can edit it with your client: each save shows for both. Your client submits it.</p>
@@ -238,9 +244,9 @@ export function ConsultingRoom({ ctx, data, k, nowMs }: { ctx: TeamContext; data
 
       {r3 ? <StatementBoard data={data} /> : null}
 
-      <details className="mx-panel rounded-lg" data-testid="firm-results">
-        <summary className="cursor-pointer px-4 py-3 text-base font-bold text-phosphor">Your results: clients, ratings and the firm league</summary>
-        <div className="space-y-4 border-t border-line p-4">
+      <details className="mx-panel overflow-hidden" data-testid="firm-results">
+        <summary className="cursor-pointer px-5 py-3.5 text-base font-bold text-white">Your results: clients, ratings and the firm league</summary>
+        <div className="space-y-4 border-t border-white/10 p-4 sm:p-5">
           <EngagementTable data={data} rows={data.engagements.filter((e) => e.firm_team_id === me)} title="Your engagements" />
           <FirmLeague data={data} me={me} />
         </div>

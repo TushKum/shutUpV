@@ -110,13 +110,13 @@ export default async function CallsPage() {
                   Baseline: the {w.baseline}. Judged at the {w.judgedAt}, {w.judged}.
                 </p>
               )}
-              <ul className={`mt-3 divide-y divide-line ${w.stage === "NOT_OPEN" ? "hidden" : ""}`}>
+              <ul className={`mt-3 divide-y divide-white/10 ${w.stage === "NOT_OPEN" ? "hidden" : ""}`}>
                 {w.cells.map(({ company, cell }) => (
                   <li key={company.id} className="flex flex-wrap items-start justify-between gap-3 py-3" data-testid={`call-${w.no}-${company.label}`}>
                     <div className="min-w-0">
-                      <p className="font-semibold text-phosphor">
-                        <span className={company.ticker ? "font-mono" : undefined}>{company.label}</span>
-                        {company.name ? <span className="ml-1 font-normal text-paper">{company.name}</span> : null}
+                      <p className="font-semibold text-white">
+                        <span className={company.ticker ? "font-mono text-sky-300" : undefined}>{company.label}</span>
+                        {company.name ? <span className="ml-1.5 font-normal text-slate-300">{company.name}</span> : null}
                       </p>
                       <CallState cell={cell} />
                     </div>
@@ -136,17 +136,17 @@ function CallState({ cell }: { cell: CallCell }) {
   const r = cell.result;
   if (r) {
     return (
-      <p className="mt-1 text-sm" data-testid="call-result">
-        {cell.direction ?? "No call"} · baseline <span className="font-mono">{money(r.baseline)}</span> → judged <span className="font-mono">{money(r.judged)}</span> ·{" "}
+      <p className="mt-1 text-sm text-slate-200" data-testid="call-result">
+        {cell.direction ?? "No call"} · baseline <span className="font-mono text-white">{money(r.baseline)}</span> → judged <span className="font-mono text-white">{money(r.judged)}</span> ·{" "}
         {r.correct ? <Badge tone="green">Correct · {money(r.earnings)}</Badge> : <Badge tone="red">Wrong · {money(r.earnings)}</Badge>}
       </p>
     );
   }
   return (
-    <p className="mt-1 text-sm text-paper" data-testid="call-current">
+    <p className="mt-1 text-sm text-slate-300" data-testid="call-current">
       {cell.direction ? (
         <>
-          Your call: <span className="font-semibold text-phosphor">{cell.direction}</span>
+          Your call: <span className="mx-accent-text font-semibold">{cell.direction}</span>
           {cell.madeAt ? ` (made ${clock(cell.madeAt, true)})` : ""}
         </>
       ) : cell.stage === "CLOSED" ? (

@@ -55,15 +55,15 @@ export default async function FirmProfilePage({ params }: { params: Promise<{ co
   return (
     <div className="space-y-6">
       <p className="text-sm">
-        <Link href="/team/firms" className="text-[var(--term-amber)] hover:underline">
+        <Link href="/team/firms" className="text-sky-300 underline-offset-2 hover:text-white hover:underline">
           ← All firms
         </Link>
       </p>
 
-      <section className="border border-line bg-panel" aria-label="Firm" data-testid="firm-profile">
-        <div className="flex flex-wrap items-center gap-3 border-b border-line bg-raised px-4 py-3">
-          <span className="font-mono text-2xl font-bold text-[var(--term-amber)]">{f.code}</span>
-          <span className="text-lg text-paper">{f.name}</span>
+      <section className="mx-panel overflow-hidden" aria-label="Firm" data-testid="firm-profile">
+        <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/[0.04] px-5 py-3.5">
+          <span className="font-mono text-2xl font-bold text-amber-300">{f.code}</span>
+          <span className="text-lg font-medium text-white">{f.name}</span>
           <Badge tone="slate">#{rank} by value</Badge>
           {isMe ? <Badge tone="violet">Your firm</Badge> : null}
           {hiredThisFirm ? <Badge tone="green">Hired by you</Badge> : null}
@@ -73,29 +73,29 @@ export default async function FirmProfilePage({ params }: { params: Promise<{ co
             </Badge>
           ) : null}
         </div>
-        <div className="px-4 py-3">
-          <p className="text-base font-semibold text-paper">{p?.headline || <span className="font-normal text-muted">This firm has not written a headline yet.</span>}</p>
+        <div className="p-5">
+          <p className="text-base font-semibold text-white">{p?.headline || <span className="font-normal text-slate-400">This firm has not written a headline yet.</span>}</p>
           {p?.specialities.length ? (
-            <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Specialities">
+            <ul className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Specialities">
               {p.specialities.map((s) => (
-                <li key={s} className="border border-[var(--term-cyan)] px-2 py-0.5 text-xs text-[var(--term-cyan)]">
+                <li key={s} className="rounded-full border border-sky-400/35 bg-sky-400/10 px-2.5 py-0.5 text-xs font-medium text-sky-200">
                   {s}
                 </li>
               ))}
             </ul>
           ) : null}
-          <dl className="mt-4 grid grid-cols-2 gap-px bg-line text-sm sm:grid-cols-3 lg:grid-cols-6">
+          <dl className="mt-4 grid grid-cols-2 gap-2.5 text-sm sm:grid-cols-3 lg:grid-cols-6">
             {[
-              ["Firm value", money(f.value_cents), "text-[var(--term-green)]"],
-              ["Cash", money(f.cash_cents), "text-paper"],
-              ["Fee shares", money(f.fee_share_value_cents), "text-paper"],
-              ["Clients so far", String(f.clients), "text-paper"],
-              ["Avg rating", f.avg_rating === null ? "—" : `★ ${f.avg_rating.toFixed(2)}`, "text-paper"],
-              ["Asking fee", p && p.asking_cents > 0 ? money(p.asking_cents) : "—", "text-[var(--term-amber)]"],
+              ["Firm value", money(f.value_cents), "mx-accent-text"],
+              ["Cash", money(f.cash_cents), "text-white"],
+              ["Fee shares", money(f.fee_share_value_cents), "text-white"],
+              ["Clients so far", String(f.clients), "text-white"],
+              ["Avg rating", f.avg_rating === null ? "—" : `★ ${f.avg_rating.toFixed(2)}`, "text-amber-300"],
+              ["Asking fee", p && p.asking_cents > 0 ? money(p.asking_cents) : "—", "text-amber-300"],
             ].map(([label, value, tone]) => (
-              <div key={label} className="bg-ink px-3 py-2">
-                <dt className="text-[11px] uppercase tracking-wider text-[var(--term-amber-dim)]">{label}</dt>
-                <dd className={`font-mono ${tone}`}>{value}</dd>
+              <div key={label} className="rounded-2xl border border-white/12 bg-white/[0.045] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]">
+                <dt className="text-[11px] uppercase tracking-wider text-slate-400">{label}</dt>
+                <dd className={`mt-0.5 font-mono font-semibold ${tone}`}>{value}</dd>
               </div>
             ))}
           </dl>
@@ -119,16 +119,16 @@ export default async function FirmProfilePage({ params }: { params: Promise<{ co
           {stars.rated === 0 ? (
             <p className="text-sm text-muted">No client has rated this firm yet.</p>
           ) : (
-            <ul className="space-y-1" aria-label="Ratings">
+            <ul className="space-y-2" aria-label="Ratings">
               {[5, 4, 3, 2, 1].map((r) => {
                 const n = stars.stars[r - 1];
                 return (
                   <li key={r} className="flex items-center gap-2 text-sm">
-                    <span className="w-14 font-mono text-[var(--term-amber)]">{"★".repeat(r)}</span>
-                    <span className="h-2 flex-1 bg-raised">
-                      <span className="block h-2 bg-[var(--term-amber)]" style={{ width: `${(n / stars.rated) * 100}%` }} />
+                    <span className="w-14 font-mono text-amber-300">{"★".repeat(r)}</span>
+                    <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                      <span className="mx-accent-bar block h-2.5 rounded-full" style={{ width: `${(n / stars.rated) * 100}%` }} />
                     </span>
-                    <span className="w-6 text-right font-mono text-paper">{n}</span>
+                    <span className="w-6 text-right font-mono text-slate-200">{n}</span>
                   </li>
                 );
               })}
@@ -180,7 +180,7 @@ export default async function FirmProfilePage({ params }: { params: Promise<{ co
           )}
           {offers.length ? (
             <>
-              <h3 className="mb-2 mt-4 text-sm font-bold uppercase tracking-wider text-[var(--term-amber)]">Your offers to {f.code}</h3>
+              <h3 className="mb-2 mt-4 font-mono text-xs font-semibold uppercase tracking-wider text-sky-300">Your offers to {f.code}</h3>
               <ul className="space-y-2">
                 {offers.map((o) => (
                   <OfferCard key={o.id} offer={o} side="COMPANY" hiring={hiring} counterpart={f.code} />

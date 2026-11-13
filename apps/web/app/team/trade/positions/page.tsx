@@ -76,20 +76,20 @@ export default async function PositionsPage() {
             {lines.map((l) => (
               <tr key={l.key} data-testid={`position-${l.ticker}-${l.lot}`}>
                 <Td>
-                  <Link href={`/team/market/${l.ticker}`} className="font-mono font-semibold underline-offset-2 hover:underline">
+                  <Link href={`/team/market/${l.ticker}`} className="mx-accent-link-hover font-mono font-semibold text-white underline-offset-2 hover:underline">
                     {l.ticker}
                   </Link>{" "}
-                  <span className="text-xs text-muted" title={FUND_LOT_HINTS[l.lot]}>
+                  <span className="text-xs text-slate-400" title={FUND_LOT_HINTS[l.lot]}>
                     {FUND_LOT_LABELS[l.lot]}
                   </span>
                 </Td>
                 <Td mono className="text-right">
                   {count(l.qty)}
                 </Td>
-                <Td mono className={`text-right ${l.value !== null && l.value < 0 ? "text-danger-soft" : ""}`}>
+                <Td mono className={`text-right ${l.value !== null && l.value < 0 ? "text-rose-400" : "text-white"}`}>
                   {l.value === null ? "—" : money(l.value)}
                 </Td>
-                <Td mono className={`text-right ${l.pnl === null ? "" : l.pnl < 0 ? "text-danger-soft" : l.pnl > 0 ? "text-phosphor" : ""}`}>
+                <Td mono className={`text-right font-semibold ${l.pnl === null ? "text-slate-400" : l.pnl < 0 ? "text-rose-400" : l.pnl > 0 ? "text-[#46f097]" : "text-slate-200"}`}>
                   {l.pnl === null ? "—" : signedMoney(l.pnl)}
                 </Td>
                 <Td mono className="text-right">
@@ -133,13 +133,13 @@ export default async function PositionsPage() {
               <span data-testid="collateral-status">Your cash covers your collateral: new buys and shorts are allowed.</span>
             </Notice>
           )}
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <Fact label="Collateral locked" value={money(coll.locked)} testId="collateral-locked" />
             <Fact label="Required at current prices" value={money(coll.required)} testId="collateral-required" />
             <Fact label="Reserved by open orders" value={money(summary.reserved)} />
             <Fact label="Available cash" value={money(summary.available)} />
           </dl>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-slate-400">
             Collateral is 150% of each short&apos;s value (shares short × current price), locked out of your cash and recalculated at every price change.
           </p>
           <div>
@@ -150,16 +150,16 @@ export default async function PositionsPage() {
               </span>
             </div>
             <div
-              className="mt-1 h-2 overflow-hidden rounded-full bg-raised"
+              className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-white/10"
               role="meter"
               aria-label="Short exposure of the $250,000 limit"
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={meterPct(summary.shortExposureWithPending, RULES.SHORT_EXPOSURE_LIMIT)}
             >
-              <div className="h-full bg-phosphor-deep" style={{ width: `${meterPct(summary.shortExposureWithPending, RULES.SHORT_EXPOSURE_LIMIT)}%` }} />
+              <div className="mx-accent-bar h-full rounded-full" style={{ width: `${meterPct(summary.shortExposureWithPending, RULES.SHORT_EXPOSURE_LIMIT)}%` }} />
             </div>
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-1 text-xs text-slate-400">
               Open shorts {money(summary.shortExposure)}
               {summary.shortExposureWithPending > summary.shortExposure ? ` + pending shorts ${money(summary.shortExposureWithPending - summary.shortExposure)}` : ""}, at
               current prices.
@@ -193,9 +193,9 @@ export default async function PositionsPage() {
 
 function Fact({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs text-muted">{label}</dt>
-      <dd className="font-mono font-semibold tabular-nums" data-testid={testId}>
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+      <dt className="text-[11px] font-medium text-slate-400">{label}</dt>
+      <dd className="mx-accent-text mt-0.5 font-mono font-semibold tabular-nums" data-testid={testId}>
         {value}
       </dd>
     </div>

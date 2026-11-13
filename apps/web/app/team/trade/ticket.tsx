@@ -115,13 +115,13 @@ export function OrderTicket({
       <input type="hidden" name="ticker" value={company?.ticker ?? ""} />
 
       <fieldset>
-        <legend className="text-xs font-medium text-paper">Order type</legend>
-        <div className="mt-1 grid grid-cols-4 gap-1">
+        <legend className="text-xs font-medium text-slate-300">Order type</legend>
+        <div className="mt-1.5 grid grid-cols-4 gap-1.5">
           {ORDER_TYPES.map((t) => (
             <label
               key={t}
-              className={`flex cursor-pointer items-center justify-center rounded-md px-2 py-2 text-sm font-semibold ring-1 ring-inset has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-phosphor ${
-                type === t ? TYPE_ON[t] : "bg-panel text-paper ring-line hover:bg-raised"
+              className={`mx-accent-focus flex cursor-pointer items-center justify-center rounded-xl px-2 py-2 text-sm font-semibold ring-1 ring-inset transition ${
+                type === t ? TYPE_ON[t] : "bg-white/[0.045] text-slate-300 ring-white/12 hover:bg-white/[0.09] hover:text-white"
               }`}
             >
               <input
@@ -139,14 +139,14 @@ export function OrderTicket({
             </label>
           ))}
         </div>
-        <p className="mt-1 text-xs text-muted">{ORDER_TYPE_INFO[type].hint}</p>
+        <p className="mt-1.5 text-xs text-slate-400">{ORDER_TYPE_INFO[type].hint}</p>
       </fieldset>
 
       <div>
-        <label htmlFor="order-qty" className="text-xs font-medium text-paper">
+        <label htmlFor="order-qty" className="text-xs font-medium text-slate-300">
           Quantity (shares)
         </label>
-        <div className="mt-0.5 flex gap-2">
+        <div className="mt-1 flex gap-2">
           <input
             id="order-qty"
             name="qty"
@@ -166,7 +166,7 @@ export function OrderTicket({
             <button
               key={n}
               type="button"
-              className="rounded-md bg-raised px-3 py-1.5 font-mono text-sm font-semibold text-phosphor ring-1 ring-inset ring-line hover:bg-phosphor-deep"
+              className="mx-accent-quick rounded-xl border border-white/14 bg-white/[0.06] px-3 py-1.5 font-mono text-sm font-semibold transition"
               onClick={() => {
                 setQty(String(n));
                 setMaxNote(null);
@@ -190,14 +190,17 @@ export function OrderTicket({
           </button>
         </div>
         {maxNote ? (
-          <p className="mt-1 text-sm text-danger-soft" role="alert">
+          <p className="mt-1.5 text-sm text-rose-400" role="alert">
             {maxNote}
           </p>
         ) : null}
       </div>
 
       {company && pos ? (
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md bg-raised px-3 py-2 text-xs sm:grid-cols-4" aria-label={`Your position in ${company.ticker}`}>
+        <dl
+          className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-2xl border border-white/12 bg-white/[0.045] px-3.5 py-2.5 text-xs shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] sm:grid-cols-4"
+          aria-label={`Your position in ${company.ticker}`}
+        >
           <Fact label="Price now" value={money(pos.price)} />
           <Fact label="You hold (exchange lot)" value={`${count(pos.exchangeQty)}${pos.pending.SELL ? ` · selling ${count(pos.pending.SELL)}` : ""}`} />
           <Fact label="You are short" value={`${count(pos.shortQty)}${pos.pending.COVER ? ` · covering ${count(pos.pending.COVER)}` : ""}`} />
@@ -208,13 +211,13 @@ export function OrderTicket({
       <Preview preview={preview} type={type} roundNumber={round.number} ticker={company?.ticker ?? null} />
 
       {closed ? (
-        <p className="text-sm font-medium text-warn" role="status">
+        <p className="text-sm font-medium text-amber-300" role="status">
           Round {round.number} closed at {clock(round.closesAt, true)}: orders are refused until the next round opens.
         </p>
       ) : null}
 
       <div>
-        <button type="submit" disabled={pending || closed || placeLabel === null} className={buttonClass.primary}>
+        <button type="submit" disabled={pending || closed || placeLabel === null} className="mx-key mx-key-solid px-4 py-2 text-sm disabled:opacity-45">
           {pending ? "Placing…" : (placeLabel ?? "Place order")}
         </button>
       </div>
@@ -223,12 +226,12 @@ export function OrderTicket({
   );
 }
 
-/** Each order type's colour when chosen: buying green, selling red, shorting orange, covering blue. */
+/** Each order type's colour when chosen: buying green, selling red, shorting amber, covering sky blue. */
 const TYPE_ON: Record<OrderType, string> = {
-  BUY: "bg-emerald-600 text-ink ring-phosphor",
-  SELL: "bg-danger text-ink ring-danger",
-  SHORT: "bg-warn text-ink ring-warn",
-  COVER: "bg-paper text-ink ring-paper",
+  BUY: "bg-emerald-600 text-white ring-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.32)]",
+  SELL: "bg-rose-500 text-white ring-rose-400 shadow-[0_0_16px_rgba(244,63,94,0.28)]",
+  SHORT: "bg-amber-400 text-[#031109] ring-amber-300 shadow-[0_0_16px_rgba(251,191,36,0.28)]",
+  COVER: "bg-sky-300 text-[#031109] ring-sky-200 shadow-[0_0_16px_rgba(125,211,252,0.28)]",
 };
 
 function roomLabel(type: OrderType): string {
@@ -242,8 +245,8 @@ function roomOf(type: OrderType, pos: ReturnType<typeof companyPosition>): numbe
 function Fact({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-mono font-semibold tabular-nums text-phosphor">{value}</dd>
+      <dt className="text-slate-400">{label}</dt>
+      <dd className="mx-accent-text font-mono font-semibold tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -253,15 +256,15 @@ export function Preview({ preview, type, roundNumber, ticker = null }: { preview
   return (
     <div aria-live="polite" data-testid="order-preview" className="text-sm">
       {preview.state === "EMPTY" ? (
-        <p className="text-muted">Choose a company and type a quantity: the ticket checks the order as you type.</p>
+        <p className="text-slate-400">Choose a company and type a quantity: the ticket checks the order as you type.</p>
       ) : preview.state === "REFUSED" ? (
-        <p className="rounded-md bg-danger/10 px-3 py-2 text-danger-soft ring-1 ring-inset ring-danger/70">
-          The exchange would refuse this order: <span className="font-semibold">{preview.message}</span>
+        <p className="rounded-2xl border border-rose-400/35 bg-rose-500/12 px-3.5 py-2.5 text-rose-200">
+          The exchange would refuse this order: <span className="font-semibold text-white">{preview.message}</span>
         </p>
       ) : preview.state === "UNKNOWN" ? (
-        <p className="rounded-md bg-warn/10 px-3 py-2 text-warn ring-1 ring-inset ring-warn/60">{preview.message}</p>
+        <p className="rounded-2xl border border-amber-400/35 bg-amber-500/12 px-3.5 py-2.5 text-amber-200">{preview.message}</p>
       ) : (
-        <ul className="space-y-1 rounded-md bg-phosphor/10 px-3 py-2 text-phosphor ring-1 ring-inset ring-phosphor-dim">
+        <ul className="space-y-1 rounded-2xl border border-[#46f097]/38 bg-[#46f097]/10 px-3.5 py-2.5 text-emerald-100">
           {ticker ? (
             <li className="text-base font-semibold" data-testid="order-summary">
               {orderSummary(type, preview.qty, ticker, preview.value)}

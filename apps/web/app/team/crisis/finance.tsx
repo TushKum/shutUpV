@@ -8,7 +8,7 @@ import type { TeamContext } from "@/lib/team/context";
 import type { CrisisRoomData } from "@/lib/team/crisis-data";
 import { pastSubrounds, statementCounts, subroundTitle } from "@/lib/team/crisis";
 import { DoThis } from "@/components/ui/how-it-works";
-import { Badge, Notice, Panel, Table, Td, buttonClass } from "@/components/ui/ui";
+import { Badge, Notice, Panel, Table, Td } from "@/components/ui/ui";
 import { CardsOf, EngagementTable, FirmLeague, StatementBoard, companyLabel } from "./parts";
 
 export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRoomData; k: number | null }) {
@@ -33,14 +33,14 @@ export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRo
         <Notice>At the start of Round 3 every fund receives half its starting capital again.</Notice>
       ) : null}
       <div>
-        <Link href="/team/trade" className={buttonClass.primary}>
+        <Link href="/team/trade" className="mx-key mx-key-solid inline-flex items-center px-4 py-2 text-sm">
           Open the trading desk →
         </Link>
       </div>
 
       {k !== null && k < 5 ? (
         <Panel title={`Crisis cards · ${subroundTitle(k)}`}>
-          <p className="mb-3 text-sm text-paper">
+          <p className="mb-3 text-sm text-slate-300">
             Each reveal knocked 5% off every price. After the due time each company&apos;s response plan is judged and its tier moves the price.
           </p>
           <CardsOf data={data} k={k} />
@@ -57,8 +57,8 @@ export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRo
               return (
                 <tr key={p.company_id}>
                   <Td mono>{p.pick_no}</Td>
-                  <Td mono>{companyLabel(company.get(p.company_id))}</Td>
-                  <Td mono>{p.score_avg.toFixed(1)}</Td>
+                  <Td mono className="font-semibold text-white">{companyLabel(company.get(p.company_id))}</Td>
+                  <Td mono className="mx-accent-text">{p.score_avg.toFixed(1)}</Td>
                   <Td>
                     {s ? (
                       <>
@@ -73,7 +73,7 @@ export function FinanceRoom({ ctx, data, k }: { ctx: TeamContext; data: CrisisRo
             })}
           </Table>
           {data.statements.length ? (
-            <p className="mt-2 text-xs text-muted">
+            <p className="mt-2.5 text-xs text-slate-400">
               {data.statements.map((s) => `#${s.number}: ${counts.get(s.id) ?? 0}/${s.cap}`).join(" · ")}. Within a statement the best solution gets its full
               tier, the 2nd ×0.75, the 3rd ×0.5, the rest ×0.25 (a negative tier applies in full).
             </p>

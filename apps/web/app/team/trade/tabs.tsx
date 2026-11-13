@@ -22,8 +22,10 @@ export function TradeTabs() {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-              active ? "bg-phosphor-deep text-phosphor" : "bg-panel text-paper ring-1 ring-inset ring-line hover:bg-raised"
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+              active
+                ? "mx-accent-pill-active border text-white"
+                : "border border-white/12 bg-white/[0.045] text-slate-300 hover:border-white/24 hover:bg-white/[0.09] hover:text-white"
             }`}
           >
             {t.label}

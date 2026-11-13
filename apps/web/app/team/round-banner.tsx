@@ -7,9 +7,7 @@ import { PhaseEnd } from "./phase-end";
 import { BannerFrame } from "./banner-frame";
 import { CrisisSteps } from "./crisis-steps";
 import { CrisisWhat } from "./crisis-what";
-import { MatrixRain } from "@/components/ui/matrix/matrix-rain";
 import { CipherText } from "@/components/ui/matrix/cipher-text";
-import { DitherLayer } from "@/components/ui/matrix/dither-layer";
 import { ThermalScan } from "@/components/ui/matrix/thermal-scan";
 import { Glyph } from "@/components/ui/matrix/glyph";
 
@@ -56,21 +54,25 @@ export function RoundBanner({
   const what: ReactNode = primusRound ? <CrisisWhat phase={phase} k={crisis?.k ?? null} steps={steps} /> : step.what;
   const stepsLabel = primusRound && crisis?.k ? (crisis.k === 5 ? "Steps of Round 3" : `Steps of crisis ${crisis.k}`) : "Steps";
   const trading = openRound ? (
-    <p className="rounded-xl border border-phosphor bg-ink px-3 py-2 font-mono text-sm font-bold text-phosphor glow-box" data-testid="open-round">
+    <p
+      className="mx-accent-callout rounded-2xl border px-4 py-2.5 font-mono text-sm font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
+      data-testid="open-round"
+    >
       <Glyph e="📈" spoken /> Trading round {openRound.number} · <Countdown to={openRound.closes_at} passed="clearing" className="tabular-nums" /> left
     </p>
   ) : null;
 
   const full = (
-    <section aria-label="Where we are" className="relative overflow-hidden border-b border-line bg-ink" data-testid="round-banner">
-      {/* Backdrop only: the rain and a dithered fade. Everything to read is in the opaque card above them. */}
-      <MatrixRain opacity={0.3} size={14} />
-      <DitherLayer from="bottom" tone={danger ? "red" : "green"} opacity={0.35} />
-      <div className="relative mx-auto max-w-5xl px-3 py-3 sm:px-4 sm:py-5">
+    <section aria-label="Where we are" className="relative" data-testid="round-banner">
+      <div className="mx-auto max-w-5xl px-3 pt-4 pb-2 sm:px-4 sm:pt-5">
         {/* The scan runs once when the round changes (the key), as the crisis reveal does. */}
-        <ThermalScan key={stage} active={danger} className={`mx-panel rounded-xl px-4 py-4 sm:mr-24 ${danger ? "border-danger glow-danger" : "glow-box"}`}>
+        <ThermalScan
+          key={stage}
+          active={danger}
+          className={`mx-team-hero-card px-5 py-5 sm:px-6 ${danger ? "mx-team-hero-card--danger" : ""}`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className={`font-mono text-xs font-bold uppercase tracking-widest ${danger ? "text-danger-soft" : "text-phosphor-mid"}`} data-testid="round-label">
+            <p className={`font-mono text-xs font-semibold uppercase tracking-[0.14em] ${danger ? "text-rose-300" : "mx-accent-bright opacity-90"}`} data-testid="round-label">
               {label}
             </p>
             <ol className="flex items-center gap-1.5 font-mono" aria-label="Rounds">
@@ -78,8 +80,12 @@ export function RoundBanner({
                 <li
                   key={r}
                   aria-current={i === at ? "step" : undefined}
-                  className={`grid h-7 min-w-7 place-items-center rounded-md border px-2 text-xs font-extrabold ${
-                    i === at ? "border-phosphor bg-phosphor text-ink glow-box" : done(i) ? "border-phosphor-dim text-phosphor" : "border-line text-muted"
+                  className={`grid h-7 min-w-7 place-items-center rounded-full border px-2 text-xs font-bold ${
+                    i === at
+                      ? "mx-accent-badge-solid"
+                      : done(i)
+                        ? "mx-accent-chip"
+                        : "border-white/12 bg-white/[0.04] text-slate-400"
                   }`}
                 >
                   {done(i) ? "✓" : i + 1}
@@ -87,29 +93,39 @@ export function RoundBanner({
               ))}
             </ol>
           </div>
-          <div className="mt-2 flex items-start gap-3 sm:gap-4">
-            <span className={`text-4xl leading-none sm:text-5xl ${danger ? "text-danger" : "text-phosphor"}`} aria-hidden>
+          <div className="mt-3 flex items-start gap-3.5 sm:gap-4">
+            <span
+              className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border text-2xl sm:h-14 sm:w-14 sm:text-3xl ${
+                danger
+                  ? "border-rose-400/35 bg-rose-500/12 text-rose-300"
+                  : "mx-accent-text border-white/15 bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
+              }`}
+              aria-hidden
+            >
               <Glyph e={info.emoji} />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className={`text-2xl font-extrabold leading-tight sm:text-3xl ${danger ? "text-danger [--mx-cipher-color:var(--mx-red)]" : "text-phosphor glow"}`}>
+              <h2 className={`text-2xl font-bold leading-tight sm:text-3xl ${danger ? "text-rose-200 [--mx-cipher-color:var(--mx-red)]" : "text-white"}`}>
                 <CipherText text={step.name} duration={800} />
               </h2>
-              <p className="mt-0.5 text-base text-paper">{what}</p>
-              <p className="mt-1 text-sm font-semibold text-phosphor" data-testid="team-phase">
+              <p className="mt-1 text-sm leading-relaxed text-slate-300 sm:text-base">{what}</p>
+              <p className={`mt-1.5 inline-flex items-center gap-1.5 text-sm font-semibold ${danger ? "text-rose-300" : "mx-accent-text"}`} data-testid="team-phase">
                 <Glyph e="⏱" spoken /> {PHASE_LABELS[phase]}
-                <PhaseEnd endsAt={endsAt} phase={phase} gate={gate} next={next} className="ml-1 font-semibold text-phosphor" />
+                <PhaseEnd endsAt={endsAt} phase={phase} gate={gate} next={next} className="ml-1 font-semibold" />
               </p>
             </div>
           </div>
           {steps.length ? (
-            <div className="mt-3">
+            <div className="mt-3.5">
               <CrisisSteps steps={steps} label={stepsLabel} danger={danger} />
             </div>
           ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <p className="flex-1 rounded-xl border border-line bg-ink px-3 py-2 text-base font-semibold text-paper" data-testid="your-job">
-              <span className="mr-1 text-phosphor" aria-hidden>
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            <p
+              className="flex-1 rounded-2xl border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] sm:text-base"
+              data-testid="your-job"
+            >
+              <span className="mx-accent-text mr-1.5" aria-hidden>
                 <Glyph e="🎯" />
               </span>
               Your job: {jobFor(track, stage, format)}
@@ -122,19 +138,19 @@ export function RoundBanner({
   );
 
   const compact = (
-    <section aria-label="Where we are" className={`border-b bg-ink ${danger ? "border-danger/60" : "border-line"}`} data-testid="round-banner">
-      <div className="mx-auto max-w-5xl space-y-2 px-3 py-2 sm:px-4">
+    <section aria-label="Where we are" className={`mx-team-compact-banner ${danger ? "mx-team-compact-banner--danger" : ""}`} data-testid="round-banner">
+      <div className="mx-auto max-w-5xl space-y-2 px-3 py-2.5 sm:px-4">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <p className={`font-mono text-xs font-bold uppercase tracking-widest ${danger ? "text-danger-soft" : "text-phosphor-mid"}`} data-testid="round-label">
+          <p className={`font-mono text-xs font-semibold uppercase tracking-[0.12em] ${danger ? "text-rose-300" : "mx-accent-bright opacity-90"}`} data-testid="round-label">
             {label}
           </p>
-          <h2 className={`text-base font-extrabold ${danger ? "text-danger" : "text-phosphor"}`}>{step.name}</h2>
-          <p className="text-sm font-semibold text-paper" data-testid="team-phase">
+          <h2 className={`text-base font-bold ${danger ? "text-rose-200" : "text-white"}`}>{step.name}</h2>
+          <p className="text-sm font-medium text-slate-300" data-testid="team-phase">
             <Glyph e="⏱" spoken /> {PHASE_LABELS[phase]}
-            <PhaseEnd endsAt={endsAt} phase={phase} gate={gate} next={next} className="ml-1 font-semibold text-phosphor" />
+            <PhaseEnd endsAt={endsAt} phase={phase} gate={gate} next={next} className="mx-accent-text ml-1 font-semibold" />
           </p>
           {openRound ? (
-            <p className="ml-auto whitespace-nowrap font-mono text-sm font-bold text-phosphor" data-testid="open-round">
+            <p className="mx-accent-text ml-auto whitespace-nowrap font-mono text-sm font-semibold" data-testid="open-round">
               <Glyph e="📈" spoken /> Trading round {openRound.number} · <Countdown to={openRound.closes_at} passed="clearing" className="tabular-nums" /> left
             </p>
           ) : null}

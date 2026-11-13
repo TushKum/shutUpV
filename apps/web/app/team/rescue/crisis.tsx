@@ -40,11 +40,11 @@ export function CrisisPanel({
           <p>Then your squad rescues the company:</p>
           <ol className="space-y-2">
             {rescueTimeline(deadlines).map((t) => (
-              <li key={t.code} className="rounded-md bg-raised px-3 py-2">
-                <span className="block font-semibold text-phosphor">
-                  {DEADLINE_LABELS[t.code]} · <Due at={t.at} pause={pause} />
+              <li key={t.code} className="rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+                <span className="block font-semibold text-white">
+                  {DEADLINE_LABELS[t.code]} · <span className="mx-accent-text"><Due at={t.at} pause={pause} /></span>
                 </span>
-                {t.text}
+                <span className="text-slate-200">{t.text}</span>
               </li>
             ))}
           </ol>
@@ -58,16 +58,16 @@ export function CrisisPanel({
     <Panel title="The crisis">
       <div className="grid gap-4 md:grid-cols-2">
         {card ? (
-          <div className="mx-thermal border-l-4 border-danger bg-danger/10 py-2 pl-3 pr-2" data-testid="crisis-card">
+          <div className="mx-thermal rounded-2xl border border-rose-400/30 border-l-4 border-l-rose-400 bg-rose-500/[0.09] px-4 py-3 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]" data-testid="crisis-card">
             <ThermalBeam />
-            <p className="font-mono text-xs font-semibold uppercase tracking-wide text-danger-soft">Crisis · {card.category}</p>
-            <h3 className="mt-1 font-semibold text-danger [--mx-cipher-color:var(--mx-red)]">
+            <p className="font-mono text-xs font-semibold uppercase tracking-wider text-rose-300">Crisis · {card.category}</p>
+            <h3 className="mt-1 font-semibold text-rose-200 [--mx-cipher-color:#fda4af]">
               <CipherText text={card.title} />
             </h3>
-            {card.body ? <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{card.body}</p> : null}
+            {card.body ? <p className="mt-1.5 whitespace-pre-wrap text-sm text-slate-200">{card.body}</p> : null}
           </div>
         ) : (
-          <p className="text-sm text-paper">Your company&apos;s crisis card is not available.</p>
+          <p className="text-sm text-slate-200">Your company&apos;s crisis card is not available.</p>
         )}
         <div className="grid grid-cols-2 gap-2 self-start" data-testid="crisis-prices">
           <Stat

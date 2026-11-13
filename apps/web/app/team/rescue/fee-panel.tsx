@@ -82,16 +82,16 @@ export function FeePanel({
         ) : null}
 
         {fee.stage === "OPEN" ? (
-          <div className="rounded-md border border-line p-3" data-testid="fee-proposal">
+          <div className="rounded-2xl border border-white/14 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]" data-testid="fee-proposal">
             {p ? (
               <>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-semibold text-phosphor">On the table: version {p.version}</h3>
-                  <span className="text-xs text-muted">
+                  <h3 className="font-semibold text-white">On the table: version {p.version}</h3>
+                  <span className="text-xs text-slate-300">
                     Proposed by {teamLabel(p.by, track)} at {clock(p.at, true)}
                   </span>
                 </div>
-                <p className="mt-1 text-base text-phosphor" data-testid="fee-terms">
+                <p className="mx-accent-text mt-1.5 font-mono text-base font-semibold" data-testid="fee-terms">
                   {feeTermsText(p)}
                 </p>
                 <ul className="mt-2 space-y-1" aria-label="Fee confirmations">
@@ -118,20 +118,20 @@ export function FeePanel({
                   </div>
                 ) : null}
                 {fee.party && fee.mine ? (
-                  <p className="mt-2 text-paper">
+                  <p className="mt-2 text-slate-200">
                     You confirmed version {p.version}.{fee.waitingFor ? ` Waiting for ${teamLabel(fee.waitingFor, track)} to confirm it.` : ""}
                   </p>
                 ) : null}
               </>
             ) : (
-              <p className="text-paper">No fee has been proposed yet.</p>
+              <p className="text-slate-300">No fee has been proposed yet.</p>
             )}
           </div>
         ) : null}
 
         {fee.canPropose && ipoPrice ? (
           <div>
-            <h3 className="mb-2 font-semibold text-phosphor">{p ? "Propose different terms" : "Propose a fee"}</h3>
+            <h3 className="mb-2 font-semibold text-white">{p ? "Propose different terms" : "Propose a fee"}</h3>
             <FeeForm
               action={proposeFee}
               ipoPrice={ipoPrice}

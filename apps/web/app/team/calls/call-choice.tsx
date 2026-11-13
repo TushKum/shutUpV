@@ -56,12 +56,12 @@ export function CallChoice({
               aria-pressed={chosen}
               disabled={!open || pending}
               onClick={() => (chosen ? undefined : send(d))}
-              className={`min-w-20 rounded-md px-3 py-2 text-sm font-semibold ring-1 ring-inset disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`min-w-20 rounded-xl px-3 py-2 text-sm font-semibold ring-1 ring-inset transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 chosen
                   ? d === "BUY"
-                    ? "bg-phosphor text-ink ring-phosphor"
-                    : "bg-danger text-ink ring-danger"
-                  : "bg-ink text-phosphor ring-phosphor-dim hover:bg-phosphor-deep"
+                    ? "bg-[#46f097] text-[#031109] ring-[#46f097]"
+                    : "bg-rose-500 text-white ring-rose-400"
+                  : "bg-white/[0.06] text-slate-200 ring-white/15 hover:bg-white/[0.12] hover:text-white"
               }`}
             >
               {d}

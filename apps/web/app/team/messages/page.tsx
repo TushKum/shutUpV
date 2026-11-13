@@ -71,28 +71,32 @@ export default async function HireChatPage({ searchParams }: { searchParams: Pro
     <div className="grid gap-4 md:grid-cols-[16rem_1fr]">
       <AutoRefresh everyMs={5_000} active={open} />
       <KeepNewestInView newest={log.at(-1)?.id ?? null} />
-      <nav className="border border-line bg-panel" aria-label="Conversations">
-        <h2 className="border-b border-line bg-raised px-3 py-1.5 text-sm font-bold uppercase tracking-wider text-[var(--term-amber)]">
+      <nav className="mx-panel overflow-hidden" aria-label="Conversations">
+        <h2 className="border-b border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-bold uppercase tracking-[0.12em] text-amber-300">
           {product ? "Your firms" : "Your clients"}
         </h2>
-        <ul>
+        <ul className="divide-y divide-white/10">
           {threads.map((t) => {
             const l = label(t);
             const last = messages.get(pairKey(t.company_id, t.firm_team_id))?.at(-1);
             const current = t === active;
             return (
-              <li key={pairKey(t.company_id, t.firm_team_id)} className="border-b border-line last:border-b-0">
+              <li key={pairKey(t.company_id, t.firm_team_id)}>
                 <Link
                   href={`/team/messages?c=${t.company_id}&f=${t.firm_team_id}`}
                   aria-current={current ? "page" : undefined}
-                  className={`block px-3 py-2 ${current ? "bg-[var(--term-amber)] text-black" : "hover:bg-raised"}`}
+                  className={`block border-l-2 px-4 py-2.5 transition ${
+                    current
+                      ? "mx-accent-tab-left"
+                      : "border-transparent hover:bg-white/[0.05]"
+                  }`}
                   data-testid={`thread-${l.title}`}
                 >
                   <span className="flex items-baseline gap-2">
-                    <span className={`font-mono font-semibold ${current ? "" : "text-[var(--term-amber)]"}`}>{l.title}</span>
-                    <span className={`truncate text-xs ${current ? "" : "text-muted"}`}>{l.sub}</span>
+                    <span className={`font-mono font-semibold ${current ? "mx-accent-text" : "text-sky-300"}`}>{l.title}</span>
+                    <span className="truncate text-xs text-slate-400">{l.sub}</span>
                   </span>
-                  <span className={`block truncate text-xs ${current ? "" : "text-paper"}`}>
+                  <span className={`mt-0.5 block truncate text-xs ${current ? "text-slate-100" : "text-slate-300"}`}>
                     {last ? `${last.team_id === ctx.team.id ? "You: " : ""}${last.body}` : "No messages yet"}
                   </span>
                 </Link>
@@ -110,29 +114,39 @@ export default async function HireChatPage({ searchParams }: { searchParams: Pro
             </Badge>
           ))}
           {product ? (
-            <Link href={`/team/firms/${encodeURIComponent(head.title)}`} className="ml-auto text-[var(--term-amber)] hover:underline">
+            <Link href={`/team/firms/${encodeURIComponent(head.title)}`} className="ml-auto text-sky-300 underline-offset-2 hover:text-white hover:underline">
               Firm profile →
             </Link>
           ) : (
-            <span className="ml-auto text-muted">{companyLabel(company.get(active.company_id))}</span>
+            <span className="ml-auto text-slate-400">{companyLabel(company.get(active.company_id))}</span>
           )}
         </div>
-        <p className="text-sm text-paper">
+        <p className="text-sm text-slate-300">
           A private chat between {product ? "your company and this firm" : "your firm and this client"}. Organisers and the fairness officer can read it too, so keep it fair.
         </p>
-        <div id="chat-log" className="mt-3 max-h-[55vh] min-h-[12rem] overflow-y-auto border border-line bg-raised p-3" data-testid="chat-log">
+        <div
+          id="chat-log"
+          className="mt-3 max-h-[55vh] min-h-[12rem] overflow-y-auto rounded-2xl border border-white/12 bg-black/30 p-3.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.4)]"
+          data-testid="chat-log"
+        >
           {log.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted">No messages yet. {product ? "Tell your firm what you need." : "Say hello to your client."}</p>
+            <p className="py-6 text-center text-sm text-slate-400">No messages yet. {product ? "Tell your firm what you need." : "Say hello to your client."}</p>
           ) : (
-            <ol className="space-y-2" aria-label="Messages">
+            <ol className="space-y-2.5" aria-label="Messages">
               {log.map((m) => {
                 const mine = m.team_id === ctx.team.id;
                 return (
                   <li key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <article className={`max-w-[85%] px-3 py-2 text-sm ${mine ? "bg-phosphor-deep text-phosphor" : "bg-panel text-phosphor"}`}>
+                    <article
+                      className={`max-w-[85%] rounded-2xl border px-3.5 py-2.5 text-sm ${
+                        mine
+                          ? "mx-accent-bubble text-slate-100"
+                          : "border-white/12 bg-white/[0.07] text-slate-100"
+                      }`}
+                    >
                       <header className="mb-0.5 flex items-center gap-2 text-xs">
-                        <span className="font-semibold text-[var(--term-amber)]">{mine ? "You" : head.title}</span>
-                        <time dateTime={m.created_at} className="text-muted">
+                        <span className={`font-semibold ${mine ? "mx-accent-text" : "text-sky-300"}`}>{mine ? "You" : head.title}</span>
+                        <time dateTime={m.created_at} className="text-slate-400">
                           {clock(m.created_at)}
                         </time>
                       </header>

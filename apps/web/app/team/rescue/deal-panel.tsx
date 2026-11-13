@@ -61,17 +61,17 @@ export function DealPanel({
           </p>
           <p>All three teams sign the same version; any change resets every signature. The third signature completes the deal.</p>
         </HowItWorks>
-        <dl className="grid gap-2 sm:grid-cols-2">
-          <div className="rounded-md bg-raised px-3 py-2">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Deal bonus</dt>
-            <dd>
+        <dl className="grid gap-2.5 sm:grid-cols-2">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+            <dt className="font-mono text-[11px] font-medium uppercase tracking-wider text-slate-400">Deal bonus</dt>
+            <dd className="mt-1 text-slate-200">
               Fully signed by <Due at={deadlines.DEAL_BONUS} pause={pause} testId="deal-bonus-due" closed={deal.bonus === "YES" ? "signed" : null} />: the Consulting team earns {money(RULES.DEAL_BONUS)}.{" "}
               <OutcomeBadge testId="deal-bonus" value={deal.bonus} yes="Bonus earned" no="No bonus" />
             </dd>
           </div>
-          <div className="rounded-md bg-raised px-3 py-2">
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Plan cap</dt>
-            <dd>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+            <dt className="font-mono text-[11px] font-medium uppercase tracking-wider text-slate-400">Plan cap</dt>
+            <dd className="mt-1 text-slate-200">
               Not fully signed at {deadlines.DEAL ? clock(deadlines.DEAL) : "03:00"}: the rescue plan&apos;s score is capped at {RULES.PLAN_CAP_WITHOUT_DEAL}.{" "}
               <OutcomeBadge testId="deal-cap" value={deal.capped} yes="Plan capped at 50" no="No cap" yesTone="red" />
             </dd>
@@ -97,9 +97,9 @@ export function DealPanel({
         ) : null}
 
         {showTerms ? (
-          <div className="rounded-md border border-line p-3" data-testid="deal-terms">
+          <div className="rounded-2xl border border-white/14 bg-white/[0.045] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]" data-testid="deal-terms">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold text-phosphor">{deal.stage === "SIGNED" ? "Signed terms" : `Terms: version ${deal.version}`}</h3>
+              <h3 className="font-semibold text-white">{deal.stage === "SIGNED" ? "Signed terms" : `Terms: version ${deal.version}`}</h3>
               {deal.editedBy && deal.editedAt ? (
                 <span className="text-xs text-muted">
                   Last changed by {teamLabel(deal.editedBy, track)} at {clock(deal.editedAt, true)}
@@ -154,7 +154,7 @@ export function DealPanel({
 
         {(deal.canEditPrice || deal.canEditAmount) && postCrisis ? (
           <div>
-            <h3 className="mb-2 font-semibold text-phosphor">{deal.canEditPrice ? "Propose the price" : "Set the amount"}</h3>
+            <h3 className="mb-2 font-semibold text-white">{deal.canEditPrice ? "Propose the price" : "Set the amount"}</h3>
             <DealTermForm
               action={deal.canEditPrice ? setDealPrice : setDealAmount}
               track={deal.canEditPrice ? "CONSULTING" : "FINANCE"}
