@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { trading } from "./support/game";
 import { loginAsStaff } from "./support/login";
+import { LIVE } from "./support/live";
 
 // The big screen's late takeovers: the flash news, the closing bell and the awards. A whole night would be too slow,
 // so after the IPO the state is written directly where the game functions cannot be reached quickly (the phase, the
@@ -50,7 +51,7 @@ test("the flash news shows the bulletin's title and body, live, as large as fits
   await screen(page);
   await ev.n.org("prepare_flash_bulletin", ev.n.eventId, "Interest rates rise", BODY);
   await ev.n.org("publish_flash_bulletin", ev.n.eventId);
-  await expect(page.getByRole("heading", { name: "Flash news" })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("heading", { name: "Flash news" })).toBeVisible(LIVE);
   await expect(page.getByTestId("flash-title")).toHaveText("Interest rates rise");
   await expect(page.getByTestId("flash-body")).toHaveText(BODY);
   expect(await flashFits(page)).toBe(true);
@@ -142,7 +143,7 @@ test("before AWARDS no team name is on the screen; at AWARDS the podiums and the
 
   // The step into AWARDS goes through the phase machine (no flag is open) and the awards take over live.
   await ev.n.advanceTo("AWARDS");
-  await expect(page.getByRole("heading", { name: "Awards" })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("heading", { name: "Awards" })).toBeVisible(LIVE);
   const name = (code: string) => ev.plan.teams.find((t) => t.code === code)!.name;
   const place = (track: string, n: number) => page.getByTestId(`awards-${track}-${n}`);
   await expect(page.getByTestId("awards-PRODUCT")).toContainText("Product");

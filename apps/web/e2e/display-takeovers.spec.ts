@@ -3,6 +3,7 @@ import { aiPrice, applyTier, closingPrice, crisisShock, divRoundHalfUp, formatCe
 import { seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { drawn, seedOf } from "./support/game";
 import { loginAsStaff } from "./support/login";
+import { LIVE } from "./support/live";
 
 // The big screen's takeovers from the draw to the closing bell, on one event walked forward through the real game
 // functions: the squad draw with the seed check (and never the seed), the pitch verdicts with the IPO prices, the
@@ -62,7 +63,7 @@ test("the squad draw shows the commitment, the dice, the squads and the seed che
   await screen(page);
   await expect(page.getByTestId("board")).toBeVisible();
   s = await drawn(ev);
-  await expect(page.getByRole("heading", { name: "Squad draw" })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("heading", { name: "Squad draw" })).toBeVisible(LIVE);
 
   const commitment = sha256Hex(seedOf(ev));
   await expect(page.getByTestId("draw-commitment-group")).toHaveText(groups(commitment));
@@ -81,7 +82,7 @@ test("the squad draw shows the commitment, the dice, the squads and the seed che
 test("the pitch verdicts show every company's IPO price", async ({ page }) => {
   await screen(page);
   await pitchesReleased();
-  await expect(page.getByRole("heading", { name: "Pitch scores: IPO prices are set" })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("heading", { name: "Pitch scores: IPO prices are set" })).toBeVisible(LIVE);
   await expect(page.getByTestId("verdicts-listed")).toContainText("3");
   await expect(page.getByTestId("verdicts-range")).toContainText("$10.50");
   for (const t of ["EUA", "EUB", "EUC"]) {
@@ -98,7 +99,7 @@ test("the crisis shows each company's card and its price −15%, and the seed re
   await ev.n.advanceTo("ROUNDS_1_4");
   // Leaving rounds 1–4 clears them (nobody traded, so prices stay at $10.50); entering CRISIS draws the crisis.
   await ev.n.advanceTo("CRISIS");
-  await expect(page.getByRole("heading", { name: "Crisis" })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("heading", { name: "Crisis" })).toBeVisible(LIVE);
   await expect(page.getByTestId("crisis-headline")).toHaveText("Every company has been hit. All share prices fell 15%.");
 
   const cards = await ev.n.q<{ ticker: string; category: string }>(

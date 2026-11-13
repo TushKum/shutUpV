@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { drawn, pitchesReleased, trading } from "./support/game";
 import { loginAsStaff } from "./support/login";
+import { LIVE } from "./support/live";
 
 // The big screen's ticker board: the holding message before Reading, the companies with their IPO prices, a round's
 // clearing arriving live (new price, change since the IPO price, the arrow), paging 25 tiles at a time by the server
@@ -85,7 +86,7 @@ test("a round clears: the board updates live with the new price, the change sinc
   await ev.n.clearRound(1);
 
   // $10.50 → $10.82: (1082 − 1050) × 10,000 ÷ 1050 = 304.76 → +3.05%.
-  await expect(tile(page, "ETA").getByTestId("tile-price")).toHaveText("$10.82", { timeout: 5000 });
+  await expect(tile(page, "ETA").getByTestId("tile-price")).toHaveText("$10.82", LIVE);
   await expect(tile(page, "ETA").getByTestId("tile-change")).toHaveText("+3.05%");
   await expect(tile(page, "ETA").getByTestId("tile-change")).toHaveClass(/text-emerald-400/);
   await expect(tile(page, "ETA").getByTestId("tile-move")).toHaveAttribute("data-move", "UP");

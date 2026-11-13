@@ -12,3 +12,6 @@ coverage
 supabase/.temp
 supabase/.branches
 supabase/.temp
+# The real staff and team lists (names, emails), copied from the .example files: never committed.
+seed/staff.csv
+seed/teams.csv

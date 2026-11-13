@@ -4,6 +4,7 @@ import { e2eEnv } from "./support/env";
 import { seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { drawn } from "./support/game";
 import { loginAsStaff } from "./support/login";
+import { LIVE } from "./support/live";
 
 // The big screen's frame: the display account's way in, the header (phase, round, trading badge, clock), the
 // bulletin banner, live updates over the event channel, recovery on its own from a failed read and from a realtime
@@ -51,7 +52,7 @@ test("the display account signs in, picks the event, and sees the frame scaled t
 test("a published bulletin appears in the banner without a reload", async ({ page }) => {
   await screen(page);
   await ev.n.org("publish_bulletin", ev.n.eventId, "GENERAL", "Dinner is served in hall B", "Until 22:00.");
-  await expect(page.getByTestId("display-bulletin")).toContainText("Dinner is served in hall B", { timeout: 5000 });
+  await expect(page.getByTestId("display-bulletin")).toContainText("Dinner is served in hall B", LIVE);
   await expect(page.getByTestId("display-bulletin")).toContainText("GENERAL");
 });
 
@@ -152,10 +153,10 @@ test("after a short realtime drop, the screen catches up on what it missed", asy
 test("a pause shows PAUSED and the pause banner; resuming clears them", async ({ page }) => {
   await screen(page);
   await ev.n.org("pause_event", ev.n.eventId);
-  await expect(page.getByTestId("display-trading")).toHaveText("PAUSED", { timeout: 5000 });
+  await expect(page.getByTestId("display-trading")).toHaveText("PAUSED", LIVE);
   await expect(page.getByTestId("display-paused")).toBeVisible();
   await ev.n.org("resume_event", ev.n.eventId);
-  await expect(page.getByTestId("display-trading")).toHaveText("HALTED", { timeout: 5000 });
+  await expect(page.getByTestId("display-trading")).toHaveText("HALTED", LIVE);
   await expect(page.getByTestId("display-paused")).toHaveCount(0);
 });
 
@@ -163,7 +164,7 @@ test("the draw takes over the screen live", async ({ page }) => {
   await screen(page);
   await expect(page.getByTestId("board")).toBeVisible();
   await drawn(ev);
-  await expect(page.getByTestId("takeover")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByTestId("takeover")).toBeVisible(LIVE);
   await expect(page.getByRole("heading", { name: "Squad draw" })).toBeVisible();
   await expect(page.getByTestId("board")).toHaveCount(0);
 });
@@ -177,7 +178,7 @@ test("a pause shows during a takeover too", async ({ page }) => {
   await expect(takeover).toBeVisible();
   await expect(strip).toHaveCount(0);
   await ev.n.org("pause_event", ev.n.eventId);
-  await expect(strip).toBeVisible({ timeout: 5000 });
+  await expect(strip).toBeVisible(LIVE);
   await expect(takeover).toBeVisible();
   await expect(page.getByRole("heading", { name: "Squad draw" })).toBeVisible();
   const box = (await strip.boundingBox())!;
@@ -187,7 +188,7 @@ test("a pause shows during a takeover too", async ({ page }) => {
   );
   expect(top, "the strip is on top of the takeover").toBe(true);
   await ev.n.org("resume_event", ev.n.eventId);
-  await expect(strip).toHaveCount(0, { timeout: 5000 });
+  await expect(strip).toHaveCount(0, LIVE);
   await expect(takeover).toBeVisible();
 });
 
