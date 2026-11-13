@@ -16,6 +16,7 @@
     "judge-worker": "tsx --env-file-if-exists=.env scripts/judge-worker.ts",
     "human-scores": "tsx --env-file-if-exists=.env scripts/human-scores.ts",
     "print-docs": "tsx scripts/print-docs.ts",
+    "sectors": "tsx scripts/sectors.ts",
     "new-seed": "tsx scripts/new-seed.ts",
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "load-test": "tsx --env-file-if-exists=.env scripts/load-test.ts"

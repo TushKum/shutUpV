@@ -3,7 +3,9 @@
 // company gets its own sector's card; in Round 3 a company drafts only its own sector's statements.
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { drawLottery, sha256Hex } from "@msim/engine";
+import { crisisCardsFromCsv, drawLottery, problemCardsFromCsv, sha256Hex } from "@msim/engine";
+import { parseStatements } from "../../apps/web/lib/admin/content";
+import { buildSectorFiles, readLibrary } from "../../scripts/sectors";
 import { createTestDb } from "./pg";
 import { Night } from "./night";
 
@@ -121,5 +123,40 @@ describe("three sectors", () => {
     expect(picks).toHaveLength(6);
     for (const p of picks) expect(p.statement_sector).toBe(p.company_sector);
     await n.checkInvariants();
+  }, 120_000);
+
+  test("the five-sector files (seed/sectors/all) upload as they are; the draw splits ten squads two per sector", async () => {
+    const lib = readLibrary();
+    const n = await Night.create(db.pool, 10, "PRIMUS");
+    await n.org("upload_problem_deck", n.eventId, JSON.stringify(problemCardsFromCsv(lib.problems)));
+    await n.org("upload_crisis_deck", n.eventId, JSON.stringify(crisisCardsFromCsv(lib.crises)));
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, SEED, "3");
+    expect(await n.q(
+      `select pc.sector, count(*)::int as squads from squads s join problem_cards pc on pc.id = s.chosen_card_id
+        where s.event_id = $1 group by 1 order by 1`, [n.eventId],
+    )).toEqual(["Aviation", "Energy", "FMCG", "Fintech", "Luxury"].map((sector) => ({ sector, squads: 2 })));
+    expect(await n.q("select sector, count(*)::int as cards from crisis_cards where event_id = $1 group by 1 order by 1", [n.eventId]))
+      .toEqual(["Aviation", "Energy", "FMCG", "Fintech", "Luxury"].map((sector) => ({ sector, cards: 4 })));
+    // All fifty Round 3 statements are accepted: every sector has room for its companies.
+    const statements = parseStatements(lib.statements);
+    expect(statements.ok).toBe(true);
+    await n.org("set_problem_statements", n.eventId, JSON.stringify(statements.ok ? statements.value : []));
+    expect((await n.one("select count(*)::int as c from problem_statements where event_id = $1", [n.eventId])).c).toBe(50);
+  }, 120_000);
+
+  test("a swap made with pnpm sectors (Luxury, FMCG, Aviation) uploads as it is", async () => {
+    const files = buildSectorFiles(readLibrary(), ["Luxury", "FMCG", "Aviation"]);
+    const n = await Night.create(db.pool, 6, "PRIMUS");
+    await n.org("upload_problem_deck", n.eventId, JSON.stringify(problemCardsFromCsv(files.problems)));
+    await n.org("upload_crisis_deck", n.eventId, JSON.stringify(crisisCardsFromCsv(files.crises)));
+    await n.org("set_seed_commitment", n.eventId, sha256Hex(SEED));
+    await n.advanceTo("SQUAD_DRAW");
+    await n.org("run_lottery", n.eventId, SEED, "3");
+    expect(await n.q(
+      `select pc.sector, count(*)::int as squads from squads s join problem_cards pc on pc.id = s.chosen_card_id
+        where s.event_id = $1 group by 1 order by 1`, [n.eventId],
+    )).toEqual(["Aviation", "FMCG", "Luxury"].map((sector) => ({ sector, squads: 2 })));
   }, 120_000);
 });

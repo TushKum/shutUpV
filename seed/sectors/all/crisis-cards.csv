@@ -1,0 +1,21 @@
+sector,category,number,title,body
+Luxury,Operations,1,The digital identity breach,"A premium lifestyle platform you depend on is breached: the purchase histories and private profiles of 40,000 high-net-worth clients leak. Several cancel their memberships and the press names your brand."
+Luxury,Market,2,The experience economy disruption,A disruptive startup offers ultra-personalised premium experiences without ownership. 20% of your clients shift spending to it within a quarter and engagement with your products falls.
+Luxury,Trust,3,The counterfeit revolution,Hyper-realistic counterfeits made with advanced manufacturing flood the market. Even experts cannot tell them apart; resale prices of authentic pieces fall 30% and returns from buyers who fear fakes rise 4×.
+Luxury,Money,4,The luxury market crash,"A sudden downturn cuts discretionary spending: luxury retail falls 18%, high-end hospitality bookings 25% and luxury real estate deals 30%. Your next funding round is postponed."
+FMCG,Operations,1,Heatwave breaks the cold chain,"A 46°C heatwave hits North India. Your cold chain fails in 3 cities: 18% of this week's stock spoils and 2,400 customers post complaints. Refunds cost Rs 41 lakh."
+FMCG,Market,2,A giant gives it away free,A quick-commerce giant launches a free version of your core product or service for its partners. 22% of your customers say they will switch within a month.
+FMCG,Trust,3,Fake sustainability data,"A journalist shows that a key supplier faked its 'plastic-free' and 'organic' data, which you printed on your packs. #Greenwashing trends with your name in it."
+FMCG,Money,4,Raw materials up 30%,"Palm oil, packaging and fuel costs rise 30% in a quarter. Your gross margin falls from 34% to 21%, and your next funding round is now in doubt."
+Energy,Operations,1,Grid blackout in peak summer,"A 9-hour blackout across 4 states. Your systems or stations go offline, 30% of customers miss service, and penalty clauses cost Rs 55 lakh."
+Energy,Market,2,Cheap imports flood the market,Solar panels and batteries from abroad drop 25% in price. Your hardware now costs more than rivals' and two big orders are cancelled.
+Energy,Trust,3,A battery fire goes viral,"A video of a battery fire at a customer site gets 4 million views. The fire was not proven to be yours, but bookings fall 40% and a regulator asks for safety data."
+Energy,Money,4,Subsidy cut overnight,"The government cuts the subsidy your customers rely on from Rs 30,000 to Rs 10,000. Your payback pitch of 4 years becomes 6.5 years."
+Aviation,Operations,1,Airport IT outage,"A software failure takes check-in, boarding passes and baggage systems down at 3 major airports for 9 hours. 31,000 passengers are affected and your product or service stops working with them."
+Aviation,Market,2,A giant builds its own,The country's largest airline launches its own free version of your product for its passengers and partners. 30% of your users say they will switch within a quarter.
+Aviation,Trust,3,A safety incident under investigation,"A drone, aircraft or vehicle linked to your service is involved in an incident. No one is hurt, but the regulator opens an investigation and the video trends nationwide. Bookings fall 35%."
+Aviation,Money,4,Jet fuel up 35%,"Jet fuel prices rise 35% in a month. Airlines, your customers or partners, cut spending on new projects by a quarter and delay paying your invoices by 60 days."
+Fintech,Operations,1,The algorithm misfires,"A bug in your model makes 6,000 wrong trades or loan decisions in one morning. Customers lose Rs 2.1 crore before you stop it."
+Fintech,Market,2,A market crash,"The market falls 14% in five days. Your users' portfolios (or your borrowers' sales) drop sharply, and 25% of users stop using the app."
+Fintech,Trust,3,A data breach,Hackers leak the phone numbers and PAN details of 3 lakh users. Fraud calls start the same day and the news covers it.
+Fintech,Money,4,The regulator changes the rules,"The central bank tightens rules on your product: digital lending caps, new KYC checks, or limits on derivatives for small investors. Revenue from your main product falls 40%."
