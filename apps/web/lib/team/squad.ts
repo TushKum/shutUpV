@@ -309,7 +309,7 @@ export function submissionStatus(
   } else if (win.stage === "BEFORE") {
     state = { text: "Not open yet", tone: "slate" };
   } else {
-    state = saved ? { text: "Draft saved · not submitted", tone: "amber" } : { text: "Not started", tone: "slate" };
+    state = saved ? { text: "Draft saved · submitted for you at the deadline", tone: "amber" } : { text: "Not started", tone: "slate" };
   }
   return {
     type,

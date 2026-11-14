@@ -392,7 +392,7 @@ export function DraftEditor(props: DraftEditorProps) {
         )
       ) : live ? (
         <p className="text-sm text-paper" data-testid="submitted-state">
-          Not submitted yet. Only a submitted version is judged; you can submit again until the deadline.
+          Not submitted yet. Submit when it is ready (you can submit again until the deadline). If you forget, your last saved version is submitted for you at the deadline.
         </p>
       ) : null}
 

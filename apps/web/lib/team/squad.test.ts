@@ -226,7 +226,7 @@ describe("submission status (overview)", () => {
     expect(submissionStatus("PITCH", draft(0, {}), [], open, running)).toMatchObject({ draft: null, current: null, state: { text: "Not started" } });
     expect(submissionStatus("PITCH", draft(2), [], open, running)).toMatchObject({
       draft: { version: 2, words: 3, by: "p", savedAt: "2026-10-10T16:50:00.000Z" },
-      state: { text: "Draft saved · not submitted", tone: "amber" },
+      state: { text: "Draft saved · submitted for you at the deadline", tone: "amber" },
     });
     const s = submissionStatus("PITCH", draft(2), [sub({}), sub({ id: "s0", superseded_at: "2026-10-10T16:55:00.000Z" })], open, running);
     expect(s).toMatchObject({
