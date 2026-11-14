@@ -13,3 +13,15 @@ test("organisers land on the control panel; a team cannot open it", async ({ pag
   await page.goto("/admin");
   await expect(page).toHaveURL(/\/team/);
 });
+
+test("the QR code on a login card fills in the team code; the password may be typed loosely", async ({ page }) => {
+  const ev = await seedE2eEvent({ slug: "e2e-smoke", prefix: "A" });
+  const code = ev.plan.teams[0]!.code;
+  await page.goto(`/login?code=${code.toLowerCase()}`);
+  await expect(page.getByLabel("Team code")).toHaveValue(code);
+  await expect(page.getByLabel("Password")).toBeFocused();
+  // Lower case, spaces instead of dashes: still accepted.
+  await page.keyboard.type(ev.password(code).toLowerCase().replaceAll("-", " "));
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/team/);
+});

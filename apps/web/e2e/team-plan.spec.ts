@@ -200,6 +200,9 @@ test("the deal signed in time lifts the cap; near the plan deadline the notice t
   await expect(rule).toContainText("Your squad has not submitted a plan yet.");
   await expect(page.getByTestId("plan-rules").locator("div").filter({ has: rule })).toHaveClass(/bg-red-50/);
   await expect(page.getByTestId("plan-cap-rule")).toContainText("If it is not fully signed by");
+  // Typed in the last seconds, too late for the autosave.
+  const left = await ev.n.one("select extract(epoch from at - now()) * 1000 as left from deadlines where event_id = $1 and code = 'PLAN'", [ev.n.eventId]);
+  if (Number(left.left) > 4_000) await page.waitForTimeout(Number(left.left) - 4_000);
   await planEditor(page).getByLabel("The crisis").fill("Too late to save.");
 
   await expect(rule).toHaveText(/^No plan was submitted by \d\d:\d\d: the plan scores 0\.$/, { timeout: 30_000 });

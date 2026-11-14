@@ -7,13 +7,16 @@ import { MatrixRain } from "@/components/ui/matrix/matrix-rain";
 import { CipherText } from "@/components/ui/matrix/cipher-text";
 import { DitherLayer } from "@/components/ui/matrix/dither-layer";
 import { PORTAL_TITLES, teamPortal } from "@/lib/portal/portal";
-import { TRACK_LABELS } from "@msim/engine";
+import { TEAM_CODE_RE, TRACK_LABELS, normalizeTeamCode } from "@msim/engine";
 
 export const metadata: Metadata = { title: "Sign in · Market Simulation" };
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
-  const { next } = await searchParams;
+  const { next, code } = await searchParams;
   const nextPath = typeof next === "string" ? next : undefined;
+  // The QR code on a login card opens /login?code=P07: the team code is filled in and only the password is typed.
+  const cardCode = typeof code === "string" ? normalizeTeamCode(code) : "";
+  const prefill = TEAM_CODE_RE.test(cardCode) ? cardCode : undefined;
   const viewer = await getViewer();
   const portal = await teamPortal();
   if (viewer) redirect(safeNext(nextPath, viewer.role));
@@ -39,7 +42,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
               ? `For ${TRACK_LABELS[portal]} teams. Sign in with the team code and password on your card.`
               : "Sign in with the team code and password on your card."}
           </p>
-          <LoginForm next={nextPath} />
+          <LoginForm next={nextPath} code={prefill} />
         </div>
       </div>
     </main>

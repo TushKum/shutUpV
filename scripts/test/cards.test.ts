@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PDFDocument } from "pdf-lib";
 import { expect, test } from "vitest";
-import { CARDS_PER_PAGE, renderLoginCards, toWinAnsi } from "../lib/cards";
+import { CARDS_PER_PAGE, cardLoginLink, renderLoginCards, toWinAnsi } from "../lib/cards";
 import { buildSeedPlan } from "../lib/seed-plan";
 
 const plan = buildSeedPlan({
@@ -49,4 +49,9 @@ test("names outside the PDF font's character set never break printing", async ()
     rehearsal: true,
   });
   expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+});
+
+test("each card's QR code opens the login page with its team code, never the password", () => {
+  expect(cardLoginLink("https://x.org/login", "P07")).toBe("https://x.org/login?code=P07");
+  expect(cardLoginLink("https://x.org/login?portal=1", "F12")).toBe("https://x.org/login?portal=1&code=F12");
 });

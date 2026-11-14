@@ -5,9 +5,9 @@
 // deadline) and Submit (two clicks: it replaces the version that will be judged). Every save names the version it
 // was based on. A version saved elsewhere meanwhile is merged section by section with what was typed here: the other
 // team's sections are taken, the typed text stays, and a section both changed asks which text to keep (see
-// lib/team/editor.ts). The form hard-closes at the deadline by the server clock; the database refuses late saves anyway.
+// lib/team/editor.ts). Unsaved changes are also saved automatically after a pause in the typing. The form hard-closes at the deadline by the server clock; the database refuses late saves anyway.
 
-import { useEffect, useId, useReducer, useState, useSyncExternalStore, useTransition } from "react";
+import { useEffect, useId, useReducer, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { TEMPLATES, type SubmissionType } from "@msim/engine";
 import { clock } from "@/lib/format";
@@ -72,6 +72,11 @@ function readStorage(key: string): string | null {
   }
 }
 
+/** Autosave: a draft with unsaved changes is saved after this long without typing… */
+export const AUTOSAVE_IDLE_MS = 8_000;
+/** …and at least this often while someone keeps typing. */
+export const AUTOSAVE_MAX_MS = 45_000;
+
 const words = (n: number) => `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`;
 
 export function DraftEditor(props: DraftEditorProps) {
@@ -123,19 +128,48 @@ export function DraftEditor(props: DraftEditorProps) {
   const deliver = useCarryOver(saveResult);
   const payload = draftPayload(type, state.fields);
   const choosing = state.conflicts.length > 0;
-  const save = () => {
-    if (!live || !dirty || choosing || pending || submitting) return;
+  const tooBig = contentChars(payload) > MAX_CONTENT_CHARS;
+  const [autoSavedAt, setAutoSavedAt] = useState<string | null>(null);
+  const save = (auto = false) => {
+    if (!live || !dirty || choosing || pending || submitting || tooBig) return;
     const sent = payload;
     const base = state.base.version;
     dispatch({ type: "saving", fields: sent });
     start(async () => {
       const r = (await safely(() => saveDraft(type, sent, base, props.companyId))) as DraftResult;
-      deliver(r);
       dispatch(afterResult(r));
-      setSaveResult(r);
+      // An automatic save that worked is shown quietly next to the version; anything else is shown like a click.
+      if (auto && r.ok) setAutoSavedAt(r.draft?.updatedAt ?? null);
+      else {
+        deliver(r);
+        setSaveResult(r);
+      }
       router.refresh();
     });
   };
+
+  // Autosave: nobody loses typed text to a closed lid or a dead battery. It waits for a pause in the typing (and
+  // never longer than AUTOSAVE_MAX_MS), and never while a conflict waits for a choice.
+  const saveLatest = useRef(save);
+  useEffect(() => {
+    saveLatest.current = save;
+  });
+  const dirtySince = useRef<number | null>(null);
+  const canAutosave = live && dirty && !choosing && !tooBig;
+  useEffect(() => {
+    if (!canAutosave) {
+      dirtySince.current = null;
+      return;
+    }
+    if (pending || submitting) return;
+    dirtySince.current ??= Date.now();
+    const wait = Math.max(0, Math.min(AUTOSAVE_IDLE_MS, dirtySince.current + AUTOSAVE_MAX_MS - Date.now()));
+    const t = setTimeout(() => {
+      dirtySince.current = null;
+      saveLatest.current(true);
+    }, wait);
+    return () => clearTimeout(t);
+  }, [canAutosave, pending, submitting, state.fields]);
   const submit = async () => {
     const sent = dirty ? payload : null;
     if (sent) dispatch({ type: "saving", fields: sent });
@@ -158,7 +192,6 @@ export function DraftEditor(props: DraftEditorProps) {
   const version = closed ? closed.shown : state.base;
   const stats = wordStats(type, fields);
   const problem = submitProblem(type, fields);
-  const tooBig = contentChars(payload) > MAX_CONTENT_CHARS;
   const isSubmitted = !!props.submitted && sameFields(type, fieldsOf(type, props.submitted.content), fields);
   const ticker = fields.ticker ?? "";
   const confirm = `Click again to ${dirty ? "save and " : ""}submit ${words(stats.total)}${type === "PITCH" && ticker ? ` as ${ticker}` : ""}`;
@@ -220,7 +253,13 @@ export function DraftEditor(props: DraftEditorProps) {
         ) : (
           <span>Not saved yet.</span>
         )}
-        {dirty && live ? <Badge tone="amber">Unsaved changes</Badge> : null}
+        {dirty && live ? (
+          <Badge tone="amber">{pending ? "Saving…" : "Unsaved changes"}</Badge>
+        ) : autoSavedAt && live ? (
+          <span className="text-xs text-muted" data-testid="autosaved">
+            Saved automatically
+          </span>
+        ) : null}
       </p>
 
       {!live ? (
@@ -392,7 +431,8 @@ export function DraftEditor(props: DraftEditorProps) {
         )
       ) : live ? (
         <p className="text-sm text-paper" data-testid="submitted-state">
-          Not submitted yet. Submit when it is ready (you can submit again until the deadline). If you forget, your last saved version is submitted for you at the deadline.
+          Not submitted yet. Submit when it is ready (you can submit again until the deadline). Changes save automatically when you pause
+          typing, and if you forget to submit, your last saved version is submitted for you at the deadline.
         </p>
       ) : null}
 

@@ -1,6 +1,7 @@
 // Printable login cards: 8 per A4 page (2 × 4), with dashed cut lines. Black on white for any printer.
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import QRCode from "qrcode";
 import type { Track } from "@msim/engine";
 
 export interface LoginCard {
@@ -43,6 +44,21 @@ function fit(text: string, font: PDFFont, size: number, maxWidth: number): strin
   if (font.widthOfTextAtSize(t, size) <= maxWidth) return t;
   while (t.length > 1 && font.widthOfTextAtSize(`${t}...`, size) > maxWidth) t = t.slice(0, -1);
   return `${t}...`;
+}
+
+/** The sign-in address a card's QR code opens: the login page with the team code filled in (never the password). */
+export function cardLoginLink(loginUrl: string, code: string): string {
+  return `${loginUrl}${loginUrl.includes("?") ? "&" : "?"}code=${encodeURIComponent(code)}`;
+}
+
+function drawQr(page: PDFPage, text: string, x: number, y: number, size: number) {
+  const qr = QRCode.create(text, { errorCorrectionLevel: "M" });
+  const n = qr.modules.size;
+  const cell = size / n;
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (qr.modules.get(r, c))
+        page.drawRectangle({ x: x + c * cell, y: y + size - (r + 1) * cell, width: cell + 0.05, height: cell + 0.05, color: rgb(0, 0, 0) });
 }
 
 function dashedLine(page: PDFPage, x1: number, y1: number, x2: number, y2: number) {
@@ -97,25 +113,25 @@ export async function renderLoginCards(cards: readonly LoginCard[], opts: CardSh
       page.drawText("TEAM CODE", { x, y: top - 38, size: 7.5, font: bold, color: rgb(0.35, 0.35, 0.35) });
       page.drawText(card.code, { x, y: top - 72, size: 32, font: bold });
 
-      page.drawText(fit(card.teamName, sans, 10, w * 0.5), {
-        x: x + w * 0.48,
-        y: top - 62,
-        size: 10,
-        font: sans,
-      });
+      // QR code on the right: a phone camera opens the sign-in page with this team code already filled in.
+      const qrSize = 88;
+      const left = w - qrSize - 10;
+      drawQr(page, cardLoginLink(opts.loginUrl, card.code), x + w - qrSize, top - 28 - qrSize, qrSize);
 
-      page.drawText("PASSWORD", { x, y: top - 92, size: 7.5, font: bold, color: rgb(0.35, 0.35, 0.35) });
+      page.drawText(fit(card.teamName, sans, 9, left), { x, y: top - 85, size: 9, font: sans });
+
+      page.drawText("PASSWORD", { x, y: top - 97, size: 7.5, font: bold, color: rgb(0.35, 0.35, 0.35) });
       page.drawRectangle({
         x: x - 2,
-        y: top - 122,
-        width: w + 4,
-        height: 26,
+        y: top - 124,
+        width: left + 2,
+        height: 24,
         borderColor: rgb(0, 0, 0),
         borderWidth: 1,
       });
-      page.drawText(card.password, { x: x + 6, y: top - 116, size: 18, font: mono });
+      page.drawText(card.password, { x: x + 5, y: top - 117, size: 15, font: mono });
 
-      page.drawText(fit(`Log in at ${opts.loginUrl}`, sans, 9, w), { x, y: top - 140, size: 9, font: sans });
+      page.drawText(fit(`Scan the code, or log in at ${opts.loginUrl}`, sans, 8.5, w), { x, y: top - 140, size: 8.5, font: sans });
       const note = [
         "Log in once at check-in. Anyone holding this card can act for your",
         "team, so keep it with you. Lost card? Go to the technical support desk.",

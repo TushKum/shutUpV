@@ -28,6 +28,13 @@ test.afterAll(async () => {
   turn?.release();
 });
 
+/** Waits until `ms` before a deadline, by the database clock. */
+async function untilDeadline(code: string, ms: number) {
+  const r = await ev.n.one("select extract(epoch from at - now()) * 1000 as left from deadlines where event_id = $1 and code = $2", [ev.n.eventId, code]);
+  const wait = Number(r.left) - ms;
+  if (wait > 0) await new Promise((done) => setTimeout(done, wait));
+}
+
 const codeOf = (track: "PRODUCT" | "CONSULTING" | "FINANCE") => ev.plan.teams.find((t) => t.track === track)!.code;
 
 /** A second screen (another team, or the same team on another device). */
@@ -295,18 +302,25 @@ test("Consulting writes the crisis memo beside the case; Product reads it; the h
   await expect(page.getByTestId("submitted-MEMO")).toContainText("by Consulting · 19 words");
 });
 
-test("the pitch hard-closes at its deadline on an open page: read-only, unsaved text kept apart, and the server refuses", async ({ page }) => {
+test("the pitch autosaves after a pause, hard-closes at its deadline on an open page: read-only, text typed at the last moment kept apart, and the server refuses", async ({ page }) => {
   const z = s[2]!;
   await loginAsTeam(page, ev, z.p_code);
-  await ev.n.q("update deadlines set at = now() + interval '15 seconds' where event_id = $1 and code = 'PITCH'", [ev.n.eventId]);
+  await ev.n.q("update deadlines set at = now() + interval '30 seconds' where event_id = $1 and code = 'PITCH'", [ev.n.eventId]);
   await page.goto("/team/squad/pitch");
   const editor = page.getByRole("form", { name: "PRD editor" });
   await expect(page.getByTestId("pitch-due")).toHaveAttribute("data-state", "open");
-  await editor.getByLabel("Problem and target user").fill("Typed but never saved.");
+  // Typed, then a pause: saved without a click.
+  await editor.getByLabel("Problem and target user").fill("Saved by the pause.");
+  await expect(editor.getByTestId("autosaved")).toHaveText("Saved automatically", { timeout: 15_000 });
+  await expect(editor.getByTestId("draft-version")).toContainText("Version 1 · saved by your team at");
+  // Typed in the last seconds, too late for the autosave: kept apart, not part of the draft.
+  await untilDeadline("PITCH", 4_000);
+  await editor.getByLabel("Proposed solution").fill("Typed but never saved.");
   await expect(editor.getByTestId("draft-closed")).toHaveText(/^The PRD closed at \d\d:\d\d(:\d\d)?\.$/, { timeout: 30_000 });
   await expect(page.getByTestId("pitch-due")).toHaveAttribute("data-state", "passed");
-  await expect(editor.getByLabel("Problem and target user")).toHaveValue("");
-  await expect(editor.getByLabel("Problem and target user")).toHaveAttribute("readonly", "");
+  await expect(editor.getByLabel("Problem and target user")).toHaveValue("Saved by the pause.");
+  await expect(editor.getByLabel("Proposed solution")).toHaveValue("");
+  await expect(editor.getByLabel("Proposed solution")).toHaveAttribute("readonly", "");
   await expect(editor.getByRole("button", { name: /Save|Submit/ })).toHaveCount(0);
   const unsaved = editor.getByTestId("draft-unsaved");
   await expect(unsaved).toContainText("Not saved: the text below was typed on this screen but never saved");

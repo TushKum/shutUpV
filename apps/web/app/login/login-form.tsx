@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { signIn, type LoginState } from "./actions";
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ next, code }: { next?: string; code?: string }) {
   const [mode, setMode] = useState<"team" | "staff">("team");
   const [state, action, pending] = useActionState<LoginState, FormData>(signIn, {});
 
@@ -34,7 +34,7 @@ export function LoginForm({ next }: { next?: string }) {
           <span className="font-mono text-sm font-bold text-phosphor-mid">Team code</span>
           <input
             name="code"
-            defaultValue={mode === "team" ? state.login : undefined}
+            defaultValue={mode === "team" ? (state.login ?? code) : undefined}
             required
             autoComplete="username"
             autoCapitalize="characters"
@@ -63,6 +63,7 @@ export function LoginForm({ next }: { next?: string }) {
           type="password"
           required
           autoComplete="current-password"
+          autoFocus={mode === "team" && !!code}
           placeholder={mode === "team" ? "XXXX-XXXX-XXXX" : undefined}
           className="mt-1 block w-full rounded-md border border-phosphor-dim px-3 py-2 font-mono text-lg tracking-wider"
         />
