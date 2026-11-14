@@ -1,7 +1,9 @@
 "use client";
 
 // The steps of the crisis under way as a row of pills: done (✓), on now (with the time left) and later. The step on
-// now follows the server clock on the screen itself, so the row is right on every page without a re-read.
+// now follows the server clock on the screen itself, so the row is right on every page without a re-read. On a phone
+// only the step on now is spelled out (the others show their tick or number) and the arrows are left out, so the row
+// takes one or two lines.
 
 import { Countdown } from "@/components/ui/countdown";
 import { useDeadlineNow } from "@/lib/live/clock";
@@ -18,7 +20,7 @@ export function CrisisSteps({ steps, label, danger = false }: { steps: readonly 
         return (
           <li key={s.key} className="flex items-center gap-1" aria-current={st === "now" ? "step" : undefined} data-step={s.key} data-state={st} suppressHydrationWarning>
             {i > 0 ? (
-              <span aria-hidden className="text-muted">
+              <span aria-hidden className="hidden text-muted sm:inline">
                 →
               </span>
             ) : null}
@@ -31,7 +33,7 @@ export function CrisisSteps({ steps, label, danger = false }: { steps: readonly 
               <span aria-hidden suppressHydrationWarning>
                 {st === "done" ? "✓" : i + 1}
               </span>
-              {s.label}
+              <span className={st === "now" ? undefined : "sr-only sm:not-sr-only"}>{s.label}</span>
               {st === "now" && s.endsAt ? (
                 <span className="whitespace-nowrap font-mono tabular-nums">
                   · <Countdown to={s.endsAt} passed="now" /> left

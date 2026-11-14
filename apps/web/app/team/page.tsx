@@ -381,12 +381,12 @@ function SmallTask({ t }: { t: HomeTask }) {
         <p className="text-sm text-paper">{t.detail}</p>
       </div>
       {/* On a phone the countdown and the button go on their own row, under the text. */}
-      <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
+      <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto">
         <Due t={t} />
         {t.href ? (
           <Link
             href={t.href}
-            className={`mx-key rounded-xl px-3 py-2 text-sm ${t.state === "todo" ? "" : "mx-key-quiet"}`}
+            className={`mx-key shrink-0 whitespace-nowrap rounded-xl px-3 py-2 text-sm ${t.state === "todo" ? "" : "mx-key-quiet"}`}
           >
             {t.linkLabel}
           </Link>

@@ -53,6 +53,11 @@ test("Round 2: the banner, the tasks and the crisis room lead each track through
   await expect(hire).toContainText("Hire a consulting firm");
   await expect(page.getByTestId("task-PLAN_K")).toContainText("Write and submit your plan for crisis 1");
   await shot(page, "01-product-home");
+  // On a phone the home page and its banner fit the screen: nothing scrolls sideways.
+  const desk = page.viewportSize()!;
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.setViewportSize(desk);
 
   // The crisis room: four numbered steps; hiring is the one to do now.
   await hire.getByRole("link", { name: "Choose a firm" }).click();
