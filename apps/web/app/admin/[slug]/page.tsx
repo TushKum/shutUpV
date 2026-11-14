@@ -11,6 +11,11 @@ import { advancePhase, extendEvent, extendEventForm, pauseEvent, resumeEvent, se
 import { closeRound } from "./rounds/actions";
 import { AutoAdvanceButton } from "./auto-advance";
 import { RefreshAt } from "@/lib/live/refresh-at";
+import Link from "next/link";
+import { organiserTodos } from "@/lib/admin/todo";
+import { loadTodoInput } from "@/lib/admin/todo-data";
+import { EXPECTED_SCHEMA, schemaState } from "@/lib/schema";
+import { readSchemaVersion } from "@/lib/schema-data";
 
 export const metadata: Metadata = { title: "Phase" };
 
@@ -27,7 +32,10 @@ interface PhaseRow {
 export default async function PhaseControl({ params }: PageProps<"/admin/[slug]">) {
   const { slug } = await params;
   const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
-  const status = await loadEventStatus(event.id);
+  const [status, todoInput] = await Promise.all([loadEventStatus(event.id), loadTodoInput(event)]);
+  const todos = organiserTodos(todoInput);
+  const dbVersion = await readSchemaVersion();
+  const schema = schemaState(dbVersion);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
   const [phases, deadlines, rounds, subrounds, engagements, picks, statements, companies, squadCards] = await Promise.all([
@@ -108,6 +116,40 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
               </Notice>
             </div>
           ) : null}
+        </Panel>
+
+        {schema === "behind" ? (
+          <Notice tone="red">
+            <strong>The database is missing migrations.</strong> This app needs database version {EXPECTED_SCHEMA}; the database is at{" "}
+            {dbVersion}. Run the newer files in supabase/migrations (docs/DEPLOY.md) before the event.
+          </Notice>
+        ) : null}
+        <Panel title="To do now">
+          {todos.length === 0 ? (
+            <p className="text-sm text-muted" data-testid="todo-empty">
+              Nothing is waiting on you. The night runs itself until the next step above.
+            </p>
+          ) : (
+            <ol className="space-y-2" data-testid="todo">
+              {todos.map((t) => (
+                <li key={t.text}>
+                  <Link
+                    href={`/admin/${slug}${t.path}`}
+                    className={`flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm ring-1 ring-inset hover:underline ${
+                      t.tone === "red"
+                        ? "bg-danger/10 text-danger-soft ring-danger/60"
+                        : t.tone === "amber"
+                          ? "bg-warn/10 text-warn ring-warn/60"
+                          : "bg-raised text-paper ring-line"
+                    }`}
+                  >
+                    <span>{t.text}</span>
+                    <span aria-hidden>→</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          )}
         </Panel>
 
         {organiser ? (

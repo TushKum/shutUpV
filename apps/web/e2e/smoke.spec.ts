@@ -25,3 +25,9 @@ test("the QR code on a login card fills in the team code; the password may be ty
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/team/);
 });
+
+test("/api/health reports the database and that it has every migration this build needs", async ({ request }) => {
+  const r = await request.get("/api/health");
+  expect(r.status()).toBe(200);
+  expect(await r.json()).toMatchObject({ app: "ok", database: "ok", schema: "ok" });
+});

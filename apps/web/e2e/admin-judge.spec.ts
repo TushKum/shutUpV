@@ -100,7 +100,12 @@ test.describe("judging the pitches", () => {
 
   test("an organiser sees the judge controls, every company's runs, spread and median, and why the release is refused", async ({ page }) => {
     await loginAsStaff(page, ev, STAFF.lead);
-    await page.goto(`/admin/${ev.slug}/judge`);
+    // The control panel's to-do list sends the organiser here: two pitches still need the judge (KFJ, and KSN's extra runs).
+    await page.goto(`/admin/${ev.slug}`);
+    const todo = page.getByTestId("todo").getByRole("link", { name: /^Start judging the pitch: 2 answers wait\./ });
+    await expect(todo).toBeVisible();
+    await todo.click();
+    await expect(page).toHaveURL(new RegExp(`/admin/${ev.slug}/judge\\?type=PITCH$`));
     await expect(page.getByRole("heading", { name: "Pitch scores" })).toBeVisible(); // READING shows pitches first
     await expect(page.getByText(/Phase 6/)).toHaveCount(0);
 

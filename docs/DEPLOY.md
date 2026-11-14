@@ -42,6 +42,10 @@ bypasses RLS, and `CARD_SECRET` can derive all team passwords. Restrict laptop a
    ```
    Review the CLI's proposed migration list before accepting. If a migration fails, diagnose it rather than marking
    it applied manually. Never run a local reset command against production.
+   **Check the version:** after deploying the app, open `https://<app>/api/health`. It must say `"schema": "ok"`.
+   `"behind"` means a migration this build needs was not applied (the control panel shows a red warning too); apply it
+   before the event. From migration 50 on, every new migration redefines `public.schema_version()` with its own
+   version, and `apps/web/lib/schema.ts` names the version the app expects (a unit test keeps them in step).
    **Judge upgrade order:** stop/drain existing judge consoles and CLI workers, apply migrations through
    `20261017000022_judge_lifetime_claims.sql`, then deploy/start the updated app and CLI. Migration 22 adds lifetime
    `claim_token` ownership independently of resettable retry `attempts`; the report field `attempt` now carries

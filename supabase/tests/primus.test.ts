@@ -147,6 +147,8 @@ describe("PRIMUS rounds 2 and 3", () => {
       as(db.pool, caller, async (cl) => (await cl.query("select type from submission_drafts where company_id = $1", [b.company_id])).rows);
     expect(await draftsOfB(firmCaller)).toEqual(expect.arrayContaining([{ type: "CRISIS_1" }]));
     expect(await draftsOfB(n.team(c.c_code))).toEqual([]);
+    // B then empties its draft, so nothing is submitted for it at the deadline (a saved draft would be: auto-submit).
+    await n.ok(n.team(b.p_code), "save_draft", "CRISIS_1", {}, 1);
 
     // ── Due: escrow paid to the firm for A (cash and shares), refunded to B.
     const firmCash = BigInt((await n.one("select cash_cents::bigint as c from teams where id = $1", [firm])).c);
