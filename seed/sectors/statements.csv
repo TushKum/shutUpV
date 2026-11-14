@@ -1,31 +1,241 @@
 sector,number,title,body,cap
-Luxury,1,Expand to new clients without losing exclusivity,"Luxury · Round 3. Expand to new clients without losing exclusivity. Design the solution, how it is delivered and how it is measured.",5
-Luxury,2,One personal assistant for a client's whole luxury life,"Luxury · Round 3. One personal assistant for a client's whole luxury life. Design the solution, how it is delivered and how it is measured.",5
-Luxury,3,Prove any luxury item is genuine in seconds,"Luxury · Round 3. Prove any luxury item is genuine in seconds. Design the solution, how it is delivered and how it is measured.",5
-Luxury,4,"Fractional ownership of art, cars or watches","Luxury · Round 3. Fractional ownership of art, cars or watches. Design the solution, how it is delivered and how it is measured.",5
-Luxury,5,After-sales care as good as the purchase,"Luxury · Round 3. After-sales care as good as the purchase. Design the solution, how it is delivered and how it is measured.",5
-Luxury,6,Turn a fashion brand into a hospitality experience,"Luxury · Round 3. Turn a fashion brand into a hospitality experience. Design the solution, how it is delivered and how it is measured.",5
-Luxury,7,Luxury materials that are fully traceable and sustainable,"Luxury · Round 3. Luxury materials that are fully traceable and sustainable. Design the solution, how it is delivered and how it is measured.",5
-Luxury,8,Win the next generation of luxury buyers,"Luxury · Round 3. Win the next generation of luxury buyers. Design the solution, how it is delivered and how it is measured.",5
-Luxury,9,"Private, secure data for high-net-worth clients","Luxury · Round 3. Private, secure data for high-net-worth clients. Design the solution, how it is delivered and how it is measured.",5
-Luxury,10,"Circular luxury: repair, resell and refurbish at scale","Luxury · Round 3. Circular luxury: repair, resell and refurbish at scale. Design the solution, how it is delivered and how it is measured.",5
-FMCG,11,Cut fresh-food waste from 9% to 3% across the supply chain,"FMCG · Round 3. Cut fresh-food waste from 9% to 3% across the supply chain. Design the solution, how it is delivered and how it is measured.",5
-FMCG,12,"Reach 50,000 rural kirana shops profitably","FMCG · Round 3. Reach 50,000 rural kirana shops profitably. Design the solution, how it is delivered and how it is measured.",5
-FMCG,13,Plastic-free packaging that costs under Rs 1 more per pack,"FMCG · Round 3. Plastic-free packaging that costs under Rs 1 more per pack. Design the solution, how it is delivered and how it is measured.",5
-FMCG,14,Honest health labels shoppers actually read,"FMCG · Round 3. Honest health labels shoppers actually read. Design the solution, how it is delivered and how it is measured.",5
-FMCG,15,Forecast festival demand within 10% across city types,"FMCG · Round 3. Forecast festival demand within 10% across city types. Design the solution, how it is delivered and how it is measured.",5
-FMCG,16,Win shelf space on quick-commerce apps against big brands,"FMCG · Round 3. Win shelf space on quick-commerce apps against big brands. Design the solution, how it is delivered and how it is measured.",5
-FMCG,17,Make healthy snacks affordable under Rs 20,"FMCG · Round 3. Make healthy snacks affordable under Rs 20. Design the solution, how it is delivered and how it is measured.",5
-FMCG,18,Trace every ingredient from farm to pack in seconds,"FMCG · Round 3. Trace every ingredient from farm to pack in seconds. Design the solution, how it is delivered and how it is measured.",5
-FMCG,19,Return and refill systems for household products,"FMCG · Round 3. Return and refill systems for household products. Design the solution, how it is delivered and how it is measured.",5
-FMCG,20,Personalised nutrition for India's diabetic population,"FMCG · Round 3. Personalised nutrition for India's diabetic population. Design the solution, how it is delivered and how it is measured.",5
-Energy,21,Rooftop solar for renters and apartment blocks,"Energy · Round 3. Rooftop solar for renters and apartment blocks. Design the solution, how it is delivered and how it is measured.",5
-Energy,22,EV charging on highways that pays for itself in 3 years,"Energy · Round 3. EV charging on highways that pays for itself in 3 years. Design the solution, how it is delivered and how it is measured.",5
-Energy,23,Batteries that survive Indian summers for 10 years,"Energy · Round 3. Batteries that survive Indian summers for 10 years. Design the solution, how it is delivered and how it is measured.",5
-Energy,24,Carbon tracking a small factory can afford,"Energy · Round 3. Carbon tracking a small factory can afford. Design the solution, how it is delivered and how it is measured.",5
-Energy,25,Cutting peak-hour demand without blackouts,"Energy · Round 3. Cutting peak-hour demand without blackouts. Design the solution, how it is delivered and how it is measured.",5
-Energy,26,Clean cooking for 20 crore rural homes,"Energy · Round 3. Clean cooking for 20 crore rural homes. Design the solution, how it is delivered and how it is measured.",5
-Energy,27,Recycling used EV and solar batteries,"Energy · Round 3. Recycling used EV and solar batteries. Design the solution, how it is delivered and how it is measured.",5
-Energy,28,Green power for cold storage on farms,"Energy · Round 3. Green power for cold storage on farms. Design the solution, how it is delivered and how it is measured.",5
-Energy,29,Paying households for power they save,"Energy · Round 3. Paying households for power they save. Design the solution, how it is delivered and how it is measured.",5
-Energy,30,Clean energy for 24/7 data centres,"Energy · Round 3. Clean energy for 24/7 data centres. Design the solution, how it is delivered and how it is measured.",5
+Luxury,1,Expand to new clients without losing exclusivity,"Luxury · Round 3. Expand to new clients without losing exclusivity.
+
+Who it is for: A heritage watchmaker whose clients are mostly over 55.
+The numbers: Its clients spend Rs 12 lakh a year on average; it wins only 300 new ones a year.
+The catch: Every new client must feel as exclusive as the old ones; one mass campaign could undo 40 years of the brand.
+You win if: 1,000 new clients in a year with no fall in the average price paid.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,2,One personal assistant for a client's whole luxury life,"Luxury · Round 3. One personal assistant for a client's whole luxury life.
+
+Who it is for: A family that spends on travel, fashion, art and cars through 20 separate concierges.
+The numbers: They spend about Rs 3 crore a year and lose roughly 40 hours a month to arranging it.
+The catch: They share their data with no one they do not trust completely.
+You win if: One assistant they use every week, and a fee they pay without asking for a discount.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,3,Prove any luxury item is genuine in seconds,"Luxury · Round 3. Prove any luxury item is genuine in seconds.
+
+Who it is for: Resale shops and buyers of second-hand luxury bags and watches.
+The numbers: 1 in 8 items offered for resale is fake, and an expert check takes 3 days and costs Rs 4,000.
+The catch: Counterfeits now pass the checks experts use, so a better eye is not enough.
+You win if: A check in under 60 seconds, at under Rs 200, that catches 99% of fakes.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,4,"Fractional ownership of art, cars or watches","Luxury · Round 3. Fractional ownership of art, cars or watches.
+
+Who it is for: Young professionals who earn well but cannot buy a Rs 50 lakh painting or car.
+The numbers: A share can start at Rs 25,000, and a year of ownership must cost less than renting the item.
+The catch: Owners argue about who uses the car, when to sell and who pays for insurance.
+You win if: Shares that sell again within a week at a fair price, with no disputes left open.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,5,After-sales care as good as the purchase,"Luxury · Round 3. After-sales care as good as the purchase.
+
+Who it is for: Clients who bought a Rs 5 lakh piece and waited 3 months for a repair.
+The numbers: Repairs take 90 days on average and 30% of clients do not buy again after one.
+The catch: The best craftsmen are few, and are in Europe.
+You win if: Repairs back in under 14 days and clients who buy again more often after a repair than before it.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,6,Turn a fashion brand into a hospitality experience,"Luxury · Round 3. Turn a fashion brand into a hospitality experience.
+
+Who it is for: A fashion house that wants clients to stay, eat and celebrate inside its world.
+The numbers: A hotel costs Rs 200 crore to build; the brand has Rs 20 crore to spend.
+The catch: Hospitality is a different business, and one bad stay is seen by the whole fashion world.
+You win if: A first experience that sells out and earns money within 12 months.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,7,Luxury materials that are fully traceable and sustainable,"Luxury · Round 3. Luxury materials that are fully traceable and sustainable.
+
+Who it is for: Brands that use leather, gold and silk and are asked where they came from.
+The numbers: Under 20% of their materials can be traced to the source today.
+The catch: Suppliers guard their sources, and new materials must still feel luxurious.
+You win if: 80% of materials traced, with proof a client can see on the product.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,8,Win the next generation of luxury buyers,"Luxury · Round 3. Win the next generation of luxury buyers.
+
+Who it is for: Buyers aged 22 to 30 who prefer experiences, resale and their own feeds to the brand's store.
+The numbers: They will be 40% of luxury buyers by 2030 but are 10% of this brand's sales.
+The catch: What attracts them may put off today's loyal clients.
+You win if: Doubling the brand's sales to buyers under 30 without losing its older clients.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,9,"Private, secure data for high-net-worth clients","Luxury · Round 3. Private, secure data for high-net-worth clients.
+
+Who it is for: Families whose wealth, travel and purchases are tracked by apps, staff and hackers.
+The numbers: One leak can cost a client crores in fraud or kidnap risk.
+The catch: Clients want privacy and the convenience of apps at the same time.
+You win if: A service clients trust with their data, audited by an outside firm, that nobody leaves.
+
+Design the solution, how it is delivered and how it is measured.",5
+Luxury,10,"Circular luxury: repair, resell and refurbish at scale","Luxury · Round 3. Circular luxury: repair, resell and refurbish at scale.
+
+Who it is for: A luxury group with 50,000 old pieces in its clients' cupboards.
+The numbers: Each piece can be repaired and resold 2 or 3 times; today 5% are.
+The catch: Resale must not make new pieces look cheaper.
+You win if: Resale and repair worth 15% of the group's revenue within 3 years.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,11,Cut fresh-food waste from 9% to 3% across the supply chain,"FMCG · Round 3. Cut fresh-food waste from 9% to 3% across the supply chain.
+
+Who it is for: A dairy and fresh-produce brand that sells through 30,000 shops.
+The numbers: 9% of its fresh stock is thrown away, worth Rs 60 crore a year.
+The catch: Shops do not share their sales data and have no space for new equipment.
+You win if: Waste at 3% within a year, with shops earning more than before.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,12,"Reach 50,000 rural kirana shops profitably","FMCG · Round 3. Reach 50,000 rural kirana shops profitably.
+
+Who it is for: A biscuit and soap company that sells in cities but hardly reaches villages.
+The numbers: A rural kirana orders Rs 2,000 a week, and each delivery costs Rs 300.
+The catch: Roads, cash payments and tiny orders make every visit expensive.
+You win if: 50,000 shops served at a profit on every order within 18 months.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,13,Plastic-free packaging that costs under Rs 1 more per pack,"FMCG · Round 3. Plastic-free packaging that costs under Rs 1 more per pack.
+
+Who it is for: A snacks brand selling 2 crore packs a month.
+The numbers: Plastic packaging costs Rs 1.20 a pack; the alternatives cost Rs 3 or more.
+The catch: Food must stay fresh for 6 months in hot, humid shops.
+You win if: Plastic-free packs at under Rs 2.20 a pack with the same shelf life.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,14,Honest health labels shoppers actually read,"FMCG · Round 3. Honest health labels shoppers actually read.
+
+Who it is for: Shoppers who spend 4 seconds choosing a pack of noodles.
+The numbers: Under 10% read the label, and most claims on the front are vague.
+The catch: Brands fear honest labels will hurt sales.
+You win if: A label that changes what at least 1 shopper in 5 buys, with sales held.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,15,Forecast festival demand within 10% across city types,"FMCG · Round 3. Forecast festival demand within 10% across city types.
+
+Who it is for: A sweets and snacks brand planning Diwali.
+The numbers: Last year it overstocked metros by 40% and ran out in small towns, a Rs 3.2 crore loss.
+The catch: Every city and town celebrates differently, and data from small shops is thin.
+You win if: A forecast within 10% in every city type, tested on last year's festival.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,16,Win shelf space on quick-commerce apps against big brands,"FMCG · Round 3. Win shelf space on quick-commerce apps against big brands.
+
+Who it is for: A new healthy-food brand on quick-commerce apps.
+The numbers: The top 3 brands take 80% of the first screen, and paying for placement costs 25% of sales.
+The catch: The apps own the customer data and change their rankings often.
+You win if: First-screen placement in 3 cities while spending under 10% of sales on it.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,17,Make healthy snacks affordable under Rs 20,"FMCG · Round 3. Make healthy snacks affordable under Rs 20.
+
+Who it is for: Students and workers who buy snacks at Rs 10 to Rs 20.
+The numbers: Healthy snacks today cost Rs 50 or more.
+The catch: Better ingredients cost more, and cheap healthy snacks often taste worse.
+You win if: A healthy snack at Rs 20 that sells 1 lakh packs a month and earns a margin.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,18,Trace every ingredient from farm to pack in seconds,"FMCG · Round 3. Trace every ingredient from farm to pack in seconds.
+
+Who it is for: A spice and tea company with 4,000 farmers.
+The numbers: Tracing a single ingredient today takes 3 weeks and a phone call to each supplier.
+The catch: Farmers have basic phones, and middlemen do not want to be seen.
+You win if: Every pack traceable to its farms in under 10 seconds.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,19,Return and refill systems for household products,"FMCG · Round 3. Return and refill systems for household products.
+
+Who it is for: City households that buy detergent, shampoo and oil in plastic bottles.
+The numbers: A family throws away about 150 bottles a year.
+The catch: Refills must be no harder and no dearer than buying a new bottle.
+You win if: 20,000 households refilling every month and 30% less plastic sold.
+
+Design the solution, how it is delivered and how it is measured.",5
+FMCG,20,Personalised nutrition for India's diabetic population,"FMCG · Round 3. Personalised nutrition for India's diabetic population.
+
+Who it is for: Some of India's 10 crore people with diabetes, and their families.
+The numbers: Most see a doctor twice a year and get the same generic diet chart.
+The catch: Food is cultural, budgets are tight, and nobody wants to feel ill.
+You win if: Members whose blood sugar improves measurably within 6 months, at under Rs 500 a month.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,21,Rooftop solar for renters and apartment blocks,"Energy · Round 3. Rooftop solar for renters and apartment blocks.
+
+Who it is for: Renters and apartment residents who cannot put panels on a roof they do not own.
+The numbers: Half of city homes are rented or in tall blocks.
+The catch: Owners, residents' associations and the power company must all agree.
+You win if: 500 flats on solar in a year, with tenants saving 20% on their bills.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,22,EV charging on highways that pays for itself in 3 years,"Energy · Round 3. EV charging on highways that pays for itself in 3 years.
+
+Who it is for: Highway charging-station investors.
+The numbers: A fast charger costs Rs 40 lakh and sees only 6 cars a day today.
+The catch: Highway traffic is seasonal and EV numbers are still small.
+You win if: A site that pays back in 3 years with today's traffic.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,23,Batteries that survive Indian summers for 10 years,"Energy · Round 3. Batteries that survive Indian summers for 10 years.
+
+Who it is for: Home and shop battery owners in North India.
+The numbers: Batteries lose half their life in 45°C heat.
+The catch: Cooling uses the power the battery is meant to save.
+You win if: Batteries that keep 80% of their capacity after 10 hot summers, at no more than 15% extra cost.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,24,Carbon tracking a small factory can afford,"Energy · Round 3. Carbon tracking a small factory can afford.
+
+Who it is for: Small factories that export to Europe and must report their carbon.
+The numbers: A carbon audit costs Rs 5 lakh; most factories earn Rs 2 crore a year.
+The catch: Factory owners have no data team and do not trust software.
+You win if: A report that buyers accept, for under Rs 25,000 a year.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,25,Cutting peak-hour demand without blackouts,"Energy · Round 3. Cutting peak-hour demand without blackouts.
+
+Who it is for: A city power company that buys expensive power at 7 pm every summer evening.
+The numbers: Peak power costs 4× normal, and a 10% cut would avoid blackouts.
+The catch: Nobody wants to be told when to use their AC.
+You win if: Peak demand down 10% with no blackouts and no forced switch-offs.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,26,Clean cooking for 20 crore rural homes,"Energy · Round 3. Clean cooking for 20 crore rural homes.
+
+Who it is for: Rural homes still cooking on wood and dung.
+The numbers: Smoke from cooking harms health in millions of homes; an LPG refill costs a week's income.
+The catch: Families go back to wood when gas runs out or gets dear.
+You win if: 10,000 homes cooking clean every day after a year, not only on day one.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,27,Recycling used EV and solar batteries,"Energy · Round 3. Recycling used EV and solar batteries.
+
+Who it is for: Owners of used EV batteries and old solar panels.
+The numbers: 1 lakh tonnes of batteries will retire each year by 2030; under 10% are recycled properly.
+The catch: Informal recyclers pay more and pollute.
+You win if: A recycling route that pays owners as much as the informal trade and recovers 90% of the metals.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,28,Green power for cold storage on farms,"Energy · Round 3. Green power for cold storage on farms.
+
+Who it is for: Farmers' cooperatives that store fruit and vegetables.
+The numbers: Up to 30% of produce rots for lack of cold storage; diesel cold rooms cost Rs 1,500 a day to run.
+The catch: Villages have power for only part of the day.
+You win if: Cold storage running on clean power at half the cost of diesel.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,29,Paying households for power they save,"Energy · Round 3. Paying households for power they save.
+
+Who it is for: Households on a city power network.
+The numbers: The power company pays Rs 12 for a unit at peak and sells it to homes at Rs 7.
+The catch: Saving must be easy and the payment worth noticing.
+You win if: 50,000 homes paid every month, with savings the power company can measure.
+
+Design the solution, how it is delivered and how it is measured.",5
+Energy,30,Clean energy for 24/7 data centres,"Energy · Round 3. Clean energy for 24/7 data centres.
+
+Who it is for: Data-centre operators that promise clients clean power at every hour.
+The numbers: Solar covers the day; nights and cloudy weeks still run on coal.
+The catch: Storage for every hour is very expensive.
+You win if: 90% clean power around the clock at a price clients accept.
+
+Design the solution, how it is delivered and how it is measured.",5

@@ -64,7 +64,7 @@ export function CrisisSplash({ card, own }: { card: SplashCard | null; own: bool
         </p>
         <p className="mt-3 text-xs font-bold uppercase tracking-widest text-danger-soft">{card.category}</p>
         <h2 className="mt-1 text-3xl font-extrabold leading-tight text-[var(--term-amber)]">{card.title}</h2>
-        <p className="mt-3 text-base text-paper">{card.body}</p>
+        <p className="mt-3 whitespace-pre-wrap text-base text-paper">{card.body}</p>
         <p className="mt-4 rounded-lg border border-danger/60 px-3 py-2 text-sm font-semibold text-danger-soft">
           {own ? "This is your company's card." : "This is your squad's company's card."} Every share price just fell 5%.
         </p>

@@ -37,9 +37,12 @@ describe("the sector library (seed/sectors/all)", () => {
       "Airport IT outage", "A giant builds its own", "A safety incident under investigation", "Jet fuel up 35%",
     ]);
     const statements = rows(files.statements);
+    // Every crisis card ends with a twist and the decision the plan must make.
+    for (const c of rows(files.crises)) expect(c[4]).toMatch(/\n\nThe twist: .+\n\nYour plan must decide: .+$/s);
     expect(statements.map((r) => r[1])).toEqual(Array.from({ length: 30 }, (_, i) => String(i + 1)));
-    expect(statements[20]).toEqual(["Aviation", "21", "Cut airport queue time from check-in to boarding by half",
-      "Aviation · Round 3. Cut airport queue time from check-in to boarding by half. Design the solution, how it is delivered and how it is measured.", "5"]);
+    expect(statements[20]!.slice(0, 3)).toEqual(["Aviation", "21", "Cut airport queue time from check-in to boarding by half"]);
+    expect(statements[20]![3]).toMatch(/^Aviation · Round 3\. Cut airport queue time .*\n\nWho it is for: .+\nThe numbers: .+\nThe catch: .+\nYou win if: .+\n\nDesign the solution/s);
+    expect(statements[20]![4]).toBe("5");
     expect(rows(buildSectorFiles(library, ["Fintech", "Energy"]).problems).map((r) => r[1])).toEqual(["Fintech", "Energy"]);
   });
 
