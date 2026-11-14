@@ -18,7 +18,7 @@ describe("the schema version", () => {
   });
   test("compares the database's version with the app's", () => {
     expect(schemaState(EXPECTED_SCHEMA)).toBe("ok");
-    expect(schemaState("20261117000049")).toBe("behind");
+    expect(schemaState("20261117000050")).toBe("behind");
     expect(schemaState("20991231000000")).toBe("ahead");
     expect(schemaState(null)).toBe("unknown");
     expect(schemaState("junk")).toBe("unknown");

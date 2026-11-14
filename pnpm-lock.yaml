@@ -11,6 +11,9 @@ importers:
       '@msim/engine':
         specifier: workspace:*
         version: link:packages/engine
+      '@supabase/ssr':
+        specifier: 0.12.7
+        version: 0.12.7(@supabase/supabase-js@2.117.2)
       '@supabase/supabase-js':
         specifier: ^2.117.2
         version: 2.117.2
