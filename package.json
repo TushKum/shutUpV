@@ -38,5 +38,10 @@
     "@supabase/supabase-js": "^2.117.2",
     "pdf-lib": "^1.17.1",
     "qrcode": "1.5.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "zod": "^4.6.6"
+    }
   }
 }
