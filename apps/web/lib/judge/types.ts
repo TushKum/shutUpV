@@ -79,6 +79,17 @@ export interface JudgeInput {
   deal?: DealInput | null;
   /** FLASH only: the published flash bulletin. */
   bulletin?: BulletinInput | null;
+  /** PITCH in an event played in sectors: the sector brief the squad was dealt. */
+  problem_card?: { sector: string | null; title: string; body: string } | null;
+  /** PRIMUS Round 3 (SOLUTION, ADVICE_5): the problem statement the company drafted. */
+  statement?: { number: number; title: string; body: string } | null;
+  /** PRIMUS CRISIS_k and SOLUTION: the hired firm's advice memo for that sub-round. */
+  advice_text?: string | null;
+  /** PRIMUS: whether the company hired a firm in this sub-round. */
+  firm_hired?: boolean;
+  /** PRIMUS: the hired firm's team and member names (hidden like the squad's own), and its members' full names. */
+  firm_names?: string[];
+  firm_member_names?: string[];
   injections_recorded: boolean;
 }
 

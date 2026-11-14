@@ -128,9 +128,14 @@ export function hideNameParts(text: string, parts: readonly string[], ticker: st
   return out;
 }
 
+function statementText(s: JudgeInput["statement"]): string {
+  if (!s) return "(none: the company has no statement)";
+  return `Title: ${s.title}\n\n${plainLines(s.body).trim()}`;
+}
+
 export function buildJudgeRequest(input: JudgeInput, system: string): BuiltRequest {
-  const names = [input.company_name, ...input.names];
-  const parts = nameParts(input.member_names ?? [], input.ticker);
+  const names = [input.company_name, ...input.names, ...(input.firm_names ?? [])];
+  const parts = nameParts([...(input.member_names ?? []), ...(input.firm_member_names ?? [])], input.ticker);
   /** Organiser text (crisis card, bulletin): full names only. */
   const hide = (text: string) => anonymise(text, names, input.ticker).trim();
   /** Team text (the submission, the pitch card): full names, then first names and other parts used alone. */
@@ -147,6 +152,22 @@ export function buildJudgeRequest(input: JudgeInput, system: string): BuiltReque
     context.push(tag("deal", dealSummary(input.deal)));
   } else if (input.type === "FLASH") {
     context.push(tag("bulletin", hide(bulletinText(input.bulletin))));
+  } else if (input.type === "PITCH" && input.problem_card) {
+    // An event played in sectors: the PRD answers its sector's brief.
+    const c = input.problem_card;
+    context.push(tag("problem_card", hide(`${c.sector ? `Sector: ${c.sector}\n` : ""}Title: ${c.title}\n\n${plainLines(c.body).trim()}`)));
+  } else if (/^(CRISIS|ADVICE)_\d$/.test(input.type) || input.type === "SOLUTION") {
+    // PRIMUS: the business, the crisis or the statement, and (for the company's own answer) the hired firm's advice.
+    const round3 = input.type === "SOLUTION" || input.type === "ADVICE_5";
+    if (input.type !== "SOLUTION") {
+      const pitch = input.pitch_text ? hideTeam(stripInjections(input.pitch_text).clean) : "";
+      context.push(tag("pitch_card", pitch || "(none: the company has no PRD)"));
+    }
+    context.push(round3 ? tag("statement", hide(statementText(input.statement))) : tag("crisis_card", hide(crisisText(input.crisis_card))));
+    if (!input.type.startsWith("ADVICE")) {
+      const advice = input.advice_text ? hideTeam(stripInjections(input.advice_text).clean) : "";
+      context.push(tag("advice", advice || (input.firm_hired === false ? "(none: the company hired no firm)" : "(none: the hired firm sent no memo)")));
+    }
   }
 
   const blocks: string[] = [];

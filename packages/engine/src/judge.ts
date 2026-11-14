@@ -144,7 +144,7 @@ export const INJECTION_PATTERNS: readonly { name: string; re: RegExp }[] = [
   {
     // Trying to close or open the XML wrapper.
     name: "tag-breakout",
-    re: /<\s*\/?\s*(?:submission|system|instructions?|rubric|assistant|user|context|bulletin|pitch_card|crisis_card|deal|data|advice|statement)\b[^>]*>/i,
+    re: /<\s*\/?\s*(?:submission|system|instructions?|rubric|assistant|user|context|bulletin|pitch_card|crisis_card|problem_card|deal|data|advice|statement)\b[^>]*>/i,
   },
 ];
 

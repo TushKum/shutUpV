@@ -226,3 +226,38 @@ describe("buildJudgeRequest", () => {
     expect(buildJudgeRequest(plan, SYSTEM)).toEqual(buildJudgeRequest(plan, SYSTEM));
   });
 });
+
+describe("PRIMUS context", () => {
+  const base = {
+    run_id: "r", ticker: "AQS", company_name: "AquaSense", names: ["AquaSense", "Team Blue"], member_names: ["Priya Sharma"],
+    submission_id: "s", submission_text: "Our plan: Priya calls the supplier.", injections_recorded: true,
+  };
+  test("a crisis plan is read with its PRD, crisis card and the hired firm's advice; the firm's names are hidden", () => {
+    const r = buildJudgeRequest({
+      ...base, type: "CRISIS_1", pitch_text: "AquaSense filters water.",
+      crisis_card: { category: "Operations", title: "Heatwave", body: "Stock spoils." },
+      advice_text: "Rahul Verma of Delta Advisors says: rent a cold room.", firm_hired: true,
+      firm_names: ["Delta Advisors", "Rahul Verma"], firm_member_names: ["Rahul Verma"],
+    }, "SYS");
+    expect(r.userText).toContain("<pitch_card>\nAQS filters water.");
+    expect(r.userText).toContain("Title: Heatwave");
+    expect(r.userText).toMatch(/<advice>\nAQS of AQS says: rent a cold room\.\n<\/advice>/);
+    expect(r.userText).not.toMatch(/Delta|Rahul|Priya/);
+  });
+  test("a solution is read with its statement; no firm hired is said plainly", () => {
+    const r = buildJudgeRequest({ ...base, type: "SOLUTION", statement: { number: 3, title: "Cut waste", body: "From 9% to 3%." }, advice_text: null, firm_hired: false }, "SYS");
+    expect(r.userText).toContain("<statement>\nTitle: Cut waste");
+    expect(r.userText).toContain("(none: the company hired no firm)");
+    expect(r.userText).not.toContain("<pitch_card>");
+  });
+  test("an advice memo is read with the client's PRD and card, without advice", () => {
+    const r = buildJudgeRequest({ ...base, type: "ADVICE_2", pitch_text: "PRD", crisis_card: { category: "Market", title: "Giant", body: "Free rival." } }, "SYS");
+    expect(r.userText).toContain("<pitch_card>");
+    expect(r.userText).toContain("Title: Giant");
+    expect(r.userText).not.toContain("<advice>");
+  });
+  test("a PRD in a sector event is read with its sector brief", () => {
+    const r = buildJudgeRequest({ ...base, type: "PITCH", problem_card: { sector: "FMCG", title: "Consumer goods", body: "Brief." } }, "SYS");
+    expect(r.userText).toMatch(/<context>\n<problem_card>\nSector: FMCG\nTitle: Consumer goods/);
+  });
+});

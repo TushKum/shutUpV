@@ -19,7 +19,7 @@ const typeOf = (kind: SubmissionKind) => SUBMISSION_TYPES.find((t) => submission
 
 /** The XML tags each type's request uses (docs/JUDGE.md "The request"). */
 const TAGS: Record<SubmissionKind, readonly string[]> = {
-  PITCH: ["submission"],
+  PITCH: ["context", "problem_card", "submission"],
   PLAN: ["context", "pitch_card", "crisis_card", "deal", "submission"],
   FLASH: ["context", "bulletin", "submission"],
   MEMO: ["submission"],
