@@ -1,7 +1,7 @@
 # PRIMUS: full deployment and the final day
 
 Event `live-2026`, Friday 20 November 2026, doors 20:00 IST, 150 teams (600 people). All times IST.
-The how-to behind each step: [DEPLOY-OWN-DOMAIN.md](DEPLOY-OWN-DOMAIN.md) (setup), [DEPLOY.md](DEPLOY.md) (detail and
+The how-to behind each step: [DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md) (step by step), [DEPLOY-OWN-DOMAIN.md](DEPLOY-OWN-DOMAIN.md) (short), [DEPLOY.md](DEPLOY.md) (detail and
 failures), [GO-LIVE.md](GO-LIVE.md) (what was tested). Tick each box; a box not ticked by its time is escalated to
 the event lead.
 

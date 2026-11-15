@@ -1,6 +1,6 @@
 # Final deployment on your own domain
 
-The short path from code to a live site at your address. The detail behind each step is in [DEPLOY.md](DEPLOY.md);
+The short path from code to a live site at your address (every click and check: [DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md)). The detail behind each step is in [DEPLOY.md](DEPLOY.md);
 the checklist for the night is in [GO-LIVE.md](GO-LIVE.md). Below, `play.example.com` stands for your address.
 
 ## 0. Pick the address
