@@ -3,6 +3,8 @@
 // app (/api/health: the same Supabase project and team-login domain as this .env).
 //
 //   pnpm preflight --slug live-2026
+//   pnpm preflight --slug live-2026 --rush 60   (also: 60 quick sign-ins, to catch a sign-in rate limit too low for the
+//                                                room; it uses up that many sign-ins from this laptop's address)
 //
 // Reads .env (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, CARD_SECRET, TEAM_EMAIL_DOMAIN,
 // APP_URL). Exits 1 when a check fails. It changes nothing.
@@ -108,6 +110,33 @@ async function main(): Promise<number> {
         `${t.code} cannot sign in with its card's password (${error.message})`,
         "CARD_SECRET is not the one used by pnpm seed. Put the original back, or run pnpm seed again with the same options to reset every password to this CARD_SECRET, then reprint the cards (pnpm cards)",
       );
+  }
+
+  // 3b. Optional: the sign-in rate limit, with a burst of real sign-ins (check-in puts hundreds behind a few addresses).
+  const rushN = typeof args.rush === "string" ? Number(args.rush) : args.rush === true ? 60 : 0;
+  if (rushN > 0 && anon && env("CARD_SECRET") && samples[0]) {
+    const t = samples[0];
+    const email = teamEmail(t.code, domain);
+    const password = derivePassword(env("CARD_SECRET"), slug, t.code);
+    let ok = 0;
+    let limited = 0;
+    let other = 0;
+    const one = async () => {
+      const sb = createClient(env("SUPABASE_URL"), anon, { auth: { persistSession: false, autoRefreshToken: false } });
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (!error) ok++;
+      else if (error.status === 429) limited++;
+      else other++;
+    };
+    for (let i = 0; i < rushN; i += 10) await Promise.all(Array.from({ length: Math.min(10, rushN - i) }, one));
+    if (limited)
+      say(
+        "FAIL",
+        `${limited} of ${rushN} quick sign-ins were refused by the sign-in rate limit`,
+        "Supabase → Authentication → Rate Limits: raise the sign-in limit (at least 1,000 per 5 minutes for 600 people), then run this again in 5 minutes",
+      );
+    else if (other) say("WARN", `${other} of ${rushN} quick sign-ins failed (not the rate limit)`, "look at Supabase → Logs → Auth for the errors");
+    else say("PASS", `${ok} quick sign-ins in a row were all accepted (no rate limit hit)`);
   }
 
   // 4. The deployed app.

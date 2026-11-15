@@ -5,6 +5,11 @@
 //
 //   pnpm app-load-test --base http://127.0.0.1:3200 --slug primus-reh [--screens 4] [--duration 120] [--think 6]
 //   pnpm app-load-test --base … --slug primus-reh --burst 1.2
+//   pnpm app-load-test --base … --slug primus-reh --rush 60
+//
+// --rush S is check-in: every one of the 600 phones signs in with its team's card (its own session, 4 per team login)
+// at a random moment within S seconds, with the app's own retry, then opens its home page. The report gives the sign-in times and how many were
+// refused (429: the project's sign-in rate limit is too low for the room).
 //
 // --burst S is the night's peak instead: a round clears and every open screen re-reads its page within S seconds (the
 // screens' random spread). Each screen loads one page once; the report says how long until the last one had it.
@@ -20,6 +25,7 @@ import { teamEmail, type Track } from "@msim/engine";
 import { derivePassword } from "./lib/credentials";
 import { parseArgs, required } from "./lib/args";
 import { pool, sleep } from "./lib/bot-runner";
+import { signInWithRetry } from "../apps/web/lib/auth/retry";
 
 const P95_TARGET_MS = 2000;
 const ERROR_TARGET = 0.01;
@@ -37,17 +43,14 @@ const pct = (xs: number[], p: number) => {
 };
 
 /** The cookies the app sets after a team signs in (the same @supabase/ssr format), as one Cookie header. */
-async function sessionCookie(url: string, anonKey: string, email: string, password: string): Promise<string> {
+async function sessionCookie(url: string, anonKey: string, email: string, password: string, once = false): Promise<string> {
   const jar = new Map<string, string>();
   const sb = createServerClient(url, anonKey, {
     cookies: { getAll: () => [...jar].map(([name, value]) => ({ name, value })), setAll: (cs) => cs.forEach((c) => (c.value ? jar.set(c.name, c.value) : jar.delete(c.name))) },
   });
-  for (let attempt = 1; ; attempt++) {
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (!error) break;
-    if (attempt >= 5) throw new Error(`${email} could not sign in: ${error.message}`);
-    await sleep(1000 * attempt);
-  }
+  // The same retry as the app's login action (lib/auth/retry.ts); without `once`, a few more for the set-up sign-ins.
+  const { error } = await signInWithRetry(() => sb.auth.signInWithPassword({ email, password }), once ? {} : { attempts: 6 });
+  if (error) throw Object.assign(new Error(`${email} could not sign in: ${(error as { message?: string }).message ?? error.status}`), { status: error.status });
   return [...jar].map(([n, v]) => `${n}=${v}`).join("; ");
 }
 
@@ -72,6 +75,8 @@ async function main() {
   if (!event?.is_rehearsal) throw new Error(`${args.slug} is not a rehearsal event`);
   const { data: teams } = await admin.from("teams").select("code, track").eq("event_id", event.id).order("code");
   const list = (teams ?? []) as { code: string; track: Track }[];
+
+  if (typeof args.rush === "string") return rush(list, Number(args.rush) * 1000, screens, bases, url, anonKey, args.slug as string);
 
   // 1. Sign every team in once; its screens share the session, as a team's phones do after one login each.
   let t0 = Date.now();
@@ -136,6 +141,71 @@ async function main() {
   writeFileSync(file, JSON.stringify({ ...report, ok }, null, 2));
   console.log(JSON.stringify(report, null, 2));
   console.log(`${ok ? "PASS" : "FAIL"}: p95 ${report.latencyMs.p95} ms (target ${P95_TARGET_MS}), errors ${(report.errorRate * 100).toFixed(2)}% (target ${ERROR_TARGET * 100}%). Report: ${file}`);
+  return ok ? 0 : 1;
+}
+
+/** Check-in: every phone signs in itself within `spreadMs`, then loads its home page once. */
+async function rush(
+  list: { code: string; track: Track }[],
+  spreadMs: number,
+  screens: number,
+  bases: string[],
+  url: string,
+  anonKey: string,
+  slug: string,
+): Promise<number> {
+  const signIns: number[] = [];
+  const pages: number[] = [];
+  const refused: Record<string, number> = {};
+  const t0 = Date.now();
+  let last = 0;
+  const phone = async (team: number, n: number) => {
+    const t = list[team]!;
+    await sleep(Math.random() * spreadMs);
+    const started = Date.now();
+    let cookie: string;
+    try {
+      cookie = await sessionCookie(url, anonKey, teamEmail(t.code, required("TEAM_EMAIL_DOMAIN")), derivePassword(required("CARD_SECRET"), slug, t.code), true);
+      signIns.push(Date.now() - started);
+    } catch (e) {
+      const k = `sign-in ${(e as { status?: number }).status ?? (e as Error).name}`;
+      refused[k] = (refused[k] ?? 0) + 1;
+      return;
+    }
+    const p0 = Date.now();
+    try {
+      const r = await fetch(bases[(team * screens + n) % bases.length] + "/team", { headers: { cookie, "user-agent": "app-load-test" }, redirect: "manual", signal: AbortSignal.timeout(30_000) });
+      const html = await r.text();
+      if (r.status === 200 && html.includes("<title>Home")) pages.push(Date.now() - p0);
+      else refused[`home ${r.status}`] = (refused[`home ${r.status}`] ?? 0) + 1;
+    } catch (e) {
+      refused[`home ${(e as Error).name}`] = (refused[`home ${(e as Error).name}`] ?? 0) + 1;
+    }
+    last = Math.max(last, Date.now());
+  };
+  await Promise.all(list.flatMap((_, team) => Array.from({ length: screens }, (_, n) => phone(team, n))));
+  const phones = list.length * screens;
+  const failed = Object.values(refused).reduce((a, b) => a + b, 0);
+  const report = {
+    phones,
+    spreadS: spreadMs / 1000,
+    signedIn: signIns.length,
+    homeLoaded: pages.length,
+    signInMs: { p50: pct(signIns, 50), p95: pct(signIns, 95), max: pct(signIns, 100) },
+    homeMs: { p50: pct(pages, 50), p95: pct(pages, 95), max: pct(pages, 100) },
+    allDoneAfterS: Math.round((last - t0) / 100) / 10,
+    failures: refused,
+  };
+  const ok = failed === 0 && (report.signInMs.p95 ?? Infinity) <= P95_TARGET_MS;
+  mkdirSync("out", { recursive: true });
+  const file = `out/app-load-test-rush-${slug}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+  writeFileSync(file, JSON.stringify({ ...report, ok }, null, 2));
+  console.log(JSON.stringify(report, null, 2));
+  console.log(
+    `${ok ? "PASS" : "FAIL"}: ${signIns.length} of ${phones} phones signed in (p95 ${report.signInMs.p95} ms), ${pages.length} opened their home page.` +
+      (refused["sign-in 429"] ? ` ${refused["sign-in 429"]} were refused by the sign-in rate limit: raise it (Supabase → Authentication → Rate Limits).` : "") +
+      ` Report: ${file}`,
+  );
   return ok ? 0 : 1;
 }
 

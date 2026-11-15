@@ -25,8 +25,10 @@ the checklist for the night is in [GO-LIVE.md](GO-LIVE.md). Below, `play.example
    by `pnpm seed` with the service key; nobody should be able to make their own account.
 5. Authentication → URL Configuration: **Site URL** = `https://play.example.com` (add the track addresses to the
    redirect URLs if you use them).
-6. Authentication → Rate Limits: raise the sign-in limit (logins go through the app's server, so many teams share a
-   few addresses). Realtime settings: concurrent clients above 600 × 3 channels.
+6. Authentication → Rate Limits: raise **sign-ins to at least 1,000 per 5 minutes**. All 600 phones (150 team
+   logins, each used by its 4 members at once) reach Auth from a few addresses (the app's servers and the venue
+   Wi-Fi), so the default limit would refuse most of the room. Realtime settings: concurrent clients above
+   600 × 3 channels.
 
 ## 2. Vercel (once)
 
@@ -68,7 +70,8 @@ the checklist for the night is in [GO-LIVE.md](GO-LIVE.md). Below, `play.example
    ```bash
    pnpm preflight --slug live-2026
    ```
-   **Every line must say PASS.** Each FAIL says what to change. The usual cause of "That team code and password do
+   Add `--rush 60` once to also check the sign-in rate limit with 60 quick sign-ins (then wait 5 minutes before
+   signing in from the laptop again if it fails). **Every line must say PASS.** Each FAIL says what to change. The usual cause of "That team code and password do
    not match" is a different `NEXT_PUBLIC_TEAM_EMAIL_DOMAIN` on Vercel, or Vercel pointing at another Supabase project.
 4. Sign in yourself on a phone: scan a card's QR code, type the password.
 
@@ -78,5 +81,10 @@ the checklist for the night is in [GO-LIVE.md](GO-LIVE.md). Below, `play.example
 2. A real calibration batch (Judge → Calibration), then a full rehearsal on a separate **rehearsal** event
    (`pnpm seed --slug reh-1 --rehearsal --starts-at …`, `pnpm rehearse --slug reh-1 --autopilot`).
 3. Load tests against that rehearsal on your address:
-   `pnpm load-test --slug reh-1` and `pnpm app-load-test --base https://play.example.com --slug reh-1 --burst 1.2`.
-4. `pnpm preflight --slug live-2026` once more on the day.
+   - check-in, 600 phones signing in: `pnpm app-load-test --base https://play.example.com --slug reh-1 --rush 60`
+   - a round clearing on 600 screens: `pnpm app-load-test --base https://play.example.com --slug reh-1 --burst 1.2`
+   - realtime and trading: `pnpm load-test --slug reh-1`
+4. **Check-in on the night:** let teams sign in as they arrive, or call them table by table over a few minutes,
+   rather than "everyone sign in now". In tests, 600 phones within 60 s signed in in 0.2 s each; within 30 s all 600
+   still got in (the app retries quietly when Auth is busy) but some waited several seconds.
+5. `pnpm preflight --slug live-2026` once more on the day.

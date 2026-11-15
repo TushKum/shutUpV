@@ -7,6 +7,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { getViewer } from "@/lib/auth/viewer";
 import { safeNext } from "@/lib/auth/routes";
 import { portalAdmits, portalUrl, teamPortal, wrongPortalMessage } from "@/lib/portal/portal";
+import { signInWithRetry } from "@/lib/auth/retry";
 
 export interface LoginState {
   error?: string;
@@ -33,14 +34,15 @@ export async function signIn(_prev: LoginState, form: FormData): Promise<LoginSt
   if (!password) return { error: "Enter your password.", login };
 
   const sb = await supabaseServer();
-  const { error } = await sb.auth.signInWithPassword({ email, password });
+  // At check-in hundreds of phones sign in at once: a busy or briefly overloaded Auth is tried again, quietly.
+  const { error } = await signInWithRetry(() => sb.auth.signInWithPassword({ email, password }));
   if (error) {
     const wrongCredentials = error.status === 400 || error.code === "invalid_credentials";
     return {
       login,
       error:
         error.status === 429
-          ? "Too many attempts. Wait a minute and try again."
+          ? "The sign-in service is very busy right now. Wait a minute and try again."
           : !wrongCredentials
             ? "The login service cannot be reached. Try again in a moment; if it keeps failing, go to the technical support desk."
             : mode === "team"
