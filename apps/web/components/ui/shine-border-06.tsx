@@ -6,6 +6,8 @@ type FocusFrameBorderProps = {
   className?: string;
   duration?: number;
   color?: string;
+  /** Extra classes for the content layer (merged with cn, so they can override its background or border). */
+  contentClassName?: string;
 };
 
 const corners = [
@@ -36,6 +38,7 @@ const FocusFrameBorder = ({
   className,
   duration = 2.4,
   color = "var(--color-blue-500)",
+  contentClassName,
 }: FocusFrameBorderProps) => {
   return (
     <>
@@ -70,7 +73,7 @@ const FocusFrameBorder = ({
         ))}
 
         {/* Content Layer */}
-        <div className="relative z-10 rounded-xl bg-card border border-border/80 overflow-hidden h-full">
+        <div className={cn("relative z-10 rounded-xl bg-card border border-border/80 overflow-hidden h-full", contentClassName)}>
           {children}
         </div>
       </div>

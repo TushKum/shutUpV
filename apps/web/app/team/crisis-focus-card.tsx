@@ -28,6 +28,30 @@ export function crisisParts(body: string): { situation: string; twist: string | 
   };
 }
 
+/** The card's twist and the decision the plan must make, each in its own box (nothing when the card has neither). */
+export function CrisisCallouts({ twist, decide }: { twist: string | null; decide: string | null }) {
+  return (
+    <>
+      {twist ? (
+        <div className="rounded-md border border-warn/50 bg-warn/10 p-3 text-left" data-testid="crisis-twist">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-warn">
+            <Shuffle className="size-3.5" aria-hidden /> The twist
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{twist}</p>
+        </div>
+      ) : null}
+      {decide ? (
+        <div className="rounded-md border border-danger/50 bg-danger/10 p-3 text-left" data-testid="crisis-decide">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger-soft">
+            <Scale className="size-3.5" aria-hidden /> Your plan must decide
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{decide}</p>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export function CrisisFocusCard({ card, label }: { card: CrisisCardRow; label?: string }) {
   const Icon = ICONS[card.category.trim().toLowerCase()] ?? Siren;
   const { situation, twist, decide } = crisisParts(card.body ?? "");
@@ -46,22 +70,7 @@ export function CrisisFocusCard({ card, label }: { card: CrisisCardRow; label?: 
           </div>
           <h3 className="text-lg font-semibold leading-snug text-phosphor">{card.title}</h3>
           {situation ? <p className="whitespace-pre-wrap text-sm text-paper">{situation}</p> : null}
-          {twist ? (
-            <div className="rounded-md border border-warn/50 bg-warn/10 p-3" data-testid="crisis-twist">
-              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-warn">
-                <Shuffle className="size-3.5" aria-hidden /> The twist
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{twist}</p>
-            </div>
-          ) : null}
-          {decide ? (
-            <div className="rounded-md border border-danger/50 bg-danger/10 p-3" data-testid="crisis-decide">
-              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-danger-soft">
-                <Scale className="size-3.5" aria-hidden /> Your plan must decide
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-paper">{decide}</p>
-            </div>
-          ) : null}
+          <CrisisCallouts twist={twist} decide={decide} />
         </CardContent>
       </Card>
     </FocusFrameBorder>

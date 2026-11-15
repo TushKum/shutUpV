@@ -1,7 +1,8 @@
 # PRIMUS go-live report (600 people)
 
 What was improved in the last pass, how the AI judge works, what the deployment and security tests found, and the
-checklist to run before the night. The step-by-step setup is in [DEPLOY.md](DEPLOY.md).
+checklist to run before the night. The step-by-step setup is in [DEPLOY.md](DEPLOY.md); the short path to your own
+domain is [DEPLOY-OWN-DOMAIN.md](DEPLOY-OWN-DOMAIN.md), and `pnpm preflight --slug <event>` checks a deployment.
 
 ## 1. What changed
 

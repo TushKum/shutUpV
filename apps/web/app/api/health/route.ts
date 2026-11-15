@@ -9,6 +9,14 @@ import { readSchemaVersion } from "@/lib/schema-data";
 
 export const dynamic = "force-dynamic";
 
+function hostOf(url: string | undefined): string | null {
+  try {
+    return url ? new URL(url).host : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET() {
   const started = Date.now();
   let database: "ok" | "down" = "down";
@@ -30,7 +38,19 @@ export async function GET() {
     database = "down";
   }
   return NextResponse.json(
-    { app: "ok", database, schema, schemaVersion, expectedSchema: EXPECTED_SCHEMA, ms: Date.now() - started, at: new Date().toISOString() },
+    {
+      app: "ok",
+      database,
+      schema,
+      schemaVersion,
+      expectedSchema: EXPECTED_SCHEMA,
+      // Which Supabase project and team-login domain this deployment uses (both already public in the browser bundle):
+      // `pnpm preflight` compares them with the organiser laptop's .env, the usual reason team logins fail.
+      supabaseHost: hostOf(process.env.NEXT_PUBLIC_SUPABASE_URL),
+      teamEmailDomain: process.env.NEXT_PUBLIC_TEAM_EMAIL_DOMAIN?.trim().toLowerCase() || null,
+      ms: Date.now() - started,
+      at: new Date().toISOString(),
+    },
     { status: database === "ok" ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );
 }

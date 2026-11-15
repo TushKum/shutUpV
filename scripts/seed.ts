@@ -14,7 +14,7 @@ import { parseArgs, required } from "./lib/args";
 import { renderLoginCards } from "./lib/cards";
 import { USAGE, optionsFromArgs } from "./lib/event-options";
 import { buildSeedPlan } from "./lib/seed-plan";
-import { seedWithLogins } from "./lib/seed-run";
+import { ensureLogins, seedWithLogins } from "./lib/seed-run";
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -34,8 +34,16 @@ async function main() {
     const sb = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { eventId } = await seedWithLogins(sb, plan, { replace: args.replace === true });
-    console.log(`Seeded event ${eventId}`);
+    const { data: existing } = await sb.from("events").select("id").eq("slug", plan.event.slug).maybeSingle();
+    if (existing && args.replace !== true) {
+      // Run again for an event that exists: only the logins are set again (every password back to this CARD_SECRET),
+      // the event and its game are left as they are, and the cards are printed.
+      await ensureLogins(sb, plan);
+      console.log(`Event ${plan.event.slug} already exists: its logins were reset to the passwords on these cards; nothing else changed.`);
+    } else {
+      const { eventId } = await seedWithLogins(sb, plan, { replace: args.replace === true });
+      console.log(`Seeded event ${eventId}`);
+    }
   }
 
   mkdirSync("out", { recursive: true });
