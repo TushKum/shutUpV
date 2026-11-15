@@ -40,6 +40,18 @@
   --color-warn: var(--mx-amber);
   --color-danger: var(--mx-red);
   --color-danger-soft: var(--mx-red-soft);
+  /* shadcn/ui's colour names (components/ui/card.tsx, badge.tsx …), pointed at the Matrix palette. */
+  --color-card: var(--mx-panel);
+  --color-card-foreground: var(--mx-paper);
+  --color-border: var(--mx-line);
+  --color-primary: var(--mx-green);
+  --color-primary-foreground: var(--mx-black);
+  --color-secondary: var(--mx-raised);
+  --color-secondary-foreground: var(--mx-green);
+  --color-muted-foreground: var(--mx-muted);
+  --color-destructive: var(--mx-red);
+  --color-destructive-foreground: var(--mx-black);
+  --color-ring: var(--mx-green);
   /* Six palette classes are test hooks (the Playwright specs and one unit test look for them by name), so they stay in the markup and
      are pointed at the theme here instead. */
   --color-slate-100: var(--mx-raised);

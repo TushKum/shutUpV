@@ -25,6 +25,7 @@ import { ActionButton, ActionForm } from "@/components/ui/action";
 import { Badge, Panel, Table, Td, inputClass } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
 import { CrisisCard } from "../market/crisis-card";
+import { CrisisFocusCard } from "../crisis-focus-card";
 import { answerOffer, counterOffer } from "./actions";
 
 export const companyLabel = (c: RoomCompany | undefined) => (c ? `${c.ticker ?? "—"}${c.name ? ` · ${c.name}` : ""}` : "—");
@@ -127,12 +128,14 @@ export function CardsOf({ data, k, only }: { data: CrisisRoomData; k: number; on
   const rows = data.cards.filter((c) => c.k === k && (!only || only.includes(c.company_id)));
   if (rows.length === 0) return <p className="text-sm text-muted">No crisis card has been dealt for this sub-round yet.</p>;
   const byId = new Map(data.companies.map((c) => [c.id, c]));
+  const single = !!only && only.length === 1;
   return (
     <ul className="grid gap-3 sm:grid-cols-2" aria-label="Crisis cards">
       {rows.map((r) => (
-        <li key={r.company_id}>
-          {only && only.length === 1 ? null : <p className="mb-1 font-mono text-xs text-[var(--term-cyan)]">{companyLabel(byId.get(r.company_id))}</p>}
-          <CrisisCard card={r.card} />
+        <li key={r.company_id} className={single ? "sm:col-span-2" : undefined}>
+          {single ? null : <p className="mb-1 font-mono text-xs text-[var(--term-cyan)]">{companyLabel(byId.get(r.company_id))}</p>}
+          {/* The one card a team must answer is shown in focus; a list of every company's card stays compact. */}
+          {single ? <CrisisFocusCard card={r.card} /> : <CrisisCard card={r.card} />}
         </li>
       ))}
     </ul>
