@@ -22,7 +22,8 @@
     "load-test": "tsx --env-file-if-exists=.env scripts/load-test.ts",
     "app-load-test": "tsx --env-file-if-exists=.env scripts/app-load-test.ts",
     "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts",
-    "auth-limits": "tsx --env-file-if-exists=.env scripts/auth-limits.ts"
+    "auth-limits": "tsx --env-file-if-exists=.env scripts/auth-limits.ts",
+    "upload-decks": "tsx --env-file-if-exists=.env scripts/upload-decks.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

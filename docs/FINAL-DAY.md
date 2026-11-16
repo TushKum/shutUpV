@@ -49,8 +49,9 @@ the event lead.
 - [ ] Staff rehearsal: every role does its job once on `reh-1` with this document in hand.
 
 ### D−2 (Wed 18 Nov): content and print
-- [ ] Content page of `live-2026`: upload `seed/sectors/` problem deck, crisis deck (both lock at the squad draw)
-      and the Round 3 statements. The control panel's **To do now** list must show no "Upload" item.
+- [ ] Upload the FMCG / Aviation / Luxury decks into `live-2026`: `pnpm upload-decks --slug live-2026` (problem
+      deck, crisis deck and Round 3 statements from `seed/sectors/`; the decks lock at the squad draw). Or by hand on the
+      Content page. The control panel's **To do now** list must show no "Upload" item.
 - [ ] Publish the lottery seed commitment (`pnpm new-seed`; keep the secret seed offline).
 - [ ] Print: 150 login cards (cut), 20 spare blank cards, this document ×6, the case-study PDF for judges' reference.
 

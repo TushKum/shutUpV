@@ -105,5 +105,5 @@ re-read their page at once.
    `pnpm load-test --slug <reh>` (realtime) and `pnpm app-load-test --base https://<staging> --slug <reh> --burst 1.2`.
    Bar: clearing under 5 s, every screen served within 10 s, 0 errors.
 6. Run a real calibration batch and a full bot rehearsal (`pnpm rehearse --slug <reh> --autopilot`).
-7. Upload the decks (`seed/sectors/` or `pnpm sectors --pick …`) before the squad draw; the To do now list reminds you.
+7. Upload the decks before the squad draw: `pnpm upload-decks --slug live-2026` (from `seed/sectors/`); the To do now list reminds you.
 8. Print the login cards (`pnpm cards`): each now has its QR code.
