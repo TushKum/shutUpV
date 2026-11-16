@@ -22,8 +22,8 @@ describe("the sector library (seed/sectors/all)", () => {
     expect(parsed.ok && parsed.value.every((x) => x.cap === 5)).toBe(true);
   });
 
-  test("Luxury, FMCG and Energy give exactly the files in seed/sectors", () => {
-    const files = buildSectorFiles(library, ["Luxury", "FMCG", "Energy"]);
+  test("FMCG, Aviation and Luxury (the event's sectors) give exactly the files in seed/sectors", () => {
+    const files = buildSectorFiles(library, ["FMCG", "Aviation", "Luxury"]);
     expect(files.problems).toBe(readFileSync("seed/sectors/problem-cards.csv", "utf8"));
     expect(files.crises).toBe(readFileSync("seed/sectors/crisis-cards.csv", "utf8"));
     expect(files.statements).toBe(readFileSync("seed/sectors/statements.csv", "utf8"));
@@ -34,14 +34,14 @@ describe("the sector library (seed/sectors/all)", () => {
     expect(rows(files.problems).map((r) => [r[0], r[1]])).toEqual([["1", "Luxury"], ["2", "FMCG"], ["3", "Aviation"]]);
     expect(rows(files.crises)).toHaveLength(12);
     expect(rows(files.crises).filter((r) => r[0] === "Aviation").map((r) => r[3])).toEqual([
-      "Airport IT outage", "A giant builds its own", "A safety incident under investigation", "Jet fuel up 35%",
+      "The data feed goes dark", "The provider builds its own", "A late alert under investigation", "Jet fuel up 35%",
     ]);
     const statements = rows(files.statements);
     // Every crisis card ends with a twist and the decision the plan must make.
     for (const c of rows(files.crises)) expect(c[4]).toMatch(/\n\nThe twist: .+\n\nYour plan must decide: .+$/s);
     expect(statements.map((r) => r[1])).toEqual(Array.from({ length: 30 }, (_, i) => String(i + 1)));
-    expect(statements[20]!.slice(0, 3)).toEqual(["Aviation", "21", "Cut airport queue time from check-in to boarding by half"]);
-    expect(statements[20]![3]).toMatch(/^Aviation · Round 3\. Cut airport queue time .*\n\nWho it is for: .+\nThe numbers: .+\nThe catch: .+\nYou win if: .+\n\nDesign the solution/s);
+    expect(statements[20]!.slice(0, 3)).toEqual(["Aviation", "21", "Predict flight delays two hours ahead from air-traffic data"]);
+    expect(statements[20]![3]).toMatch(/^Aviation · Round 3\. Predict flight delays .*\n\nWho it is for: .+\nThe numbers: .+\nThe catch: .+\nYou win if: .+\n\nDesign the solution/s);
     expect(statements[20]![4]).toBe("5");
     expect(rows(buildSectorFiles(library, ["Fintech", "Energy"]).problems).map((r) => r[1])).toEqual(["Fintech", "Energy"]);
   });

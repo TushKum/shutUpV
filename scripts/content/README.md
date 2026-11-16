@@ -10,5 +10,5 @@
 python3 -I scripts/content/case_twists.py
 pnpm sectors --pick Luxury,FMCG,Energy --out seed/sectors
 python3 -I scripts/content/build.py . scripts/content/sector_context.py out/book.html
-node scripts/content/print.js out/book.html docs/case-studies/PRIMUS-Problem-Statements-and-Crises.pdf
+node scripts/content/print.cjs out/book.html docs/case-studies/PRIMUS-Problem-Statements-and-Crises.pdf
 ```

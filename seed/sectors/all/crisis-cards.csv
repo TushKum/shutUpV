@@ -59,21 +59,21 @@ Energy,Money,4,Subsidy cut overnight,"The government cuts the subsidy your custo
 The twist: A state government offers its own subsidy, but only if you build a factory in that state within 2 years.
 
 Your plan must decide: Take the deal, change the business model, or sell to customers who do not need the subsidy. Show the payback."
-Aviation,Operations,1,Airport IT outage,"A software failure takes check-in, boarding passes and baggage systems down at 3 major airports for 9 hours. 31,000 passengers are affected and your product or service stops working with them.
+Aviation,Operations,1,The data feed goes dark,"A failure at a national air-navigation data centre cuts the live air-traffic feed your product depends on for 9 hours, on the busiest travel day of the season. 31,000 passengers' flights are disrupted and your customers see stale or missing data.
 
-The twist: Airlines blame your product for slowing their recovery, although the outage was not yours. A news channel repeats it.
+The twist: Airlines blame your product for slowing their recovery, although the feed failure was not yours. A news channel repeats it.
 
-Your plan must decide: Prove it was not you, or help first and argue later, and what you change so it cannot happen again."
-Aviation,Market,2,A giant builds its own,"The country's largest airline launches its own free version of your product for its passengers and partners. 30% of your users say they will switch within a quarter.
+Your plan must decide: Prove it was not you, or help first and argue later, and what backup data you add so it cannot happen again."
+Aviation,Market,2,The provider builds its own,"The national air-navigation provider launches a free analytics dashboard, built on the same air-traffic data you use, for every airline and airport. 30% of your users say they will switch within a quarter.
 
-The twist: The airline offers you a white-label contract: your product, their brand, a fixed fee, and no access to your users.
+The twist: The provider offers you a contract to run its dashboard: your product, their brand, a fixed fee, and no access to your users.
 
-Your plan must decide: Sign it, refuse it, or win the airline's rivals, with the revenue of each over a year."
-Aviation,Trust,3,A safety incident under investigation,"A drone, aircraft or vehicle linked to your service is involved in an incident. No one is hurt, but the regulator opens an investigation and the video trends nationwide. Bookings fall 35%.
+Your plan must decide: Sign it, refuse it, or win the customers the free tool does not serve, with the revenue of each over a year."
+Aviation,Trust,3,A late alert under investigation,"On the day a drone and a training aircraft came too close near a busy airport, an alert from your product reached users late. No one is hurt, but the regulator opens an investigation and the video trends nationwide. Bookings fall 35%.
 
-The twist: Your operations lead tells you the incident report leaves out one maintenance check that was skipped.
+The twist: Your engineers find that a 4-minute data delay inside your system was never reported to customers.
 
-Your plan must decide: Correct the report or not, and what you change in safety before the regulator rules."
+Your plan must decide: Disclose the delay or not, and what you change in monitoring and safety before the regulator rules."
 Aviation,Money,4,Jet fuel up 35%,"Jet fuel prices rise 35% in a month. Airlines, your customers or partners, cut spending on new projects by a quarter and delay paying your invoices by 60 days.
 
 The twist: A lender offers you a loan against your unpaid invoices at 18% interest.

@@ -194,41 +194,46 @@ STATEMENTS = {
 
 CRISES.update({
     ("Aviation", 1): {
-        "on_card": ["Check-in, boarding-pass and baggage systems fail at 3 major airports", "The outage lasts 9 hours",
-                    "31,000 passengers are affected", "Your product or service stops working with them"],
-        "impact": "The service fails at the worst moment, in front of airports, airlines and passengers, and the cause is not even the "
-                  "company's own: its dependence on airport systems is exposed.",
-        "plan": ["Keep customers moving with a manual fallback",
-                 "Keep airports, airlines and passengers informed while it lasts",
-                 "Build redundancy so the service runs when airport systems fail",
-                 "Estimate the cost of the downtime and of the fix"],
-        "advice": "Set the order of the first hours (who is served first, what runs by hand); agree what the company promises partners "
-                  "during outages; price redundancy against the cost of another 9-hour failure.",
-        "watch": "How fast service returns, whether partners stay, and the cost of running independently of airport systems.",
+        "on_card": ["The live air-traffic feed the product depends on goes down for 9 hours",
+                    "The busiest travel day of the season: 31,000 passengers' flights disrupted",
+                    "Customers see stale or missing data"],
+        "impact": "A data business is only as good as its feed: the outage was not the company's fault, but its customers judge "
+                  "it on the day they needed it most, and the press is ready to blame it.",
+        "plan": ["Tell customers at once what is affected and what still works; mark stale data clearly rather than show it as live",
+                 "Switch to backup sources where possible (other feeds, airport and airline data, last known state)",
+                 "Make the twist's decision: prove the cause publicly or help first and argue later",
+                 "Add redundancy for the next outage and cost it against the business lost in this one"],
+        "advice": "Separate the facts (whose system failed, what the product showed) from the story in the news; list the backup "
+                  "data the company can buy or build; price an outage day against the cost of redundancy.",
+        "watch": "Customers who leave after the outage, how quickly the company communicated, and whether it now has a second data source.",
     },
     ("Aviation", 2): {
-        "on_card": ["The country's largest airline launches its own free version of your product",
-                    "It is for the airline's passengers and partners", "30% of your users say they will switch within a quarter"],
-        "impact": "A powerful customer becomes a free competitor: a large share of users may leave, and the company's biggest channel may close.",
-        "plan": ["Serve the customers the giant ignores: other airlines, airports, smaller cities",
-                 "Or become the giant's supplier",
-                 "Show what each option is worth",
-                 "Keep the users who value what the free version lacks"],
-        "advice": "Find the users least tied to the giant's network; test whether the airline would rather buy than build; set a ceiling "
-                  "on what keeping users may cost.",
-        "watch": "Actual switching against the 30% threat, and whether the company wins other airlines or a supply deal.",
+        "on_card": ["The national air-navigation provider launches a free analytics dashboard on the same data",
+                    "Every airline and airport can use it",
+                    "30% of users plan to switch within a quarter"],
+        "impact": "The company's raw material is now given away free by the most trusted source in the market: whatever it sells "
+                  "must be worth more than the free version.",
+        "plan": ["Find what the free dashboard cannot do (predictions, integration, a specific user, speed, support)",
+                 "Defend the users who value that difference; let the rest go if they only wanted the basics",
+                 "Make the twist's decision: run the provider's dashboard under its brand, refuse, or serve who it ignores",
+                 "Compare the revenue of each option over a year"],
+        "advice": "Map which customers need more than a dashboard; price a white-label contract against the loss of the company's "
+                  "own users and brand; consider partnering rather than competing with the provider.",
+        "watch": "User retention after the launch, revenue per remaining customer, and dependence on the provider's goodwill.",
     },
     ("Aviation", 3): {
-        "on_card": ["A drone, aircraft or vehicle linked to your service is in an incident", "No one is hurt",
-                    "The regulator opens an investigation and the video trends nationwide", "Bookings fall 35%"],
-        "impact": "Safety is the licence to operate: bookings fall, and the investigation can pause or restrict the service.",
-        "plan": ["Cooperate fully with the regulator",
-                 "Pause whatever is unsafe until it is checked",
-                 "Publish the findings and change procedures",
-                 "Show how long recovery takes and what it costs"],
-        "advice": "Separate the facts from the video; decide what to say and when; plan an independent safety review; model bookings "
-                  "recovering under realistic assumptions.",
-        "watch": "The regulator's findings, how long any pause lasts, and whether bookings recover.",
+        "on_card": ["A drone and a training aircraft came too close near a busy airport",
+                    "An alert from the product reached users late that day",
+                    "The regulator investigates; bookings fall 35%"],
+        "impact": "In aviation a safety question outweighs everything else: even with no one hurt, customers stop relying on an "
+                  "alert they cannot trust, and the regulator can restrict the service.",
+        "plan": ["Cooperate fully with the investigation and share the data",
+                 "Make the twist's decision: disclose the unreported 4-minute delay or not, and why",
+                 "Fix the cause and add monitoring so a delay is caught and reported at once",
+                 "Show how and when bookings recover, and what the response costs"],
+        "advice": "Set out what disclosure costs now against what concealment costs if it surfaces later; propose the monitoring "
+                  "and reporting changes; plan how the company talks to customers and the regulator.",
+        "watch": "The regulator's findings, whether the company disclosed the delay, and how many customers keep relying on its alerts.",
     },
     ("Aviation", 4): {
         "on_card": ["Jet fuel prices rise 35% in a month", "Airlines cut spending on new projects by a quarter",
@@ -291,16 +296,16 @@ CRISES.update({
 })
 
 STATEMENTS.update({
-    31: "Where passengers wait today and why, the change that removes it (digital ID, smarter staffing, data), how it is measured, and who pays: the airport or the airlines.",
-    32: "Which barriers it removes (booking, airport, boarding, the aircraft), how assistance is arranged and tracked, and evidence passengers would use it.",
-    33: "Which turnaround steps take longest, how the work is reorganised or monitored, how the time saved is measured, and what an airline saves per flight.",
-    34: "How bags are tracked and matched to passengers, how they are delivered, the cost per bag recovered, and who pays.",
-    35: "The aircraft and routes, the cost per seat against the fares and demand you expect, airport limits, and the path to break-even.",
-    36: "Routes and payloads, the approvals needed, the cost per delivery against road transport, and how deliveries stay safe and reliable.",
-    37: "Which data and decisions (routes, weight, taxiing) create the saving, how it is verified, and how the company is paid from the savings.",
-    38: "The feedstock and process, the cost per litre against jet fuel, the approvals, and who buys the first output.",
-    39: "Which steps it joins up (cab, airport, flight, onward travel), the partners it needs, and how it earns money.",
-    40: "The data and the parts covered, how accurate the predictions are and how that is shown, and what each grounding avoided is worth.",
+    31: "The data it combines (air-traffic, weather, airport, schedule), how predictions are tested against what really happened, how the airline acts on a warning, and what a minute of delay avoided is worth.",
+    32: "How it turns regional forecasts and live data into runway-level warnings, how accuracy and false alarms are measured, and what an airport pays against the cost of a diversion.",
+    33: "Which flights and phases (holding, descent, routing) it improves, how it works with air traffic control rather than around it, how the saving is verified per flight, and how it is paid from the savings.",
+    34: "How flights are planned, approved and tracked, how drones are kept clear of aircraft and no-fly zones, the approvals needed, and who pays: operators, cities or both.",
+    35: "Where demand is (trips, times, prices), how routes avoid airport traffic and noise, the vertiport sites and their cost, and the steps to a regulator-approved pilot.",
+    36: "How each shipment is located (data, scans, sensors), how missed connections are spotted early and fixed, who shares the data, and the value of cargo saved.",
+    37: "How unused slots are spotted early from live traffic data, how they are offered again within the slot rules, and how the airport and airlines share the value.",
+    38: "How each flight's carbon and noise are worked out from real tracks and aircraft data, how an auditor checks them, and who uses and pays for the figures.",
+    39: "Which live data it uses (road traffic, queues, flight status), how the leave-by time is tested against real journeys, and how it earns money without selling personal data.",
+    40: "The first data product and its buyer, how the data is anonymised and licensed, why it is worth paying for, and how the company finds its next customers.",
     41: "Who the users are, how the product steers them away from losses (education, limits, safer alternatives), how that is measured, and how it earns money without encouraging risky trading.",
     42: "The data used instead of a credit history, how fairness is checked, the defaults you expect, and the cost per loan.",
     43: "The signals used, how fast a decision is made, false alarms against fraud caught, and who pays: banks, apps or users.",

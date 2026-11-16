@@ -239,84 +239,84 @@ The catch: Storage for every hour is very expensive.
 You win if: 90% clean power around the clock at a price clients accept.
 
 Design the solution, how it is delivered and how it is measured.",5
-Aviation,31,Cut airport queue time from check-in to boarding by half,"Aviation · Round 3. Cut airport queue time from check-in to boarding by half.
+Aviation,31,Predict flight delays two hours ahead from air-traffic data,"Aviation · Round 3. Predict flight delays two hours ahead from air-traffic data.
 
-Who it is for: Passengers at a busy metro airport.
-The numbers: Check-in to boarding takes 75 minutes at peak, and 1 in 20 miss a flight because of queues.
-The catch: Security rules cannot change and space cannot grow.
-You win if: Under 35 minutes at peak, with no extra security staff.
-
-Design the solution, how it is delivered and how it is measured.",5
-Aviation,32,Make air travel fully accessible for passengers with disabilities,"Aviation · Round 3. Make air travel fully accessible for passengers with disabilities.
-
-Who it is for: Passengers who use wheelchairs, are blind or deaf, or have hidden disabilities.
-The numbers: 1 in 4 report a bad experience, and 1 in 10 a damaged wheelchair.
-The catch: Many staff are untrained and every airport works differently.
-You win if: Complaints halved and every passenger able to book help in one step.
+Who it is for: The operations centre of an airline at a busy metro hub.
+The numbers: 1 departure in 4 leaves more than 15 minutes late, and each minute of delay costs about Rs 6,000 per flight.
+The catch: Delays start in weather, airspace and other airports that the airline cannot see.
+You win if: Delay predictions 2 hours ahead that are right 8 times in 10 on the routes tested.
 
 Design the solution, how it is delivered and how it is measured.",5
-Aviation,33,Turn aircraft around 20% faster without extra staff,"Aviation · Round 3. Turn aircraft around 20% faster without extra staff.
+Aviation,32,Weather intelligence that warns airports before storms hit,"Aviation · Round 3. Weather intelligence that warns airports before storms hit.
 
-Who it is for: A low-cost airline that earns only while its planes fly.
-The numbers: A turnaround takes 45 minutes; every 5 minutes saved is worth Rs 30 crore a year.
-The catch: The ground crew is already stretched and safety checks cannot be skipped.
-You win if: A 36-minute turnaround with the same staff and no new safety issues.
-
-Design the solution, how it is delivered and how it is measured.",5
-Aviation,34,Lost baggage found or delivered within 24 hours,"Aviation · Round 3. Lost baggage found or delivered within 24 hours.
-
-Who it is for: Passengers whose bags are delayed or lost.
-The numbers: 7 bags in 1,000 go astray, and most take 3 days to return.
-The catch: Bags pass through airlines, airports and ground handlers who do not share data.
-You win if: 95% of bags back with their owner within 24 hours.
+Who it is for: Small and mid-size airports with no meteorologist of their own.
+The numbers: Monsoon storms close runways for 30 to 90 minutes and divert up to 20 flights a day.
+The catch: Forecasts cover whole regions; a runway needs warnings to the minute.
+You win if: Warnings 45 minutes ahead, with under 1 false alarm in 5.
 
 Design the solution, how it is delivered and how it is measured.",5
-Aviation,35,Affordable flights to tier-3 towns with under 50 seats,"Aviation · Round 3. Affordable flights to tier-3 towns with under 50 seats.
+Aviation,33,Cut fuel and carbon with smarter routes and descents,"Aviation · Round 3. Cut fuel and carbon with smarter routes and descents.
 
-Who it is for: People in towns 300 km from the nearest airport.
-The numbers: A 50-seat plane costs Rs 1.5 lakh an hour to fly, and flights must sell for under Rs 3,000.
-The catch: Small airports have short runways and few passengers on weekdays.
-You win if: A route that fills 70% of seats and covers its costs within a year.
-
-Design the solution, how it is delivered and how it is measured.",5
-Aviation,36,Drone delivery of medicines to hilly and remote areas,"Aviation · Round 3. Drone delivery of medicines to hilly and remote areas.
-
-Who it is for: Clinics in hill and island areas waiting days for medicines.
-The numbers: A road trip takes 6 hours; a drone takes 30 minutes.
-The catch: Weather, the rules on flying and keeping medicines cold.
-You win if: 1,000 deliveries a month, on time, with every medicine safe on arrival.
+Who it is for: An airline flying 300 domestic flights a day.
+The numbers: Holding patterns and stepped descents burn about 4% extra fuel on every flight.
+The catch: Routes and descents are set by air traffic control, not by the airline alone.
+You win if: 3% less fuel on the routes tested, shown flight by flight.
 
 Design the solution, how it is delivered and how it is measured.",5
-Aviation,37,Cut an airline's fuel use and carbon by 10% with data,"Aviation · Round 3. Cut an airline's fuel use and carbon by 10% with data.
+Aviation,34,Safe drone traffic management over Indian cities,"Aviation · Round 3. Safe drone traffic management over Indian cities.
 
-Who it is for: An airline whose fuel is 40% of its costs.
-The numbers: A 10% saving is worth Rs 500 crore a year.
-The catch: Pilots, dispatchers and air traffic control all decide part of every flight.
-You win if: Fuel burn down 10% on the routes tested, measured flight by flight.
-
-Design the solution, how it is delivered and how it is measured.",5
-Aviation,38,Sustainable aviation fuel from Indian farm waste,"Aviation · Round 3. Sustainable aviation fuel from Indian farm waste.
-
-Who it is for: Airlines that must start blending sustainable fuel.
-The numbers: Sustainable aviation fuel costs 3× jet fuel; India burns 50 crore tonnes of crop waste a year.
-The catch: Collecting farm waste is seasonal and spread over thousands of villages.
-You win if: A pilot plant that makes fuel at under 2× the price of jet fuel.
+Who it is for: Drone delivery companies and city authorities.
+The numbers: A city may soon have 500 delivery drones in the air at peak; today each flight is approved one by one.
+The catch: Drones must stay clear of aircraft, helipads and no-fly zones, with weak GPS between tall buildings.
+You win if: 1,000 flights a day planned and tracked in a pilot zone with no conflicts.
 
 Design the solution, how it is delivered and how it is measured.",5
-Aviation,39,One app for the whole door-to-door journey,"Aviation · Round 3. One app for the whole door-to-door journey.
+Aviation,35,Plan air-taxi routes and vertiports for an Indian city,"Aviation · Round 3. Plan air-taxi routes and vertiports for an Indian city.
 
-Who it is for: Travellers who book a cab, a flight, a train and a hotel in five apps.
-The numbers: 1 in 3 journeys has a missed connection or a wasted hour.
-The catch: Every operator wants to own the customer.
-You win if: One booking that re-plans itself when anything is late, used by 1 lakh travellers.
+Who it is for: A future electric air-taxi operator and a city planning body.
+The numbers: A 20 km trip across the city takes 90 minutes by road and could take 15 by air.
+The catch: Routes must avoid airport traffic, noise-sensitive areas and tall buildings.
+You win if: 5 vertiports and their routes, with demand per route, that the regulator accepts for a pilot.
 
 Design the solution, how it is delivered and how it is measured.",5
-Aviation,40,Predict and prevent aircraft part failures before they ground a plane,"Aviation · Round 3. Predict and prevent aircraft part failures before they ground a plane.
+Aviation,36,Track air cargo from runway to warehouse in real time,"Aviation · Round 3. Track air cargo from runway to warehouse in real time.
 
-Who it is for: Maintenance teams of an airline with 80 planes.
-The numbers: A grounded plane costs Rs 50 lakh a day, and 30% of groundings come from part failures.
-The catch: Sensor data is huge and the regulator demands proof for every change.
-You win if: Groundings from part failures cut by half, with no missed safety check.
+Who it is for: Exporters of medicines and fresh produce, and air cargo handlers.
+The numbers: 1 shipment in 12 misses its connection, and cold-chain cargo spoils after 4 hours on the tarmac.
+The catch: Airlines, ground handlers and customs each use different systems.
+You win if: Every shipment located within 10 minutes, and missed connections halved.
+
+Design the solution, how it is delivered and how it is measured.",5
+Aviation,37,Use live traffic data to fill unused airport slots,"Aviation · Round 3. Use live traffic data to fill unused airport slots.
+
+Who it is for: A busy airport whose take-off and landing slots are full at peak.
+The numbers: 8% of peak slots go unused through late changes; each unused slot is worth about Rs 1.5 lakh.
+The catch: Slot rules are strict and airlines guard their slots.
+You win if: Half of the unused slots filled again at least 30 minutes ahead.
+
+Design the solution, how it is delivered and how it is measured.",5
+Aviation,38,Measure every flight's carbon and noise footprint,"Aviation · Round 3. Measure every flight's carbon and noise footprint.
+
+Who it is for: Airports that report emissions, and the neighbourhoods around them.
+The numbers: Emissions are estimated from averages, and complaints about night noise rise every year.
+The catch: Real flight paths, aircraft types and engines vary flight by flight.
+You win if: A carbon and noise figure for every flight at one airport, accepted by an outside auditor.
+
+Design the solution, how it is delivered and how it is measured.",5
+Aviation,39,Tell passengers exactly when to leave home for their flight,"Aviation · Round 3. Tell passengers exactly when to leave home for their flight.
+
+Who it is for: Travellers flying from busy metro airports.
+The numbers: Passengers arrive 2.5 hours early on average, and 1 in 30 still misses a flight.
+The catch: Road traffic, security queues and flight delays change by the minute.
+You win if: A leave-by time that gets 95% of users to the gate on time with 30 minutes less waiting.
+
+Design the solution, how it is delivered and how it is measured.",5
+Aviation,40,Turn air-traffic data into products for tourism and city planners,"Aviation · Round 3. Turn air-traffic data into products for tourism and city planners.
+
+Who it is for: Tourism boards, hotels and city planners.
+The numbers: Air-traffic data shows where and when visitors arrive, weeks before hotel bookings do.
+The catch: The data must be anonymised and licensed, and buyers want answers, not raw data.
+You win if: 3 paying customers using one data product within 6 months, with no personal data exposed.
 
 Design the solution, how it is delivered and how it is measured.",5
 Fintech,41,Stop first-time investors losing money in options,"Fintech · Round 3. Stop first-time investors losing money in options.
