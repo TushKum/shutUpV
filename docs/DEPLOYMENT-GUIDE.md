@@ -114,7 +114,7 @@ If the cron row is missing, pg_cron was not enabled before the push: enable it a
 | Authentication → URL Configuration | **Site URL** | `https://play.example.com` |
 | Authentication → URL Configuration | Redirect URLs | your site address (and track addresses if you use them) |
 | Authentication → Rate Limits | **Sign-ins / sign-ups** | **at least 1,000 per 5 minutes** |
-| Authentication → Rate Limits | Token refreshes | raise likewise (600 phones refresh their sessions) |
+| Authentication → Rate Limits | **Token refreshes** | **1800 per 5 minutes**: password sign-ins count against this limit too, as well as the 600 phones refreshing their sessions |
 
 Why the rate limit matters: the 600 phones reach Supabase through a few addresses (the venue Wi-Fi and Vercel's
 servers). At the default limit most of the room would be refused at check-in.
