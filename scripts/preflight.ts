@@ -3,8 +3,9 @@
 // app (/api/health: the same Supabase project and team-login domain as this .env).
 //
 //   pnpm preflight --slug live-2026
-//   pnpm preflight --slug live-2026 --rush 60   (also: 60 quick sign-ins, to catch a sign-in rate limit too low for the
-//                                                room; it uses up that many sign-ins from this laptop's address)
+//   pnpm preflight --slug live-2026 --rush 60   (also: 60 sign-ins by different teams at 4 a second, a busy check-in,
+//                                                to catch a sign-in rate limit too low for the room; it uses up that
+//                                                many sign-ins from this laptop's address)
 //
 // Reads .env (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, CARD_SECRET, TEAM_EMAIL_DOMAIN,
 // APP_URL). Exits 1 when a check fails. It changes nothing.
@@ -127,12 +128,14 @@ async function main(): Promise<number> {
       else if (error.status === 429) limited++;
       else other++;
     };
-    for (let i = 0; i < rushN; i += 10) await Promise.all(rushTeams.slice(i, i + 10).map(one));
+    // Paced like a busy check-in (4 sign-ins a second), not all at once: Supabase lets about 30 through in one instant
+    // and then refills at the configured rate; the app also retries a refused sign-in quietly.
+    await Promise.all(rushTeams.map((t, i) => new Promise<void>((done) => setTimeout(() => void one(t).then(done), i * 250))));
     if (limited)
       say(
         "FAIL",
         `${limited} of ${rushN} quick sign-ins (${Math.min(rushN, list.length)} different teams) were refused by the sign-in rate limit`,
-        "Supabase → Authentication → Rate Limits: \"sign-ups and sign-ins\" at least 1000, click Save changes (reload the page to confirm), then wait 5 minutes without signing in from this laptop and run this once",
+        "Supabase → Authentication → Rate Limits: \"token refreshes\" 1800 (password sign-ins count against it) and \"sign-ups and sign-ins\" 1000, click Save changes (reload to confirm), then wait 5 minutes without signing in from this laptop and run this once",
       );
     else if (other) say("WARN", `${other} of ${rushN} quick sign-ins failed (not the rate limit)`, "look at Supabase → Logs → Auth for the errors");
     else say("PASS", `${ok} quick sign-ins by ${Math.min(rushN, list.length)} different teams were all accepted (no rate limit hit)`);
