@@ -21,10 +21,13 @@ export interface JudgeConfig {
   fakeLatencyMs: number;
 }
 
+// Claude Haiku 5.5 in both slots: the whole night costs a few dollars (about $0.001 a run), and no fallback to a dearer
+// model can start spending without the organisers choosing it. Medium effort: Haiku thinks a little more for steadier
+// scores at almost no extra cost. Check it with a real calibration batch before the night.
 export const JUDGE_DEFAULTS = {
-  model: "claude-opus-5-5",
-  backupModel: "claude-sonnet-5-5",
-  effort: "low",
+  model: "claude-haiku-5-5",
+  backupModel: "claude-haiku-5-5",
+  effort: "medium",
   concurrency: 8,
   budgetMs: 50_000,
   fakeLatencyMs: 300,

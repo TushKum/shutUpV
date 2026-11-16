@@ -36,7 +36,7 @@ domain is [DEPLOY-OWN-DOMAIN.md](DEPLOY-OWN-DOMAIN.md), and `pnpm preflight --sl
    are submitted automatically. The organiser's To do now list says "Start judging the …".
 2. **Start judging.** Every answer is queued for **3 independent runs**. A judge console (the organiser's browser on
    the Judge page) or the laptop worker takes runs from the queue.
-3. **Each run** sends Claude (default **Claude Opus 5.5**, backup **Claude Sonnet 5.5**) the published rubric for that
+3. **Each run** sends Claude (default **Claude Haiku 5.5** in both slots, about $5 for the night) the published rubric for that
    kind of answer (`prompts/*.md`, whose SHA is stored with every run) and the answer with its context:
    - PRD: the sector brief the squad was dealt;
    - crisis plan: the company's PRD, its crisis card (with the twist), and the hired firm's memo, or a note that it

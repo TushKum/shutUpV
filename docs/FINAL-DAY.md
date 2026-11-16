@@ -45,7 +45,7 @@ the event lead.
       `… --burst 1.2` (a round clearing), `pnpm load-test --slug reh-1` (realtime and trading). All PASS; if not,
       raise Supabase compute one size and run again.
 - [ ] Real judge calibration (Judge → Calibration) with the Anthropic key; medians inside the bands. Note the cost
-      per call (about $0.05 expected; about $100 for the night). Anthropic balance **≥ $200**.
+      per call (about $0.001 with Haiku; about $5 for the night). Anthropic balance **$10–20**.
 - [ ] Staff rehearsal: every role does its job once on `reh-1` with this document in hand.
 
 ### D−2 (Wed 18 Nov): content and print
@@ -70,7 +70,7 @@ the event lead.
 | 15:00 | Tech | Check [Vercel](https://www.vercel-status.com/), [Supabase](https://status.supabase.com/), [Anthropic](https://status.claude.com/) status. `pnpm preflight --slug live-2026` → all PASS. |
 | 16:00 | Tech | Venue: Wi-Fi up, projector on the wired line, `https://<domain>/display/live-2026` full screen. |
 | 17:00 | All staff | Sign in on the organiser laptops; open the control panel, Judge (×2), Rounds, Display. To do now: empty. |
-| 18:00 | AI operator | Judge page: model **claude-opus-5-5**, backup **claude-sonnet-5-5**, "Run the judge here" ready on laptops 1 and 2. |
+| 18:00 | AI operator | Judge page: model **claude-haiku-5-5** (backup the same), "Run the judge here" ready on laptops 1 and 2. |
 | 18:30 | Event lead | Staff briefing: roles, this timetable, pause rule ("if teams cannot play fairly, pause first, talk second"). |
 | 19:30 | Help desk | Cards sorted by team code at the desk; spare cards and a pen. |
 

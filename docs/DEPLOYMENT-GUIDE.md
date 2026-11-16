@@ -34,7 +34,7 @@ handling), [GO-LIVE.md](GO-LIVE.md) (what was tested).
 | GitHub | any | the code (`TushKum/shutUpV`) |
 | Supabase | **Pro with the spend cap off, or Team** | 600 phones × 3 live channels; free and capped plans refuse connections above their limit |
 | Vercel | **Pro** | commercial use, Mumbai region, the judge's 300-second function |
-| Anthropic Console | funded, **≥ $200** credit | the AI judge (about $100 for the night) |
+| Anthropic Console | funded, **$10–20** credit | the AI judge on Claude Haiku 5.5 (about $5 for the night) |
 | Domain registrar | your domain | the address on the cards |
 
 ### 1.2 Tools on the laptop
@@ -159,9 +159,9 @@ Realtime → **Settings**:
 | `NEXT_PUBLIC_TEAM_EMAIL_DOMAIN` | your `TEAM_EMAIL_DOMAIN` | **must equal the laptop's**, or no team can sign in |
 | `SUPABASE_SERVICE_ROLE_KEY` | the service / secret key | server only |
 | `ANTHROPIC_API_KEY` | your Anthropic key | server only |
-| `JUDGE_MODEL` | `claude-opus-5-5` | |
-| `JUDGE_BACKUP_MODEL` | `claude-sonnet-5-5` | |
-| `JUDGE_EFFORT` | `low` | |
+| `JUDGE_MODEL` | `claude-haiku-5-5` | the default; the night costs a few dollars |
+| `JUDGE_BACKUP_MODEL` | `claude-haiku-5-5` | the same model, so nothing dearer can start spending |
+| `JUDGE_EFFORT` | `medium` | |
 | `JUDGE_CONCURRENCY` | `8` | |
 | `JUDGE_WORK_BUDGET_MS` | `50000` | |
 
@@ -223,8 +223,8 @@ APP_URL=https://play.example.com
 
 # Optional: the laptop judge worker (pnpm judge-worker)
 ANTHROPIC_API_KEY=<key>
-JUDGE_MODEL=claude-opus-5-5
-JUDGE_BACKUP_MODEL=claude-sonnet-5-5
+JUDGE_MODEL=claude-haiku-5-5
+JUDGE_BACKUP_MODEL=claude-haiku-5-5
 ```
 Back up `CARD_SECRET` in a password manager now.
 

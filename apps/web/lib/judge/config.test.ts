@@ -2,11 +2,11 @@ import { describe, expect, test } from "vitest";
 import { EFFORTS, hasApiCredential, judgeConfig, rejectsSampling } from "./config";
 
 describe("judgeConfig", () => {
-  test("defaults (docs/JUDGE.md): Opus primary, Sonnet backup, no temperature, low effort, 8 in parallel, 50 s", () => {
+  test("defaults: Haiku 5.5 in both slots (the budget), no temperature, medium effort, 8 in parallel, 50 s", () => {
     const c = judgeConfig({});
     expect(c).toEqual({
-      models: { PRIMARY: "claude-opus-5-5", BACKUP: "claude-sonnet-5-5" },
-      effort: "low",
+      models: { PRIMARY: "claude-haiku-5-5", BACKUP: "claude-haiku-5-5" },
+      effort: "medium",
       concurrency: 8,
       budgetMs: 50_000,
       fake: false,
@@ -17,7 +17,7 @@ describe("judgeConfig", () => {
 
   test("a blank variable counts as unset (.env.example ships JUDGE_TEMPERATURE=)", () => {
     expect("temperature" in judgeConfig({ JUDGE_TEMPERATURE: "", JUDGE_MODEL: " " })).toBe(false);
-    expect(judgeConfig({ JUDGE_MODEL: " " }).models.PRIMARY).toBe("claude-opus-5-5");
+    expect(judgeConfig({ JUDGE_MODEL: " " }).models.PRIMARY).toBe("claude-haiku-5-5");
   });
 
   test("reads every setting", () => {
@@ -62,9 +62,9 @@ describe("judgeConfig", () => {
   });
 
   test("JUDGE_TEMPERATURE is refused at start-up when either slot's model rejects sampling parameters (PLAN.md Q3)", () => {
-    // The defaults (claude-opus-5-5, claude-sonnet-5-5) both reject it.
+    // The default (claude-haiku-5-5, both slots) rejects it.
     expect(() => judgeConfig({ JUDGE_TEMPERATURE: "0" })).toThrow(
-      /JUDGE_TEMPERATURE is set, but claude-opus-5-5 \(JUDGE_MODEL\) rejects temperature.*PLAN\.md Q3/,
+      /JUDGE_TEMPERATURE is set, but claude-haiku-5-5 \(JUDGE_MODEL\) rejects temperature.*PLAN\.md Q3/,
     );
     // The backup counts too: an organiser can switch to it during the night.
     expect(() =>
