@@ -27,9 +27,22 @@ describe("signing in when Auth is busy", () => {
     expect(r).toEqual({ error: { status: 0 }, tries: 4 });
   });
 
-  test("waits are random and grow, a few seconds in all", () => {
-    expect(retryDelayMs(2, () => 0)).toBe(400);
-    expect(retryDelayMs(4, () => 1)).toBe(3600);
-    expect([2, 3, 4].reduce((t, n) => t + retryDelayMs(n, () => 1), 0)).toBeLessThanOrEqual(7200);
+  test("waits are random, grow and are capped: about 12 s at most over 6 tries", () => {
+    expect(retryDelayMs(2, () => 0)).toBe(500);
+    expect(retryDelayMs(3, () => 1)).toBe(2400);
+    expect(retryDelayMs(6, () => 1)).toBe(3000);
+    expect([2, 3, 4, 5, 6].reduce((t, n) => t + retryDelayMs(n, () => 1), 0)).toBeLessThanOrEqual(13_000);
+  });
+
+  test("'too many requests' gets 6 tries; an outage 4", async () => {
+    let calls = 0;
+    const busy = await signInWithRetry(async () => (calls++, { error: { status: 429 } }), noWait);
+    expect(busy).toEqual({ error: { status: 429 }, tries: 6 });
+    expect(calls).toBe(6);
+    calls = 0;
+    const down = await signInWithRetry(async () => (calls++, { error: { status: 503 } }), noWait);
+    expect(down.tries).toBe(4);
+    const late = [{ error: { status: 429 } }, { error: { status: 429 } }, { error: { status: 429 } }, { error: { status: 429 } }, { error: null }];
+    expect(await signInWithRetry(async () => late.shift()!, noWait)).toEqual({ error: null, tries: 5 });
   });
 });

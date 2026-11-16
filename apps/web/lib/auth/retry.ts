@@ -16,19 +16,31 @@ export function retryableAuthError(error: AuthErrorLike | null | undefined): boo
 }
 
 export const SIGN_IN_ATTEMPTS = 4;
+/** "Too many requests" clears as Supabase's limit refills, so it is given more tries than an outage. */
+export const RATE_LIMITED_ATTEMPTS = 6;
+/** The longest single wait, and so (with 6 tries) about 12 s in all: inside the login page's time limit. */
+export const MAX_RETRY_DELAY_MS = 3000;
 
-/** Wait before attempt `n` (2, 3, 4): random, growing, so retries from many phones do not land together. */
+/** Wait before attempt `n` (2, 3, …): random, growing, capped, so retries from many phones do not land together. */
 export function retryDelayMs(n: number, random: () => number = Math.random): number {
-  return Math.round((400 + random() * 800) * (n - 1));
+  return Math.min(MAX_RETRY_DELAY_MS, Math.round((500 + random() * 700) * (n - 1)));
 }
 
-/** Runs a sign-in, trying again on retryable errors. Returns the last result. */
+/**
+ * Runs a sign-in, trying again on retryable errors: up to `attempts` tries for an outage, more when Auth only said
+ * "too many requests" (429). Returns the last result.
+ */
 export async function signInWithRetry<T extends { error: AuthErrorLike | null }>(
   attempt: () => Promise<T>,
-  { attempts = SIGN_IN_ATTEMPTS, sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)), random = Math.random } = {},
+  {
+    attempts = SIGN_IN_ATTEMPTS,
+    rateLimitedAttempts = Math.max(attempts, RATE_LIMITED_ATTEMPTS),
+    sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)),
+    random = Math.random,
+  } = {},
 ): Promise<T & { tries: number }> {
   let result!: T;
-  for (let n = 1; n <= attempts; n++) {
+  for (let n = 1; ; n++) {
     if (n > 1) await sleep(retryDelayMs(n, random));
     try {
       result = await attempt();
@@ -36,6 +48,7 @@ export async function signInWithRetry<T extends { error: AuthErrorLike | null }>
       result = { error: { status: 0 } } as T;
     }
     if (!retryableAuthError(result.error)) return { ...result, tries: n };
+    const limit = result.error?.status === 429 ? rateLimitedAttempts : attempts;
+    if (n >= limit) return { ...result, tries: n };
   }
-  return { ...result, tries: attempts };
 }

@@ -116,6 +116,15 @@ If the cron row is missing, pg_cron was not enabled before the push: enable it a
 | Authentication → Rate Limits | **Sign-ins / sign-ups** | **at least 1,000 per 5 minutes** |
 | Authentication → Rate Limits | **Token refreshes** | **1800 per 5 minutes**: password sign-ins count against this limit too, as well as the 600 phones refreshing their sessions |
 
+**Check them exactly from the laptop** (no sign-ins used): create a personal access token at
+supabase.com/dashboard/account/tokens, put it in `.env` as `SUPABASE_ACCESS_TOKEN=…`, then
+```bash
+pnpm auth-limits         # shows every Auth rate limit as the project has it
+pnpm auth-limits --set   # raises sign-ups and sign-ins to 1000 and token refreshes to 1800, then reads back
+```
+`pnpm preflight` then checks them too. The token can manage your whole Supabase account: keep it in `.env`
+only and delete it after the event.
+
 Why the rate limit matters: the 600 phones reach Supabase through a few addresses (the venue Wi-Fi and Vercel's
 servers). At the default limit most of the room would be refused at check-in.
 

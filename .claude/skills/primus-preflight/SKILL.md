@@ -12,7 +12,7 @@ pnpm preflight --slug <event slug>            # e.g. live-2026
 pnpm preflight --slug <event slug> --rush 60  # also 60 quick sign-ins: the Auth rate limit
 ```
 Ask for the slug if you do not know it (`out/*-login-cards.pdf` names it). `--rush` uses up 60 sign-ins from this
-laptop's address: run it once, not in a loop. The script changes nothing.
+laptop's address: run it once, not in a loop. Prefer `pnpm auth-limits` (exact, uses no sign-ins). The script changes nothing.
 
 Also run `curl -s "$APP_URL/api/health"` if the app section could not be reached.
 
@@ -28,7 +28,8 @@ laptop-side part. The common ones:
 | cannot sign in with its card's password | `CARD_SECRET` differs from the one used for the cards | restore the original, or run `pnpm seed` with the same options (resets logins), then reprint |
 | the app uses Supabase X, the laptop seeded Y | Vercel points at another project | fix Vercel's Supabase variables; redeploy |
 | the app's team-login domain differs | Vercel's `NEXT_PUBLIC_TEAM_EMAIL_DOMAIN` is wrong | fix it in Vercel; **redeploy** (it is built into the app) |
-| quick sign-ins refused by the rate limit | Auth limit too low for 600 people | Supabase → Authentication → Rate Limits: sign-ins ≥ 1,000 per 5 min; retry in 5 minutes |
+| Auth limit "…" too low / quick sign-ins refused | Auth limit too low for 600 people | `pnpm auth-limits --set` (needs `SUPABASE_ACCESS_TOKEN` in `.env`), or Supabase → Authentication → Rate Limits: sign-ups and sign-ins ≥ 1000, token refreshes ≥ 1800, Save changes |
+| Auth rate limits not checked | no personal access token | add `SUPABASE_ACCESS_TOKEN` (supabase.com/dashboard/account/tokens) to check them exactly without spending sign-ins |
 | the deployed app is older than this code | Vercel is not on the latest commit | redeploy |
 
 Then do the hand checks in `docs/DEPLOYMENT-GUIDE.md` Part 8.2 (QR sign-in on a phone, organiser, projector, heartbeat).

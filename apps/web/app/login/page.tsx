@@ -11,6 +11,9 @@ import { PORTAL_TITLES, teamPortal } from "@/lib/portal/portal";
 import { TEAM_CODE_RE, TRACK_LABELS, normalizeTeamCode } from "@msim/engine";
 
 export const metadata: Metadata = { title: "Sign in · PRIMUS" };
+// A sign-in during a check-in rush may wait for Supabase's rate limit to refill (lib/auth/retry.ts, about 12 s at
+// most): give the sign-in action room for that on every plan.
+export const maxDuration = 30;
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next, code } = await searchParams;

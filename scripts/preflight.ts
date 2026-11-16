@@ -15,6 +15,7 @@ import { teamEmail, type Track } from "@msim/engine";
 import { EXPECTED_SCHEMA } from "../apps/web/lib/schema";
 import { parseArgs } from "./lib/args";
 import { derivePassword } from "./lib/credentials";
+import { limitRows, projectRef, readAuthConfig } from "./lib/auth-limits";
 
 type Level = "PASS" | "WARN" | "FAIL";
 const results: { level: Level; text: string; fix?: string }[] = [];
@@ -68,6 +69,28 @@ async function main(): Promise<number> {
       `database at ${version ?? "a version before 20261117000050"}, this code needs ${EXPECTED_SCHEMA}`,
       "apply the migrations: supabase link --project-ref <ref> && supabase db push",
     );
+
+  // 2b. Auth's rate limits, read exactly (Management API; no sign-ins used) when a personal access token is set.
+  const pat = env("SUPABASE_ACCESS_TOKEN");
+  const ref = projectRef(env("SUPABASE_URL"));
+  if (pat && ref) {
+    try {
+      const rows = limitRows(await readAuthConfig(pat, ref)).filter((r) => r.min !== null);
+      for (const r of rows) {
+        if (r.ok) say("PASS", `Auth limit "${r.label}" is ${r.value} per 5 minutes (needs ≥ ${r.min})`);
+        else
+          say(
+            "FAIL",
+            `Auth limit "${r.label}" is ${r.value ?? "unknown"} per 5 minutes, too low for 600 people (needs ≥ ${r.min})`,
+            "run pnpm auth-limits --set, or Supabase → Authentication → Rate Limits, then Save changes",
+          );
+      }
+    } catch (e) {
+      say("WARN", `could not read the Auth rate limits: ${(e as Error).message}`, "check SUPABASE_ACCESS_TOKEN (supabase.com/dashboard/account/tokens)");
+    }
+  } else {
+    say("WARN", "Auth rate limits not checked", "add SUPABASE_ACCESS_TOKEN to .env (supabase.com/dashboard/account/tokens) to check them exactly, or use --rush 60");
+  }
 
   // 3. The event and its team logins.
   console.log(`\nEvent ${slug}`);

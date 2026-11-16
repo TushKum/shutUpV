@@ -21,7 +21,8 @@
     "rehearse": "tsx --env-file-if-exists=.env scripts/rehearse.ts",
     "load-test": "tsx --env-file-if-exists=.env scripts/load-test.ts",
     "app-load-test": "tsx --env-file-if-exists=.env scripts/app-load-test.ts",
-    "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts"
+    "preflight": "tsx --env-file-if-exists=.env scripts/preflight.ts",
+    "auth-limits": "tsx --env-file-if-exists=.env scripts/auth-limits.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
