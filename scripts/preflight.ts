@@ -114,29 +114,28 @@ async function main(): Promise<number> {
 
   // 3b. Optional: the sign-in rate limit, with a burst of real sign-ins (check-in puts hundreds behind a few addresses).
   const rushN = typeof args.rush === "string" ? Number(args.rush) : args.rush === true ? 60 : 0;
-  if (rushN > 0 && anon && env("CARD_SECRET") && samples[0]) {
-    const t = samples[0];
-    const email = teamEmail(t.code, domain);
-    const password = derivePassword(env("CARD_SECRET"), slug, t.code);
+  if (rushN > 0 && anon && env("CARD_SECRET") && list.length) {
+    // Like check-in: different teams (round the list), not one account signing in again and again.
+    const rushTeams = Array.from({ length: rushN }, (_, i) => list[i % list.length]!);
     let ok = 0;
     let limited = 0;
     let other = 0;
-    const one = async () => {
+    const one = async (t: { code: string }) => {
       const sb = createClient(env("SUPABASE_URL"), anon, { auth: { persistSession: false, autoRefreshToken: false } });
-      const { error } = await sb.auth.signInWithPassword({ email, password });
+      const { error } = await sb.auth.signInWithPassword({ email: teamEmail(t.code, domain), password: derivePassword(env("CARD_SECRET"), slug, t.code) });
       if (!error) ok++;
       else if (error.status === 429) limited++;
       else other++;
     };
-    for (let i = 0; i < rushN; i += 10) await Promise.all(Array.from({ length: Math.min(10, rushN - i) }, one));
+    for (let i = 0; i < rushN; i += 10) await Promise.all(rushTeams.slice(i, i + 10).map(one));
     if (limited)
       say(
         "FAIL",
-        `${limited} of ${rushN} quick sign-ins were refused by the sign-in rate limit`,
-        "Supabase → Authentication → Rate Limits: raise the sign-in limit (at least 1,000 per 5 minutes for 600 people), then run this again in 5 minutes",
+        `${limited} of ${rushN} quick sign-ins (${Math.min(rushN, list.length)} different teams) were refused by the sign-in rate limit`,
+        "Supabase → Authentication → Rate Limits: \"sign-ups and sign-ins\" at least 1000, click Save changes (reload the page to confirm), then wait 5 minutes without signing in from this laptop and run this once",
       );
     else if (other) say("WARN", `${other} of ${rushN} quick sign-ins failed (not the rate limit)`, "look at Supabase → Logs → Auth for the errors");
-    else say("PASS", `${ok} quick sign-ins in a row were all accepted (no rate limit hit)`);
+    else say("PASS", `${ok} quick sign-ins by ${Math.min(rushN, list.length)} different teams were all accepted (no rate limit hit)`);
   }
 
   // 4. The deployed app.
