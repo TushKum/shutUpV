@@ -207,7 +207,7 @@ out.append("""
   <h2>Contents</h2>
   <ol class="toc">
     <li>How the night uses the statements and crises</li>
-    <li>Round 1 · The consulting case: Kaveri Fresh</li>
+    <li>Round 1 · The consulting case: ElevenLabs, winning India's voices</li>
 """ + "".join(f"<li>{e(sec['name'])}{'' if sec['in_game'] else ' (extra sector)'}: the problem statement, four crises with their twists, spare cards and ten Round 3 statements</li>" for sec in sectors_out) + """
     <li>Appendix A · How every answer is judged (the rubrics)</li>
     <li>Appendix B · Organiser checklist</li>
@@ -221,7 +221,7 @@ out.append("""
     <tr><th style="width:13%">Time</th><th style="width:17%">Round</th><th>What happens</th><th style="width:27%">What it moves</th></tr>
     <tr><td>21:00</td><td>Squad draw</td><td>Each squad's sector is drawn and its problem card is set.</td><td>Who competes with whom all night</td></tr>
     <tr><td>21:00–22:00</td><td>Round 1 · Foundation</td><td><b>Product</b> writes a PRD for a startup inside its sector's problem
-      statement (800 words, 7 sections). <b>Consulting</b> writes a memo on the Kaveri Fresh case (500 words, 6 sections).</td>
+      statement (800 words, 7 sections). <b>Consulting</b> writes a memo on the ElevenLabs case (500 words, 6 sections).</td>
       <td>The PRD score sets the IPO price; the memo score sets the firm's opening reputation and a bonus</td></tr>
     <tr><td>by 22:30</td><td>Round 1</td><td><b>Consulting</b> makes Call 1: BUY or SELL on each of its two companies.
       <b>Finance</b> reads the PRDs and bids in the IPO (until 22:45).</td><td>$2,500 per correct call; the opening share register</td></tr>
@@ -255,33 +255,40 @@ out.append("""
 # ───────────── The consulting case ─────────────
 out.append(f"""
 <section class="page">
-  <h2>2 · Round 1 · The consulting case: Kaveri Fresh</h2>
+  <h2>2 · Round 1 · The consulting case: ElevenLabs</h2>
   <p>Every Consulting firm, whatever its squad's sector, writes a recommendation memo on this one case, by 22:00. Because the
   case is the same for everyone, the memo score is a fair first measure of each firm, and it sets the reputation companies
   see when they hire in Round 2.</p>
   <div class="onscreen" style="--c:#334155;--bg:#f3f5f8"><span class="tag">On screen · the case</span>
-    <div class="title">Kaveri Fresh: the cold room is gone</div><div>{e(case)}</div></div>
+    <div class="title">ElevenLabs: winning India's voices</div><div>{e(case).replace(chr(10) * 2, "<br><br>")}</div></div>
   <h3>The facts at a glance</h3>
   <table class="kpi">
-    <tr><td>The business</td><td>Bengaluru start-up delivering fruit and vegetables from 40 farms to 220 restaurants; 35 staff.</td></tr>
-    <tr><td>Money</td><td>₹1.2 crore in the bank; ₹18 lakh a month gross profit on ₹1.5 crore of sales.</td></tr>
-    <tr><td>What happened</td><td>On Monday its only cold-storage partner, holding 60% of its stock overnight, shut after a fire.</td></tr>
-    <tr><td>Without a cold room</td><td>Only a day's stock fits in its six refrigerated vans, and about a third of what it buys spoils.</td></tr>
-    <tr><td>Customers at risk</td><td>Two of its five largest customers, 30% of sales together, will switch if deliveries are late a second week.</td></tr>
-    <tr><td>Options in the case</td><td>Its own cold room: ₹45 lakh and three months to build. Rented space: about twice the old rate, and 25 km further from the city.</td></tr>
-    <tr><td>Deadline</td><td>The founders want one recommendation by Friday.</td></tr>
+    <tr><td>The company</td><td>ElevenLabs, the AI voice company: text to speech, dubbing into other languages, voice agents that answer calls.</td></tr>
+    <tr><td>India so far</td><td>Hindi and eight other Indian languages launched six months ago; ₹8 crore a year of revenue, mostly from 300 business customers.</td></tr>
+    <tr><td>Individuals</td><td>4 lakh signed up, but only 1.2% pay (4% in other markets): dollar prices feel expensive and a local rival is free with ads.</td></tr>
+    <tr><td>Budget and target</td><td>A team of 25 with ₹20 crore to spend this year; the board wants ₹30 crore a year from India within 12 months, or India is scaled back.</td></tr>
+    <tr><td>Offer A · ed-tech</td><td>₹6 crore a year to dub 10,000 hours of lessons into 6 languages, if ElevenLabs serves no other ed-tech company and keeps all data in India (education is 40% of today's India revenue).</td></tr>
+    <tr><td>Offer B · telecom</td><td>₹12 crore a year guaranteed to offer a basic voice plan to 5 crore subscribers, under the telecom's own name.</td></tr>
+    <tr><td>Offer C · price cut</td><td>Indian plans at ₹199 a month, in the hope that many more individuals pay.</td></tr>
+    <tr><td>Trust</td><td>A state election in four months; the press asks how cloned voices of politicians will be stopped; rules on labelling AI voices are being drafted.</td></tr>
+    <tr><td>Deadline</td><td>One recommendation by Friday, including how ElevenLabs handles voice cloning.</td></tr>
   </table>
+  <p class="small muted">The case is hypothetical: the numbers and offers are invented for the game and are not ElevenLabs' real figures or plans.</p>
   <p><b>The memo (500 words) has six sections:</b> diagnosis · options and trade-offs · recommendation · the numbers · risks ·
   next steps. The judge scores them out of 25, 20, 20, 15, 10 and 10 (Appendix A).</p>
   <h3>What a strong memo does</h3>
   <ul>
-    <li><b>Diagnosis:</b> names the root cause (one storage partner and no backup) and what it costs each week: the spoilage,
-      and the two customers bringing 30% of sales, about ₹45 lakh of a ₹1.5 crore month.</li>
-    <li><b>Options:</b> compares at least two options on cost, time and risk, and pairs a short-term bridge (this week) with the
-      long-term fix (the next three months).</li>
-    <li><b>Recommendation:</b> makes one clear choice that follows from the analysis, and says what it gives up and why that is acceptable.</li>
-    <li><b>Numbers:</b> works out the costs and the money at risk correctly, and checks that the plan fits ₹1.2 crore of cash.</li>
-    <li><b>Risks and next steps:</b> a plan for each main risk, and this week's actions with owners and dates.</li>
+    <li><b>Diagnosis:</b> names the gap (₹8 crore today against ₹30 crore in 12 months) and the root cause: a product priced and
+      branded for other markets, with trust in AI voices at risk in an election season.</li>
+    <li><b>Options:</b> works out what each offer is worth and costs: A brings ₹6 crore but closes the rest of education
+      (40% of today's revenue); B brings ₹12 crore guaranteed but hides the brand and the users; C's value depends on how many more
+      individuals pay (at ₹199 a month, every 1% of 4 lakh users paying is about ₹96 lakh a year).</li>
+    <li><b>Recommendation:</b> one clear path, possibly a combination, that can plausibly reach ₹30 crore within ₹20 crore, and
+      says what it gives up and why.</li>
+    <li><b>Voice cloning:</b> a concrete safeguard before the election (consent checks, labels or watermarks, blocking
+      politicians' voices, a fast takedown) and how it fits the coming rules.</li>
+    <li><b>Numbers, risks and next steps:</b> the path to the target month by month, a plan for each main risk, and this
+      week's actions with owners and dates.</li>
   </ul>
   <p class="muted small">The standard is what a strong student team can write in under an hour.</p>
 </section>""")
@@ -371,7 +378,7 @@ out.append('<h3>Round 1 · The PRD (Product, 800 words)</h3>' + rubric([
     ("Clarity", "A PRD that is well organised, specific and easy to act on, with no filler", 15),
 ]))
 out.append('<h3>Round 1 · The consulting memo (Consulting, 500 words)</h3>' + rubric([
-    ("Diagnosis", "What went wrong, why it matters and what it costs Kaveri each week, using the case's facts", 25),
+    ("Diagnosis", "The real problem, why it matters and what is at stake for ElevenLabs in India, using the case's facts", 25),
     ("Options", "Two or more real options, with what each one costs, gains and risks", 20),
     ("Recommendation", "One clear choice that follows from the diagnosis and options, with the reason", 20),
     ("Numbers", "Costs, revenue at risk, cash and timing that are correct and add up", 15),
@@ -431,7 +438,7 @@ out.append("""
   <tr><td>seed/sectors/problem-cards.csv</td><td>The Round 1 problem statements, one per sector (""" + e(GAME) + """)</td></tr>
   <tr><td>seed/sectors/crisis-cards.csv</td><td>The Round 2 crisis cards, four per sector</td></tr>
   <tr><td>seed/sectors/statements.csv</td><td>The Round 3 statements, ten per sector</td></tr>
-  <tr><td>prompts/MEMO.md</td><td>The Kaveri Fresh case and the memo rubric</td></tr>
+  <tr><td>prompts/MEMO.md</td><td>The ElevenLabs case and the memo rubric</td></tr>
   <tr><td>seed/sectors/all/</td><td>The same three files with every sector in the library (FMCG, Aviation, Luxury, Energy, Fintech)</td></tr>
   <tr><td>pnpm sectors --pick FMCG,Aviation,Luxury</td><td>Writes the three files for any mix of 2 to 6 sectors into out/sectors/…, checked with the Content page's own rules</td></tr>
 </table>

@@ -92,7 +92,9 @@ describe("the crisis case", () => {
     expect(caseParagraphs("# T\n\n## Other\n\nx\n")).toEqual([]);
     const paragraphs = memoCase();
     expect(paragraphs.length).toBeGreaterThan(0);
-    expect(paragraphs[0]).toMatch(/^Kaveri Fresh/);
+    expect(paragraphs[0]).toMatch(/^ElevenLabs, the AI voice company/);
+    // A real company in an invented situation: the case says so.
+    expect(paragraphs.at(-1)).toMatch(/^This case is hypothetical/);
     expect(memoCase(() => { throw new Error("missing"); })).toEqual([]);
   });
 });

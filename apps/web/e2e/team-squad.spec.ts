@@ -282,10 +282,10 @@ test("Consulting writes the crisis memo beside the case; Product reads it; the h
   await consulting.goto("/team");
   await expect(consulting.getByText("Write and submit your crisis memo")).toBeVisible();
   await consulting.goto("/team/squad/memo");
-  await expect(consulting.getByTestId("memo-case")).toContainText("Kaveri Fresh");
+  await expect(consulting.getByTestId("memo-case")).toContainText("ElevenLabs, the AI voice company");
   const memo = consulting.getByRole("form", { name: "Crisis memo editor" });
-  await memo.getByLabel("Diagnosis").fill("One cold-storage partner held 60% of the stock and it burned down.");
-  await memo.getByLabel("Recommendation").fill("Rent cold space now and build later.");
+  await memo.getByLabel("Diagnosis").fill("India earns 8 crore, not 30, because dollar prices keep individuals away.");
+  await memo.getByLabel("Recommendation").fill("Take the telecom bundle and label voices.");
   await expect(memo.getByTestId("word-total")).toHaveText("19 / 500 words");
   await memo.getByRole("button", { name: "Save and submit" }).click();
   await memo.getByRole("button", { name: "Click again to save and submit 19 words" }).click();
