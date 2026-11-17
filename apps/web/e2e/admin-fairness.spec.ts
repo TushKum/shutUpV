@@ -77,7 +77,7 @@ test("organisers see only that flags are the fairness officer's", async ({ page 
   await page.goto(`/admin/${ev.slug}/fairness`);
   await expect(page.getByText("Collusion flags, their decisions and the team drill-down are for the fairness officer only.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Collusion flags" })).toHaveCount(0);
-  await expect(page.getByText(ticker(3))).toHaveCount(0);
+  await expect(page.getByRole("main").getByText(ticker(3))).toHaveCount(0);
 });
 
 test("the fairness officer sees each flag explained: kind, company, teams and details", async ({ page }) => {

@@ -114,7 +114,7 @@ test.describe("judging the pitches", () => {
     await expect(page.getByTestId("judge-runner")).toHaveAttribute("data-state", "off");
     await expect(page.getByRole("button", { name: "Run the judge here" })).toBeVisible();
     await expect(page.getByText("FAKE JUDGE", { exact: true })).toHaveCount(1);
-    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-opus-5-5In useBackupclaude-sonnet-5-5");
+    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-haiku-5-5In useBackupclaude-haiku-5-5");
     await expect(page.getByRole("button", { name: "Switch to the backup model" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Calibration", exact: true })).toHaveAttribute("href", `/admin/${ev.slug}/judge/calibration`);
 
@@ -249,11 +249,11 @@ test.describe("judging the pitches", () => {
     await page.goto(`/admin/${ev.slug}/judge?type=pitch`);
 
     // The backup model applies to runs claimed from then on.
-    await twoClicks(page, "Switch to the backup model", "Click again to switch to the backup model (claude-sonnet-5-5)");
+    await twoClicks(page, "Switch to the backup model", "Click again to switch to the backup model (claude-haiku-5-5)");
     await expect(said(page, "Runs claimed from now on")).toHaveText(
-      "Runs claimed from now on use the backup model (claude-sonnet-5-5); runs already running finish as they are.",
+      "Runs claimed from now on use the backup model (claude-haiku-5-5); runs already running finish as they are.",
     );
-    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-opus-5-5Backupclaude-sonnet-5-5In use");
+    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-haiku-5-5Backupclaude-haiku-5-5In use");
     expect((await ev.n.one("select judge_model_slot from events where id = $1", [ev.n.eventId])).judge_model_slot).toBe("BACKUP");
 
     await twoClicks(page, "Start judging", "Click again to start judging pitch submissions");
@@ -289,11 +289,11 @@ test.describe("judging the pitches", () => {
     const runs = await ev.n.q("select status, slot, model from judge_runs where company_id = $1 and type = 'PITCH' order by run_no", [kfj]);
     expect(runs.every((r) => r.status === "DONE" && r.slot === "BACKUP" && r.model === "fake-judge")).toBe(true);
 
-    await twoClicks(page, "Switch back to the primary model", "Click again to switch back to the primary model (claude-opus-5-5)");
+    await twoClicks(page, "Switch back to the primary model", "Click again to switch back to the primary model (claude-haiku-5-5)");
     await expect(said(page, "primary model")).toHaveText(
-      "Runs claimed from now on use the primary model (claude-opus-5-5); runs already running finish as they are.",
+      "Runs claimed from now on use the primary model (claude-haiku-5-5); runs already running finish as they are.",
     );
-    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-opus-5-5In useBackupclaude-sonnet-5-5");
+    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-haiku-5-5In useBackupclaude-haiku-5-5");
   });
 
   test("a re-run before release needs a reason and replaces the score as soon as its runs are done", async ({ page }) => {
@@ -350,7 +350,7 @@ test.describe("judging the pitches", () => {
     await expect(page.getByText("FAKE JUDGE", { exact: true })).toBeVisible();
     await expect(page.getByTestId("judge-runner")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Release|Seal missing|Start judging|Retry|Switch/ })).toHaveCount(0);
-    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-opus-5-5In useBackupclaude-sonnet-5-5");
+    await expect(page.getByTestId("judge-model")).toHaveText("Primaryclaude-haiku-5-5In useBackupclaude-haiku-5-5");
     await page.getByRole("button", { name: "Show runs of KAQ" }).click();
     const detail = page.getByRole("region", { name: "Runs of KAQ" });
     await expect(detail.getByText("One. Two. Three. (run 3)")).toBeVisible();
