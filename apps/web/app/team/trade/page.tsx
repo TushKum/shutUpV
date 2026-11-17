@@ -10,7 +10,9 @@ import { RefreshAt } from "@/lib/live/refresh-at";
 import { Notice, Panel } from "@/components/ui/ui";
 import { Countdown } from "@/components/ui/countdown";
 import { tradeGate } from "./gate";
-import { OrderTicket, type TicketCompany } from "./ticket";
+import { type TicketCompany } from "./ticket";
+import { TradeDesk } from "./desk";
+import { loadTradeCandles } from "@/lib/team/trade-candles-data";
 import { OpenOrders } from "./open-orders";
 import { cancelOrder, editOrder, placeOrder } from "./actions";
 import { loadWire } from "@/lib/team/wire-data";
@@ -43,6 +45,15 @@ export default async function TradePage() {
           Trading starts with round 1{at("ROUNDS_1_4") ? ` at ${at("ROUNDS_1_4")}` : ""}. The companies are listed at Reading
           {at("READING") ? ` (${at("READING")})` : ""}, and IPO bids open with the IPO{at("IPO") ? ` at ${at("IPO")}` : ""}.
         </p>
+        {status.phase === "BUILD" ? (
+          <p className="mt-2 text-sm text-paper">
+            Until then, trade the{" "}
+            <Link href="/team/trade/practice" className="font-semibold text-phosphor underline">
+              practice market
+            </Link>
+            : your profit there (up to $50,000) is added to your real fund before the IPO.
+          </p>
+        ) : null}
       </Panel>
     );
   }
@@ -65,6 +76,8 @@ export default async function TradePage() {
   const ownTicker = own?.ticker ?? null;
   // What just became public (released scores, the plans, bulletins): the funds trade on it.
   const wire = await loadWire(ctx.event.id);
+  const chart = await loadTradeCandles(ctx.event.id);
+  const openRoundId = status.open_round ? (data.rounds.find((r) => r.number === status.open_round!.number)?.id ?? null) : null;
 
   return (
     <div className="space-y-4">
@@ -82,35 +95,24 @@ export default async function TradePage() {
         </Notice>
       ) : null}
 
-      <div className={accepting ? "grid gap-4 lg:grid-cols-5" : "space-y-4"}>
-        {accepting ? (
-          <Panel
-            className="lg:col-span-3 lg:self-start"
-            title={`Order ticket · round ${status.open_round!.number}`}
-            actions={
-              <span className="text-sm text-paper">
-                closes in <Countdown to={status.open_round!.closes_at} passed="now" className="font-semibold text-phosphor" />
-              </span>
-            }
-          >
-            {tradable.length === 0 ? (
-              <p className="text-sm text-muted">No company is trading.</p>
-            ) : (
-              <OrderTicket ctx={fctx} companies={tradable} round={{ number: status.open_round!.number, closesAt: status.open_round!.closes_at }} action={placeOrder} />
-            )}
-            {ownTicker ? (
-              <p className="mt-3 text-xs text-muted">
-                Your squad&apos;s company, {ownTicker}, is not listed: a fund never trades its own squad&apos;s company. Your squad lot is under{" "}
-                <Link href="/team/trade/positions" className="underline">
-                  Positions
-                </Link>
-                .
-              </p>
-            ) : null}
-          </Panel>
-        ) : null}
+      {tradable.length > 0 ? (
+        <TradeDesk
+          companies={tradable}
+          candles={chart.candles}
+          openRound={accepting && openRoundId ? { id: openRoundId, number: status.open_round!.number } : null}
+          initialRanges={chart.ranges}
+          ticket={
+            accepting
+              ? { ctx: fctx, round: { number: status.open_round!.number, closesAt: status.open_round!.closes_at }, action: placeOrder, ownTicker }
+              : null
+          }
+        />
+      ) : accepting ? (
+        <Notice tone="slate">No company is trading.</Notice>
+      ) : null}
 
-        <div className="min-w-0 space-y-4 lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="contents">
           {shownRound && (accepting || open.length > 0) ? (
             <Panel
               title={`Open orders · round ${shownRound.number}`}

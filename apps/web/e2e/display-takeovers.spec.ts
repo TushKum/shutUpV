@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { aiPrice, applyTier, closingPrice, crisisShock, divRoundHalfUp, formatCents, marketClose, sha256Hex, tierBp } from "@msim/engine";
-import { seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
+import type pg from "pg";
+import { e2ePool, seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { drawn, seedOf } from "./support/game";
 import { loginAsStaff } from "./support/login";
 import { LIVE } from "./support/live";
@@ -15,10 +16,21 @@ test.describe.configure({ mode: "serial" });
 test.use({ viewport: { width: 1280, height: 720 } });
 
 let ev: E2eEvent;
+// The team-code prefix U is shared with team-practice.spec.ts: the two files take turns (an advisory lock held for the
+// whole file), and each purges the other's event first.
+let turn: pg.PoolClient | undefined;
 let s: Awaited<ReturnType<typeof drawn>>;
 test.beforeAll(async () => {
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
+  turn = await e2ePool().connect();
+  await turn.query("select pg_advisory_lock(hashtext('e2e:team-code-prefix:U'))");
+  await e2ePool().query("select public.purge_event($1)", ["e2e-team-practice"]);
   ev = await seedE2eEvent({ slug: "e2e-display-takeovers", prefix: "U" });
+});
+
+test.afterAll(async () => {
+  await turn?.query("select pg_advisory_unlock_all()");
+  turn?.release();
 });
 
 const groups = (hex: string) => hex.match(/.{16}/g)!;

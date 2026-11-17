@@ -694,6 +694,18 @@ export function homePlan(f: HomeFacts): HomePlan {
   }
 
   if (f.track === "FINANCE") {
+    if (f.format === "PRIMUS" && f.phase === "BUILD") {
+      now.push(
+        task(f, null, {
+          key: "PRACTICE",
+          title: "Trade the practice market",
+          detail: "$100,000 of practice money on candlestick charts named after the Product teams. Your profit (up to $50,000) is added to your real fund before the IPO; a loss costs nothing.",
+          href: "/team/trade/practice",
+          linkLabel: "Open the practice market",
+          state: "todo",
+        }),
+      );
+    }
     if (f.phase === "READING") {
       now.push(
         task(f, null, {

@@ -12,7 +12,7 @@ Status: **built** = merged on this branch with tests; **next** = being built; **
 | --- | --- | --- |
 | PRD (Product) | built | Submission type `PITCH`: seven sections, 800 words, rubric 20/20/15/15/15/15 (`prompts/PITCH.md`). Sets the IPO price as before. |
 | Crisis memo (Consultancy) | built | Submission type `MEMO`: the same standalone case for every firm (in `prompts/MEMO.md`), 500 words, rubric 25/20/20/15/10/10. Closes with the PRD. Moves no price; released from READING; final once released. Pays the firm $500 × (score − 50), clamped to −$10,000…+$25,000. |
-| Finance practice | planned | A 10-question quiz on the trading rules, auto-marked, shown to organisers. |
+| Practice market (Finance) | built | During `BUILD`, each fund trades a scripted market named after the Product teams with $100,000 of practice money: a price every 5 s along paths with candlestick patterns planted in them (`packages/engine/src/candles.ts`; about 75% of signals follow through), stored by the server with the service role (`practice_prepare`) and readable only once each tick's time has come. Trades fill at once at the latest price (`practice_trade`; 4,000 long or 2,000 short per company, shorts need 150% cover). On entering `READING` the profit, capped at $50,000 and never a loss, is paid into the fund's real cash (`PRACTICE_EDGE`: an edge, not capital received). Migration 52. |
 
 Squads are still drawn by lottery (1 Product + 1 Consulting + 1 Finance per company): the Finance team stays tied to its
 company (it may not trade it) and the Consulting team's memo is stored with the squad. From Round 2 consultants are
@@ -34,6 +34,9 @@ Each sub-round is a row of `subrounds` with its own times (defaults for a 6-hour
 | 80–90 | Final trading window |
 
 Trading rounds run all through `PRESSURE` and `SATURATION` (15-minute windows, ±10% cap), halted at each reveal.
+While a round is open, every order moves the company's indicative price (the clearing rule on the orders so far);
+`round_ranges` keeps each round's open, high, low and latest indicative price, so the order screen shows a live candle
+and every round's candle has its real wicks.
 
 ## Round 3: Saturation
 

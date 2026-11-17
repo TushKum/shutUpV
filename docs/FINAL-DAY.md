@@ -81,7 +81,7 @@ the event lead.
 | 20:00 | Check-in | Teams collect cards, sign in on 4 phones each | **Help desk** hands out cards; teams sign in as they arrive (not all on one call). Watch Health for sign-in errors. |
 | 20:30 | Briefing | Rules on the projector | **Event lead** presents; explain QR sign-in, autosave, auto-submit at deadlines. |
 | 21:00 | Squad draw | Lottery forms 50 squads, deals problem cards | **Fairness officer** watches the draw and the published record. |
-| 21:10 | Round 1 · Build | Product writes the PRD, Consulting the crisis memo | Problem pick closes **21:20**. |
+| 21:10 | Round 1 · Build | Product writes the PRD, Consulting the crisis memo, Finance trades the **practice market** | Problem pick closes **21:20**. At 22:00 each fund's practice profit (up to $50,000) is added to its cash automatically. |
 | 22:00 | Reading | PRDs and memos due (unsubmitted drafts auto-submitted) | **AI operator**: Start judging PRD + memo; release before 22:30. |
 | 22:30 | IPO | Funds bid; first consultant call due | IPO bids close **22:45**. |
 | 22:45 | Crisis 1 | Card revealed, prices −5%, hiring until **23:05**, plans and memos due **23:50**, ratings until **00:05** | **AI operator**: at 23:50 start judging; release by **00:10**. |

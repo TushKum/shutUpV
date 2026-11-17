@@ -69,7 +69,7 @@ test("Product and Consulting teams are told they never trade", async ({ page }) 
 test("before Reading the fund is told when the companies are listed and when trading starts", async ({ page }) => {
   const at = async (code: string) => ist((await ev.n.one("select starts_at from phases where event_id = $1 and code = $2", [ev.n.eventId, code])).starts_at);
   await as(page, fund, "/team/trade");
-  await expect(page.getByRole("navigation", { name: "Trading views" }).getByRole("link")).toHaveText(["Orders", "Positions", "History", "IPO"]);
+  await expect(page.getByRole("navigation", { name: "Trading views" }).getByRole("link")).toHaveText(["Orders", "Practice", "Positions", "History", "IPO"]);
   await expect(page.getByTestId("trading-notice")).toHaveText(
     `Trading starts with round 1 at ${await at("ROUNDS_1_4")}. The companies are listed at Reading (${await at("READING")}), and IPO bids open with the IPO at ${await at("IPO")}.`,
   );
@@ -340,4 +340,23 @@ test("round 2 clears on a phone: the short's average, its value and the collater
   await expect(round2.getByTestId("history-order").filter({ hasText: "SHORT" })).toContainText(`SHORT ERC100${usd(erc)}+${usd(100 * erc)}Filled$10.40`);
   await expect(round2.getByTestId("history-order").filter({ hasText: "BUY" })).toContainText("BUY ERB500——Cancelled$10.76");
   await noSidewaysScroll(page);
+});
+
+test("on a laptop: the chart beside the ticket follows the pick, and an order moves the round's live candle", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ev.n.openRound(3);
+  await as(page, fund, "/team/trade");
+  const panel = page.getByTestId("trade-chart-panel");
+  await expect(panel).toBeVisible();
+  // Picking ERC on the chart picks it in the ticket.
+  await panel.getByTestId("chart-pick-ERC").click();
+  await expect(ticket(page).getByLabel("Company")).toHaveValue(companyId(2));
+  await expect(page.getByTestId("trade-chart-ohlc")).toContainText("Round 3 (now)");
+  // Another fund buys 2,000 ERC: within 5 seconds the live candle shows the indicative price, +2%.
+  const other = s.find((x) => x.f_code !== fund && x.company_id !== companyId(2))!.f_code;
+  const before = Number((await ev.n.one("select market_price from companies where id = $1", [companyId(2)])).market_price);
+  await ev.n.ok(ev.n.team(other), "place_order", companyId(2), "BUY", 2000);
+  const ind = clearingPrice(before, 2000);
+  await expect(page.getByTestId("indicative-price")).toContainText(usd(ind), { timeout: 15_000 });
+  await expect(page.getByTestId("trade-chart-ohlc")).toContainText(`C ${usd(ind)}`);
 });

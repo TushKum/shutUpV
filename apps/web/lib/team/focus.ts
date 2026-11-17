@@ -125,7 +125,7 @@ const PRIMUS_JOB: Record<Track, Partial<Record<Stage, string>>> = {
     ROUND_3: "Get hired, write your memo and help your client's solution.",
   },
   FINANCE: {
-    ROUND_1: "Read the PRDs, ask questions, bid in the IPO and trade.",
+    ROUND_1: "Trade the practice market for a head start, then read the PRDs, ask questions and bid in the IPO.",
     ROUND_2: "Read each crisis, then trade: prices move after every crisis.",
     ROUND_3: "Invest your fresh capital and finish with the highest return.",
   },

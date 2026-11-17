@@ -17,3 +17,4 @@ export * from "./awards";
 export * from "./flags";
 export * from "./labels";
 export * from "./content";
+export * from "./candles";

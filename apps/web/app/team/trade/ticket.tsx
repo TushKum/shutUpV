@@ -36,14 +36,21 @@ export function OrderTicket({
   companies,
   round,
   action,
+  picked: pickedProp,
+  onPick,
 }: {
   ctx: OrderContext;
   companies: TicketCompany[];
   round: { number: number; closesAt: string };
   action: Action;
+  /** The company chosen elsewhere (the chart beside the ticket), when the ticket shares its choice. */
+  picked?: string;
+  onPick?: (id: string) => void;
 }) {
   const router = useRouter();
-  const [picked, setPicked] = useState("");
+  const [pickedOwn, setPickedOwn] = useState("");
+  const picked = pickedProp ?? pickedOwn;
+  const setPicked = (id: string) => (onPick ? onPick(id) : setPickedOwn(id));
   const [type, setType] = useState<OrderType>("BUY");
   const [qty, setQty] = useState("");
   const [maxNote, setMaxNote] = useState<string | null>(null);
