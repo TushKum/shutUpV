@@ -1,4 +1,13 @@
-# Demo video
+# Videos
+
+## For teams: how to play (play this at the briefing)
+
+[PRIMUS-team-video.mp4](PRIMUS-team-video.mp4) (3 min 39 s, 6 MB): only what players see. Slides on the squad, the
+night's timetable, the three sectors (FMCG, Aviation, Luxury), each round and how the AI judge scores, between real
+team screens from a practice run: signing in, the PRD, the ElevenLabs memo, the IPO, a crisis (hire, advice, plan,
+stars), trading, the sector race, the Round 3 draft and the final results. The scores shown are practice scores.
+
+## Older demo
 
 [market-simulation-demo.mp4](market-simulation-demo.mp4) (5 min 15 s, 7 MB): a full practice night with 150 teams
 at 20× speed. One squad (Product XP50, Consulting XC17, Finance XF02) is played through its real screens; bots play
