@@ -1,75 +1,151 @@
 "use client";
 
-// Digital rain: columns of falling half-width katakana, 0/1 and digits on one canvas, as a background layer.
-// It is decoration only: it sits behind its siblings (give it a positioned parent and put the content in an opaque
-// panel above it), never takes a click, draws about 30 frames a second, stops while the tab is hidden, and does not
-// run at all for people who ask for less motion (the canvas is also hidden by CSS then).
-
 import { useEffect, useRef } from "react";
 
-const GLYPHS = "012345678901010101ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ";
-const FRAME_MS = 42;
+const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ";
+const FRAME_MS = 48;
 
-export function MatrixRain({ opacity = 0.34, size = 19, className = "" }: { opacity?: number; size?: number; className?: string }) {
+type Stream = { x: number; y: number; length: number; speed: number; glyphs: string[]; brightness: number };
+
+export function MatrixRain({ opacity = 0.82, size = 15, className = "" }: { opacity?: number; size?: number; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
+
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const still = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let drops: number[] = [];
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let streams: Stream[] = [];
     let frame = 0;
     let last = 0;
+    let width = 0;
+    let height = 0;
+    let dpr = 1;
 
-    // The canvas is drawn at its layout size (not the device's pixel ratio): cheaper, and the glyphs are meant to be soft.
+    const randomGlyphs = (count: number) =>
+      Array.from({ length: count }, () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)]!);
+
+    const makeStream = (x?: number): Stream => {
+      const length = 7 + Math.floor(Math.random() * 29);
+      return {
+        x: x ?? Math.random() * width,
+        y: -Math.random() * (height + length * size),
+        length,
+        speed: 0.22 + Math.random() * 0.55,
+        glyphs: randomGlyphs(length),
+        brightness: 0.35 + Math.random() * 0.55,
+      };
+    };
+
     const fit = () => {
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
-      const columns = Math.ceil(canvas.width / size);
-      drops = Array.from({ length: columns }, () => Math.floor((Math.random() * -canvas.height) / size) - Math.floor(Math.random() * 18));
+      const rect = canvas.getBoundingClientRect();
+      width = Math.max(1, rect.width);
+      height = Math.max(1, rect.height);
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.font = `${size}px ui-monospace, Menlo, Consolas, monospace`;
       ctx.textBaseline = "top";
+
+      // Keep the middle relatively quiet so the sign-in panel remains the focal point.
+      const count = Math.max(12, Math.min(38, Math.round(width / 47)));
+      streams = [];
+      let attempts = 0;
+      while (streams.length < count && attempts < count * 12) {
+        attempts++;
+        const x = Math.random() * width;
+        const centerDistance = Math.abs(x - width / 2) / (width / 2);
+        if (centerDistance < 0.34 && Math.random() < 0.88) continue;
+        streams.push(makeStream(x));
+      }
+      while (streams.length < count) streams.push(makeStream());
+      paint();
+    };
+
+    const paint = () => {
+      ctx.clearRect(0, 0, width, height);
+      for (const stream of streams) {
+        for (let i = 0; i < stream.length; i++) {
+          const y = stream.y - i * size;
+          if (y < -size || y > height + size) continue;
+
+          const distance = i / stream.length;
+          const fadeIn = Math.min(1, Math.max(0, (y + size * 2) / (size * 5)));
+          const fadeOut = Math.min(1, Math.max(0, (height - y + size * 2) / (size * 8)));
+          const trailFade = Math.pow(1 - distance, 1.65);
+          const alpha = stream.brightness * trailFade * fadeIn * fadeOut;
+          if (alpha < 0.025) continue;
+
+          const isHead = i === 0;
+          ctx.globalAlpha = alpha * (isHead ? 0.95 : 0.62);
+          ctx.fillStyle = isHead
+            ? (Math.random() < 0.08 ? "#9affb5" : "#39b967")
+            : (i % 5 === 0 ? "#126a35" : "#0a4928");
+          if (isHead) {
+            ctx.shadowColor = "#22a653";
+            ctx.shadowBlur = 7;
+          } else {
+            ctx.shadowBlur = 0;
+          }
+          ctx.fillText(stream.glyphs[i]!, stream.x, y);
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
     };
 
     const draw = (now: number) => {
       frame = requestAnimationFrame(draw);
       if (now - last < FRAME_MS) return;
       last = now;
-      // A translucent black wash fades the older glyphs into trails.
-      ctx.fillStyle = "rgba(0, 3, 1, 0.16)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i < drops.length; i++) {
-        const y = drops[i]! * size;
-        if (y >= 0) {
-          ctx.fillStyle = Math.random() < 0.025 ? "#d8ffe0" : Math.random() < 0.28 ? "#159b43" : "#087a32";
-          ctx.fillText(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]!, i * size, y);
+      for (const stream of streams) {
+        stream.y += stream.speed * size;
+        if (stream.y - stream.length * size > height + size * 3) {
+          const next = makeStream();
+          stream.x = next.x;
+          stream.y = -Math.random() * height * 0.7 - size * 4;
+          stream.length = next.length;
+          stream.speed = next.speed;
+          stream.glyphs = next.glyphs;
+          stream.brightness = next.brightness;
+        } else if (Math.random() < 0.035) {
+          const index = Math.floor(Math.random() * stream.length);
+          stream.glyphs[index] = GLYPHS[Math.floor(Math.random() * GLYPHS.length)]!;
         }
-        drops[i] = y > canvas.height && Math.random() > 0.982 ? 0 : drops[i]! + 1;
       }
+      paint();
     };
 
     const stop = () => cancelAnimationFrame(frame);
     const start = () => {
       stop();
-      if (!still.matches && !document.hidden) frame = requestAnimationFrame(draw);
+      if (document.hidden) return;
+      if (reducedMotion.matches) {
+        paint();
+        return;
+      }
+      frame = requestAnimationFrame(draw);
     };
-    const onMotion = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      start();
-    };
-    const sized = new ResizeObserver(fit);
 
+    const observer = new ResizeObserver(() => {
+      fit();
+      start();
+    });
     fit();
     start();
-    sized.observe(canvas);
+    observer.observe(canvas);
     document.addEventListener("visibilitychange", start);
-    still.addEventListener("change", onMotion);
+    reducedMotion.addEventListener("change", start);
+
     return () => {
       stop();
-      sized.disconnect();
+      observer.disconnect();
       document.removeEventListener("visibilitychange", start);
-      still.removeEventListener("change", onMotion);
+      reducedMotion.removeEventListener("change", start);
     };
   }, [size]);
+
   return <canvas ref={ref} aria-hidden className={`mx-rain ${className}`} style={{ opacity }} />;
 }
