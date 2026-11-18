@@ -207,3 +207,53 @@
 .demo-glitch-content>p span,.demo-glitch-lines i{color:var(--track-accent)!important}
 .demo-glitch-logo{filter:drop-shadow(0 0 20px var(--track-glow))!important}
 @media(prefers-reduced-motion:reduce){.demo-matrix-rain span{animation:none;translate:0 0}}
+
+/* Neutral graphite dashboard: track colour is the ONLY accent, no default green UI. */
+.guide-app[data-track]{--surface-0:#090a0e;--surface-1:#0e1016;--surface-2:#12151d;--line-neutral:rgba(180,190,210,.16);background:#090a0e!important;color:#e8eaf0}
+.guide-app[data-track] .guide-atmosphere{background:radial-gradient(ellipse at 75% 0%,rgba(100,110,135,.09),transparent 55%)!important}
+.guide-app[data-track] .guide-sidebar{background:#090a0e!important;border-color:var(--line-neutral)!important}
+.guide-app[data-track] .guide-brand,.guide-app[data-track] .guide-sidebar-bottom,.guide-app[data-track] .guide-top,.guide-app[data-track] .guide-taskbar,.guide-app[data-track] .guide-preview-note,.guide-app[data-track] .guide-footer,.guide-app[data-track] .guide-mobile-nav{border-color:var(--line-neutral)!important;background-color:#0b0d12!important}
+.guide-app[data-track] .guide-nav-label,.guide-app[data-track] .guide-footer,.guide-app[data-track] .guide-preview-note,.guide-app[data-track] .guide-sidebar-bottom>a,.guide-app[data-track] .guide-online,.guide-app[data-track] .guide-online span,.guide-app[data-track] .guide-team small,.guide-app[data-track] .guide-top-left,.guide-app[data-track] .guide-top-right,.guide-app[data-track] .guide-taskbar>span,.guide-app[data-track] .guide-taskbar small{color:#9298a6!important}
+.guide-app[data-track] .guide-nav-label b,.guide-app[data-track] .guide-page-head small,.guide-app[data-track] .guide-status,.guide-app[data-track] .guide-metric span,.guide-app[data-track] .guide-mobile-nav small,.guide-app[data-track] .guide-team small{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-sidebar nav a{color:#b5bac5!important}
+.guide-app[data-track] .guide-sidebar nav a small{color:#777f8e!important}
+.guide-app[data-track] .guide-sidebar nav a.active{color:var(--track-accent)!important;border-color:var(--track-accent)!important;background:var(--track-soft)!important}
+.guide-app[data-track] .guide-online i,.guide-app[data-track] .guide-trading i{background:var(--track-accent)!important;box-shadow:0 0 9px var(--track-accent)!important}
+.guide-app[data-track] .guide-avatar{border-color:var(--track-line)!important;color:var(--track-accent)!important;background:var(--track-soft)!important}
+.guide-app[data-track] .guide-main{background:transparent!important}
+.guide-app[data-track] .guide-panel,.guide-app[data-track] .guide-metric,.guide-app[data-track] .guide-phase-card{background:linear-gradient(145deg,#12151c,#0d0f15)!important;border-color:var(--line-neutral)!important;box-shadow:0 14px 40px rgba(0,0,0,.2)!important}
+.guide-app[data-track] .guide-panel-head{border-color:var(--line-neutral)!important}
+.guide-app[data-track] .guide-panel-head span,.guide-app[data-track] .guide-metric small,.guide-app[data-track] .guide-muted,.guide-app[data-track] .guide-page-head p{color:#9ba2af!important}
+.guide-app[data-track] .guide-metric b,.guide-app[data-track] .guide-page-head h1,.guide-app[data-track] .guide-panel h2{color:#f0f1f5!important}
+.guide-app[data-track] .guide-metric span{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-chip{border-color:var(--track-line)!important;color:var(--track-accent)!important;background:var(--track-soft)!important}
+.guide-app[data-track] .guide-btn:not(.secondary),.guide-app[data-track] .guide-taskbar>a{background:var(--track-accent)!important;color:#101116!important}
+.guide-app[data-track] .guide-btn.secondary{border-color:var(--track-line)!important;color:var(--track-accent)!important;background:transparent!important}
+.guide-app[data-track] .guide-input,.guide-app[data-track] .guide-textarea,.guide-app[data-track] .guide-select{background:#090b10!important;border-color:var(--line-neutral)!important;color:#eceef3!important}
+.guide-app[data-track] .guide-input:focus,.guide-app[data-track] .guide-textarea:focus,.guide-app[data-track] .guide-select:focus{border-color:var(--track-accent)!important}
+.guide-app[data-track] .guide-tabs button,.guide-app[data-track] .guide-tab-strip button,.guide-app[data-track] .guide-admin-tabs button{border-color:var(--line-neutral)!important;color:#aab0bc!important}
+.guide-app[data-track] .guide-tabs button.active,.guide-app[data-track] .guide-tab-strip button.active,.guide-app[data-track] .guide-admin-tabs button.active{background:var(--track-accent)!important;border-color:var(--track-accent)!important;color:#101116!important}
+.guide-app[data-track] .guide-table th{background:#151922!important;color:#aab0bc!important}
+.guide-app[data-track] .guide-table td{border-color:var(--line-neutral)!important;color:#d2d5dc!important}
+.guide-app[data-track] .guide-table td strong{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-alert{border-left-color:var(--track-accent)!important;background:var(--track-soft)!important;color:#d7dae2!important}
+.guide-app[data-track] .guide-warning{border-left-color:#b5a16d!important;background:rgba(181,161,109,.1)!important;color:#d8cfb8!important}
+.guide-app[data-track] .guide-phase-card:hover,.guide-app[data-track] .guide-phase-card.selected{border-color:var(--track-accent)!important;box-shadow:inset 0 0 0 1px var(--track-soft),0 8px 28px rgba(0,0,0,.2)!important}
+.guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)!important}
+.guide-app[data-track] .text-\[\#39ff88\],.guide-app[data-track] [class*="text-[#39ff88]"]{color:var(--track-accent)!important}
+.guide-app[data-track] .bg-\[\#39ff88\],.guide-app[data-track] [class*="bg-[#39ff88]"]{background:var(--track-accent)!important}
+.guide-app[data-track] .border-\[\#294832\],.guide-app[data-track] [class*="border-[#294832]"]{border-color:var(--line-neutral)!important}
+/* Matrix rain: dense vertical binary streams, visible across the whole login card. */
+.demo-login[data-track] .demo-login-card{background:#090b10!important;border-color:var(--track-line)!important;box-shadow:0 28px 100px rgba(0,0,0,.62),0 0 32px var(--track-glow),inset 0 1px rgba(255,255,255,.04)!important}
+.demo-login[data-track] .demo-matrix-rain{grid-template-columns:repeat(9,minmax(0,1fr));gap:clamp(8px,2vw,18px);padding:0 12px;opacity:.34!important;mask-image:linear-gradient(180deg,transparent 0%,#000 12%,#000 88%,transparent 100%)!important}
+.demo-login[data-track] .demo-matrix-rain span{height:150%;font-size:9px;line-height:2.1;letter-spacing:.14em;color:var(--track-accent)!important;text-shadow:0 0 7px var(--track-accent),0 0 16px var(--track-glow);animation:demo-matrix-fall 13s linear infinite!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(2){animation-delay:-4s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(3){animation-delay:-8s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(4){animation-delay:-2s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(5){animation-delay:-10s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(6){animation-delay:-6s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(7){animation-delay:-11s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(8){animation-delay:-5s!important}
+.demo-login[data-track] .demo-matrix-rain span:nth-child(9){animation-delay:-9s!important}
+.demo-login[data-track] .demo-matrix-rain:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(9,11,16,.88),transparent 20%,transparent 80%,rgba(9,11,16,.88));pointer-events:none}
+.demo-login[data-track] .demo-login-card>*:not(.demo-matrix-rain){z-index:2}
