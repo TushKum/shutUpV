@@ -27,6 +27,7 @@ def load(path, name):
 
 book = load(CONTENT, "sector_content")
 details = load(HERE / "details.py", "details")
+portfolios = load(HERE / "portfolios.py", "portfolios")
 e = html.escape
 
 problems = list(csv.DictReader(open(ROOT / "seed/sectors/problem-cards.csv", encoding="utf-8")))
@@ -84,7 +85,7 @@ CSS = """
 table.stmt td:nth-child(2) { width: 56%; }
 @page { size: A4; margin: 15mm 15mm 17mm; }
 * { box-sizing: border-box; }
-body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9.3pt; line-height: 1.42; color: #1d1d1f; margin: 0; }
+body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 9.8pt; line-height: 1.5; color: #1d1d1f; margin: 0; }
 h1 { font-size: 28pt; line-height: 1.1; margin: 0 0 8px; color: #111; letter-spacing: -0.01em; }
 h2 { font-size: 17pt; margin: 0 0 10px; padding-bottom: 4px; border-bottom: 2.5px solid #222; }
 h3 { font-size: 11.6pt; margin: 14px 0 5px; break-after: avoid; }
@@ -145,6 +146,31 @@ thead { display: table-header-group; }
 .secs { columns: 2; column-gap: 18px; margin: 4px 0 8px 18px; padding: 0; }
 .kpi td:first-child { width: 28%; font-weight: bold; }
 .spare li { margin: 3px 0; }
+.glance { border: 2px solid var(--c); border-radius: 10px; padding: 10px 14px; margin: 8px 0 12px; background: var(--bg); break-inside: avoid; }
+.glance h4 { margin: 0 0 4px; color: var(--c); font-size: 10.5pt; }
+.glance table { margin: 2px 0 0; }
+.glance td { border: none; border-bottom: 1px solid rgba(0,0,0,0.08); padding: 3px 6px; }
+.glance td:first-child { width: 24%; font-weight: bold; color: #3a3f45; }
+.who { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 6px 0 10px; }
+.who .co { border: 1px solid #d5d8dc; border-top: 4px solid var(--c); border-radius: 8px; padding: 8px 10px; break-inside: avoid; background: #fff; }
+.who .co .n { font-weight: bold; font-size: 11pt; }
+.who .co .where { font-size: 7.6pt; letter-spacing: 0.08em; text-transform: uppercase; color: #5b6068; margin-left: 6px; }
+.who .co p { margin: 3px 0; font-size: 9pt; }
+.who .co .lesson { background: var(--bg); border-radius: 5px; padding: 4px 7px; font-size: 8.8pt; margin-top: 5px; }
+.port { border: 2px solid var(--c); border-radius: 12px; margin: 10px 0 14px; overflow: hidden; break-inside: avoid; }
+.port .top { background: var(--c); color: #fff; padding: 8px 14px; display: flex; align-items: baseline; gap: 12px; }
+.port .top .nm { font-size: 15pt; font-weight: bold; }
+.port .top .tk { font-family: "DejaVu Sans Mono", monospace; font-size: 10pt; background: rgba(255,255,255,0.22); padding: 1px 7px; border-radius: 4px; }
+.port .top .tg { font-style: italic; opacity: 0.95; margin-left: auto; font-size: 10pt; }
+.port .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.port .cell { padding: 6px 12px; border-top: 1px solid #e3e5e8; font-size: 9pt; }
+.port .cell.wide { grid-column: span 2; }
+.port .cell .lbl { margin-top: 0; }
+.guide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.guide .g { border: 1px solid #d5d8dc; border-left: 5px solid var(--gc); border-radius: 8px; padding: 9px 12px; background: #fafbfc; break-inside: avoid; }
+.guide .g h4 { margin: 0 0 4px; color: var(--gc); font-size: 11pt; }
+.profile { border: 1px solid #c9ced6; border-radius: 10px; padding: 10px 14px; background: #f6f8fb; margin: 8px 0 12px; break-inside: avoid; }
+.gloss td:first-child { width: 24%; font-weight: bold; }
 """
 
 
@@ -211,7 +237,10 @@ out.append("""
 """ + "".join(f"<li>{e(sec['name'])}{'' if sec['in_game'] else ' (extra sector)'}: the problem statement, four crises with their twists, spare cards and ten Round 3 statements</li>" for sec in sectors_out) + """
     <li>Appendix A · How every answer is judged (the rubrics)</li>
     <li>Appendix B · Organiser checklist</li>
+    <li>Appendix C · Glossary</li>
   </ol>
+  <p class="small muted">Each sector section opens with the sector <b>at a glance</b>, then its <b>company portfolio</b>: the real companies
+  shaping it, and three sample PRIMUS companies that show what a strong startup looks like.</p>
   <h2 style="margin-top:18px">1 · How the night uses them</h2>
   <p>PRIMUS has three tracks. <b>Product</b> teams build a startup inside their sector and run it as a listed company.
   <b>Consulting</b> teams are firms that companies hire for advice. <b>Finance</b> teams are funds that invest in the companies
@@ -221,8 +250,9 @@ out.append("""
     <tr><th style="width:13%">Time</th><th style="width:17%">Round</th><th>What happens</th><th style="width:27%">What it moves</th></tr>
     <tr><td>21:00</td><td>Squad draw</td><td>Each squad's sector is drawn and its problem card is set.</td><td>Who competes with whom all night</td></tr>
     <tr><td>21:00–22:00</td><td>Round 1 · Foundation</td><td><b>Product</b> writes a PRD for a startup inside its sector's problem
-      statement (800 words, 7 sections). <b>Consulting</b> writes a memo on the ElevenLabs case (500 words, 6 sections).</td>
-      <td>The PRD score sets the IPO price; the memo score sets the firm's opening reputation and a bonus</td></tr>
+      statement (800 words, 7 sections). <b>Consulting</b> writes a memo on the ElevenLabs case (500 words, 6 sections). <b>Finance</b> trades the practice market:
+      $100,000 of practice money on live candlestick charts named after the Product teams.</td>
+      <td>The PRD score sets the IPO price; the memo score sets the firm's opening reputation and a bonus; each fund's practice profit (up to $50,000) is added to its real cash</td></tr>
     <tr><td>by 22:30</td><td>Round 1</td><td><b>Consulting</b> makes Call 1: BUY or SELL on each of its two companies.
       <b>Finance</b> reads the PRDs and bids in the IPO (until 22:45).</td><td>$2,500 per correct call; the opening share register</td></tr>
     <tr><td>22:45 · 00:15 · 01:45 · 03:15</td><td>Round 2 · Pressure</td><td>Four crises. In crisis <i>k</i> every company gets
@@ -250,6 +280,33 @@ out.append("""
     <tr><td>Hiring</td><td>Firms post an asking fee; offers must be 5–20% of the company's cash; at most 3 counters; 2 clients per firm.</td></tr>
     <tr><td>Saturation</td><td>On each statement, companies are ranked by score: the 1st gets its full price rise, the 2nd ×0.75, the 3rd ×0.5, the 4th and 5th ×0.25. Price falls apply in full. A company alone on its statement gets its full rise.</td></tr>
   </table>
+</section>
+<section class="page">
+  <h2>How to use this book</h2>
+  <p>This book is the whole case of the night in one place. Read the part for your track first; everyone should read their
+  sector's <b>at a glance</b> page and its <b>company portfolio</b> before the squad draw.</p>
+  <div class="guide">
+    <div class="g" style="--gc:#15803d"><h4>Product teams · you are the startup</h4><ul>
+      <li>Read your sector's problem statement and the <b>sample companies</b>: they show the level of detail a strong PRD has.</li>
+      <li>Pick one user, one problem, one number. Vague PRDs score low.</li>
+      <li>In each crisis, read the <b>twist</b> and make the decision the card asks for: the judge looks for it.</li>
+      <li>In Round 3, read the client brief: who it is for, the numbers, the catch, what winning looks like.</li></ul></div>
+    <div class="g" style="--gc:#1d4ed8"><h4>Consulting teams · you are the advisers</h4><ul>
+      <li>Read the <b>ElevenLabs profile and case</b> (section 2): your Round 1 memo sets your reputation for the night.</li>
+      <li>Learn your likely clients' crisis cards: firms that understand the sector get hired and rated well.</li>
+      <li>Advice must be specific to the client: what to do, in what order, by whom, with numbers.</li>
+      <li>No memo, no fee: the escrow is paid only if your advice is in on time.</li></ul></div>
+    <div class="g" style="--gc:#b45309"><h4>Finance teams · you are the investors</h4><ul>
+      <li>Round 1: trade the <b>practice market</b>. Read the candles: hammers, engulfings and breakouts are planted, and most follow through.</li>
+      <li>Read every sector's <b>What Finance teams should watch</b> table and the crisis cards: prices fall 5% at each reveal, then move with each plan's score.</li>
+      <li>Strong plans recover; weak ones keep falling. Trade the gap.</li>
+      <li>In Round 3, crowded statements share the price rise: watch the draft.</li></ul></div>
+    <div class="g" style="--gc:#6d28d9"><h4>Judges, mentors and organisers</h4><ul>
+      <li>Every card has <b>what a strong answer covers</b> and how it is judged (Appendix A).</li>
+      <li>Spare cards are ready as mid-round surprises (one per sector section).</li>
+      <li>The organiser checklist is Appendix B; the words of the game are in the glossary (Appendix C).</li>
+      <li>All numbers on the cards are invented for the game and are the same for every company that receives a card.</li></ul></div>
+  </div>
 </section>""")
 
 # ───────────── The consulting case ─────────────
@@ -259,6 +316,16 @@ out.append(f"""
   <p>Every Consulting firm, whatever its squad's sector, writes a recommendation memo on this one case, by 22:00. Because the
   case is the same for everyone, the memo score is a fair first measure of each firm, and it sets the reputation companies
   see when they hire in Round 2.</p>
+  <div class="profile"><h3 style="margin-top:0">Company profile · ElevenLabs</h3>
+    <p>{e(portfolios.ELEVENLABS["what"])}</p>
+    <div class="cols" style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
+      <div><div class="lbl">What it sells</div>{ul(portfolios.ELEVENLABS["products"])}</div>
+      <div><div class="lbl">Who pays</div><p>{e(portfolios.ELEVENLABS["customers"])}</p>
+        <div class="lbl">Why India matters</div><p>{e(portfolios.ELEVENLABS["why_india"])}</p></div>
+    </div>
+    <div class="lbl">The tension at the heart of the case</div><p><b>{e(portfolios.ELEVENLABS["tension"])}</b></p>
+    <p class="small muted">From public information, in general terms. The figures in the case below are invented for the game.</p>
+  </div>
   <div class="onscreen" style="--c:#334155;--bg:#f3f5f8"><span class="tag">On screen · the case</span>
     <div class="title">ElevenLabs: winning India's voices</div><div>{e(case).replace(chr(10) * 2, "<br><br>")}</div></div>
   <h3>The facts at a glance</h3>
@@ -309,6 +376,13 @@ for n, sec in enumerate(sectors_out, start=3):
         out.append(f'<div class="band"><div class="kick">Section {n} · Extra sector</div><div class="name">{e(sector)}</div>'
                    f'<div class="meta">{e(prob["title"])} · ready to play: seed/sectors/all, or pnpm sectors for any mix</div></div>')
     out.append(f'<p>{e(ctx["overview"])}</p>')
+    pf = portfolios.PORTFOLIOS.get(sector)
+    out.append(f'<div class="glance"><h4>{e(sector)} at a glance</h4><table>'
+               f'<tr><td>Round 1 problem</td><td>{e(prob["title"])}</td></tr>'
+               + "".join(f'<tr><td>Crisis {e(x["number"])} · {e(x["category"])}</td><td>{e(x["title"])}</td></tr>' for x in sector_crises)
+               + f'<tr><td>Round 3</td><td>{len(sector_statements)} client briefs, at most 5 companies each</td></tr>'
+               + (f'<tr><td>Sample companies</td><td>{e(", ".join(f"{x["name"]} ({x["ticker"]})" for x in pf["samples"]))}</td></tr>' if pf else "")
+               + '</table></div>')
     out.append(f'<h3>Round 1 · The problem statement</h3>')
     out.append(onscreen(sector, f"On screen · problem card {prob['number']}" if in_game else "Card text · extra sector", prob["title"], prob["body"]))
     out.append('<p class="small muted">Every Product team in this sector invents its own startup inside this statement and '
@@ -320,12 +394,37 @@ for n, sec in enumerate(sectors_out, start=3):
     out.append('</div>')
     out.append('<h3>Real-world challenges</h3><table><tr><th style="width:28%">Challenge</th><th>Why it matters</th></tr>'
                + "".join(f"<tr><td><b>{e(a)}</b></td><td>{e(b)}</td></tr>" for a, b in ctx["challenges"]) + "</table>")
-    out.append('<h3>Startups for inspiration</h3>'
-               + ul([f"{a}: {b}" for a, b in ctx["inspiration"]])
-               + '<p class="small muted">Named for inspiration only: teams must not copy them, and the judge scores the team\'s own plan.</p>')
-    cname, cidea, crev = ctx["concept"]
-    out.append(f'<div class="box"><b>An illustrative concept: {e(cname)}.</b> {e(cidea)}<br>'
-               f'<span class="small"><b>How it could make money:</b> {e("; ".join([crev[0]] + [lower_first(x) for x in crev[1:]]))}.</span></div>')
+    if pf:
+        out.append('<h3>Company portfolio · who is shaping this sector</h3><div class="who">'
+                   + "".join(f'<div class="co"><span class="n">{e(n_)}</span><span class="where">{e(w)}</span>'
+                             f'<p>{e(what)}</p><p><b>Makes money from:</b> {e(money_)}</p><div class="lesson"><b>The lesson:</b> {e(lesson)}</div></div>'
+                             for n_, w, what, money_, lesson in pf["real"])
+                   + '</div><p class="small muted">Real companies, described in general terms from public information, for inspiration only: '
+                   'teams must not copy them, and the judge scores the team\'s own plan.</p>')
+    else:
+        out.append('<h3>Startups for inspiration</h3>'
+                   + ul([f"{a}: {b}" for a, b in ctx["inspiration"]])
+                   + '<p class="small muted">Named for inspiration only: teams must not copy them, and the judge scores the team\'s own plan.</p>')
+    if pf:
+        out.append(f'<h3 style="break-before:page">Company portfolio · three sample PRIMUS companies</h3>'
+                   f'<p>What a strong {e(sector)} startup looks like on paper: one user, one sharp problem, a small first version, '
+                   f'a clear way to make money and targets with numbers. These are invented examples, not answers: every team builds its own.</p>')
+        for x in pf["samples"]:
+            out.append(f'<div class="port"><div class="top"><span class="nm">{e(x["name"])}</span><span class="tk">{e(x["ticker"])}</span>'
+                       f'<span class="tg">{e(x["tagline"])}</span></div><div class="rows">'
+                       f'<div class="cell wide"><div class="lbl">The problem</div>{e(x["problem"])}</div>'
+                       f'<div class="cell wide"><div class="lbl">The product (first version)</div>{e(x["product"])}</div>'
+                       f'<div class="cell"><div class="lbl">The customer</div>{e(x["customer"])}</div>'
+                       f'<div class="cell"><div class="lbl">How it makes money</div>{e(x["model"])}</div>'
+                       f'<div class="cell wide"><div class="lbl">Targets</div><b>{e(x["targets"])}</b></div>'
+                       f'<div class="cell"><div class="lbl">The edge</div>{e(x["edge"])}</div>'
+                       f'<div class="cell"><div class="lbl">The biggest risk, and the answer</div>{e(x["risk"])}</div>'
+                       f'</div></div>')
+        out.append('<p class="small muted">The companies, tickers and numbers are invented for the game.</p>')
+    else:
+        cname, cidea, crev = ctx["concept"]
+        out.append(f'<div class="box"><b>An illustrative concept: {e(cname)}.</b> {e(cidea)}<br>'
+                   f'<span class="small"><b>How it could make money:</b> {e("; ".join([crev[0]] + [lower_first(x) for x in crev[1:]]))}.</span></div>')
     out.append('<h3>What a strong PRD shows in this sector</h3>' + ul(ctx["prd"]))
 
     r2_when = "" if in_game else f"If {e(sector)} is played, "
@@ -444,6 +543,29 @@ out.append("""
 </table>
 </section>""")
 
+out.append("""
+<section class="page"><h2>Appendix C · Glossary</h2>
+<table class="gloss">
+  <tr><th>Word</th><th>What it means in PRIMUS</th></tr>
+  <tr><td>Squad</td><td>Three teams drawn together: one Product, one Consulting, one Finance. A Finance team never trades its own squad's company.</td></tr>
+  <tr><td>PRD</td><td>Product requirements document: the startup's plan in 7 sections and 800 words. Its score sets the IPO price.</td></tr>
+  <tr><td>Ticker</td><td>A company's 3–4 letter market code, chosen by the Product team (for example FRLP).</td></tr>
+  <tr><td>IPO</td><td>Initial public offering: funds bid for each company's first shares at its IPO price.</td></tr>
+  <tr><td>Trading round</td><td>A 15-minute window for orders. Every order fills at the round's new price; the price moves with the net shares bought or sold (at most ±10%).</td></tr>
+  <tr><td>BUY / SELL</td><td>Buy shares; sell shares you own.</td></tr>
+  <tr><td>SHORT / COVER</td><td>Sell shares you do not own, betting the price will fall (150% of the value is locked as collateral); buy them back to close.</td></tr>
+  <tr><td>Practice market</td><td>Round 1 for Finance: $100,000 of practice money on scripted candlestick charts. Profit up to $50,000 is added to the real fund; a loss costs nothing.</td></tr>
+  <tr><td>Candlestick</td><td>A bar showing a price's open, high, low and close over a period: green when it closed higher, red when lower.</td></tr>
+  <tr><td>Crisis card</td><td>The problem each company receives in each of the four crises: its own sector's card number 1 to 4. Every price falls 5% at the reveal.</td></tr>
+  <tr><td>Twist</td><td>The second blow at the end of each crisis card, with the decision the plan must make.</td></tr>
+  <tr><td>Escrow</td><td>The hiring fee, held by the exchange until the firm's advice memo is in; refunded to the client if it is not.</td></tr>
+  <tr><td>Stars</td><td>The client's 1–5 rating of its firm after each crisis (a missing rating counts as 3).</td></tr>
+  <tr><td>Draft</td><td>Round 3: companies pick a problem statement in turn, lowest score first, 20 seconds each.</td></tr>
+  <tr><td>Saturation</td><td>Companies sharing a statement share its price rise: 1st full, 2nd ×0.75, 3rd ×0.5, 4th and 5th ×0.25.</td></tr>
+  <tr><td>Median of three</td><td>Every answer is judged three times by the AI judge; the middle score counts (five times if the three differ by more than 10 points).</td></tr>
+  <tr><td>Sealed / released</td><td>Scores are sealed (hidden) until the organisers release them; the release moves the prices.</td></tr>
+</table>
+</section>""")
 out.append("</body></html>")
 out = [re.sub(r'(<table[^>]*>)(<tr>(?:<th[^>]*>.*?</th>)+</tr>)', r'\1<thead>\2</thead>', x, flags=re.S) for x in out]
 # A rubric's heading, its sections line and its table stay on one page.
