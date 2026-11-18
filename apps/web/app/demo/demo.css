@@ -346,3 +346,40 @@ html:has(.demo-login.demo-entry)::-webkit-scrollbar-thumb,body:has(.demo-login.d
   color:rgba(57,255,136,.58)!important;
   text-shadow:0 0 7px rgba(57,255,136,.48),0 0 15px rgba(57,255,136,.2)!important;
 }
+
+/* Classic Matrix rain reference treatment — login page background only. */
+.demo-login.demo-entry{background:#000!important}
+.demo-login.demo-entry>.demo-login-grid{
+  background-image:linear-gradient(rgba(0,0,0,.0),rgba(0,0,0,.0))!important;
+  opacity:0!important;
+}
+.demo-login.demo-entry>.demo-login-glow{opacity:.12!important}
+.demo-login.demo-entry>.demo-matrix-rain{
+  position:absolute!important;inset:0!important;z-index:1!important;
+  display:grid!important;grid-template-columns:repeat(26,minmax(0,1fr))!important;
+  gap:clamp(3px,.8vw,12px)!important;padding:0 1.2vw!important;
+  height:100%!important;overflow:hidden!important;opacity:.78!important;
+  pointer-events:none!important;
+  mask-image:linear-gradient(180deg,#000 0%,#000 82%,transparent 100%)!important;
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 82%,transparent 100%)!important;
+}
+.demo-login.demo-entry>.demo-matrix-rain span{
+  display:block!important;position:relative!important;height:150%!important;
+  align-self:start!important;overflow:visible!important;
+  color:#00e676!important;font:600 clamp(7px,.72vw,10px)/1.55 ui-monospace,"MS Gothic",monospace!important;
+  letter-spacing:.05em!important;white-space:nowrap!important;text-align:center!important;
+  opacity:.35!important;text-shadow:0 0 5px rgba(0,255,100,.65),0 0 12px rgba(0,255,100,.3)!important;
+  animation:demo-classic-matrix-fall 13s linear infinite!important;
+  will-change:transform;
+}
+.demo-login.demo-entry>.demo-matrix-rain span:nth-child(4n+1){opacity:.62!important;animation-duration:10s!important}
+.demo-login.demo-entry>.demo-matrix-rain span:nth-child(5n+2){opacity:.22!important;animation-duration:17s!important}
+.demo-login.demo-entry>.demo-matrix-rain span:nth-child(3n){animation-duration:15s!important}
+.demo-login.demo-entry>.demo-matrix-rain span:nth-child(2n){animation-delay:-7s!important}
+.demo-login.demo-entry>.demo-matrix-rain span:nth-child(3n+1){animation-delay:-11s!important}
+.demo-login.demo-entry>.demo-matrix-rain span:nth-child(4n+2){animation-delay:-4s!important}
+@keyframes demo-classic-matrix-fall{from{transform:translateY(-38%)}to{transform:translateY(0)}}
+.demo-login.demo-entry>.demo-login-content{z-index:2!important}
+.demo-login.demo-entry .demo-login-card{background:rgba(5,7,9,.94)!important;backdrop-filter:blur(5px)!important}
+@media(max-width:620px){.demo-login.demo-entry>.demo-matrix-rain{grid-template-columns:repeat(14,minmax(0,1fr))!important;opacity:.56!important}}
+@media(prefers-reduced-motion:reduce){.demo-login.demo-entry>.demo-matrix-rain span{animation:none!important}}
