@@ -550,3 +550,9 @@ html:has(.demo-login.demo-entry)::-webkit-scrollbar-thumb,body:has(.demo-login.d
 .guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)!important}
 .guide-app[data-track] .guide-mobile-nav{background:#090c12!important;border-color:#292e38!important}
 .guide-app[data-track] .guide-mobile-nav a{color:#aeb4bf!important}
+
+/* Keep the browser scrollbar in the same neutral graphite palette on dashboard pages. */
+html:has(.guide-app),body:has(.guide-app){scrollbar-color:#555b66 #101319}
+html:has(.guide-app)::-webkit-scrollbar,body:has(.guide-app)::-webkit-scrollbar,.guide-app *::-webkit-scrollbar{width:9px;height:9px}
+html:has(.guide-app)::-webkit-scrollbar-track,body:has(.guide-app)::-webkit-scrollbar-track,.guide-app *::-webkit-scrollbar-track{background:#101319}
+html:has(.guide-app)::-webkit-scrollbar-thumb,body:has(.guide-app)::-webkit-scrollbar-thumb,.guide-app *::-webkit-scrollbar-thumb{background:#555b66;border:2px solid #101319;border-radius:8px}
