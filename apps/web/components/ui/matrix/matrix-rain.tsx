@@ -26,10 +26,19 @@ export function MatrixRain({ opacity = 0.82, size = 15, className = "" }: { opac
     const randomGlyphs = (count: number) =>
       Array.from({ length: count }, () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)]!);
 
+    const randomX = () => {
+      for (let attempt = 0; attempt < 14; attempt++) {
+        const x = Math.random() * width;
+        const centerDistance = Math.abs(x - width / 2) / (width / 2);
+        if (centerDistance >= 0.34 || Math.random() < 0.12) return x;
+      }
+      return Math.random() < 0.5 ? Math.random() * width * 0.28 : width * (0.72 + Math.random() * 0.28);
+    };
+
     const makeStream = (x?: number): Stream => {
       const length = 7 + Math.floor(Math.random() * 29);
       return {
-        x: x ?? Math.random() * width,
+        x: x ?? randomX(),
         y: -Math.random() * (height + length * size),
         length,
         speed: 0.22 + Math.random() * 0.55,
@@ -51,16 +60,7 @@ export function MatrixRain({ opacity = 0.82, size = 15, className = "" }: { opac
 
       // Keep the middle relatively quiet so the sign-in panel remains the focal point.
       const count = Math.max(12, Math.min(38, Math.round(width / 47)));
-      streams = [];
-      let attempts = 0;
-      while (streams.length < count && attempts < count * 12) {
-        attempts++;
-        const x = Math.random() * width;
-        const centerDistance = Math.abs(x - width / 2) / (width / 2);
-        if (centerDistance < 0.34 && Math.random() < 0.88) continue;
-        streams.push(makeStream(x));
-      }
-      while (streams.length < count) streams.push(makeStream());
+      streams = Array.from({ length: count }, () => makeStream());
       paint();
     };
 
