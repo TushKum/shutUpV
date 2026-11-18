@@ -1,6 +1,5 @@
-// Runs before every page request: refreshes the Supabase session cookie and sends signed-out visitors
-// of a protected area to /login. This is an optimistic check only; each area's layout re-checks the
-// account and its role on the server.
+// Refresh Supabase sessions for the real application while keeping local preview routes
+// completely independent from backend configuration.
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
@@ -9,14 +8,15 @@ import { areaOf } from "@/lib/auth/routes";
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // Keep the standalone frontend demo outside the Supabase session flow. Also
-  // normalize accidental trailing asterisks copied from formatted links.
-  if (path.startsWith("/newsroom-preview") || path.startsWith("/preview")) {
-    if (path !== "/newsroom-preview") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/newsroom-preview";
-      return NextResponse.rewrite(url);
-    }
+  // Make the local frontend preview the default landing page.
+  if (path === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/preview";
+    return NextResponse.redirect(url);
+  }
+
+  // Preview pages are static/mock-data screens and must never initialise Supabase.
+  if (path === "/preview" || path.startsWith("/preview/") || path === "/newsroom-preview") {
     return NextResponse.next();
   }
 
@@ -37,7 +37,6 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // getClaims() validates the JWT (and refreshes an expired session through setAll above).
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims && areaOf(path)) {
     const url = request.nextUrl.clone();
