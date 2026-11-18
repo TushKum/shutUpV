@@ -9,9 +9,14 @@ import { areaOf } from "@/lib/auth/routes";
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // The standalone newsroom preview is a frontend-only demo. Keep it outside the
-  // Supabase session flow so it works locally without backend environment variables.
-  if (path === "/newsroom-preview") {
+  // Keep the standalone frontend demo outside the Supabase session flow. Also
+  // normalize accidental trailing asterisks copied from formatted links.
+  if (path.startsWith("/newsroom-preview")) {
+    if (path !== "/newsroom-preview") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/newsroom-preview";
+      return NextResponse.rewrite(url);
+    }
     return NextResponse.next();
   }
 
