@@ -14,3 +14,15 @@
 .demo-login-secondary{display:grid;grid-template-columns:1fr 1fr;gap:10px}.demo-login-secondary a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:13px 12px;border:1px solid rgba(70,240,151,.19);color:#b7d0bf;text-decoration:none;font:700 8px ui-monospace,monospace;letter-spacing:.08em;transition:.2s}.demo-login-secondary a:hover{border-color:#39ff88;color:#39ff88;background:rgba(57,255,136,.04)}.demo-login-secondary i{font-style:normal;color:#39ff88;font-size:12px}
 .demo-login-card-foot{display:flex;justify-content:space-between;gap:10px;margin-top:23px;padding-top:14px;border-top:1px solid rgba(70,240,151,.13);color:#6e8b78;font:700 7px ui-monospace,monospace;letter-spacing:.1em}.demo-login-card-foot i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#39ff88;box-shadow:0 0 8px #39ff88;margin-right:6px}.demo-login-footer{margin-top:35px}
 @media(max-width:760px){.demo-login-top{margin-bottom:55px}.demo-official-logo{width:135px}.demo-login-card{padding:24px 19px}.demo-login-card-foot{flex-direction:column}.demo-login-footer{font-size:7px}}
+
+/* Glitch the actual PRIMUS mark, not a typed word. */
+.demo-glitch-logo{position:relative;width:min(72vw,390px);height:auto;aspect-ratio:337/125;display:grid;place-items:center;animation:demo-logo-arrive .9s cubic-bezier(.16,1,.3,1) .08s both;filter:drop-shadow(0 0 14px rgba(70,240,151,.45)) drop-shadow(0 0 42px rgba(70,240,151,.2))}
+.demo-glitch-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.demo-glitch-logo img:first-child{position:relative;z-index:2;animation:demo-logo-main .9s steps(1,end) .08s both}
+.demo-glitch-logo img:nth-child(2){z-index:3;opacity:0;filter:brightness(0) saturate(100%) invert(68%) sepia(86%) saturate(1000%) hue-rotate(91deg);animation:demo-logo-slice-a .82s steps(1,end) .16s both}
+.demo-glitch-logo img:nth-child(3){z-index:1;opacity:0;filter:brightness(0) saturate(100%) invert(65%) sepia(76%) saturate(1100%) hue-rotate(157deg);animation:demo-logo-slice-b .82s steps(1,end) .16s both}
+@keyframes demo-logo-arrive{0%{opacity:0;transform:scale(.72);filter:blur(12px)}45%{opacity:1;transform:scale(1.04);filter:blur(0)}65%{transform:scale(.99) skewX(-3deg)}100%{opacity:1;transform:scale(1)}}
+@keyframes demo-logo-main{0%,100%{opacity:1;clip-path:inset(0)}17%{opacity:.55;clip-path:inset(12% 0 68%)}19%{clip-path:inset(0)}37%{opacity:.8;clip-path:inset(54% 0 18%)}39%{opacity:1;clip-path:inset(0)}61%{clip-path:inset(32% 0 43%)}63%{clip-path:inset(0)}}
+@keyframes demo-logo-slice-a{0%,100%{opacity:0;transform:translateX(0)}17%,18%{opacity:.85;transform:translateX(7px)}19%,37%{opacity:0}38%,39%{opacity:.7;transform:translateX(-5px)}40%,60%{opacity:0}61%,62%{opacity:.8;transform:translateX(4px)}63%{opacity:0}}
+@keyframes demo-logo-slice-b{0%,100%{opacity:0;transform:translateX(0)}17%,18%{opacity:.75;transform:translateX(-7px)}19%,37%{opacity:0}38%,39%{opacity:.8;transform:translateX(5px)}40%,60%{opacity:0}61%,62%{opacity:.65;transform:translateX(-4px)}63%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.demo-glitch-logo,.demo-glitch-logo img{animation:none!important;opacity:1}}
