@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import type pg from "pg";
-import { e2ePool, seedE2eEvent, type E2eEvent } from "./support/event";
+import { e2ePool, seedE2eEvent, STAFF, type E2eEvent } from "./support/event";
 import { drawn } from "./support/game";
-import { loginAsTeam } from "./support/login";
+import { loginAsStaff, loginAsTeam } from "./support/login";
 
 test.describe.configure({ mode: "serial" });
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -80,4 +80,19 @@ test("in Round 1 a fund trades the candlestick market and the profit becomes its
   await page.goto("/team/trade/practice");
   await expect(page.getByTestId("practice-result")).toContainText("was added to your real cash");
   await expect(page.getByTestId("practice-leaderboard")).toContainText(fund);
+});
+
+test("the organiser's track pages: practice standings and edges under Finance, the companies under Product", async ({ page }) => {
+  await loginAsStaff(page, ev, STAFF.lead);
+  await page.goto(`/admin/${ev.slug}`);
+  for (const tab of ["Schedule", "Product", "Consulting", "Finance"]) await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: tab, exact: true })).toBeVisible();
+  await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Finance", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Practice standings" })).toContainText(fund);
+  await expect(page.getByTestId(`fund-${fund}`)).toContainText("+$");
+  await page.goto(`/admin/${ev.slug}/product`);
+  await expect(page.getByRole("region", { name: "Companies" }).getByRole("row")).toHaveCount(1 + ev.plan.teams.filter((t) => t.track === "PRODUCT").length);
+  await page.goto(`/admin/${ev.slug}/consulting`);
+  await expect(page.getByRole("region", { name: "Firms" }).getByRole("row")).toHaveCount(1 + ev.plan.teams.filter((t) => t.track === "CONSULTING").length);
+  await page.goto(`/admin/${ev.slug}/schedule`);
+  await expect(page.getByRole("heading", { name: "Deadlines" })).toBeVisible();
 });

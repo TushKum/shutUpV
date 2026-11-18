@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { DEADLINE_LABELS, PHASE_LABELS, type DeadlineCode, type PhaseCode } from "@msim/engine";
+import { DEADLINE_LABELS, PHASE_LABELS, type DeadlineCode } from "@msim/engine";
 import { currentViewer } from "@/lib/auth/viewer";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock } from "@/lib/format";
-import { Badge, Notice, Panel, Stat, Table, Td, inputClass } from "@/components/ui/ui";
+import { Badge, Notice, Panel, Stat, inputClass } from "@/components/ui/ui";
 import { ActionButton, ActionForm } from "@/components/ui/action";
 import { Countdown } from "@/components/ui/countdown";
 import { advancePhase, extendEvent, extendEventForm, pauseEvent, resumeEvent, setAutoAdvance } from "./actions";
@@ -19,16 +19,9 @@ import { readSchemaVersion } from "@/lib/schema-data";
 
 export const metadata: Metadata = { title: "Phase" };
 
-interface PhaseRow {
-  code: PhaseCode;
-  seq: number;
-  starts_at: string;
-  ends_at: string;
-  started_at: string | null;
-  ended_at: string | null;
-}
 
-// Phase control: where the night is, what holds the next step, and the organiser's buttons.
+// Phase control: where the night is, what holds the next step, what needs the organiser now, and the buttons. The
+// tracks (Product, Consulting, Finance) and the full schedule have pages of their own.
 export default async function PhaseControl({ params }: PageProps<"/admin/[slug]">) {
   const { slug } = await params;
   const [viewer, event] = await Promise.all([currentViewer(), loadAdminEvent(slug)]);
@@ -38,42 +31,15 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
   const schema = schemaState(dbVersion);
   const organiser = viewer!.role === "ORGANISER";
   const sb = await supabaseServer();
-  const [phases, deadlines, rounds, subrounds, engagements, picks, statements, companies, squadCards] = await Promise.all([
-    sb.from("phases").select("code, seq, starts_at, ends_at, started_at, ended_at").eq("event_id", event.id).order("seq"),
-    sb.from("deadlines").select("code, at").eq("event_id", event.id).order("at"),
-    sb.from("rounds").select("number, phase, status, opens_at, closes_at, cleared_at").eq("event_id", event.id).order("number"),
-    sb.from("subrounds").select("k, revealed_at, hiring_closed_at, due_closed_at, rated_at").eq("event_id", event.id).order("k"),
-    sb.from("engagements").select("k, escrow, rating").eq("event_id", event.id),
-    sb.from("draft_picks").select("company_id, pick_no, closes_at, statement_id, by_default").eq("event_id", event.id).order("pick_no"),
-    sb.from("problem_statements").select("id, number, title, cap, sector").eq("event_id", event.id).order("number"),
-    sb.from("companies").select("id, ticker, squad_id").eq("event_id", event.id),
-    sb.from("squads").select("id, problem_cards!squads_chosen_card_id_fkey(sector)").eq("event_id", event.id),
+  const [deadlines, picks, companies] = await Promise.all([
+    sb.from("deadlines").select("code, at").eq("event_id", event.id).gt("at", status.server_time).order("at").limit(5),
+    sb.from("draft_picks").select("company_id, pick_no, closes_at, statement_id").eq("event_id", event.id).order("pick_no"),
+    sb.from("companies").select("id, ticker").eq("event_id", event.id),
   ]);
-  // Round 3's draft, for the panel below.
-  const draftPicks = (picks.data ?? []) as { company_id: string; pick_no: number; closes_at: string; statement_id: string | null; by_default: boolean }[];
-  const stRows = (statements.data ?? []) as { id: string; number: number; title: string; cap: number; sector: string | null }[];
-  const coRows = (companies.data ?? []) as { id: string; ticker: string | null; squad_id: string | null }[];
-  const ticker = new Map(coRows.map((c) => [c.id, c.ticker ?? "—"]));
-  const playing = coRows.filter((c) => c.squad_id !== null).length;
-  const room = stRows.reduce((s, x) => s + x.cap, 0);
+  // Round 3's draft, while a company is on the clock.
+  const draftPicks = (picks.data ?? []) as { company_id: string; pick_no: number; closes_at: string; statement_id: string | null }[];
+  const ticker = new Map(((companies.data ?? []) as { id: string; ticker: string | null }[]).map((c) => [c.id, c.ticker ?? "—"]));
   const onClock = draftPicks.find((p) => p.statement_id === null) ?? null;
-  // An event split across sectors: each sector's statements need room for that sector's companies.
-  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-  const sectorOfSquad = new Map(
-    ((squadCards.data ?? []) as unknown as { id: string; problem_cards: { sector: string | null } | { sector: string | null }[] | null }[]).map((s) => [
-      s.id,
-      (Array.isArray(s.problem_cards) ? s.problem_cards[0]?.sector : s.problem_cards?.sector) ?? null,
-    ]),
-  );
-  const sectorShort = stRows.some((s) => s.sector)
-    ? [...new Set(coRows.map((c) => (c.squad_id ? sectorOfSquad.get(c.squad_id) : null)).filter((s): s is string => !!s))]
-        .map((sec) => ({
-          sec,
-          n: coRows.filter((c) => c.squad_id && norm(sectorOfSquad.get(c.squad_id)) === norm(sec)).length,
-          room: stRows.filter((s) => norm(s.sector) === norm(sec)).reduce((t, s) => t + s.cap, 0),
-        }))
-        .filter((x) => x.room < x.n)
-    : [];
   const next = status.next_phase;
   const blocked = status.gate ?? (status.paused ? "Resume the event before advancing." : null);
 
@@ -109,6 +75,15 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
             />
             <Stat label="Auto-advance" value={status.auto_advance ? "On" : "Off"} hint={status.paused ? `Paused since ${clock(status.paused_at)}` : undefined} />
           </div>
+          {onClock ? (
+            <p className="mt-3 text-sm text-paper" data-testid="admin-draft-clock">
+              Round 3 draft · on the clock: <strong className="font-mono">{ticker.get(onClock.company_id)}</strong> (pick {onClock.pick_no} of {draftPicks.length}) ·{" "}
+              <Countdown to={onClock.closes_at} passed="given by default on the next heartbeat" /> ·{" "}
+              <Link href={`/admin/${slug}/product`} className="underline">
+                the draft
+              </Link>
+            </p>
+          ) : null}
           {blocked ? (
             <div className="mt-4">
               <Notice tone="amber">
@@ -215,125 +190,39 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
           <Notice>The fairness officer can follow the night here; only organisers change the phase.</Notice>
         )}
 
-        {event.format === "PRIMUS" ? (
-          <Panel title="PRIMUS sub-rounds">
-            <Table head={["Sub-round", "Revealed", "Hiring closed", "Escrow settled", "Ratings closed", "Firms hired", "Rated"]} empty="No sub-round has started.">
-              {((subrounds.data ?? []) as { k: number; revealed_at: string | null; hiring_closed_at: string | null; due_closed_at: string | null; rated_at: string | null }[]).map((s) => {
-                const hires = ((engagements.data ?? []) as { k: number; escrow: string; rating: number | null }[]).filter((e) => e.k === s.k);
-                return (
-                  <tr key={s.k} data-testid={`subround-${s.k}`}>
-                    <Td>{s.k === 5 ? "Round 3" : `Crisis ${s.k}`}</Td>
-                    <Td mono>{clock(s.revealed_at)}</Td>
-                    <Td mono>{clock(s.hiring_closed_at)}</Td>
-                    <Td mono>{clock(s.due_closed_at)}</Td>
-                    <Td mono>{clock(s.rated_at)}</Td>
-                    <Td mono>{hires.length}</Td>
-                    <Td mono>{hires.filter((e) => e.rating !== null).length}</Td>
-                  </tr>
-                );
-              })}
-            </Table>
-            <p className="mt-2 text-xs text-muted">
-              The heartbeat reveals each crisis at its time, closes hiring, settles escrow at the due time and fills missing ratings with 3. Judge and
-              release each crisis plan, advice memo and the solution under Judge.
-            </p>
-          </Panel>
-        ) : null}
-
-        {event.format === "PRIMUS" ? (
-          <Panel title="Round 3 · the draft" actions={<a href={`/admin/${slug}/content`} className="text-sm underline">Statements</a>}>
-            {stRows.length === 0 ? (
-              <Notice tone={status.phase === "SATURATION" ? "red" : "amber"}>
-                {status.phase === "SATURATION"
-                  ? "Round 3 has started but there are no problem statements: the draft is waiting. Upload them under Content now; the draft starts at once."
-                  : "No problem statements yet. Upload them under Content before Round 3: the draft starts with Round 3 only if they are there."}
-              </Notice>
-            ) : sectorShort.length ? (
-              <Notice tone="red">
-                Not enough room in {sectorShort.map((x) => `${x.sec} (room for ${x.room}, ${x.n} companies)`).join(", ")}. Each sector&apos;s statements must
-                fit its companies: raise the caps or add statements under Content.
-              </Notice>
-            ) : room < playing ? (
-              <Notice tone="red">
-                The statements have room for {room} companies, but {playing} companies play. Raise the caps or add statements under Content.
-              </Notice>
-            ) : draftPicks.length === 0 ? (
-              <p className="text-sm text-paper">
-                {stRows.length} statements, room for {room} companies ({playing} play). The draft starts with Round 3: lowest score so far first, 20 seconds each.
-              </p>
-            ) : onClock ? (
-              <p className="text-sm text-paper" data-testid="admin-draft-clock">
-                On the clock: <strong className="font-mono">{ticker.get(onClock.company_id)}</strong> (pick {onClock.pick_no} of {draftPicks.length}) ·{" "}
-                <Countdown to={onClock.closes_at} passed="given by default on the next heartbeat" /> · {draftPicks.filter((p) => p.statement_id).length} picked.
-              </p>
-            ) : (
-              <p className="text-sm font-semibold text-phosphor">
-                The draft is over: every company has its statement ({draftPicks.filter((p) => p.by_default).length} given by default). Hiring for Round 3 is open.
-              </p>
-            )}
-            {draftPicks.length ? (
-              <Table head={["#", "Sector", "Statement", "Companies"]} className="mt-3">
-                {stRows.map((s) => {
-                  const on = draftPicks.filter((p) => p.statement_id === s.id);
-                  return (
-                    <tr key={s.id}>
-                      <Td mono>{s.number}</Td>
-                      <Td>{s.sector ?? "—"}</Td>
-                      <Td>{s.title}</Td>
-                      <Td mono>
-                        {on.length}/{s.cap} {on.map((p) => `${ticker.get(p.company_id)}${p.by_default ? "*" : ""}`).join(" ")}
-                      </Td>
-                    </tr>
-                  );
-                })}
-              </Table>
-            ) : null}
-            <p className="mt-2 text-xs text-muted">* given by default (no pick in time). The big screen shows the draft live while it runs.</p>
-          </Panel>
-        ) : null}
-
-        <Panel title="Rounds">
-          <Table head={["Round", "Phase", "Opens", "Closes", "Status"]} empty="No rounds.">
-            {(rounds.data ?? []).map((r) => (
-              <tr key={r.number} className={r.status === "OPEN" ? "bg-phosphor/10" : ""}>
-                <Td mono>{r.number}</Td>
-                <Td>{PHASE_LABELS[r.phase as PhaseCode]}</Td>
-                <Td mono>{clock(r.opens_at)}</Td>
-                <Td mono>{clock(r.closes_at)}</Td>
-                <Td>
-                  <Badge tone={r.status === "OPEN" ? "green" : r.status === "CLEARED" ? "slate" : "blue"}>{r.status}</Badge>
-                </Td>
-              </tr>
-            ))}
-          </Table>
-        </Panel>
       </div>
 
       <div className="min-w-0 space-y-6">
-        <Panel title="Schedule">
-          <ol className="space-y-1 text-sm">
-            {((phases.data ?? []) as PhaseRow[]).map((p) => {
-              const current = p.code === status.phase;
-              const done = !!p.ended_at;
-              return (
-                <li key={p.code} className={`flex justify-between gap-2 rounded px-2 py-1 ${current ? "bg-phosphor-deep text-phosphor" : done ? "text-muted" : ""}`}>
-                  <span>{PHASE_LABELS[p.code]}</span>
-                  <span className="font-mono tabular-nums">
-                    {clock(p.started_at ?? p.starts_at)}–{clock(p.ended_at ?? p.ends_at)}
+        <Panel title="Next deadlines" actions={<Link href={`/admin/${slug}/schedule`} className="text-sm underline">Full schedule</Link>}>
+          {(deadlines.data ?? []).length === 0 ? (
+            <p className="text-sm text-muted">No deadline left.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {((deadlines.data ?? []) as { code: DeadlineCode; at: string }[]).map((d) => (
+                <li key={d.code} className="flex justify-between gap-2">
+                  <span>{DEADLINE_LABELS[d.code]}</span>
+                  <span className="font-mono tabular-nums text-paper">
+                    {clock(d.at)} · <Countdown to={d.at} passed="closed" />
                   </span>
                 </li>
-              );
-            })}
-          </ol>
+              ))}
+            </ul>
+          )}
         </Panel>
-        <Panel title="Deadlines">
-          <ul className="space-y-1 text-sm">
-            {(deadlines.data ?? []).map((d) => (
-              <li key={d.code} className="flex justify-between gap-2">
-                <span>{DEADLINE_LABELS[d.code as DeadlineCode]}</span>
-                <span className="font-mono tabular-nums text-paper">
-                  {clock(d.at)} · <Countdown to={d.at} passed="closed" />
-                </span>
+        <Panel title="Tracks">
+          <ul className="space-y-2 text-sm">
+            {[
+              ["product", "Product", "PRDs, crisis plans, the draft and solutions"],
+              ["consulting", "Consulting", "Memos, hires, advice, stars and bonuses"],
+              ["finance", "Finance", "Practice market, IPO bids, cash and orders"],
+            ].map(([path, label, what]) => (
+              <li key={path}>
+                <Link href={`/admin/${slug}/${path}`} className="flex items-center justify-between gap-3 rounded-md bg-raised px-3 py-2 ring-1 ring-inset ring-line hover:text-phosphor">
+                  <span>
+                    <b className="text-paper">{label}</b> <span className="text-muted">· {what}</span>
+                  </span>
+                  <span aria-hidden>→</span>
+                </Link>
               </li>
             ))}
           </ul>

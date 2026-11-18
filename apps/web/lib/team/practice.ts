@@ -65,7 +65,9 @@ export async function ensurePracticeMarket(eventId: string, tickers: readonly Pr
   const { data, error } = await sb.rpc("practice_prepare", { p_event: eventId, p_starts_at: start, p_tick_seconds: PRACTICE.tickSeconds, p_rows: rows });
   const r = data as { ok?: boolean; message?: string } | null;
   if (error || !r?.ok) throw new Error(`Could not open the practice market: ${error?.message ?? r?.message ?? "refused"}`);
-  return loadPracticeMarket(eventId);
+  // Not read back: the same read in the same render is memoised (it would return the empty answer from above). If
+  // another page opened it first ("already"), its start is the same Round 1 start, so this is the same market.
+  return { startsAt: start, tickSeconds: PRACTICE.tickSeconds, steps: rows[0]!.prices.length, settledAt: null };
 }
 
 /** Every fund's practice result once the market has closed, best first. */

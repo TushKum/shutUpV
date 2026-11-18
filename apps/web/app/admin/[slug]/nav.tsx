@@ -6,9 +6,13 @@ import { usePathname } from "next/navigation";
 
 export const SECTIONS = [
   { path: "", label: "Phase" },
-  { path: "/lottery", label: "Lottery" },
-  { path: "/rounds", label: "Rounds" },
+  { path: "/schedule", label: "Schedule" },
+  { path: "/product", label: "Product" },
+  { path: "/consulting", label: "Consulting" },
+  { path: "/finance", label: "Finance" },
   { path: "/judge", label: "Judge" },
+  { path: "/rounds", label: "Rounds" },
+  { path: "/lottery", label: "Lottery" },
   { path: "/bulletins", label: "Bulletins" },
   { path: "/content", label: "Content" },
   { path: "/ledger", label: "Ledger" },
@@ -42,7 +46,7 @@ export function AdminNav({ slug, fairness }: { slug: string; fairness: boolean }
             key={s.path}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 font-mono text-sm font-medium ${
+            className={`whitespace-nowrap border-b-2 px-2 py-2 font-mono text-sm font-medium ${
               active ? "border-phosphor text-phosphor glow" : "border-transparent text-muted hover:text-phosphor"
             } ${s.path === "/fairness" && fairness ? "font-semibold" : ""}`}
           >
