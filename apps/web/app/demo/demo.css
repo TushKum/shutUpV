@@ -141,7 +141,7 @@
 .guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)}
 .guide-app[data-track] [class*="text-[#39ff88]"]{color:var(--track-accent)!important}
 .guide-app[data-track] [class*="bg-[#39ff88]"]{background:var(--track-accent)!important}
-.demo-login[data-track] .demo-login-card{border-color:var(--track-line);background-color:#030906;background-image:radial-gradient(ellipse at 50% 0%,var(--track-glow),transparent 62%),linear-gradient(rgba(4,12,7,.94),rgba(3,9,5,.98)),repeating-linear-gradient(0deg,transparent 0 23px,rgba(113,255,164,.09) 24px),repeating-linear-gradient(90deg,transparent 0 23px,rgba(113,255,164,.09) 24px);background-blend-mode:screen,normal,normal,normal;box-shadow:0 28px 100px rgba(0,0,0,.5),0 0 42px var(--track-glow),inset 0 1px rgba(255,255,255,.025)}
+.demo-login[data-track] .demo-login-card{border-color:var(--track-line);background-color:#030906;background-image:radial-gradient(ellipse at 50% 0%,var(--track-glow),transparent 62%),repeating-linear-gradient(0deg,transparent 0 23px,rgba(113,255,164,.075) 24px),repeating-linear-gradient(90deg,transparent 0 23px,rgba(113,255,164,.075) 24px),linear-gradient(rgba(4,12,7,.94),rgba(3,9,5,.98));background-blend-mode:screen,normal,normal,normal;box-shadow:0 28px 100px rgba(0,0,0,.5),0 0 42px var(--track-glow),inset 0 1px rgba(255,255,255,.025)}
 .demo-login[data-track] .demo-login-card:before,.demo-login[data-track] .demo-login-card:after{border-color:var(--track-accent)}
 .demo-login[data-track] .demo-login-card .guide-tabs button.active{border-color:var(--track-accent);color:var(--track-accent);background:var(--track-soft)}
 .demo-login[data-track] .demo-login-card form>button{background:var(--track-accent)!important}
