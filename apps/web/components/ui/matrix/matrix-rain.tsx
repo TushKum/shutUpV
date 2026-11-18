@@ -7,10 +7,10 @@
 
 import { useEffect, useRef } from "react";
 
-const GLYPHS = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0101010123456789";
-const FRAME_MS = 33;
+const GLYPHS = "012345678901010101ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ";
+const FRAME_MS = 42;
 
-export function MatrixRain({ opacity = 0.22, size = 16, className = "" }: { opacity?: number; size?: number; className?: string }) {
+export function MatrixRain({ opacity = 0.34, size = 19, className = "" }: { opacity?: number; size?: number; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -26,7 +26,7 @@ export function MatrixRain({ opacity = 0.22, size = 16, className = "" }: { opac
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
       const columns = Math.ceil(canvas.width / size);
-      drops = Array.from({ length: columns }, () => Math.floor((Math.random() * -canvas.height) / size));
+      drops = Array.from({ length: columns }, () => Math.floor((Math.random() * -canvas.height) / size) - Math.floor(Math.random() * 18));
       ctx.font = `${size}px ui-monospace, Menlo, Consolas, monospace`;
       ctx.textBaseline = "top";
     };
@@ -36,15 +36,15 @@ export function MatrixRain({ opacity = 0.22, size = 16, className = "" }: { opac
       if (now - last < FRAME_MS) return;
       last = now;
       // A translucent black wash fades the older glyphs into trails.
-      ctx.fillStyle = "rgba(0, 0, 0, 0.09)";
+      ctx.fillStyle = "rgba(0, 3, 1, 0.16)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       for (let i = 0; i < drops.length; i++) {
         const y = drops[i]! * size;
         if (y >= 0) {
-          ctx.fillStyle = Math.random() < 0.04 ? "#d8ffd8" : "#00ff41";
+          ctx.fillStyle = Math.random() < 0.025 ? "#d8ffe0" : Math.random() < 0.28 ? "#159b43" : "#087a32";
           ctx.fillText(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]!, i * size, y);
         }
-        drops[i] = y > canvas.height && Math.random() > 0.975 ? 0 : drops[i]! + 1;
+        drops[i] = y > canvas.height && Math.random() > 0.982 ? 0 : drops[i]! + 1;
       }
     };
 
