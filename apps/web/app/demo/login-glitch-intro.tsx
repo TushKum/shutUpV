@@ -1,0 +1,4 @@
+"use client";
+import {useEffect,useState} from "react";
+const lines=["PRIMUS // SECURE MARKET NETWORK","INITIALISING AUTHENTICATION NODE","ESTABLISHING ENCRYPTED SESSION"];
+export function LoginGlitchIntro(){const [visible,setVisible]=useState(true);useEffect(()=>{const t=window.setTimeout(()=>setVisible(false),1750);return()=>window.clearTimeout(t)},[]);if(!visible)return null;return <div className="demo-glitch-boot" aria-hidden="true"><div className="demo-glitch-noise"/><div className="demo-glitch-scan"/><div className="demo-glitch-content"><div className="demo-glitch-word" data-text="PRIMUS">PRIMUS</div><div className="demo-glitch-rule"/><p>SYSTEM BOOT <span>///</span> ACCESS NODE ONLINE</p><div className="demo-glitch-lines">{lines.map((line,i)=><span key={line} style={{animationDelay:`${.35+i*.2}s`}}><i>0{i+1}</i>{line}</span>)}</div></div></div>}
