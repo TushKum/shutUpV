@@ -26,3 +26,29 @@
 @keyframes demo-logo-slice-a{0%,100%{opacity:0;transform:translateX(0)}17%,18%{opacity:.85;transform:translateX(7px)}19%,37%{opacity:0}38%,39%{opacity:.7;transform:translateX(-5px)}40%,60%{opacity:0}61%,62%{opacity:.8;transform:translateX(4px)}63%{opacity:0}}
 @keyframes demo-logo-slice-b{0%,100%{opacity:0;transform:translateX(0)}17%,18%{opacity:.75;transform:translateX(-7px)}19%,37%{opacity:0}38%,39%{opacity:.8;transform:translateX(5px)}40%,60%{opacity:0}61%,62%{opacity:.65;transform:translateX(-4px)}63%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.demo-glitch-logo,.demo-glitch-logo img{animation:none!important;opacity:1}}
+
+/* Event-flow refinement: dense terminal surfaces, clear phase states and usable controls. */
+.demo-sidebar-logo{display:block;width:126px;height:48px;object-fit:contain;object-position:left center;filter:drop-shadow(0 0 10px rgba(57,255,136,.12))}
+.demo-brand{gap:14px!important}
+.demo-tab-strip,.demo-admin-tabs{display:flex;gap:5px;overflow-x:auto;border-bottom:1px solid rgba(57,255,136,.22);margin:-4px 0 22px;padding:0 0 9px;scrollbar-width:thin}
+.demo-tab-strip button,.demo-admin-tabs button{flex:0 0 auto;padding:10px 13px;border:1px solid transparent;color:#9eb2a2;font:700 9px ui-monospace,monospace;letter-spacing:.07em;white-space:nowrap;transition:.18s}
+.demo-tab-strip button:hover,.demo-admin-tabs button:hover{color:#dfffea;border-color:#294c37}
+.demo-tab-strip button.active,.demo-admin-tabs button.active{color:#06150b;background:#39ff88;border-color:#39ff88}
+.demo-phase-card{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:18px;border:1px solid #34473a;background:linear-gradient(145deg,#101812,#080d0a);text-align:left;transition:.2s}
+.demo-phase-card:hover{border-color:#39ff88;transform:translateY(-2px)}
+.demo-phase-card.selected{border-color:#39ff88;box-shadow:inset 0 0 0 1px rgba(57,255,136,.22),0 8px 28px rgba(0,0,0,.18)}
+.demo-phase-card span,.demo-phase-card small{font:700 9px ui-monospace,monospace;letter-spacing:.1em;color:#8ba895}
+.demo-phase-card b{font-size:20px;color:#effff3}
+.demo-phase-card small{color:#39ff88}
+.demo-crisis-pill{padding:8px 11px;border:1px solid #4b4534;color:#b6a98c;font:700 9px ui-monospace,monospace;letter-spacing:.04em;transition:.18s}
+.demo-crisis-pill:hover{border-color:#ffad42;color:#ffcb83}
+.demo-crisis-pill.active{border-color:#ffad42;background:#ffad42;color:#1b1002}
+.demo-textarea{display:block;width:100%;min-height:180px;resize:vertical;border:1px solid #61472b;background:#090c0b;padding:13px;color:#effff3;font:12px/1.65 ui-monospace,monospace;outline:none}
+.demo-textarea:focus,.demo-field:focus{border-color:#ffad42;box-shadow:0 0 0 2px rgba(255,173,66,.1)}
+.demo-field-label{display:block;margin:15px 0 7px;color:#c6a477;font:700 9px ui-monospace,monospace;letter-spacing:.1em}
+.demo-field{display:block;width:100%;border:1px solid #51432e;background:#080b09;padding:11px;color:#e9f3eb;font:12px ui-monospace,monospace;outline:none}
+.demo-order-type{border:1px solid #55452b;padding:10px 3px;color:#c7b18d;font:700 9px ui-monospace,monospace;transition:.18s}
+.demo-order-type.active{background:#ffad42;border-color:#ffad42;color:#1b1002}
+.demo-quiet-button{border:1px solid #425b49;padding:9px 12px;color:#9db8a4;font:700 9px ui-monospace,monospace;letter-spacing:.06em}
+.demo-quiet-button:hover{border-color:#39ff88;color:#39ff88}
+@media(max-width:760px){.demo-sidebar-logo{width:110px;height:40px}.demo-phase-card{padding:13px}.demo-phase-card b{font-size:16px}.demo-tab-strip button,.demo-admin-tabs button{padding:9px 10px}}
