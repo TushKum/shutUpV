@@ -11,7 +11,7 @@ export async function proxy(request: NextRequest) {
 
   // Keep the standalone frontend demo outside the Supabase session flow. Also
   // normalize accidental trailing asterisks copied from formatted links.
-  if (path.startsWith("/newsroom-preview")) {
+  if (path.startsWith("/newsroom-preview") || path.startsWith("/preview")) {
     if (path !== "/newsroom-preview") {
       const url = request.nextUrl.clone();
       url.pathname = "/newsroom-preview";
