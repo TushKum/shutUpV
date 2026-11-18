@@ -129,3 +129,30 @@
 .demo-login .demo-login-top{margin-bottom:clamp(30px,7vh,65px)}
 .demo-login .demo-entry-footer{margin-top:24px}
 @media(prefers-reduced-motion:reduce){.demo-glitch-logo img{animation:none;opacity:1}.demo-glitch-logo img:nth-child(2),.demo-glitch-logo img:nth-child(3){display:none}}
+
+/* Track identity: one shared interface, three restrained accent systems. */
+.guide-app[data-track="PRODUCT"],.demo-login[data-track="PRODUCT"]{--track-accent:#ff9b45;--track-soft:rgba(255,155,69,.12);--track-line:rgba(255,155,69,.3);--track-glow:rgba(255,155,69,.2)}
+.guide-app[data-track="CONSULTING"],.demo-login[data-track="CONSULTING"]{--track-accent:#63a8ff;--track-soft:rgba(99,168,255,.12);--track-line:rgba(99,168,255,.3);--track-glow:rgba(99,168,255,.2)}
+.guide-app[data-track="FINANCE"],.demo-login[data-track="FINANCE"]{--track-accent:#ffd84d;--track-soft:rgba(255,216,77,.12);--track-line:rgba(255,216,77,.3);--track-glow:rgba(255,216,77,.2)}
+.guide-app[data-track] .guide-sidebar nav a.active,.guide-app[data-track] .guide-tabs button.active,.guide-app[data-track] .guide-chip.active{color:var(--track-accent)!important;border-color:var(--track-accent)!important;background:var(--track-soft)!important}
+.guide-app[data-track] .guide-online i,.guide-app[data-track] .guide-status,.guide-app[data-track] .guide-metric span,.guide-app[data-track] .guide-mobile-nav small{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-btn:not(.secondary),.guide-app[data-track] .guide-taskbar>a{background:var(--track-accent)!important;color:#061009!important}
+.guide-app[data-track] .guide-input:focus,.guide-app[data-track] .guide-textarea:focus,.guide-app[data-track] .guide-select:focus{border-color:var(--track-accent)!important}
+.guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)}
+.guide-app[data-track] [class*="text-[#39ff88]"]{color:var(--track-accent)!important}
+.guide-app[data-track] [class*="bg-[#39ff88]"]{background:var(--track-accent)!important}
+.demo-login[data-track] .demo-login-card{border-color:var(--track-line);background-color:#030906;background-image:radial-gradient(ellipse at 50% 0%,var(--track-glow),transparent 62%),linear-gradient(rgba(4,12,7,.94),rgba(3,9,5,.98)),repeating-linear-gradient(0deg,transparent 0 23px,rgba(113,255,164,.09) 24px),repeating-linear-gradient(90deg,transparent 0 23px,rgba(113,255,164,.09) 24px);background-blend-mode:screen,normal,normal,normal;box-shadow:0 28px 100px rgba(0,0,0,.5),0 0 42px var(--track-glow),inset 0 1px rgba(255,255,255,.025)}
+.demo-login[data-track] .demo-login-card:before,.demo-login[data-track] .demo-login-card:after{border-color:var(--track-accent)}
+.demo-login[data-track] .demo-login-card .guide-tabs button.active{border-color:var(--track-accent);color:var(--track-accent);background:var(--track-soft)}
+.demo-login[data-track] .demo-login-card form>button{background:var(--track-accent)!important}
+.demo-login[data-track] .demo-login-card form>button:hover{filter:brightness(1.12)}
+.demo-track-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.demo-track-picker button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 5px;border:1px solid rgba(115,145,122,.25);background:rgba(3,10,6,.68);color:#9ab09f;font:800 8px ui-monospace,monospace;letter-spacing:.08em;transition:.18s}
+.demo-track-picker button i{width:7px;height:7px;border-radius:50%;background:#708b77;box-shadow:0 0 0 3px rgba(112,139,119,.1)}
+.demo-track-picker button[data-track-choice="PRODUCT"].selected{color:#ff9b45;border-color:#ff9b45;background:rgba(255,155,69,.1)}
+.demo-track-picker button[data-track-choice="PRODUCT"].selected i{background:#ff9b45;box-shadow:0 0 12px #ff9b45}
+.demo-track-picker button[data-track-choice="CONSULTING"].selected{color:#63a8ff;border-color:#63a8ff;background:rgba(99,168,255,.1)}
+.demo-track-picker button[data-track-choice="CONSULTING"].selected i{background:#63a8ff;box-shadow:0 0 12px #63a8ff}
+.demo-track-picker button[data-track-choice="FINANCE"].selected{color:#ffd84d;border-color:#ffd84d;background:rgba(255,216,77,.1)}
+.demo-track-picker button[data-track-choice="FINANCE"].selected i{background:#ffd84d;box-shadow:0 0 12px #ffd84d}
+@media(max-width:420px){.demo-track-picker{grid-template-columns:1fr}.demo-track-picker button{justify-content:flex-start;padding-inline:12px}}
