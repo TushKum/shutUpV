@@ -156,3 +156,54 @@
 .demo-track-picker button[data-track-choice="FINANCE"].selected{color:#ffd84d;border-color:#ffd84d;background:rgba(255,216,77,.1)}
 .demo-track-picker button[data-track-choice="FINANCE"].selected i{background:#ffd84d;box-shadow:0 0 12px #ffd84d}
 @media(max-width:420px){.demo-track-picker{grid-template-columns:1fr}.demo-track-picker button{justify-content:flex-start;padding-inline:12px}}
+
+/* PRIMUS track palette replaces the old green accent throughout the preview. */
+.guide-app[data-track],.demo-login[data-track]{--ui-accent:var(--track-accent);--ui-muted:#a4a8b0}
+.guide-app[data-track] .guide-sidebar nav a.active,.guide-app[data-track] .guide-tabs button.active,.guide-app[data-track] .guide-chip.active{color:var(--track-accent)!important;border-color:var(--track-accent)!important;background:var(--track-soft)!important}
+.guide-app[data-track] .guide-online i{background:var(--track-accent)!important;box-shadow:0 0 10px var(--track-accent)!important}
+.guide-app[data-track] .guide-online,.guide-app[data-track] .guide-status,.guide-app[data-track] .guide-metric span,.guide-app[data-track] .guide-mobile-nav small{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-btn:not(.secondary),.guide-app[data-track] .guide-taskbar>a{background:var(--track-accent)!important;color:#090a0d!important}
+.guide-app[data-track] .guide-input:focus,.guide-app[data-track] .guide-textarea:focus,.guide-app[data-track] .guide-select:focus{border-color:var(--track-accent)!important}
+.guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)}
+.guide-app[data-track] [class*="text-[#39ff88]"]{color:var(--track-accent)!important}
+.guide-app[data-track] [class*="bg-[#39ff88]"]{background:var(--track-accent)!important}
+.demo-entry{background:#08090d!important;color:#f1f2f5!important}
+.demo-entry .demo-login-grid{opacity:.16;background-image:linear-gradient(rgba(210,215,225,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(210,215,225,.07) 1px,transparent 1px)!important}
+.demo-entry .demo-login-glow{background:radial-gradient(ellipse,var(--track-glow),transparent 68%)!important}
+.demo-entry .demo-official-logo{filter:drop-shadow(0 0 14px rgba(220,225,235,.12))!important}
+.demo-entry-network,.demo-entry-footer{color:#858b98!important}
+.demo-entry-network i,.demo-entry-card-foot i{background:var(--track-accent)!important;box-shadow:0 0 10px var(--track-accent)!important}
+.demo-login-card{isolation:isolate;overflow:hidden;border-color:var(--track-line)!important;background:#090b10!important;box-shadow:0 28px 100px rgba(0,0,0,.55),0 0 38px var(--track-glow),inset 0 1px rgba(255,255,255,.035)!important}
+.demo-login-card:before,.demo-login-card:after{z-index:3;border-color:var(--track-accent)!important}
+.demo-login-card>*:not(.demo-matrix-rain){position:relative;z-index:2}
+.demo-matrix-rain{position:absolute!important;z-index:0!important;inset:0;display:grid;grid-template-columns:repeat(6,1fr);gap:clamp(10px,3vw,25px);overflow:hidden;padding:0 15px;pointer-events:none;opacity:.24;mask-image:linear-gradient(180deg,transparent 0%,#000 20%,#000 78%,transparent 100%)}
+.demo-matrix-rain span{display:block;align-self:start;color:var(--track-accent);font:600 10px/2.15 ui-monospace,SFMono-Regular,monospace;letter-spacing:.2em;text-align:center;text-shadow:0 0 9px var(--track-accent);white-space:nowrap;animation:demo-matrix-fall 9s linear infinite}
+.demo-matrix-rain span:nth-child(2){animation-delay:-5s;transform:translateY(-40%)}
+.demo-matrix-rain span:nth-child(3){animation-delay:-2s;transform:translateY(-65%)}
+.demo-matrix-rain span:nth-child(4){animation-delay:-7s;transform:translateY(-20%)}
+.demo-matrix-rain span:nth-child(5){animation-delay:-3.5s;transform:translateY(-55%)}
+.demo-matrix-rain span:nth-child(6){animation-delay:-6s;transform:translateY(-30%)}
+@keyframes demo-matrix-fall{from{translate:0 -65%}to{translate:0 110%}}
+.demo-login-card .demo-entry-eyebrow,.demo-login-card .guide-label{color:#a0a5b1!important}
+.demo-login-card .demo-login-heading h1{color:#f4f5f7!important}
+.demo-login-card .demo-login-heading p,.demo-login-card .mt-5.border-t{color:#a0a5b1!important}
+.demo-login-card .guide-input{background:rgba(5,7,11,.88)!important;border-color:rgba(185,192,207,.23)!important;color:#f2f3f6!important}
+.demo-login-card .guide-input:focus{border-color:var(--track-accent)!important}
+.demo-login-card .guide-tabs button{color:#a0a5b1!important;border-color:rgba(185,192,207,.23)!important}
+.demo-login-card .guide-tabs button.active{color:var(--track-accent)!important;border-color:var(--track-accent)!important;background:var(--track-soft)!important}
+.demo-login-card form>div.mt-4{color:#a0a5b1!important}
+.demo-login-card form>div.mt-4>span{color:var(--track-accent)!important}
+.demo-login-card form>button{background:var(--track-accent)!important;color:#090a0d!important}
+.demo-login-card .demo-track-picker button{color:#a0a5b1;border-color:rgba(185,192,207,.23);background:rgba(5,7,11,.84)}
+.demo-login-card .demo-track-picker button i{background:#8a909b;box-shadow:none}
+.demo-track-picker button[data-track-choice="PRODUCT"].selected{color:#ff9b45;border-color:#ff9b45;background:rgba(255,155,69,.1)}
+.demo-track-picker button[data-track-choice="CONSULTING"].selected{color:#63a8ff;border-color:#63a8ff;background:rgba(99,168,255,.1)}
+.demo-track-picker button[data-track-choice="FINANCE"].selected{color:#ffd84d;border-color:#ffd84d;background:rgba(255,216,77,.1)}
+.demo-track-picker button[data-track-choice="PRODUCT"].selected i{background:#ff9b45;box-shadow:0 0 12px #ff9b45}
+.demo-track-picker button[data-track-choice="CONSULTING"].selected i{background:#63a8ff;box-shadow:0 0 12px #63a8ff}
+.demo-track-picker button[data-track-choice="FINANCE"].selected i{background:#ffd84d;box-shadow:0 0 12px #ffd84d}
+.demo-glitch-boot{background:#08090d!important;color:#f3f4f6!important}
+.demo-glitch-rule{background:var(--track-accent)!important}
+.demo-glitch-content>p span,.demo-glitch-lines i{color:var(--track-accent)!important}
+.demo-glitch-logo{filter:drop-shadow(0 0 20px var(--track-glow))!important}
+@media(prefers-reduced-motion:reduce){.demo-matrix-rain span{animation:none;translate:0 0}}
