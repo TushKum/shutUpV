@@ -28,6 +28,7 @@ def load(path, name):
 book = load(CONTENT, "sector_content")
 details = load(HERE / "details.py", "details")
 portfolios = load(HERE / "portfolios.py", "portfolios")
+final = load(HERE / "final_case.py", "final_case")
 e = html.escape
 
 problems = list(csv.DictReader(open(ROOT / "seed/sectors/problem-cards.csv", encoding="utf-8")))
@@ -37,7 +38,9 @@ memo_md = (ROOT / "prompts/MEMO.md").read_text(encoding="utf-8")
 case = re.search(r"## The case\n\n(.+?)\n\n## ", memo_md, re.S).group(1).strip()
 
 SECTOR_KEY = {"Luxury": "LUXURY", "FMCG": "FMCG", "Energy": "ENERGY", "Aviation": "AVIATION", "Fintech": "FINTECH"}
-context = {s["name"]: s for s in book.SECTORS}
+context = {s["name"]: dict(s) for s in book.SECTORS}
+context["AVIATION"].update(final.AVIATION_CONTEXT)
+context["LUXURY"]["spare"] = list(context["LUXURY"]["spare"]) + [final.LUXURY_SPARE_EXTRA]
 COLOUR = {"Luxury": ("#6d28d9", "#f4effe", "#e6dbfb"), "FMCG": ("#15803d", "#edf8f1", "#d3eedd"), "Energy": ("#b45309", "#fdf6e8", "#f6e4c2"),
           "Aviation": ("#0369a1", "#eaf4fb", "#cfe6f5"), "Fintech": ("#be185d", "#fdf0f6", "#f7d6e5")}
 CATEGORY = {"Operations": "#c2410c", "Market": "#1d4ed8", "Trust": "#be123c", "Money": "#4d7c0f"}
@@ -46,6 +49,23 @@ all_statements = list(csv.DictReader(open(ROOT / "seed/sectors/all/statements.cs
 # The guidance for a Round 3 statement is kept by its number in the five-sector library; a game's files number them
 # again, so it is found by title.
 LIB_NO = {(x["sector"], x["title"]): int(x["number"]) for x in all_statements}
+
+# ───── The final case: the organisers' cards replace the game files' texts in this book ─────
+GUIDE = {}
+for x in crises:
+    key = (x["sector"], int(x["number"]))
+    o = final.CRISES.get(key) or (final.AVIATION_CRISES.get(key[1]) if x["sector"] == "Aviation" else None)
+    if o:
+        x.update(category=o["category"], title=o["title"], body=o["body"])
+        details.CRISES[key] = {k: o[k] for k in ("on_card", "impact", "plan", "advice", "watch")}
+for p in problems:
+    if p["sector"] == "Aviation":
+        p.update(title=final.AVIATION_PROBLEM["title"], body=final.AVIATION_PROBLEM["body"])
+aviation_rows = [x for x in statements if x["sector"] == "Aviation"]
+assert len(aviation_rows) == len(final.AVIATION_STATEMENTS) == 10
+for x, (title, who, nums, catch, win, guide) in zip(aviation_rows, final.AVIATION_STATEMENTS):
+    x.update(title=title, cap="5", body=f"Aviation · Round 3. {title}.\n\nWho it is for: {who}\nThe numbers: {nums}\nThe catch: {catch}\nYou win if: {win}")
+    GUIDE[("Aviation", title)] = guide
 
 IN_GAME = [p["sector"] for p in problems]
 N = len(IN_GAME)
@@ -70,7 +90,7 @@ for sec in sectors_out:
     for c in sec["crises"]:
         assert (sec["name"], int(c["number"])) in details.CRISES, c
     for st in sec["statements"]:
-        assert LIB_NO.get((sec["name"], st["title"])) in details.STATEMENTS, st
+        assert (sec["name"], st["title"]) in GUIDE or LIB_NO.get((sec["name"], st["title"])) in details.STATEMENTS, st
 
 
 def and_list(names):
@@ -219,10 +239,10 @@ out.append(f"""
     <div class="stat"><b>{4 * n_all}</b><span>Round 2 crisis cards, four per sector, each with a twist</span></div>
     <div class="stat"><b>{10 * n_all}</b><span>Round 3 problem statements, ten per sector, each a client brief</span></div>
   </div>
-  <div class="box"><b>How to read this book.</b> <b>{e(GAME)}</b> are the game's sectors: text marked <b>On screen</b> is
-  exactly what teams see (it comes from the files the organisers upload: <span class="small">seed/sectors/problem-cards.csv,
-  crisis-cards.csv and statements.csv</span>).{extra_note} Everything around the cards is guidance for organisers, judges
-  and mentors: what each card means, what a strong answer covers and what moves the market.</div>
+  <div class="box"><b>How to read this book.</b> <b>{e(GAME)}</b> are the game's sectors. The coloured boxes are the cards
+  themselves: the problem statements, the crisis cards and the client briefs, as the teams receive them.{extra_note} Everything
+  around the cards is guidance for organisers, judges and mentors: what each card means, what a strong answer covers and what
+  moves the market.</div>
   <div class="note"><b>Fairness.</b> {e(book.INTRO["fairness"])}</div>
   <div class="foot">PRIMUS 2026 · Problem statements and crises · {e(GAME)} · November 2026</div>
 </section>""")
@@ -233,7 +253,7 @@ out.append("""
   <h2>Contents</h2>
   <ol class="toc">
     <li>How the night uses the statements and crises</li>
-    <li>Round 1 · The consulting case: ElevenLabs, winning India's voices</li>
+    <li>Round 1 · The consulting case: ZestUp, the forbidden formula</li>
 """ + "".join(f"<li>{e(sec['name'])}{'' if sec['in_game'] else ' (extra sector)'}: the problem statement, four crises with their twists, spare cards and ten Round 3 statements</li>" for sec in sectors_out) + """
     <li>Appendix A · How every answer is judged (the rubrics)</li>
     <li>Appendix B · Organiser checklist</li>
@@ -250,7 +270,7 @@ out.append("""
     <tr><th style="width:13%">Time</th><th style="width:17%">Round</th><th>What happens</th><th style="width:27%">What it moves</th></tr>
     <tr><td>21:00</td><td>Squad draw</td><td>Each squad's sector is drawn and its problem card is set.</td><td>Who competes with whom all night</td></tr>
     <tr><td>21:00–22:00</td><td>Round 1 · Foundation</td><td><b>Product</b> writes a PRD for a startup inside its sector's problem
-      statement (800 words, 7 sections). <b>Consulting</b> writes a memo on the ElevenLabs case (500 words, 6 sections). <b>Finance</b> trades the practice market:
+      statement (800 words, 7 sections). <b>Consulting</b> writes a memo on the ZestUp case (500 words, 6 sections). <b>Finance</b> trades the practice market:
       $100,000 of practice money on live candlestick charts named after the Product teams.</td>
       <td>The PRD score sets the IPO price; the memo score sets the firm's opening reputation and a bonus; each fund's practice profit (up to $50,000) is added to its real cash</td></tr>
     <tr><td>by 22:30</td><td>Round 1</td><td><b>Consulting</b> makes Call 1: BUY or SELL on each of its two companies.
@@ -292,7 +312,7 @@ out.append("""
       <li>In each crisis, read the <b>twist</b> and make the decision the card asks for: the judge looks for it.</li>
       <li>In Round 3, read the client brief: who it is for, the numbers, the catch, what winning looks like.</li></ul></div>
     <div class="g" style="--gc:#1d4ed8"><h4>Consulting teams · you are the advisers</h4><ul>
-      <li>Read the <b>ElevenLabs profile and case</b> (section 2): your Round 1 memo sets your reputation for the night.</li>
+      <li>Read the <b>ZestUp case</b> (section 2) and do its numbers: your Round 1 memo sets your reputation for the night.</li>
       <li>Learn your likely clients' crisis cards: firms that understand the sector get hired and rated well.</li>
       <li>Advice must be specific to the client: what to do, in what order, by whom, with numbers.</li>
       <li>No memo, no fee: the escrow is paid only if your advice is in on time.</li></ul></div>
@@ -310,54 +330,34 @@ out.append("""
 </section>""")
 
 # ───────────── The consulting case ─────────────
+Z = final.ZESTUP
 out.append(f"""
 <section class="page">
-  <h2>2 · Round 1 · The consulting case: ElevenLabs</h2>
+  <h2>2 · Round 1 · The consulting case: ZestUp</h2>
   <p>Every Consulting firm, whatever its squad's sector, writes a recommendation memo on this one case, by 22:00. Because the
   case is the same for everyone, the memo score is a fair first measure of each firm, and it sets the reputation companies
   see when they hire in Round 2.</p>
-  <div class="profile"><h3 style="margin-top:0">Company profile · ElevenLabs</h3>
-    <p>{e(portfolios.ELEVENLABS["what"])}</p>
-    <div class="cols" style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
-      <div><div class="lbl">What it sells</div>{ul(portfolios.ELEVENLABS["products"])}</div>
-      <div><div class="lbl">Who pays</div><p>{e(portfolios.ELEVENLABS["customers"])}</p>
-        <div class="lbl">Why India matters</div><p>{e(portfolios.ELEVENLABS["why_india"])}</p></div>
-    </div>
-    <div class="lbl">The tension at the heart of the case</div><p><b>{e(portfolios.ELEVENLABS["tension"])}</b></p>
-    <p class="small muted">From public information, in general terms. The figures in the case below are invented for the game.</p>
-  </div>
-  <div class="onscreen" style="--c:#334155;--bg:#f3f5f8"><span class="tag">On screen · the case</span>
-    <div class="title">ElevenLabs: winning India's voices</div><div>{e(case).replace(chr(10) * 2, "<br><br>")}</div></div>
-  <h3>The facts at a glance</h3>
-  <table class="kpi">
-    <tr><td>The company</td><td>ElevenLabs, the AI voice company: text to speech, dubbing into other languages, voice agents that answer calls.</td></tr>
-    <tr><td>India so far</td><td>Hindi and eight other Indian languages launched six months ago; ₹8 crore a year of revenue, mostly from 300 business customers.</td></tr>
-    <tr><td>Individuals</td><td>4 lakh signed up, but only 1.2% pay (4% in other markets): dollar prices feel expensive and a local rival is free with ads.</td></tr>
-    <tr><td>Budget and target</td><td>A team of 25 with ₹20 crore to spend this year; the board wants ₹30 crore a year from India within 12 months, or India is scaled back.</td></tr>
-    <tr><td>Offer A · ed-tech</td><td>₹6 crore a year to dub 10,000 hours of lessons into 6 languages, if ElevenLabs serves no other ed-tech company and keeps all data in India (education is 40% of today's India revenue).</td></tr>
-    <tr><td>Offer B · telecom</td><td>₹12 crore a year guaranteed to offer a basic voice plan to 5 crore subscribers, under the telecom's own name.</td></tr>
-    <tr><td>Offer C · price cut</td><td>Indian plans at ₹199 a month, in the hope that many more individuals pay.</td></tr>
-    <tr><td>Trust</td><td>A state election in four months; the press asks how cloned voices of politicians will be stopped; rules on labelling AI voices are being drafted.</td></tr>
-    <tr><td>Deadline</td><td>One recommendation by Friday, including how ElevenLabs handles voice cloning.</td></tr>
+  <div class="profile"><h3 style="margin-top:0">Company profile · ZestUp</h3>
+    <table class="kpi" style="margin:0">
+      <tr><td>Who they are</td><td>{e(Z["profile"]["what"])}</td></tr>
+      <tr><td>The flagship</td><td>{e(Z["profile"]["flagship"])}</td></tr>
+      <tr><td>Where they stand</td><td>{e(Z["profile"]["position"])}</td></tr>
+    </table></div>
+  <div class="onscreen" style="--c:#334155;--bg:#f3f5f8"><span class="tag">The case</span>
+    <div class="title">{e(Z["title"])}</div><div>{"<br><br>".join(e(x) for x in Z["story"])}</div></div>
+  <div class="note"><b>The challenge.</b> {e(Z["challenge"])}</div>
+  <h3>The four options on the table</h3>
+  <table class="kpi"><tr><th>Option</th><th>The facts</th><th style="width:30%">Firms must</th></tr>
+  {"".join(f"<tr><td>{e(a)}</td><td>{e(b)}</td><td>{e(c_)}</td></tr>" for a, b, c_ in Z["options"])}
   </table>
-  <p class="small muted">The case is hypothetical: the numbers and offers are invented for the game and are not ElevenLabs' real figures or plans.</p>
   <p><b>The memo (500 words) has six sections:</b> diagnosis · options and trade-offs · recommendation · the numbers · risks ·
   next steps. The judge scores them out of 25, 20, 20, 15, 10 and 10 (Appendix A).</p>
   <h3>What a strong memo does</h3>
-  <ul>
-    <li><b>Diagnosis:</b> names the gap (₹8 crore today against ₹30 crore in 12 months) and the root cause: a product priced and
-      branded for other markets, with trust in AI voices at risk in an election season.</li>
-    <li><b>Options:</b> works out what each offer is worth and costs: A brings ₹6 crore but closes the rest of education
-      (40% of today's revenue); B brings ₹12 crore guaranteed but hides the brand and the users; C's value depends on how many more
-      individuals pay (at ₹199 a month, every 1% of 4 lakh users paying is about ₹96 lakh a year).</li>
-    <li><b>Recommendation:</b> one clear path, possibly a combination, that can plausibly reach ₹30 crore within ₹20 crore, and
-      says what it gives up and why.</li>
-    <li><b>Voice cloning:</b> a concrete safeguard before the election (consent checks, labels or watermarks, blocking
-      politicians' voices, a fast takedown) and how it fits the coming rules.</li>
-    <li><b>Numbers, risks and next steps:</b> the path to the target month by month, a plan for each main risk, and this
-      week's actions with owners and dates.</li>
-  </ul>
-  <p class="muted small">The standard is what a strong student team can write in under an hour.</p>
+  {ul(Z["strong"])}
+  <div style="break-inside:avoid"><h3>The numbers, worked (for judges and mentors)</h3>
+  <table class="kpi">{"".join(f"<tr><td>{e(a)}</td><td>{e(b)}</td></tr>" for a, b in Z["key"])}</table>
+  <p class="small muted">ZestUp, Virex-7 and every figure in the case are invented for the game. The standard is what a strong
+  student team can write in under an hour.</p></div>
 </section>""")
 
 # ───────────── The sectors ─────────────
@@ -366,7 +366,7 @@ for n, sec in enumerate(sectors_out, start=3):
     ctx = context[SECTOR_KEY[sector]]
     c, bg, soft = COLOUR[sector]
     sector_crises, sector_statements = sec["crises"], sec["statements"]
-    shown = "On screen" if in_game else "Card text"
+    shown = "The card"
     article = "An" if sector in ("FMCG", "Energy", "Aviation") else "A"
     out.append(f'<section class="page" style="--c:{c};--bg:{bg}">')
     if in_game:
@@ -384,7 +384,14 @@ for n, sec in enumerate(sectors_out, start=3):
                + (f'<tr><td>Sample companies</td><td>{e(", ".join(f"{x["name"]} ({x["ticker"]})" for x in pf["samples"]))}</td></tr>' if pf else "")
                + '</table></div>')
     out.append(f'<h3>Round 1 · The problem statement</h3>')
-    out.append(onscreen(sector, f"On screen · problem card {prob['number']}" if in_game else "Card text · extra sector", prob["title"], prob["body"]))
+    out.append(onscreen(sector, f"Problem card {prob['number']}" if in_game else "Card text · extra sector", prob["title"], prob["body"]))
+    if sector == "Aviation":
+        fs = final.AVIATION_PROBLEM
+        out.append(f'<div class="onscreen" style="--c:{c};--bg:{bg}"><span class="tag">Network fact sheet</span>'
+                   f'<div class="grid2" style="gap:0 18px">{ul(fs["fact_sheet"][:4])}{ul(fs["fact_sheet"][4:])}</div>'
+                   f'<p style="margin:4px 0 0"><i>{e(fs["fact_note"])}</i></p></div>'
+                   f'<div class="box"><div class="lbl" style="margin-top:0">Rules for this sector</div>{ul(fs["rules"])}'
+                   f'<p class="small muted" style="margin:2px 0 0">Run by the organisers on the night (the shared map is on the projector or a board).</p></div>')
     out.append('<p class="small muted">Every Product team in this sector invents its own startup inside this statement and '
                'describes it in its PRD (800 words, 7 sections: problem and target user, proposed solution, core features and '
                'MVP scope, success metrics, business model, competitive edge, key risks).</p>')
@@ -453,12 +460,12 @@ for n, sec in enumerate(sectors_out, start=3):
                f'solution (600 words, 6 sections: our solution, why it fits the statement, how we stand apart, how we will '
                f'build it, business impact, risks) with the firm it hires. {"The game shows" if in_game else "Once uploaded, the game shows"} each statement as its title and a client brief: '
                f'who it is for, the numbers, the catch and what winning looks like.{"" if in_game else " The numbers are those of seed/sectors/all; a mix made with pnpm sectors numbers them again."}</p></div>')
-    out.append(f'<table class="stmt"><tr><th>#</th><th>{"Statement (on screen)" if in_game else "Statement"}</th><th>A strong solution shows</th></tr>')
+    out.append(f'<table class="stmt"><tr><th>#</th><th>Statement</th><th>A strong solution shows</th></tr>')
     for s in sector_statements:
         brief = "".join(f'<div class="small" style="font-weight:normal;margin-top:2px"><b>{e(line.split(": ", 1)[0])}:</b> {e(line.split(": ", 1)[1])}</div>'
                         for line in s.get("body", "").split("\n") if ": " in line and not line.startswith(sector))
         out.append(f'<tr><td>{e(s["number"])}</td><td><b>{e(s["title"])}</b>{brief}<div class="small muted" style="font-weight:normal">'
-                   f'Up to {e(s["cap"])} companies</div></td><td>{e(details.STATEMENTS[LIB_NO[(sector, s["title"])]])}</td></tr>')
+                   f'Up to {e(s["cap"])} companies</div></td><td>{e(GUIDE.get((sector, s["title"])) or details.STATEMENTS[LIB_NO[(sector, s["title"])]])}</td></tr>')
     out.append('</table>')
     out.append('<h3>What Finance teams should watch in this sector</h3><table><tr><th style="width:30%">Signal</th><th>Why</th></tr>'
                + "".join(f"<tr><td><b>{e(a)}</b></td><td>{e(b)}</td></tr>" for a, b in ctx["finance"]) + "</table>")
@@ -477,7 +484,7 @@ out.append('<h3>Round 1 · The PRD (Product, 800 words)</h3>' + rubric([
     ("Clarity", "A PRD that is well organised, specific and easy to act on, with no filler", 15),
 ]))
 out.append('<h3>Round 1 · The consulting memo (Consulting, 500 words)</h3>' + rubric([
-    ("Diagnosis", "The real problem, why it matters and what is at stake for ElevenLabs in India, using the case's facts", 25),
+    ("Diagnosis", "The real problem, why it matters and what is at stake for ZestUp, using the case's facts", 25),
     ("Options", "Two or more real options, with what each one costs, gains and risks", 20),
     ("Recommendation", "One clear choice that follows from the diagnosis and options, with the reason", 20),
     ("Numbers", "Costs, revenue at risk, cash and timing that are correct and add up", 15),
@@ -537,7 +544,7 @@ out.append("""
   <tr><td>seed/sectors/problem-cards.csv</td><td>The Round 1 problem statements, one per sector (""" + e(GAME) + """)</td></tr>
   <tr><td>seed/sectors/crisis-cards.csv</td><td>The Round 2 crisis cards, four per sector</td></tr>
   <tr><td>seed/sectors/statements.csv</td><td>The Round 3 statements, ten per sector</td></tr>
-  <tr><td>prompts/MEMO.md</td><td>The ElevenLabs case and the memo rubric</td></tr>
+  <tr><td>prompts/MEMO.md</td><td>The consulting case and the memo rubric the AI judge reads</td></tr>
   <tr><td>seed/sectors/all/</td><td>The same three files with every sector in the library (FMCG, Aviation, Luxury, Energy, Fintech)</td></tr>
   <tr><td>pnpm sectors --pick FMCG,Aviation,Luxury</td><td>Writes the three files for any mix of 2 to 6 sectors into out/sectors/…, checked with the Content page's own rules</td></tr>
 </table>
