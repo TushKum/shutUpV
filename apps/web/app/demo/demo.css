@@ -458,3 +458,95 @@ html:has(.demo-login.demo-entry)::-webkit-scrollbar-thumb,body:has(.demo-login.d
  .demo-login.demo-entry:has(.demo-glitch-content) .demo-glitch-logo{max-width:78vw!important}
 }
 @media(prefers-reduced-motion:reduce){.demo-login.demo-entry>.demo-matrix-rain span{animation:none!important}}
+
+
+/* Dashboard polish: remove the Matrix-green treatment from the workspace.
+   Track colour is used only as a restrained accent; surfaces stay graphite. */
+.guide-app[data-track]{
+  background:#090b10!important;color:#e6e8ed!important;
+}
+.guide-app[data-track] .guide-atmosphere{
+  background:radial-gradient(ellipse at 72% -12%,rgba(150,155,168,.055),transparent 48%),linear-gradient(120deg,rgba(255,255,255,.012),transparent 52%)!important;
+}
+.guide-app[data-track] .guide-sidebar{
+  background:rgba(8,10,14,.98)!important;border-right-color:#252a33!important;
+}
+.guide-app[data-track] .guide-brand,
+.guide-app[data-track] .guide-sidebar-bottom,
+.guide-app[data-track] .guide-top,
+.guide-app[data-track] .guide-footer{
+  border-color:#252a33!important;
+}
+.guide-app[data-track] .guide-brand b i,
+.guide-app[data-track] .guide-nav-label b,
+.guide-app[data-track] .guide-team-code,
+.guide-app[data-track] .guide-page-head small,
+.guide-app[data-track] .guide-metric span,
+.guide-app[data-track] .guide-status,
+.guide-app[data-track] .guide-sidebar nav a.active small,
+.guide-app[data-track] .guide-sidebar nav a.active i,
+.guide-app[data-track] .guide-sidebar nav a:hover i,
+.guide-app[data-track] .guide-mobile-nav small{
+  color:var(--track-accent)!important;
+}
+.guide-app[data-track] .guide-sidebar nav a:hover,
+.guide-app[data-track] .guide-sidebar nav a.active{
+  background:var(--track-soft)!important;border-color:var(--track-line)!important;color:#f0f1f4!important;
+}
+.guide-app[data-track] .guide-sidebar nav a i{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-online i,
+.guide-app[data-track] .guide-trading i{
+  background:var(--track-accent)!important;box-shadow:0 0 9px var(--track-glow)!important;
+}
+.guide-app[data-track] .guide-avatar{
+  border-color:var(--track-line)!important;color:var(--track-accent)!important;background:var(--track-soft)!important;
+}
+.guide-app[data-track] .guide-top{background:rgba(9,11,16,.94)!important}
+.guide-app[data-track] .guide-phase,
+.guide-app[data-track] .guide-top-right button{
+  border-color:#343a45!important;color:#aeb4bf!important;
+}
+.guide-app[data-track] .guide-preview-note{
+  background:#0d1016!important;border-color:#252a33!important;color:#858c98!important;
+}
+.guide-app[data-track] .guide-content{color:#e6e8ed!important}
+.guide-app[data-track] .guide-panel,
+.guide-app[data-track] .guide-metric{
+  border-color:#292e38!important;
+  background:linear-gradient(145deg,#11141b,#0c0f15)!important;
+}
+.guide-app[data-track] .guide-panel-head{border-color:#292e38!important}
+.guide-app[data-track] .guide-metric small,
+.guide-app[data-track] .guide-panel-head span{color:#9299a5!important}
+.guide-app[data-track] .guide-btn:not(.secondary),
+.guide-app[data-track] .guide-taskbar>a{
+  background:var(--track-accent)!important;color:#111318!important;
+}
+.guide-app[data-track] .guide-btn.secondary{
+  border-color:var(--track-line)!important;color:var(--track-accent)!important;
+}
+.guide-app[data-track] .guide-chip{
+  border-color:var(--track-line)!important;color:var(--track-accent)!important;background:var(--track-soft)!important;
+}
+.guide-app[data-track] .guide-tabs button,
+.guide-app[data-track] .guide-input,
+.guide-app[data-track] .guide-textarea,
+.guide-app[data-track] .guide-select{
+  border-color:#343a45!important;background:#090c12!important;color:#e6e8ed!important;
+}
+.guide-app[data-track] .guide-tabs button.active{
+  border-color:var(--track-accent)!important;background:var(--track-soft)!important;color:var(--track-accent)!important;
+}
+.guide-app[data-track] .guide-input:focus,
+.guide-app[data-track] .guide-textarea:focus,
+.guide-app[data-track] .guide-select:focus{border-color:var(--track-accent)!important}
+.guide-app[data-track] .guide-table th{background:#141821!important;color:#aeb4bf!important}
+.guide-app[data-track] .guide-table td{border-color:#252a33!important}
+.guide-app[data-track] .guide-table tr:hover{background:rgba(255,255,255,.025)!important}
+.guide-app[data-track] .guide-alert{border-left-color:var(--track-accent)!important;background:var(--track-soft)!important;color:#e2e4e9!important}
+.guide-app[data-track] .guide-warning{border-left-color:#ffbd66!important;background:rgba(255,189,102,.08)!important;color:#e8d6bc!important}
+.guide-app[data-track] .guide-muted{color:#9ba2ad!important}
+.guide-app[data-track] .guide-sidebar-bottom>a:hover,
+.guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)!important}
+.guide-app[data-track] .guide-mobile-nav{background:#090c12!important;border-color:#292e38!important}
+.guide-app[data-track] .guide-mobile-nav a{color:#aeb4bf!important}
