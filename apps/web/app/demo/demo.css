@@ -556,3 +556,26 @@ html:has(.guide-app),body:has(.guide-app){scrollbar-color:#555b66 #101319}
 html:has(.guide-app)::-webkit-scrollbar,body:has(.guide-app)::-webkit-scrollbar,.guide-app *::-webkit-scrollbar{width:9px;height:9px}
 html:has(.guide-app)::-webkit-scrollbar-track,body:has(.guide-app)::-webkit-scrollbar-track,.guide-app *::-webkit-scrollbar-track{background:#101319}
 html:has(.guide-app)::-webkit-scrollbar-thumb,body:has(.guide-app)::-webkit-scrollbar-thumb,.guide-app *::-webkit-scrollbar-thumb{background:#555b66;border:2px solid #101319;border-radius:8px}
+
+
+/* Final neutralization pass: dashboard styling is graphite with only the active track accent. */
+.guide-app{background:#090b10!important;color:#e6e8ed!important}
+.guide-app .guide-atmosphere{background:radial-gradient(ellipse at 72% -12%,rgba(150,155,168,.055),transparent 48%)!important}
+.guide-app .guide-sidebar{background:#080a0e!important;border-color:#252a33!important}
+.guide-app .guide-brand,.guide-app .guide-brand small,.guide-app .guide-nav-label,.guide-app .guide-sidebar nav a small,.guide-app .guide-sidebar-bottom>a,.guide-app .guide-online,.guide-app .guide-online span,.guide-app .guide-team small{color:#9299a5!important}
+.guide-app .guide-brand b i,.guide-app .guide-nav-label b,.guide-app .guide-team-code,.guide-app .guide-page-head small,.guide-app .guide-metric span,.guide-app .guide-status,.guide-app .guide-sidebar nav a i,.guide-app .guide-sidebar nav a.active small,.guide-app .guide-mobile-nav small{color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-online i,.guide-app .guide-trading i{background:var(--track-accent,#ffd84d)!important;box-shadow:0 0 8px color-mix(in srgb,var(--track-accent,#ffd84d),transparent 55%)!important}
+.guide-app .guide-sidebar nav a:hover,.guide-app .guide-sidebar nav a.active{background:var(--track-soft,rgba(255,216,77,.09))!important;border-color:var(--track-line,rgba(255,216,77,.3))!important;color:#f0f1f4!important}
+.guide-app .guide-avatar{border-color:var(--track-line,#665a2a)!important;color:var(--track-accent,#ffd84d)!important;background:var(--track-soft,rgba(255,216,77,.08))!important}
+.guide-app .guide-panel,.guide-app .guide-metric{background:linear-gradient(145deg,#11141b,#0c0f15)!important;border-color:#292e38!important}
+.guide-app .guide-panel-head,.guide-app .guide-sidebar-bottom,.guide-app .guide-brand,.guide-app .guide-top,.guide-app .guide-footer{border-color:#292e38!important}
+.guide-app .guide-panel h3{color:#f0f1f4!important}
+.guide-app .guide-panel h3 span{color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-chip{border-color:var(--track-line,rgba(255,216,77,.3))!important;background:var(--track-soft,rgba(255,216,77,.08))!important;color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-btn:not(.secondary),.guide-app .guide-taskbar>a{background:var(--track-accent,#ffd84d)!important;color:#111318!important}
+.guide-app .guide-tabs button.active{border-color:var(--track-accent,#ffd84d)!important;background:var(--track-soft,rgba(255,216,77,.08))!important;color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-alert:not(.guide-warning){border-left-color:var(--track-accent,#ffd84d)!important;background:var(--track-soft,rgba(255,216,77,.07))!important;color:#e2e4e9!important}
+.guide-app .guide-table th{background:#141821!important;color:#aeb4bf!important}
+.guide-app .guide-table td{border-color:#292e38!important;color:#cbd0d9!important}
+.guide-app .guide-muted{color:#9ba2ad!important}
+.guide-app .guide-top{background:rgba(9,11,16,.96)!important}
