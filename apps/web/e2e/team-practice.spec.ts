@@ -96,3 +96,14 @@ test("the organiser's track pages: practice standings and edges under Finance, t
   await page.goto(`/admin/${ev.slug}/schedule`);
   await expect(page.getByRole("heading", { name: "Deadlines" })).toBeVisible();
 });
+
+test("the live wall: the market from Reading, the clock and the phase on top", async ({ page }) => {
+  // The draw's full-screen moment is over.
+  await ev.n.q("update events set drawn_at = drawn_at - interval '1 hour' where id = $1", [ev.n.eventId]);
+  await loginAsStaff(page, ev, STAFF.display);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto(`/display/${ev.slug}/live`);
+  await expect(page.getByTestId("live-wall")).toBeVisible();
+  await expect(page.getByTestId("display-phase")).toBeVisible();
+  await expect(page.getByTestId("live-prices")).toBeVisible();
+});

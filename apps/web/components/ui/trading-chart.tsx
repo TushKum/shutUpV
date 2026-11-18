@@ -34,6 +34,8 @@ export function TradingChart({
   box: fixedBox,
   format = money,
   note,
+  patternList = true,
+  fontSize = 11,
 }: {
   candles: readonly Candle[];
   label: string;
@@ -48,6 +50,10 @@ export function TradingChart({
   format?: (v: number) => string;
   /** A line under the chart (e.g. what one candle is). */
   note?: string;
+  /** List the latest patterns under the chart (the markers show either way). */
+  patternList?: boolean;
+  /** Axis and tag text size, in chart units (larger on a big screen). */
+  fontSize?: number;
 }) {
   const svg = useRef<SVGSVGElement>(null);
   const frame = useRef<HTMLElement>(null);
@@ -127,7 +133,7 @@ export function TradingChart({
         {g.yTicks.map((t) => (
           <g key={t.value}>
             <line x1={box.padLeft} x2={box.width - box.padRight} y1={t.y} y2={t.y} stroke={C.grid} strokeWidth="1" />
-            <text x={box.padLeft - 8} y={t.y + 4} textAnchor="end" fontSize={11} fill={C.axis}>
+            <text x={box.padLeft - 8} y={t.y + fontSize / 3} textAnchor="end" fontSize={fontSize} fill={C.axis}>
               {axis(t.value)}
             </text>
           </g>
@@ -174,7 +180,7 @@ export function TradingChart({
               x={c.x}
               y={y}
               textAnchor="middle"
-              fontSize={bull || bear ? 11 : 8}
+              fontSize={bull || bear ? fontSize : fontSize * 0.75}
               fill={bull ? C.up : bear ? C.down : C.average}
               data-testid="pattern-marker"
             >
@@ -184,8 +190,8 @@ export function TradingChart({
           );
         })}
         {/* The price tag at the right edge. */}
-        <rect x={box.width - box.padRight + 2} y={g.lastY - 9} width={box.padRight - 2} height={18} fill={tone[last.tone]} />
-        <text x={box.width - box.padRight / 2 + 1} y={g.lastY + 4} textAnchor="middle" fontSize={11} fontWeight="700" fill={C.tagText}>
+        <rect x={box.width - box.padRight + 2} y={g.lastY - fontSize * 0.8} width={box.padRight - 2} height={fontSize * 1.6} fill={tone[last.tone]} />
+        <text x={box.width - box.padRight / 2 + 1} y={g.lastY + fontSize / 3} textAnchor="middle" fontSize={fontSize} fontWeight="700" fill={C.tagText}>
           {format(last.close)}
         </text>
         {/* The crosshair. */}
@@ -193,8 +199,8 @@ export function TradingChart({
           <g pointerEvents="none">
             <line x1={g.candles[hover.i]!.x} x2={g.candles[hover.i]!.x} y1={box.padTop} y2={box.height - box.padBottom} stroke={C.cross} strokeDasharray="3 3" />
             <line x1={box.padLeft} x2={box.width - box.padRight} y1={hover.y} y2={hover.y} stroke={C.cross} strokeDasharray="3 3" />
-            <rect x={box.width - box.padRight + 2} y={hover.y - 9} width={box.padRight - 2} height={18} fill={C.cross} />
-            <text x={box.width - box.padRight / 2 + 1} y={hover.y + 4} textAnchor="middle" fontSize={11} fontWeight="700" fill={C.tagText}>
+            <rect x={box.width - box.padRight + 2} y={hover.y - fontSize * 0.8} width={box.padRight - 2} height={fontSize * 1.6} fill={C.cross} />
+            <text x={box.width - box.padRight / 2 + 1} y={hover.y + fontSize / 3} textAnchor="middle" fontSize={fontSize} fontWeight="700" fill={C.tagText}>
               {format(Math.round(priceAt(hover.y)))}
             </text>
           </g>
@@ -211,7 +217,7 @@ export function TradingChart({
         ) : null}
         {note ? <span>{note}</span> : null}
       </figcaption>
-      {patterns ? (
+      {patterns && patternList ? (
         <div className="mt-2" data-testid={testId ? `${testId}-patterns` : undefined}>
           {recent.length === 0 ? (
             <p className="text-xs text-slate-500">No pattern yet: they are marked here as the candles form.</p>

@@ -209,6 +209,27 @@ export default async function PhaseControl({ params }: PageProps<"/admin/[slug]"
             </ul>
           )}
         </Panel>
+        <Panel title="Big screens">
+          <ul className="space-y-2 text-sm">
+            <li>
+              <a href={`/display/${slug}/live`} target="_blank" rel="noreferrer" className="flex justify-between gap-3 rounded-md bg-raised px-3 py-2 ring-1 ring-inset ring-line hover:text-phosphor">
+                <span>
+                  <b className="text-paper">Live wall</b> <span className="text-muted">· everything at a glance, for your own screen</span>
+                </span>
+                <span aria-hidden>↗</span>
+              </a>
+            </li>
+            <li>
+              <a href={`/display/${slug}`} target="_blank" rel="noreferrer" className="flex justify-between gap-3 rounded-md bg-raised px-3 py-2 ring-1 ring-inset ring-line hover:text-phosphor">
+                <span>
+                  <b className="text-paper">Projector</b> <span className="text-muted">· the price board and the moments</span>
+                </span>
+                <span aria-hidden>↗</span>
+              </a>
+            </li>
+          </ul>
+          <p className="mt-2 text-xs text-muted">Open on the screen&apos;s laptop signed in as the display account, then press F11 for full screen.</p>
+        </Panel>
         <Panel title="Tracks">
           <ul className="space-y-2 text-sm">
             {[
