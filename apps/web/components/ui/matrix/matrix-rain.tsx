@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ";
-const FRAME_MS = 48;
+const FRAME_MS = 40;
 
 type Stream = { x: number; y: number; length: number; speed: number; glyphs: string[]; brightness: number };
 
@@ -36,14 +36,14 @@ export function MatrixRain({ opacity = 0.82, size = 15, className = "" }: { opac
     };
 
     const makeStream = (x?: number): Stream => {
-      const length = 7 + Math.floor(Math.random() * 29);
+      const length = 13 + Math.floor(Math.random() * 34);
       return {
         x: x ?? randomX(),
-        y: -Math.random() * (height + length * size),
+        y: Math.random() * (height + length * size) - length * size,
         length,
-        speed: 0.22 + Math.random() * 0.55,
+        speed: 0.32 + Math.random() * 0.72,
         glyphs: randomGlyphs(length),
-        brightness: 0.35 + Math.random() * 0.55,
+        brightness: 0.62 + Math.random() * 0.38,
       };
     };
 
@@ -59,7 +59,7 @@ export function MatrixRain({ opacity = 0.82, size = 15, className = "" }: { opac
       ctx.textBaseline = "top";
 
       // Keep the middle relatively quiet so the sign-in panel remains the focal point.
-      const count = Math.max(12, Math.min(38, Math.round(width / 47)));
+      const count = Math.max(18, Math.min(96, Math.round(width / 25)));
       streams = Array.from({ length: count }, () => makeStream());
       paint();
     };
@@ -74,18 +74,18 @@ export function MatrixRain({ opacity = 0.82, size = 15, className = "" }: { opac
           const distance = i / stream.length;
           const fadeIn = Math.min(1, Math.max(0, (y + size * 2) / (size * 5)));
           const fadeOut = Math.min(1, Math.max(0, (height - y + size * 2) / (size * 8)));
-          const trailFade = Math.pow(1 - distance, 1.65);
+          const trailFade = Math.pow(1 - distance, 1.25);
           const alpha = stream.brightness * trailFade * fadeIn * fadeOut;
           if (alpha < 0.025) continue;
 
           const isHead = i === 0;
-          ctx.globalAlpha = alpha * (isHead ? 0.95 : 0.62);
+          ctx.globalAlpha = alpha * (isHead ? 1 : 0.88);
           ctx.fillStyle = isHead
-            ? (Math.random() < 0.08 ? "#9affb5" : "#39b967")
-            : (i % 5 === 0 ? "#126a35" : "#0a4928");
+            ? (Math.random() < 0.12 ? "#b5ffd0" : "#39c96b")
+            : (i % 4 === 0 ? "#168044" : "#0d6335");
           if (isHead) {
             ctx.shadowColor = "#22a653";
-            ctx.shadowBlur = 7;
+            ctx.shadowBlur = 9;
           } else {
             ctx.shadowBlur = 0;
           }
