@@ -1,5 +1,6 @@
 import Link from "next/link";
-export function Eyebrow({children}:{children:React.ReactNode}){return <div className="font-mono text-[10px] font-semibold tracking-[.18em] text-[#75ff9e]">{children}</div>}
+import type { ReactNode } from "react";
+export function Eyebrow({children}:{children:ReactNode}){return <div className="font-mono text-[10px] font-semibold tracking-[.18em] text-[#75ff9e]">{children}</div>}
 export function PageTitle({eyebrow,title,sub}:{eyebrow:string,title:string,sub:string}){return <div className="mb-7"><Eyebrow>{eyebrow}</Eyebrow><h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#e2e2e2] md:text-[38px]">{title}</h1><p className="mt-2 max-w-3xl text-sm text-[#bacbb9]">{sub}</p></div>}
 export function Panel({title,tag,children}:{title:string,tag?:string,children:React.ReactNode}){return <section className="rounded border border-[#3b4a3d]/70 bg-[#1a1c1c] p-4 md:p-5"><div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-sm font-semibold">{title}</h2>{tag&&<span className="font-mono text-[9px] tracking-widest text-[#75ff9e]">{tag}</span>}</div>{children}</section>}
 export function Metric({label,value,delta}:{label:string,value:string,delta:string}){return <div className="rounded border border-[#3b4a3d]/60 bg-[#1a1c1c] p-4"><div className="font-mono text-[9px] tracking-[.16em] text-[#bacbb9]">{label}</div><div className="mt-3 font-mono text-2xl font-semibold text-white">{value}</div><div className="mt-2 text-[11px] text-[#75ff9e]">{delta}</div></div>}
