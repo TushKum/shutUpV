@@ -23,6 +23,7 @@ const COMMON: TeamSection[] = [
   { path: "/qa", label: "Q&A" },
   { path: "/ledger", label: "Ledger" },
   { path: "/bulletins", label: "Bulletins" },
+  { path: "/newsroom", label: "Newsroom" },
   { path: "/judging", label: "Judging" },
 ];
 
