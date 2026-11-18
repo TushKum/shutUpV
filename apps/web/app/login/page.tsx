@@ -30,8 +30,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       {/* Sparse, side-weighted Matrix rain; the centre stays dark behind the sign-in panel. */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#010302]">
         <MatrixRain opacity={0.94} size={15} className="absolute inset-0 h-full w-full" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_88%_at_50%_48%,rgba(0,0,0,0.84)_0%,rgba(0,0,0,0.62)_48%,rgba(0,0,0,0.16)_100%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.22),transparent_18%,transparent_82%,rgba(0,0,0,0.22))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_88%_at_50%_48%,rgba(0,0,0,0.74)_0%,rgba(0,0,0,0.42)_48%,rgba(0,0,0,0.04)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.08),transparent_18%,transparent_82%,rgba(0,0,0,0.08))]" />
       </div>
       <div className="relative z-10 mx-auto grid min-h-dvh w-full max-w-5xl items-center gap-6 px-4 py-8 sm:gap-8 sm:py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-12">
         <LoginHero portal={portal} />
