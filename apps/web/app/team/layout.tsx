@@ -181,9 +181,7 @@ export default async function TeamLayout({ children }: LayoutProps<"/team">) {
             format={event.format}
             crisis={crisis}
           />
-          <div className="mx-team-nav-shell">
-            <TeamNav sections={sections} />
-          </div>
+          <TeamNav sections={sections} />
           <ActionBar task={next && next.href ? { title: next.title, href: next.href, linkLabel: next.linkLabel, due: next.due } : null} />
           <Alerts tasks={plan ? alertTasks(plan) : []} track={team.track} teamId={team.id} />
           {status.paused ? (
