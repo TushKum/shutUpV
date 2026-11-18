@@ -27,6 +27,7 @@ import { FocusGate } from "./focus-gate";
 import { focusSections } from "@/lib/team/focus";
 import { BootSequence } from "@/components/ui/matrix/boot-sequence";
 import { Glyph } from "@/components/ui/matrix/glyph";
+import "./team.css";
 import { sectorStyle } from "@/lib/team/sectors";
 import { CrisisSplash, type SplashCard } from "./crisis-splash";
 
