@@ -7,6 +7,14 @@ import { createServerClient } from "@supabase/ssr";
 import { areaOf } from "@/lib/auth/routes";
 
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+
+  // The standalone newsroom preview is a frontend-only demo. Keep it outside the
+  // Supabase session flow so it works locally without backend environment variables.
+  if (path === "/newsroom-preview") {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +34,6 @@ export async function proxy(request: NextRequest) {
 
   // getClaims() validates the JWT (and refreshes an expired session through setAll above).
   const { data } = await supabase.auth.getClaims();
-  const path = request.nextUrl.pathname;
   if (!data?.claims && areaOf(path)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
