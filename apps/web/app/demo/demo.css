@@ -52,3 +52,47 @@
 .demo-quiet-button{border:1px solid #425b49;padding:9px 12px;color:#9db8a4;font:700 9px ui-monospace,monospace;letter-spacing:.06em}
 .demo-quiet-button:hover{border-color:#39ff88;color:#39ff88}
 @media(max-width:760px){.demo-sidebar-logo{width:110px;height:40px}.demo-phase-card{padding:13px}.demo-phase-card b{font-size:16px}.demo-tab-strip button,.demo-admin-tabs button{padding:9px 10px}}
+
+/* Refined PRIMUS access portal */
+.demo-entry{min-height:100svh;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:42px 28px;background:#030805;color:#ecfff1}
+.demo-entry .demo-login-grid{position:absolute;inset:0;pointer-events:none;opacity:.3;background-image:linear-gradient(rgba(67,255,144,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(67,255,144,.055) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(180deg,transparent,#000 18%,#000 80%,transparent)}
+.demo-entry .demo-login-glow{position:absolute;pointer-events:none;width:720px;height:520px;top:50%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(ellipse,rgba(20,116,57,.16),transparent 68%)}
+.demo-entry-wrap{position:relative;z-index:1;width:min(100%,940px);margin:auto}
+.demo-entry-header{display:flex;align-items:center;justify-content:space-between;margin:0 auto 30px;padding:0 4px}
+.demo-entry .demo-official-logo{width:145px;height:auto;filter:drop-shadow(0 0 14px rgba(57,255,136,.14))}
+.demo-entry-network{display:flex;align-items:center;gap:9px;color:#7f9b88;font:700 8px ui-monospace,monospace;letter-spacing:.14em}
+.demo-entry-network i,.demo-entry-card-foot i{width:6px;height:6px;border-radius:50%;background:#39ff88;box-shadow:0 0 10px #39ff88}
+.demo-entry-network span{color:#39ff88}
+.demo-entry-card{position:relative;padding:clamp(25px,4vw,43px);border:1px solid rgba(99,180,122,.25);background:linear-gradient(135deg,rgba(12,23,15,.98),rgba(5,11,7,.985) 60%,rgba(8,17,11,.98));box-shadow:0 35px 110px rgba(0,0,0,.52),inset 0 1px rgba(255,255,255,.035);backdrop-filter:blur(16px)}
+.demo-entry-card:before,.demo-entry-card:after{content:"";position:absolute;width:30px;height:30px;pointer-events:none}
+.demo-entry-card:before{top:-1px;left:-1px;border-top:2px solid #39ff88;border-left:2px solid #39ff88}
+.demo-entry-card:after{right:-1px;bottom:-1px;border-right:2px solid #39ff88;border-bottom:2px solid #39ff88}
+.demo-entry-card-top{display:flex;align-items:flex-end;justify-content:space-between;gap:30px}
+.demo-entry-eyebrow{color:#8da995;font:700 9px ui-monospace,monospace;letter-spacing:.17em}
+.demo-entry-eyebrow b{padding:0 8px;color:#39ff88}
+.demo-entry-card-top h1{margin:18px 0 9px;font-size:clamp(36px,5.2vw,58px);font-weight:750;line-height:.99;letter-spacing:-.055em;color:#effff3}
+.demo-entry-card-top h1 em{color:#39ff88;font-style:normal}
+.demo-entry-card-top p{margin:0;color:#9aafa0;font-size:12px;line-height:1.7}
+.demo-entry-index{display:flex;flex:0 0 115px;flex-direction:column;align-items:flex-end;padding:0 0 5px;color:#708b78;font:700 8px ui-monospace,monospace;letter-spacing:.13em}
+.demo-entry-index b{margin:8px 0;color:#c5e4ce;font-size:18px;letter-spacing:.03em}
+.demo-entry-index small{color:#39ff88;font-size:7px}
+.demo-entry-divider{display:flex;align-items:center;gap:16px;margin:31px 0 13px;color:#77917e;font:700 8px ui-monospace,monospace;letter-spacing:.16em}
+.demo-entry-divider i{height:1px;flex:1;background:linear-gradient(90deg,rgba(57,255,136,.3),transparent)}
+.demo-entry-portals{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:10px}
+.demo-entry-portal{display:flex;min-height:190px;flex-direction:column;padding:17px 17px 14px;border:1px solid rgba(112,151,119,.22);background:linear-gradient(145deg,rgba(18,31,21,.7),rgba(7,13,9,.72));color:#eaffef;text-decoration:none;transition:border-color .2s,background .2s,transform .2s,box-shadow .2s}
+.demo-entry-portal:hover{transform:translateY(-3px);border-color:rgba(57,255,136,.72);background:linear-gradient(145deg,rgba(24,52,32,.84),rgba(8,17,11,.9));box-shadow:0 12px 35px rgba(0,0,0,.24)}
+.demo-entry-portal.is-primary{border-color:rgba(57,255,136,.48);background:linear-gradient(145deg,rgba(18,54,31,.68),rgba(7,16,10,.9));box-shadow:inset 0 0 30px rgba(57,255,136,.035)}
+.demo-entry-portal-top{display:flex;align-items:center;justify-content:space-between;color:#819c88;font:700 8px ui-monospace,monospace;letter-spacing:.11em}
+.demo-entry-portal-top i{color:#39ff88;font:normal 17px ui-monospace,monospace}
+.demo-entry-portal>b{margin-top:28px;font-size:16px;font-weight:650;letter-spacing:-.025em}
+.demo-entry-portal p{margin:7px 0 17px;color:#91a798;font-size:10px;line-height:1.65}
+.demo-entry-portal-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:11px;border-top:1px solid rgba(119,164,128,.16);color:#a9c3af;font:700 8px ui-monospace,monospace;letter-spacing:.1em}
+.demo-entry-portal.is-primary .demo-entry-portal-bottom{color:#39ff88}
+.demo-entry-portal-bottom i{font:normal 13px ui-monospace,monospace}
+.demo-entry-card-foot{display:flex;justify-content:space-between;gap:12px;margin-top:21px;padding-top:15px;border-top:1px solid rgba(119,164,128,.14);color:#718879;font:700 7px ui-monospace,monospace;letter-spacing:.12em}
+.demo-entry-card-foot span:first-child{display:flex;align-items:center;gap:8px;color:#9bb6a0}
+.demo-entry-card-foot i{display:inline-block}
+.demo-entry-footer{display:flex;justify-content:space-between;gap:15px;margin-top:19px;padding:0 4px;color:#657d6b;font:700 7px ui-monospace,monospace;letter-spacing:.12em}
+.demo-entry-footer b{color:#39ff88}
+@media(max-width:700px){.demo-entry{padding:26px 15px;align-items:flex-start}.demo-entry-wrap{margin:auto}.demo-entry-header{margin-bottom:25px}.demo-entry .demo-official-logo{width:118px}.demo-entry-network{font-size:7px;letter-spacing:.07em}.demo-entry-card-top{align-items:flex-start}.demo-entry-index{display:none}.demo-entry-portals{grid-template-columns:1fr}.demo-entry-portal{min-height:145px}.demo-entry-portal>b{margin-top:17px}.demo-entry-card-foot,.demo-entry-footer{flex-direction:column;line-height:1.7}.demo-entry-footer{margin-top:14px}}
+@media(prefers-reduced-motion:reduce){.demo-entry-portal{transition:none}.demo-entry-portal:hover{transform:none}}
