@@ -1,69 +1,26 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import {PageTitle,Panel,Metric,useDemoTrack,useTeamCode} from "../ui";
+import {
+  EmptyFilterState,
+  INITIAL_LIST_FILTER,
+  ListFilterBar,
+  buildDealAmountRanges,
+  matchesAmountFilter,
+  uniqueSortedAmounts,
+  type ListFilterState,
+} from "../list-filter-bar";
+import {useCoordination} from "../coordination-store";
+import {
+  getConsultingR2Lock,
+  getConsultingR2PendingLock,
+  getOrMakeConsultant,
+  getOrMakeProduct,
+  getProductR2Lock,
+  getR2Deal,
+} from "../coordination-types";
 import {ProductRound2} from "./product-round2";
-
-interface ProductCandidate {
-  code: string;
-  company: string;
-  ticker: string;
-  topic: string;
-  initialOfferedDeal: number;
-  prdScore: number;
-  incomingLockFromProduct?: boolean;
-  crisisCategory: string;
-  crisisTitle: string;
-  crisisBody: string;
-  baselineContext: string;
-}
-
-const CANDIDATES: ProductCandidate[] = [
-  {
-    code: "XP01",
-    company: "AquaCare",
-    ticker: "QAAC",
-    topic: "FMCG · Functional Hydration & School Tiffin Packs",
-    initialOfferedDeal: 40000,
-    prdScore: 68,
-    incomingLockFromProduct: false,
-    crisisCategory: "CRISIS CARD #7 · GST TAX & MARGIN SHOCK",
-    crisisTitle: "GST rises from 12% to 18% while retailers demand higher shelf margin",
-    crisisBody:
-      "The GST on AquaCare's functional beverage category rises from 12% to 18% from next month. Retail distribution chains refuse to absorb the tax hike and demand an extra 3% shelf margin to keep the packs at eye level.",
-    baselineContext:
-      "Product topic baseline: ₹20 MRP pack, ₹12 COGS, ₹2.60 channel margin, break-even at 40,000 packs/month. Both XP01 and your consulting team receive this exact crisis to solve together.",
-  },
-  {
-    code: "XP04",
-    company: "FreshPack Foods",
-    ticker: "FRPK",
-    topic: "D2C FoodTech · Ready-to-Eat Meal Pouches",
-    initialOfferedDeal: 38000,
-    prdScore: 74,
-    incomingLockFromProduct: false,
-    crisisCategory: "CRISIS CARD #5 · PACKAGING BAN & RECALL",
-    crisisTitle: "State ban on multi-layer plastic pouches forces immediate packaging switch",
-    crisisBody:
-      "A state plastic-waste directive bans multi-layer retort pouches within 30 days. Simultaneously, one batch failed a seal-integrity test in hot transit and must be recalled from 1,200 stores.",
-    baselineContext:
-      "Product topic baseline: ₹45 MRP pouch, ₹26 COGS, 90-day shelf life requirement. Both XP04 and your consulting team receive this exact crisis to solve together.",
-  },
-  {
-    code: "XP09",
-    company: "GridWise Energy",
-    ticker: "GRID",
-    topic: "CleanTech · Smart Hostel & Campus Micro-Meters",
-    initialOfferedDeal: 42000,
-    prdScore: 79,
-    incomingLockFromProduct: true,
-    crisisCategory: "CRISIS CARD #3 · CHIP SHORTAGE & TARIFF HIKE",
-    crisisTitle: "Import duty on telemetry modules jumps 22% amid 8-week supplier lead-time spike",
-    crisisBody:
-      "The imported IoT metering chipset faces an immediate 22% customs duty hike and an 8-week shipment delay from Shenzhen, threatening GridWise's guaranteed campus installation SLAs.",
-    baselineContext:
-      "Product topic baseline: ₹3,200 hardware unit + ₹180/mo SaaS fee, 35% gross hardware margin. Both XP09 and your consulting team receive this exact crisis to solve together.",
-  },
-];
+import {FinanceRound2} from "./finance-round2";
 
 const parts=["Diagnosis","Three options","Recommendation","Per-pack maths","Timeline","Risks"];
 const consultingPlaceholders=[
@@ -75,196 +32,204 @@ const consultingPlaceholders=[
   "Identify remaining operational or market risks and your contingency plan B.",
 ];
 
-interface DealAndLockState {
-  // Step 1 & 2: Offered deal and pushed demand updates (NOT locked yet)
-  currentDealPrice: number;
-  currentMarkupPct: number;
-  dealPushState: "OFFERED" | "PUSHED_WAITING" | "DEAL_UPDATED";
-  pendingDealPrice?: number;
-  pendingMarkupPct?: number;
-  // Step 3: Lock Request & Both Teams Accepting Lock Request
-  lockInitiatedBy: "NONE" | "CONSULTING" | "PRODUCT";
-  consultingLockAccepted: boolean;
-  productLockAccepted: boolean;
-  lockedAt?: string;
-}
-
-const BASE_VALUATION = 40000;
-const R1_SCORE = 82;
-
-function initialDealsState(): Record<string, DealAndLockState> {
-  return {
-    XP01: {
-      currentDealPrice: 40000,
-      currentMarkupPct: 0,
-      dealPushState: "OFFERED",
-      lockInitiatedBy: "NONE",
-      consultingLockAccepted: false,
-      productLockAccepted: false,
-    },
-    XP04: {
-      currentDealPrice: 38000,
-      currentMarkupPct: 0,
-      dealPushState: "OFFERED",
-      lockInitiatedBy: "NONE",
-      consultingLockAccepted: false,
-      productLockAccepted: false,
-    },
-    XP09: {
-      currentDealPrice: 42000,
-      currentMarkupPct: 0,
-      dealPushState: "OFFERED",
-      lockInitiatedBy: "PRODUCT",
-      consultingLockAccepted: false,
-      productLockAccepted: true,
-    },
-  };
-}
-
 export default function Rescue(){
   const [track] = useDemoTrack();
   const code = useTeamCode();
+  const { state, dispatch, ready } = useCoordination();
+
   const [markupPct, setMarkupPct] = useState<number>(10);
-  const [deals, setDeals] = useState<Record<string, DealAndLockState>>(initialDealsState);
+  const [dealFilter, setDealFilter] = useState<ListFilterState>(INITIAL_LIST_FILTER);
   const [active, setActive] = useState(0);
   const [values, setValues] = useState<string[]>(Array(6).fill(""));
-  const [submittedAt, setSubmittedAt] = useState<string|null>(null);
-  const [loaded, setLoaded] = useState(false);
 
-  useEffect(()=>{
-    try{
-      // Clear any previous preview session storage keys so refreshing the page always starts fresh and unlocked
-      localStorage.removeItem("primus-rescue-draft");
-      localStorage.removeItem("primus-consulting-r2-submitted");
-      localStorage.removeItem("primus-consulting-r2-handshakes");
-      localStorage.removeItem("primus-consulting-r2-markup");
-      localStorage.removeItem("primus-rescue-draft-v2");
-      localStorage.removeItem("primus-consulting-r2-submitted-v2");
-      localStorage.removeItem("primus-consulting-r2-requests-v2");
-      localStorage.removeItem("primus-consulting-r2-markup-v2");
-      localStorage.removeItem("primus-rescue-draft-v3");
-      localStorage.removeItem("primus-consulting-r2-submitted-v3");
-      localStorage.removeItem("primus-consulting-r2-deals-v3");
-      localStorage.removeItem("primus-consulting-r2-markup-v3");
-    }catch{}
-    setLoaded(true);
-  },[]);
+  const consultant = useMemo(() => getOrMakeConsultant(state, code), [state, code]);
+  const baseValuation = consultant.baseValue;
 
-  // A pair is LOCKED only when BOTH consultingLockAccepted && productLockAccepted are true.
-  const lockedPartnerCode = useMemo(() => {
-    for (const c of CANDIDATES) {
-      const d = deals[c.code];
-      if (d && d.consultingLockAccepted && d.productLockAccepted) return c.code;
-    }
-    return null;
-  }, [deals]);
+  const candidates = useMemo(
+    () => state.productOrder.map(pCode => state.products[pCode]!).filter(Boolean),
+    [state.productOrder, state.products]
+  );
 
-  // Check if consulting team has sent a lock request that is currently waiting for product team to accept
-  const waitingLockCode = useMemo(() => {
-    for (const c of CANDIDATES) {
-      const d = deals[c.code];
-      if (d && d.lockInitiatedBy === "CONSULTING" && d.consultingLockAccepted && !d.productLockAccepted) {
-        return c.code;
-      }
-    }
-    return null;
-  }, [deals]);
+  const lockedDeal = useMemo(() => getConsultingR2Lock(state, code), [state, code]);
+  const lockedPartnerCode = lockedDeal?.productCode ?? null;
+  const lockedPartner = useMemo(
+    () => (lockedPartnerCode ? getOrMakeProduct(state, lockedPartnerCode) : null),
+    [state, lockedPartnerCode]
+  );
 
+  const waitingLockDeal = useMemo(() => getConsultingR2PendingLock(state, code), [state, code]);
+  const waitingLockCode = waitingLockDeal?.productCode ?? null;
   const isAnyLockedOrLockPending = lockedPartnerCode !== null || waitingLockCode !== null;
-  const lockedPartner = useMemo(() => CANDIDATES.find(c => c.code === lockedPartnerCode) ?? null, [lockedPartnerCode]);
-  const lockedDeal = lockedPartnerCode ? deals[lockedPartnerCode] : null;
 
-  // Step 2 handler: Push increased demand to a Product team -> Product team accepts -> Deal updates to the increased price (STILL NOT LOCKED!)
+  // Sync collaborative R2 solution editor when lock or submitted state changes
+  useEffect(() => {
+    if (!ready || !lockedDeal) return;
+    const stored = lockedDeal.r2SolutionParts;
+    if (stored && stored.length === 6 && stored.some(s => s.trim().length > 0)) {
+      setValues(stored);
+    } else if (!lockedDeal.r2SolutionSubmittedAt) {
+      setValues(Array(6).fill(""));
+    }
+  }, [ready, lockedDeal?.key, lockedDeal?.r2SolutionSubmittedAt]);
+
+  // Incoming live requests (proposals or lock requests from Product teams)
+  const incomingRequests = useMemo(() => {
+    if (lockedPartnerCode) return [];
+    return candidates.filter(cand => {
+      const otherLock = getProductR2Lock(state, cand.code);
+      if (otherLock && otherLock.consultingCode !== code) return false;
+      const d = getR2Deal(state, cand.code, code);
+      return (
+        (d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted) ||
+        d.stage === "PROPOSAL_SENT"
+      );
+    });
+  }, [candidates, state, code, lockedPartnerCode]);
+
+  const dealTeamOptions = useMemo(
+    () =>
+      candidates.map(c => {
+        const d = getR2Deal(state, c.code, code);
+        const price = d.pendingPrice ?? d.currentPrice;
+        const badge =
+          d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted
+            ? " [LOCK REQ]"
+            : d.stage === "PROPOSAL_SENT"
+              ? " [PROPOSAL]"
+              : "";
+        return { code: c.code, label: `${c.code} · ${c.company} ($${price.toLocaleString()})${badge}` };
+      }),
+    [candidates, state, code]
+  );
+
+  const exactDealAmounts = useMemo(
+    () =>
+      uniqueSortedAmounts(
+        candidates.map(c => {
+          const d = getR2Deal(state, c.code, code);
+          return d.pendingPrice ?? d.currentPrice;
+        })
+      ),
+    [candidates, state, code]
+  );
+
+  const filteredCandidates = useMemo(() => {
+    const list = candidates.filter(cand => {
+      if (dealFilter.teamCode !== "ALL" && cand.code !== dealFilter.teamCode) return false;
+      const d = getR2Deal(state, cand.code, code);
+      const price = d.pendingPrice ?? d.currentPrice;
+      return matchesAmountFilter(price, dealFilter);
+    });
+    if (dealFilter.sortBy === "AMOUNT_DESC") {
+      return [...list].sort((a, b) => {
+        const pa = getR2Deal(state, a.code, code);
+        const pb = getR2Deal(state, b.code, code);
+        return (pb.pendingPrice ?? pb.currentPrice) - (pa.pendingPrice ?? pa.currentPrice);
+      });
+    }
+    if (dealFilter.sortBy === "AMOUNT_ASC") {
+      return [...list].sort((a, b) => {
+        const pa = getR2Deal(state, a.code, code);
+        const pb = getR2Deal(state, b.code, code);
+        return (pa.pendingPrice ?? pa.currentPrice) - (pb.pendingPrice ?? pb.currentPrice);
+      });
+    }
+    if (dealFilter.sortBy === "CODE_ASC") {
+      return [...list].sort((a, b) => a.code.localeCompare(b.code));
+    }
+    // Default sort: bubble active/locked or live-negotiating deals (like XP01 proposals/locks) to top for effortless testing
+    return [...list].sort((a, b) => {
+      const score = (pCode: string) => {
+        if (lockedPartnerCode === pCode) return 5;
+        if (waitingLockCode === pCode) return 4;
+        const d = getR2Deal(state, pCode, code);
+        if (d.stage === "PROPOSAL_SENT" || d.stage === "COUNTER_DEMANDED" || d.stage === "DEAL_AGREED_UNLOCKED") return 3;
+        if (d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted) return 2;
+        return 1;
+      };
+      return score(b.code) - score(a.code);
+    });
+  }, [candidates, state, code, dealFilter, lockedPartnerCode, waitingLockCode]);
+
+  const activePartnerCode = lockedPartnerCode ?? waitingLockCode;
+  const isActivePartnerHidden =
+    activePartnerCode !== null && !filteredCandidates.some(c => c.code === activePartnerCode);
+
+  const count = useMemo(
+    () => values.reduce((n, v) => n + v.trim().split(/\s+/).filter(Boolean).length, 0),
+    [values]
+  );
+
+  const submittedAt = lockedDeal?.r2SolutionSubmittedAt ?? null;
+
   const handlePushIncreasedDeal = (pCode: string) => {
     if (isAnyLockedOrLockPending) return;
-    const cand = CANDIDATES.find(c => c.code === pCode)!;
-    const current = deals[pCode] ?? initialDealsState()[pCode]!;
-    const baseForPush = cand.initialOfferedDeal;
-    const increasedPrice = Math.round(baseForPush * (1 + markupPct / 100));
-
-    setDeals(prev => ({
-      ...prev,
-      [pCode]: {
-        ...current,
-        dealPushState: "PUSHED_WAITING",
-        pendingDealPrice: increasedPrice,
-        pendingMarkupPct: markupPct,
-      },
-    }));
-
-    // Simulate Product team accepting the pushed deal price after 1.2s -> Deal updates to increased price, STILL NOT LOCKED
-    window.setTimeout(() => {
-      setDeals(prev => {
-        const cur = prev[pCode];
-        if (!cur || cur.dealPushState !== "PUSHED_WAITING") return prev;
-        return {
-          ...prev,
-          [pCode]: {
-            ...cur,
-            currentDealPrice: cur.pendingDealPrice ?? increasedPrice,
-            currentMarkupPct: cur.pendingMarkupPct ?? markupPct,
-            dealPushState: "DEAL_UPDATED",
-            // If product team had previously sent an old lock request at the old price, require fresh lock acceptance at the new price
-            lockInitiatedBy: "NONE",
-            consultingLockAccepted: false,
-            productLockAccepted: false,
-          },
-        };
-      });
-    }, 1200);
+    dispatch({
+      type: "R2_CONSULTING_PUSH_DEMAND",
+      productCode: pCode,
+      consultingCode: code,
+      markupPct,
+    });
   };
 
-  // Step 3A handler: Consulting team sends Lock Request to Product team -> Product team accepts Lock Request -> LOCKED (cannot update)
+  const handleAcceptProposal = (pCode: string) => {
+    if (isAnyLockedOrLockPending) return;
+    dispatch({
+      type: "R2_CONSULTING_ACCEPT_PROPOSAL",
+      productCode: pCode,
+      consultingCode: code,
+    });
+  };
+
   const handleSendLockRequest = (pCode: string) => {
     if (isAnyLockedOrLockPending) return;
-    setDeals(prev => ({
-      ...prev,
-      [pCode]: {
-        ...prev[pCode]!,
-        lockInitiatedBy: "CONSULTING",
-        consultingLockAccepted: true,
-        productLockAccepted: false,
-      },
-    }));
-
-    window.setTimeout(() => {
-      const stamp = new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})+" IST";
-      setDeals(prev => {
-        const cur = prev[pCode];
-        if (!cur || !cur.consultingLockAccepted) return prev;
-        return {
-          ...prev,
-          [pCode]: {
-            ...cur,
-            productLockAccepted: true,
-            lockedAt: stamp,
-          },
-        };
-      });
-    }, 1500);
+    dispatch({
+      type: "R2_SEND_LOCK_REQUEST",
+      productCode: pCode,
+      consultingCode: code,
+      initiatedBy: "CONSULTING",
+    });
   };
 
-  // Step 3B handler: Product team already sent a Lock Request -> Consulting team accepts Lock Request -> BOTH accepted -> LOCKED (cannot update)
   const handleAcceptProductLockRequest = (pCode: string) => {
     if (isAnyLockedOrLockPending) return;
-    const stamp = new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})+" IST";
-    setDeals(prev => ({
-      ...prev,
-      [pCode]: {
-        ...prev[pCode]!,
-        consultingLockAccepted: true,
-        productLockAccepted: true,
-        lockedAt: stamp,
-      },
-    }));
+    dispatch({
+      type: "R2_ACCEPT_LOCK_REQUEST",
+      productCode: pCode,
+      consultingCode: code,
+      acceptedBy: "CONSULTING",
+    });
   };
 
-  const count = useMemo(()=>values.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[values]);
+  const handleDeclineLockRequest = (pCode: string) => {
+    dispatch({
+      type: "R2_DECLINE_LOCK_REQUEST",
+      productCode: pCode,
+      consultingCode: code,
+      declinedBy: "CONSULTING",
+    });
+  };
+
+  const handleSaveDraft = (nextValues: string[]) => {
+    setValues(nextValues);
+    if (lockedPartnerCode && !submittedAt) {
+      dispatch({
+        type: "R2_CONSULTING_SAVE_SOLUTION",
+        productCode: lockedPartnerCode,
+        consultingCode: code,
+        parts: nextValues,
+      });
+    }
+  };
 
   const handleSubmit = () => {
-    if (!lockedPartner || submittedAt || count === 0) return;
-    const stamp = new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})+" IST";
-    setSubmittedAt(stamp);
+    if (!lockedPartnerCode || submittedAt || count === 0) return;
+    dispatch({
+      type: "R2_CONSULTING_SUBMIT_SOLUTION",
+      productCode: lockedPartnerCode,
+      consultingCode: code,
+      parts: values,
+    });
   };
 
   if (track === "PRODUCT") {
@@ -272,29 +237,30 @@ export default function Rescue(){
   }
 
   if (track !== "CONSULTING") {
-    return <><PageTitle eyebrow={`ROUND 2 / RESCUE · ${track}`} title="Rescue another company." sub="Your rescue lottery assignment is AquaCare (QAAC). Read its PRD and crisis card, use the public Q&A board, then write a six-part crisis solution."/><div className="guide-grid two"><Panel title="The company you rescue" tag="QAAC · YOUR ASSIGNMENT"><h2 className="text-xl font-semibold">AquaCare</h2><p className="guide-muted mt-1">Built by Team QAAC · PRD score 68 · post-IPO price $11.80</p><div className="guide-alert guide-warning mt-4"><b>CRISIS CARD · TAX CHANGE</b><br/>The GST on your product category rises from 12% to 18% from next month. Shops will take a larger margin.</div><p className="guide-muted mt-3">Review their product requirements document and the financial assumptions before choosing a response.</p></Panel><Panel title="Your own company" tag="FRPK · YOU BUILT"><h2 className="text-xl font-semibold">FreshPack Foods</h2><p className="guide-muted mt-1">Your company has also received its own crisis card. Team QAAC is assigned to rescue it.</p><div className="guide-alert mt-4"><b>YOUR CRISIS CARD · QUALITY FAILURE</b><br/>A batch fails a safety test. One batch fails a food or product safety test. You must recall it from shops, and the news is spreading on social media.</div><p className="guide-muted mt-3">Your Round 2 points come from the solution you write for QAAC, not from how well another team rescues your company.</p></Panel></div><div className="mt-4"><Panel title="Crisis solution editor" tag="6 PARTS · 500 WORDS TOTAL"><div className="flex items-center justify-between"><p className="guide-muted">Autosaves locally · no submit button</p><b className={count>500?"text-red-400":"guide-status"}>{count} / 500 WORDS</b></div><div className="guide-tabs mt-4">{parts.map((p,i)=><button key={p} type="button" className={active===i?"active":""} onClick={()=>setActive(i)}>{String(i+1).padStart(2,"0")} · {p}</button>)}</div><label className="guide-label">{parts[active].toUpperCase()}</label><textarea className="guide-textarea" value={values[active]} onChange={e=>setValues(v=>{const next=v.map((x,i)=>i===active?e.target.value:x);const words=next.reduce((sum,item)=>sum+item.trim().split(/\s+/).filter(Boolean).length,0);return words<=500?next:v})} placeholder={"Write your "+parts[active].toLowerCase()+"…"} /><div className="mt-3 flex justify-between"><span className="guide-muted">{values[active].trim().split(/\s+/).filter(Boolean).length} words in this part</span><span className="guide-status">● AUTOSAVED IN THIS BROWSER</span></div><div className="mt-4 flex justify-between"><button type="button" className="guide-btn secondary" disabled={active===0} onClick={()=>setActive(v=>v-1)}>← PREVIOUS</button><button type="button" className="guide-btn" disabled={active===5} onClick={()=>setActive(v=>v+1)}>NEXT PART →</button></div></Panel></div><div className="guide-alert mt-4">Rescue solution locks at 01:45 IST. AI judging reads your solution together with the rescued company&apos;s PRD and crisis card. Judges see only the ticker, not team or company names.</div></>;
+    return <><PageTitle eyebrow={`ROUND 2 / RESCUE · ${track}`} title="Rescue another company." sub="Your rescue lottery assignment is AquaCare (QAAC). Read its PRD and crisis card, use the public Q&A board, then write a six-part crisis solution."/><div className="guide-grid two"><Panel title="The company you rescue" tag="QAAC · YOUR ASSIGNMENT"><h2 className="text-xl font-semibold">AquaCare</h2><p className="guide-muted mt-1">Built by Team QAAC · PRD score 68 · post-IPO price $11.80</p><div className="guide-alert guide-warning mt-4"><b>CRISIS CARD · TAX CHANGE</b><br/>The GST on your product category rises from 12% to 18% from next month. Shops will take a larger margin.</div><p className="guide-muted mt-3">Review their product requirements document and the financial assumptions before choosing a response.</p></Panel><Panel title="Your own company" tag="FRPK · YOU BUILT"><h2 className="text-xl font-semibold">FreshPack Foods</h2><p className="guide-muted mt-1">Your company has also received its own crisis card. Team QAAC is assigned to rescue it.</p><div className="guide-alert mt-4"><b>YOUR CRISIS CARD · QUALITY FAILURE</b><br/>A batch fails a safety test. One batch fails a food or product safety test. You must recall it from shops, and the news is spreading on social media.</div><p className="guide-muted mt-3">Your Round 2 points come from the solution you write for QAAC, not from how well another team rescues your company.</p></Panel></div><div className="mt-4"><Panel title="Crisis solution editor" tag="6 PARTS · 500 WORDS TOTAL"><div className="flex items-center justify-between"><p className="guide-muted">Autosaves locally · no submit button</p><b className={count>500?"text-red-400":"guide-status"}>{count} / 500 WORDS</b></div><div className="guide-tabs mt-4">{parts.map((p,i)=><button key={p} type="button" className={active===i?"active":""} onClick={()=>setActive(i)}>{String(i+1).padStart(2,"0")} · {p}</button>)}</div><label className="guide-label">{parts[active]!.toUpperCase()}</label><textarea className="guide-textarea" value={values[active]} onChange={e=>setValues(v=>{const next=v.map((x,i)=>i===active?e.target.value:x);const words=next.reduce((sum,item)=>sum+item.trim().split(/\s+/).filter(Boolean).length,0);return words<=500?next:v})} placeholder={"Write your "+parts[active]!.toLowerCase()+"…"} /><div className="mt-3 flex justify-between"><span className="guide-muted">{values[active]!.trim().split(/\s+/).filter(Boolean).length} words in this part</span><span className="guide-status">● AUTOSAVED IN THIS BROWSER</span></div><div className="mt-4 flex justify-between"><button type="button" className="guide-btn secondary" disabled={active===0} onClick={()=>setActive(v=>v-1)}>← PREVIOUS</button><button type="button" className="guide-btn" disabled={active===5} onClick={()=>setActive(v=>v+1)}>NEXT PART →</button></div></Panel></div><div className="guide-alert mt-4">Rescue solution locks at 01:45 IST. AI judging reads your solution together with the rescued company&apos;s PRD and crisis card. Judges see only the ticker, not team or company names.</div></>;
+    return <FinanceRound2 />;
   }
 
   return <>
     <PageTitle
-      eyebrow={`ROUND 2 / DEAL NEGOTIATION, MUTUAL LOCK & SHARED CRISIS · ${code}`}
+      eyebrow={`ROUND 2 / LIVE END-TO-END NEGOTIATION, MUTUAL LOCK & SHARED CRISIS · ${code}`}
       title="Push your deal demand, then mutually lock 1-to-1."
-      sub="Step 1: Product teams offer an initial deal based on your Round 1 value. Step 2: Increase your demand (e.g. +10% or more) and push the deal to a Product team—when accepted, the deal price updates (still not locked). Step 3: Either team sends a Lock Request; once both teams accept the Lock Request, you are permanently locked 1-to-1 and cannot update."
+      sub="Live two-way coordination with Product teams: receive proposals or offered deals, push an increased demand (updates live on the Product team's screen—still unlocked), then send or accept a 1-to-1 Lock Request. Once both teams accept, you lock permanently and your written crisis solution flows live into the Product team's MVP."
     />
 
     <div className="guide-grid three">
       <Metric
         label="ROUND 1 BASE VALUATION"
-        value={`$${BASE_VALUATION.toLocaleString()}`}
-        delta={`R1 SCORE ${R1_SCORE} / 100 · STARTING BENCHMARK`}
+        value={`$${baseValuation.toLocaleString()}`}
+        delta={`R1 SCORE ${consultant.r1Score} / 100 · ${consultant.r1SubmittedAt ? "R1 SUBMITTED ✓" : "STARTING BENCHMARK"}`}
       />
       <Metric
         label="YOUR DEMAND MARKUP"
-        value={lockedDeal ? `+${lockedDeal.currentMarkupPct}% ($${lockedDeal.currentDealPrice.toLocaleString()})` : `+${markupPct}%`}
+        value={lockedDeal ? `+${lockedDeal.currentMarkupPct}% ($${lockedDeal.currentPrice.toLocaleString()})` : `+${markupPct}%`}
         delta={
           lockedDeal
             ? "LOCKED DEAL PRICE · CANNOT BE UPDATED"
-            : "PUSH TO ANY PRODUCT TEAM TO UPDATE DEAL PRICE"
+            : "PUSH LIVE TO ANY PRODUCT TEAM TO UPDATE PRICE"
         }
       />
       <Metric
@@ -308,10 +274,10 @@ export default function Rescue(){
         }
         delta={
           lockedPartner
-            ? `BOTH TEAMS ACCEPTED LOCK AT $${lockedDeal!.currentDealPrice.toLocaleString()}`
+            ? `MUTUALLY LOCKED WITH ${lockedPartner.code} AT $${lockedDeal!.currentPrice.toLocaleString()}`
             : waitingLockCode
-              ? "AWAITING PRODUCT TEAM LOCK ACCEPTANCE…"
-              : "DEALS CAN BE UPDATED UNTIL LOCKED"
+              ? `AWAITING ${waitingLockCode} TO ACCEPT IN PRODUCT TAB…`
+              : `${incomingRequests.length} INCOMING REQUEST${incomingRequests.length === 1 ? "" : "S"} LIVE`
         }
       />
     </div>
@@ -319,10 +285,10 @@ export default function Rescue(){
     <div className="guide-grid two mt-4">
       <Panel
         title="1. Increase your demand (before locking)"
-        tag={isAnyLockedOrLockPending ? "LOCKED · NO FURTHER UPDATES" : `TEAM ${code} · DEAL MARKUP`}
+        tag={isAnyLockedOrLockPending ? "LOCKED / PENDING · NO FURTHER UPDATES" : `TEAM ${code} · DEAL MARKUP`}
       >
         <p className="guide-muted">
-          Your Round 1 evaluation score (<b>{R1_SCORE} / 100</b>) gave your consultancy a base value of <b>${BASE_VALUATION.toLocaleString()}</b>. Choose a percentage increase below and click <b>Push Increased Deal</b> on any Product team&apos;s offered deal.
+          Your Round 1 evaluation score (<b>{consultant.r1Score} / 100</b>) gave Team <b>{code}</b> a base value of <b>${baseValuation.toLocaleString()}</b>. Choose a percentage increase below and click <b>Push Deal</b> on any Product team—they receive your counter-demand live on their screen.
         </p>
 
         <label className="guide-label">SELECT DEMAND (BASE PRICE 0% OR INCREASE %) TO PUSH ON OFFERED DEALS</label>
@@ -335,7 +301,7 @@ export default function Rescue(){
               className={markupPct === pct ? "active" : ""}
               onClick={() => setMarkupPct(pct)}
             >
-              {pct === 0 ? `BASE (0% · $${BASE_VALUATION.toLocaleString()})` : `+${pct}% DEMAND`}
+              {pct === 0 ? `BASE (0% · $${baseValuation.toLocaleString()})` : `+${pct}% DEMAND`}
             </button>
           ))}
         </div>
@@ -355,164 +321,292 @@ export default function Rescue(){
             />
           </div>
           <div>
-            <label className="guide-label">EXAMPLE ON $40,000 OFFER</label>
+            <label className="guide-label">EXAMPLE ON ${baseValuation.toLocaleString()} OFFER</label>
             <input
               type="text"
               readOnly
               className="guide-input font-mono"
-              value={`$${Math.round(BASE_VALUATION * (1 + markupPct / 100)).toLocaleString()} (+${markupPct}%)`}
+              value={`$${Math.round(baseValuation * (1 + markupPct / 100)).toLocaleString()} (+${markupPct}%)`}
             />
           </div>
         </div>
 
         <div className="guide-alert mt-4">
-          <b>How Deal Updates vs. Locking Work:</b>
+          <b>Live End-to-End Flow (Consulting ⇄ Product):</b>
           <br />
-          1. <b>Push Increased Deal:</b> Updates the Product team&apos;s offered deal to your higher price once they accept. <b>The deal is still not locked</b>—you can keep negotiating or push a higher demand.
+          1. <b>Push Demand:</b> Sends your higher price directly to the Product team&apos;s workspace. When they click <b>Accept</b>, the deal updates live (<b>still unlocked</b>).
           <br />
-          2. <b>Lock Request:</b> Only when one team sends a <b>Lock Request</b> and <b>both teams accept the Lock Request</b> does the 1-to-1 lock become permanent (no further updates allowed).
+          2. <b>Mutual 1:1 Lock Request:</b> Either side sends a <b>Lock Request</b>; the other team accepts it live in their workspace. Once both accept, you lock permanently 1:1 and unlock their shared crisis below.
         </div>
       </Panel>
 
-      <Panel title="2. Product team offered deals & lock requests" tag="UPDATE DEAL FIRST · THEN MUTUALLY LOCK 1:1">
-        <div className="space-y-3">
-          {CANDIDATES.map(cand => {
-            const d = deals[cand.code] ?? initialDealsState()[cand.code]!;
-            const isThisLocked = lockedPartnerCode === cand.code;
-            const isThisWaitingLock = waitingLockCode === cand.code;
-            const isClosedByOtherLock = isAnyLockedOrLockPending && !isThisLocked && !isThisWaitingLock;
-            const pushedPreviewAmount = Math.round(cand.initialOfferedDeal * (1 + markupPct / 100));
+      <Panel title="2. Product team offered deals & lock requests" tag="LIVE TWO-WAY SYNC · MUTUALLY LOCK 1:1">
+        {incomingRequests.length > 0 && !isAnyLockedOrLockPending && (
+          <div className="guide-alert guide-warning mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <b>⚡ Live incoming request{incomingRequests.length > 1 ? "s" : ""}:</b>{" "}
+              {incomingRequests.map(c => c.code).join(", ")} sent a live proposal or Lock Request to Team {code}.
+            </span>
+            <button
+              type="button"
+              className="guide-btn secondary guide-filter-reset"
+              onClick={() => setDealFilter({ ...INITIAL_LIST_FILTER, teamCode: incomingRequests[0]!.code })}
+            >
+              JUMP TO {incomingRequests[0]!.code}
+            </button>
+          </div>
+        )}
 
-            return (
-              <div
-                key={cand.code}
-                className="border border-[#294832] p-3.5"
-                style={{ opacity: isClosedByOtherLock ? 0.4 : 1 }}
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span className={`guide-chip ${isThisLocked ? "active" : ""}`}>
-                      {cand.code} · {cand.ticker}
+        <ListFilterBar
+          value={dealFilter}
+          onChange={setDealFilter}
+          teamOptions={dealTeamOptions}
+          teamLabel="PRODUCT TEAM CODE"
+          allTeamsLabel="All Product Teams"
+          amountLabel="OFFERED DEAL AMOUNT"
+          amountRanges={buildDealAmountRanges()}
+          exactAmounts={exactDealAmounts}
+          totalCount={candidates.length}
+          filteredCount={filteredCandidates.length}
+          itemNoun="product teams"
+        />
+
+        {isActivePartnerHidden && activePartnerCode && (
+          <div className="guide-alert mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <b>{lockedPartnerCode ? `🔒 Locked 1:1 with ${activePartnerCode}` : `● Lock request pending with ${activePartnerCode}`}</b> — currently hidden by your active filter.
+            </span>
+            <button
+              type="button"
+              className="guide-btn secondary guide-filter-reset"
+              onClick={() => setDealFilter({ ...INITIAL_LIST_FILTER, teamCode: activePartnerCode })}
+            >
+              SHOW {activePartnerCode}
+            </button>
+          </div>
+        )}
+
+        <div className="guide-scroll-box space-y-3">
+          {filteredCandidates.length === 0 ? (
+            <EmptyFilterState noun="product teams" onReset={() => setDealFilter(INITIAL_LIST_FILTER)} />
+          ) : (
+            filteredCandidates.map(cand => {
+              const d = getR2Deal(state, cand.code, code);
+              const productLockedElsewhere = getProductR2Lock(state, cand.code);
+              const isLockedByOtherConsultant =
+                productLockedElsewhere !== null && productLockedElsewhere.consultingCode !== code;
+              const isThisLocked = lockedPartnerCode === cand.code;
+              const isThisWaitingLock = waitingLockCode === cand.code;
+              const isClosedByOtherLock =
+                (isAnyLockedOrLockPending && !isThisLocked && !isThisWaitingLock) || isLockedByOtherConsultant;
+              const pushedPreviewAmount = Math.round((d.initialOffer || baseValuation) * (1 + markupPct / 100));
+              const isProductLockIncoming =
+                d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted;
+              const isSimulatedNpc = cand.code !== "XP01";
+
+              return (
+                <div
+                  key={cand.code}
+                  className="border border-[#294832] p-3.5"
+                  style={{ opacity: isClosedByOtherLock ? 0.42 : 1 }}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <span className={`guide-chip ${isThisLocked || isProductLockIncoming || d.stage === "PROPOSAL_SENT" ? "active" : ""}`}>
+                        {cand.code} · {cand.ticker}
+                      </span>
+                      <b className="ml-2 text-sm">{cand.company}</b>
+                    </div>
+                    <span className="guide-status">
+                      {isThisLocked
+                        ? `🔒 LOCKED 1:1 AT $${d.currentPrice.toLocaleString()} · PERMANENT`
+                        : isLockedByOtherConsultant
+                          ? `CLOSED · ${cand.code} LOCKED WITH ${productLockedElsewhere!.consultingCode}`
+                          : isThisWaitingLock
+                            ? `● LOCK SENT TO ${cand.code} · AWAITING PRODUCT ACCEPTANCE…`
+                            : isClosedByOtherLock
+                              ? "CLOSED · 1:1 LOCKED WITH ANOTHER TEAM"
+                              : isProductLockIncoming
+                                ? `⚡ ${cand.code} SENT LOCK REQUEST AT $${d.currentPrice.toLocaleString()}!`
+                                : d.stage === "PROPOSAL_SENT"
+                                  ? `⚡ LIVE PROPOSAL FROM ${cand.code} AT $${d.currentPrice.toLocaleString()}`
+                                  : d.stage === "COUNTER_DEMANDED"
+                                    ? `● PUSHED +${d.pendingMarkupPct}% ($${d.pendingPrice?.toLocaleString()}) · AWAITING ${cand.code}…`
+                                    : d.stage === "DEAL_AGREED_UNLOCKED"
+                                      ? `✓ DEAL AGREED AT $${d.currentPrice.toLocaleString()} (+${d.currentMarkupPct}%) · UNLOCKED`
+                                      : d.stage === "DECLINED"
+                                        ? `✕ ${cand.code} DECLINED DEMAND · PUSH NEW PRICE OR LOCK AT $${d.currentPrice.toLocaleString()}`
+                                        : `OFFERED DEAL: $${d.initialOffer.toLocaleString()} · NOT LOCKED`}
                     </span>
-                    <b className="ml-2 text-sm">{cand.company}</b>
                   </div>
-                  <span className="guide-status">
-                    {isThisLocked
-                      ? `🔒 LOCKED 1:1 AT $${d.currentDealPrice.toLocaleString()} · CANNOT UPDATE`
-                      : isThisWaitingLock
-                        ? "● LOCK REQUEST SENT · AWAITING PRODUCT TEAM LOCK ACCEPTANCE…"
-                        : isClosedByOtherLock
-                          ? "CLOSED · 1:1 LOCKED WITH ANOTHER TEAM"
-                          : d.dealPushState === "PUSHED_WAITING"
-                            ? `● PUSHING +${d.pendingMarkupPct}% ($${d.pendingDealPrice?.toLocaleString()}) TO ${cand.code}…`
-                            : d.dealPushState === "DEAL_UPDATED"
-                              ? `✓ DEAL UPDATED TO $${d.currentDealPrice.toLocaleString()} (+${d.currentMarkupPct}%) · NOT LOCKED YET`
-                              : `OFFERED DEAL: $${cand.initialOfferedDeal.toLocaleString()} · NOT LOCKED`}
-                  </span>
-                </div>
 
-                <p className="guide-muted mt-1.5">
-                  <b>Topic:</b> {cand.topic} · <b>Initial Offered Deal:</b> ${cand.initialOfferedDeal.toLocaleString()}
-                </p>
+                  <p className="guide-muted mt-1.5">
+                    <b>Topic:</b> {cand.topic} · <b>Initial Offer:</b> ${d.initialOffer.toLocaleString()}
+                    {cand.r1SubmittedAt ? ` · R1 MVP ✓` : ""}
+                  </p>
 
-                {/* Deal & Lock Status Boxes */}
-                <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
-                  <div className="border border-[#294832] p-2">
-                    <span className="block text-[#81a4d1]">ACTIVE DEAL PRICE</span>
-                    <b className="mt-1 block text-[#f0f7ff]">
-                      ${d.currentDealPrice.toLocaleString()}{" "}
-                      {d.currentMarkupPct > 0 ? `(+${d.currentMarkupPct}%)` : "(INITIAL OFFER)"}
-                    </b>
+                  {/* Deal & Lock Status Boxes */}
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
+                    <div className="border border-[#294832] p-2">
+                      <span className="block text-[#81a4d1]">ACTIVE DEAL PRICE</span>
+                      <b className="mt-1 block text-[#f0f7ff]">
+                        ${d.currentPrice.toLocaleString()}{" "}
+                        {d.stage === "COUNTER_DEMANDED" && d.pendingPrice
+                          ? `→ ASK $${d.pendingPrice.toLocaleString()}`
+                          : d.currentMarkupPct > 0
+                            ? `(+${d.currentMarkupPct}%)`
+                            : "(BASE/OFFER)"}
+                      </b>
+                    </div>
+                    <div className="border border-[#294832] p-2">
+                      <span className="block text-[#81a4d1]">CONSULTING ({code}) LOCK</span>
+                      <b className="mt-1 block text-[#f0f7ff]">
+                        {d.consultingLockAccepted ? "✓ LOCK ACCEPTED" : "NOT LOCKED"}
+                      </b>
+                    </div>
+                    <div className="border border-[#294832] p-2">
+                      <span className="block text-[#81a4d1]">PRODUCT ({cand.code}) LOCK</span>
+                      <b className="mt-1 block text-[#f0f7ff]">
+                        {d.productLockAccepted
+                          ? isProductLockIncoming
+                            ? "⚡ SENT LOCK REQUEST"
+                            : "✓ LOCK ACCEPTED"
+                          : "NOT LOCKED"}
+                      </b>
+                    </div>
                   </div>
-                  <div className="border border-[#294832] p-2">
-                    <span className="block text-[#81a4d1]">CONSULTING ({code}) LOCK</span>
-                    <b className="mt-1 block text-[#f0f7ff]">
-                      {d.consultingLockAccepted ? "✓ LOCK ACCEPTED" : "NOT LOCKED"}
-                    </b>
-                  </div>
-                  <div className="border border-[#294832] p-2">
-                    <span className="block text-[#81a4d1]">PRODUCT ({cand.code}) LOCK</span>
-                    <b className="mt-1 block text-[#f0f7ff]">
-                      {d.productLockAccepted
-                        ? d.lockInitiatedBy === "PRODUCT" && !d.consultingLockAccepted
-                          ? "● SENT LOCK REQUEST TO YOU"
-                          : "✓ LOCK ACCEPTED"
-                        : "NOT LOCKED"}
-                    </b>
-                  </div>
-                </div>
 
-                {/* Action Buttons: Step A (Push Increased Deal) and Step B (Send / Accept Lock Request) */}
-                {!isClosedByOtherLock && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    {!isThisLocked && !isThisWaitingLock && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={d.dealPushState === "PUSHED_WAITING"}
-                          className="guide-btn secondary"
-                          onClick={() => handlePushIncreasedDeal(cand.code)}
-                        >
-                          {d.dealPushState === "PUSHED_WAITING"
-                            ? `PUSHING $${d.pendingDealPrice?.toLocaleString()} TO ${cand.code}…`
-                            : `PUSH +${markupPct}% DEAL ($${pushedPreviewAmount.toLocaleString()}) TO ${cand.code} →`}
-                        </button>
+                  {/* Live Action Buttons */}
+                  {!isClosedByOtherLock && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {!isThisLocked && !isThisWaitingLock && (
+                        <>
+                          {d.stage === "PROPOSAL_SENT" && (
+                            <button
+                              type="button"
+                              className="guide-btn secondary"
+                              onClick={() => handleAcceptProposal(cand.code)}
+                            >
+                              ACCEPT ${d.currentPrice.toLocaleString()} OFFER (UNLOCKED)
+                            </button>
+                          )}
 
-                        {d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted ? (
                           <button
                             type="button"
-                            disabled={d.dealPushState === "PUSHED_WAITING"}
-                            className="guide-btn"
-                            onClick={() => handleAcceptProductLockRequest(cand.code)}
+                            className="guide-btn secondary"
+                            onClick={() => handlePushIncreasedDeal(cand.code)}
                           >
-                            ACCEPT LOCK REQUEST FROM {cand.code} AT ${d.currentDealPrice.toLocaleString()} 🔒
+                            {d.stage === "COUNTER_DEMANDED"
+                              ? `UPDATE DEMAND TO +${markupPct}% ($${pushedPreviewAmount.toLocaleString()}) →`
+                              : `PUSH +${markupPct}% DEAL ($${pushedPreviewAmount.toLocaleString()}) TO ${cand.code} →`}
                           </button>
-                        ) : (
+
+                          {d.stage === "COUNTER_DEMANDED" && isSimulatedNpc && (
+                            <button
+                              type="button"
+                              className="guide-btn secondary"
+                              onClick={() =>
+                                dispatch({
+                                  type: "R2_PRODUCT_ACCEPT_DEMAND",
+                                  productCode: cand.code,
+                                  consultingCode: code,
+                                })
+                              }
+                            >
+                              SIMULATE {cand.code} ACCEPT (+{d.pendingMarkupPct}%)
+                            </button>
+                          )}
+
+                          {isProductLockIncoming ? (
+                            <>
+                              <button
+                                type="button"
+                                className="guide-btn"
+                                onClick={() => handleAcceptProductLockRequest(cand.code)}
+                              >
+                                ACCEPT LOCK REQUEST FROM {cand.code} AT ${d.currentPrice.toLocaleString()} 🔒
+                              </button>
+                              <button
+                                type="button"
+                                className="guide-btn secondary"
+                                onClick={() => handleDeclineLockRequest(cand.code)}
+                              >
+                                DECLINE LOCK
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={d.stage === "COUNTER_DEMANDED"}
+                              className="guide-btn"
+                              onClick={() => handleSendLockRequest(cand.code)}
+                            >
+                              SEND LOCK REQUEST TO {cand.code} AT ${d.currentPrice.toLocaleString()} →
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {isThisWaitingLock && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="guide-status">
+                            ● LOCK REQUEST SENT TO {cand.code} AT ${d.currentPrice.toLocaleString()} · WAITING FOR {cand.code} TO ACCEPT IN PRODUCT WORKSPACE…
+                          </span>
                           <button
                             type="button"
-                            disabled={d.dealPushState === "PUSHED_WAITING"}
-                            className="guide-btn"
-                            onClick={() => handleSendLockRequest(cand.code)}
+                            className="guide-btn secondary"
+                            onClick={() => handleDeclineLockRequest(cand.code)}
                           >
-                            SEND LOCK REQUEST TO {cand.code} AT ${d.currentDealPrice.toLocaleString()} →
+                            CANCEL LOCK REQUEST
                           </button>
-                        )}
-                      </>
-                    )}
+                          {isSimulatedNpc && (
+                            <button
+                              type="button"
+                              className="guide-btn secondary"
+                              onClick={() =>
+                                dispatch({
+                                  type: "R2_ACCEPT_LOCK_REQUEST",
+                                  productCode: cand.code,
+                                  consultingCode: code,
+                                  acceptedBy: "PRODUCT",
+                                  bypassCashCheck: true,
+                                })
+                              }
+                            >
+                              SIMULATE {cand.code} ACCEPT LOCK
+                            </button>
+                          )}
+                        </div>
+                      )}
 
-                    {isThisWaitingLock && (
-                      <span className="guide-status">
-                        ● LOCK REQUEST SENT TO {cand.code} AT ${d.currentDealPrice.toLocaleString()} · WAITING FOR {cand.code} TO ACCEPT LOCK…
-                      </span>
-                    )}
-
-                    {isThisLocked && (
-                      <span className="guide-status">
-                        🔒 BOTH TEAMS ACCEPTED LOCK REQUEST ({d.lockedAt}) · PERMANENTLY LOCKED AT ${d.currentDealPrice.toLocaleString()} · CANNOT BE UPDATED
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                      {isThisLocked && (
+                        <span className="guide-status">
+                          🔒 BOTH TEAMS ACCEPTED LOCK REQUEST ({d.lockedAt}) · PERMANENTLY LOCKED AT ${d.currentPrice.toLocaleString()} · SHARED CRISIS UNLOCKED BELOW
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </Panel>
     </div>
 
-    {!lockedPartner ? (
+    {!lockedPartner || !lockedDeal ? (
       <div className="mt-4">
         <Panel title="3. Shared product topic crisis & collaborative solution" tag="LOCKED UNTIL BOTH TEAMS ACCEPT LOCK REQUEST">
           <div className="guide-alert guide-warning">
             <b>
               {waitingLockCode
-                ? `Lock Request Sent to ${waitingLockCode} — Waiting for ${waitingLockCode} to Accept Lock Request…`
-                : "Not Locked Yet — Push Your Deal Price, Then Send or Accept a Lock Request"}
+                ? `Lock Request Sent to ${waitingLockCode} — Waiting for ${waitingLockCode} to Accept Lock Request in Their Product Workspace…`
+                : "Not Locked Yet — Negotiate Price & Complete a Mutual 1:1 Lock Request Above"}
             </b>
             <br />
-            1. Each Product team above starts with an <b>Offered Deal</b>. You can increase your demand (e.g. <b>+{markupPct}%</b>) and push the deal to the Product team; when they accept, the deal updates to the increased price (<b>still not locked</b>).
+            1. When a Product team sends you a proposal or you push an increased demand (<b>+{markupPct}%</b>), they see it instantaneously in their Product Round 2 workspace.
             <br />
-            2. Once you are happy with the deal price, either send a <b>Lock Request</b> to that Product team or accept an incoming Lock Request from them. <b>Only when both teams accept the Lock Request</b> are you permanently locked 1-to-1 and given their topic&apos;s crisis below.
+            2. Once a <b>Lock Request</b> is accepted by <b>both</b> Team {code} and the Product team, both screens lock permanently 1-to-1 and unlock the shared crisis below.
           </div>
         </Panel>
       </div>
@@ -527,6 +621,9 @@ export default function Rescue(){
             <h2 className="mt-3 text-xl font-semibold">
               {lockedPartner.company} <span className="font-mono text-[#63a8ff]">{lockedPartner.ticker}</span>
             </h2>
+            <p className="guide-muted mt-1">
+              <b>Product Pitch:</b> {lockedPartner.pitchLine}
+            </p>
             <div className="guide-alert guide-warning mt-3">
               <b>{lockedPartner.crisisCategory}</b>
               <br />
@@ -554,19 +651,25 @@ export default function Rescue(){
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="guide-metric">
                 <small>FINAL LOCKED DEAL</small>
-                <b className="text-lg">${lockedDeal!.currentDealPrice.toLocaleString()}</b>
+                <b className="text-lg">${lockedDeal.currentPrice.toLocaleString()}</b>
                 <span>
-                  {lockedDeal!.currentMarkupPct > 0 ? `+${lockedDeal!.currentMarkupPct}% INCREASED DEAL` : "INITIAL OFFERED DEAL"} · CANNOT UPDATE
+                  {lockedDeal.currentMarkupPct > 0 ? `+${lockedDeal.currentMarkupPct}% INCREASED DEAL` : "BASE / INITIAL DEAL"} · PERMANENT
                 </span>
               </div>
               <div className="guide-metric">
-                <small>SOLUTION STATUS</small>
-                <b className="text-lg">{submittedAt ? "SUBMITTED (LOCKED)" : "IN PROGRESS"}</b>
-                <span>{submittedAt ? `FINALIZED ${submittedAt}` : "AWAITING SUBMISSION"}</span>
+                <small>LIVE HANDOFF STATUS</small>
+                <b className="text-lg">{submittedAt ? "DELIVERED ✓" : "WRITING"}</b>
+                <span>
+                  {lockedPartner.r2MvpSubmittedAt
+                    ? `${lockedPartner.code} SUBMITTED MVP ✓`
+                    : submittedAt
+                      ? `SENT TO ${lockedPartner.code} (${submittedAt})`
+                      : `AWAITING YOUR SOLUTION`}
+                </span>
               </div>
             </div>
             <p className="guide-muted mt-3">
-              Both <b>Team {code}</b> and <b>Product Team {lockedPartner.code} ({lockedPartner.company})</b> have accepted the Lock Request at <b>${lockedDeal!.currentDealPrice.toLocaleString()}</b>. Neither the deal nor the 1-to-1 pairing can be updated. Solve the shared topic crisis below and submit your final solution.
+              Both <b>Team {code}</b> and <b>Product Team {lockedPartner.code} ({lockedPartner.company})</b> are locked 1-to-1 at <b>${lockedDeal.currentPrice.toLocaleString()}</b>. When you submit your 6-part crisis solution below, it is delivered immediately into <b>{lockedPartner.code}&apos;s</b> Round 2 MVP workspace.
             </p>
           </Panel>
         </div>
@@ -574,19 +677,19 @@ export default function Rescue(){
         <div className="mt-4">
           <Panel
             title={`Collaborative crisis solution editor for ${lockedPartner.company} (${lockedPartner.ticker})`}
-            tag="6 PARTS · 500 WORDS TOTAL · FINAL ON SUBMIT"
+            tag="6 PARTS · 500 WORDS TOTAL · DELIVERS LIVE TO PRODUCT TEAM"
           >
             {submittedAt && (
               <div className="guide-alert mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <b>✓ Round 2 crisis solution permanently submitted ({code} ⇄ {lockedPartner.code})</b> · Finalized at {submittedAt} ({count} words). Submissions cannot be updated once sent.
+                  <b>✓ Round 2 crisis solution permanently submitted ({code} ⇄ {lockedPartner.code})</b> · Finalized at {submittedAt} ({count} words) and delivered live to <b>{lockedPartner.code}&apos;s</b> Updated MVP editor.
                 </div>
-                <span className="guide-chip active">FINAL · LOCKED</span>
+                <span className="guide-chip active">DELIVERED LIVE ✓</span>
               </div>
             )}
             <div className="flex items-center justify-between">
               <p className="guide-muted">
-                Solving {lockedPartner.company}&apos;s crisis ({lockedPartner.crisisCategory}) · Once submitted, your solution is locked and cannot be updated.
+                Solving {lockedPartner.company}&apos;s crisis ({lockedPartner.crisisCategory}) · Submitting sends all 6 parts live to {lockedPartner.code}.
               </p>
               <b className={count > 500 ? "text-red-400" : "guide-status"}>{count} / 500 WORDS</b>
             </div>
@@ -602,24 +705,23 @@ export default function Rescue(){
                 </button>
               ))}
             </div>
-            <label className="guide-label">{parts[active].toUpperCase()}</label>
+            <label className="guide-label">{parts[active]!.toUpperCase()}</label>
             <textarea
               className="guide-textarea"
               readOnly={!!submittedAt}
               value={values[active]}
               onChange={e => {
                 if (submittedAt) return;
-                setValues(v => {
-                  const next = v.map((x, i) => (i === active ? e.target.value : x));
-                  const words = next.reduce((sum, item) => sum + item.trim().split(/\s+/).filter(Boolean).length, 0);
-                  return words <= 500 ? next : v;
-                });
+                const next = values.map((x, i) => (i === active ? e.target.value : x));
+                const words = next.reduce((sum, item) => sum + item.trim().split(/\s+/).filter(Boolean).length, 0);
+                if (words <= 500) setValues(next);
               }}
+              onBlur={() => handleSaveDraft(values)}
               placeholder={consultingPlaceholders[active]}
             />
             <div className="mt-3 flex justify-between">
-              <span className="guide-muted">{values[active].trim().split(/\s+/).filter(Boolean).length} words in this part</span>
-              <span className="guide-status">{submittedAt ? `● SUBMITTED & LOCKED AT ${submittedAt}` : "● DRAFT IN PROGRESS"}</span>
+              <span className="guide-muted">{values[active]!.trim().split(/\s+/).filter(Boolean).length} words in this part</span>
+              <span className="guide-status">{submittedAt ? `● DELIVERED & LOCKED AT ${submittedAt}` : "● DRAFT SYNCING ON BLUR / SUBMIT"}</span>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#294832] pt-4">
               <div className="flex gap-2">
@@ -627,7 +729,10 @@ export default function Rescue(){
                   type="button"
                   className="guide-btn secondary"
                   disabled={active === 0}
-                  onClick={() => setActive(v => v - 1)}
+                  onClick={() => {
+                    handleSaveDraft(values);
+                    setActive(v => v - 1);
+                  }}
                 >
                   ← PREVIOUS
                 </button>
@@ -635,7 +740,10 @@ export default function Rescue(){
                   type="button"
                   className="guide-btn secondary"
                   disabled={active === 5}
-                  onClick={() => setActive(v => v + 1)}
+                  onClick={() => {
+                    handleSaveDraft(values);
+                    setActive(v => v + 1);
+                  }}
                 >
                   NEXT PART →
                 </button>
@@ -646,7 +754,7 @@ export default function Rescue(){
                 disabled={count === 0 || !!submittedAt}
                 onClick={handleSubmit}
               >
-                {submittedAt ? "SOLUTION SUBMITTED & LOCKED ✓" : "SUBMIT SOLUTION →"}
+                {submittedAt ? "SOLUTION DELIVERED TO PRODUCT ✓" : "SUBMIT & DELIVER SOLUTION TO PRODUCT →"}
               </button>
             </div>
           </Panel>
@@ -655,7 +763,7 @@ export default function Rescue(){
     )}
 
     <div className="guide-alert mt-4">
-      Round 2 flow: <b>1. Offered Deal by Product Team</b> → <b>2. Push Increased Demand</b> (updates deal price when accepted; still not locked) → <b>3. Lock Request Accepted by Both Teams</b> (permanently locks 1-to-1; cannot update).
+      End-to-end Round 2 coordination: <b>1. Product Proposal / Offered Deal</b> → <b>2. Push Demand (Product Accepts Live)</b> → <b>3. Mutual 1:1 Lock Request</b> → <b>4. Submit Crisis Solution (Delivered Live to Product&apos;s MVP)</b>.
     </div>
   </>;
 }

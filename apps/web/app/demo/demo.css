@@ -812,3 +812,37 @@ html:has(.guide-app)::-webkit-scrollbar-thumb,body:has(.guide-app)::-webkit-scro
 .guide-app[data-track="PRODUCT"] [class*="border-[#294832]"]{border-color:rgba(255,155,69,.24)!important;border-radius:11px;background:linear-gradient(145deg,rgba(40,19,8,.48),rgba(20,9,4,.58))}
 .guide-app[data-track="PRODUCT"] [class*="border-t"][class*="border-[#294832]"],.guide-app[data-track="PRODUCT"] [class*="border-b"][class*="border-[#294832]"]{border-radius:0;background:transparent}
 .demo-login[data-track="PRODUCT"]{background:radial-gradient(circle at 50% 0%,#2b1404 0%,#0a0402 65%)!important}
+
+/* Accessible List Filter Toolbar (Team Code Dropdown + Amount Filter + Sort) */
+.guide-filter-bar{margin-bottom:14px;padding:12px;border:1px solid #292e38;border-radius:11px;background:rgba(12,15,22,.72)}
+.guide-filter-bar .guide-label{margin:0 0 5px!important;font-size:8px;letter-spacing:.11em}
+.guide-filter-control{padding:8px 10px!important;font-size:11px!important;line-height:1.35}
+.guide-filter-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(140,152,170,.16)}
+.guide-filter-reset{padding:5px 10px!important;font-size:8px!important;letter-spacing:.09em}
+.guide-app .guide-select option,.guide-app .guide-select optgroup{background:#0e121a;color:#e6e8ed}
+.guide-app[data-track="CONSULTING"] .guide-filter-bar{border-color:rgba(99,168,255,.26)!important;background:linear-gradient(145deg,rgba(10,23,46,.72),rgba(5,12,26,.82))!important;box-shadow:inset 0 1px 0 rgba(175,212,255,.08)}
+.guide-app[data-track="CONSULTING"] .guide-filter-meta{border-top-color:rgba(99,168,255,.16)}
+.guide-app[data-track="CONSULTING"] .guide-select option,.guide-app[data-track="CONSULTING"] .guide-select optgroup{background:#061022;color:#eaf3ff}
+.guide-app[data-track="PRODUCT"] .guide-filter-bar{border-color:rgba(255,155,69,.26)!important;background:linear-gradient(145deg,rgba(36,17,7,.72),rgba(16,8,3,.82))!important;box-shadow:inset 0 1px 0 rgba(255,205,160,.08)}
+.guide-app[data-track="PRODUCT"] .guide-filter-meta{border-top-color:rgba(255,155,69,.16)}
+.guide-app[data-track="PRODUCT"] .guide-select option,.guide-app[data-track="PRODUCT"] .guide-select optgroup{background:#160a03;color:#fff5eb}
+
+/* Bounded Inner-Box Scrolling for All Lists (Max ~8 Visible, Scroll Inside Box Only) */
+.guide-scroll-box{max-height:min(60vh,520px);overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-width:thin;scrollbar-color:rgba(255,216,77,.42) rgba(20,24,32,.55)}
+.guide-scroll-box.compact{max-height:min(56vh,470px)}
+.guide-scroll-box.table-8{max-height:min(50vh,368px);overflow:auto;padding-right:0}
+.guide-scroll-box.table-8 thead th{position:sticky;top:0;z-index:2}
+.guide-scroll-box.grid-8{max-height:min(64vh,580px)}
+.guide-scroll-box.mini{max-height:190px}
+.guide-scroll-box::-webkit-scrollbar{width:7px;height:7px}
+.guide-scroll-box::-webkit-scrollbar-track{background:rgba(15,18,26,.65);border-radius:999px}
+.guide-scroll-box::-webkit-scrollbar-thumb{background:rgba(255,216,77,.38);border-radius:999px;border:1px solid rgba(10,12,18,.6)}
+.guide-scroll-box::-webkit-scrollbar-thumb:hover{background:rgba(255,216,77,.65)}
+.guide-app[data-track="CONSULTING"] .guide-scroll-box{scrollbar-color:rgba(99,168,255,.48) rgba(6,15,32,.65)}
+.guide-app[data-track="CONSULTING"] .guide-scroll-box::-webkit-scrollbar-track{background:rgba(6,15,32,.7)}
+.guide-app[data-track="CONSULTING"] .guide-scroll-box::-webkit-scrollbar-thumb{background:rgba(99,168,255,.42);border-color:rgba(4,10,22,.7)}
+.guide-app[data-track="CONSULTING"] .guide-scroll-box::-webkit-scrollbar-thumb:hover{background:rgba(99,168,255,.72)}
+.guide-app[data-track="PRODUCT"] .guide-scroll-box{scrollbar-color:rgba(255,155,69,.48) rgba(20,9,4,.65)}
+.guide-app[data-track="PRODUCT"] .guide-scroll-box::-webkit-scrollbar-track{background:rgba(20,9,4,.72)}
+.guide-app[data-track="PRODUCT"] .guide-scroll-box::-webkit-scrollbar-thumb{background:rgba(255,155,69,.42);border-color:rgba(12,6,2,.7)}
+.guide-app[data-track="PRODUCT"] .guide-scroll-box::-webkit-scrollbar-thumb:hover{background:rgba(255,155,69,.72)}

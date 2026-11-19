@@ -1,5 +1,9 @@
 import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { ArrowDownRight, ArrowUpRight, Download, Search } from 'lucide-react';
+import { useTeamCode } from '../../../ui';
+import { useCoordination } from '../../../coordination-store';
+import { getFinancePortfolio, getFinanceTeam } from '../../../coordination-types';
 import type {
   DeskState,
   EquityPoint,
@@ -38,6 +42,15 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
 }) => {
   const [tableTab, setTableTab] = useState<'POSITIONS' | 'WATCHLIST'>('POSITIONS');
   const [searchQuery, setSearchQuery] = useState('');
+  const rawTeamCode = useTeamCode();
+  const finCode = rawTeamCode.startsWith('XF') ? rawTeamCode : 'XF01';
+  const { state: coordState } = useCoordination();
+  const finTeam = useMemo(() => getFinanceTeam(coordState, finCode), [coordState, finCode]);
+  const r2EquityDeals = useMemo(() => getFinancePortfolio(coordState, finCode), [coordState, finCode]);
+  const r2DeployedTotal = useMemo(
+    () => r2EquityDeals.reduce((sum, d) => sum + d.amountInvested, 0),
+    [r2EquityDeals],
+  );
 
   const tickerMap = useMemo(
     () => new Map(state.tickers.map((t) => [t.symbol, t])),
@@ -516,6 +529,77 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
           </div>
         </section>
       </div>
+
+      {/* Live Round 2 Product Equity Portfolio (Synced End-to-End with Product Teams) */}
+      <section className="bg-[#171610] border border-white/[0.07] rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#2d2a1d] flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-[#F2F5F3]">
+              Round 2 Venture Equity Portfolio — {finTeam.code} ({finTeam.name})
+            </h2>
+            <p className="text-xs text-[#87948D] mt-0.5">
+              Live equity stakes acquired from Product teams in Round 2 (R1 Capital: {formatCurrency(finTeam.initialCapital, 0)} · Deployed: {formatCurrency(r2DeployedTotal, 0)} · Cash Left: {formatCurrency(finTeam.availableCapital, 0)})
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-[#00D68F]">
+              {r2EquityDeals.length} DEAL{r2EquityDeals.length === 1 ? '' : 'S'} CLOSED
+            </span>
+            <Link
+              href="/demo/rescue"
+              className="font-mono text-[11px] text-[color:var(--desk-accent)] hover:underline whitespace-nowrap"
+            >
+              Open Round 2 Deal Room →
+            </Link>
+          </div>
+        </div>
+        {r2EquityDeals.length === 0 ? (
+          <div className="px-4 py-5 text-xs text-[#87948D]">
+            No Round 2 Product MVP equity deals closed yet. Visit{' '}
+            <Link href="/demo/rescue" className="text-[color:var(--desk-accent)] underline">
+              Round 2: MVP Deals
+            </Link>{' '}
+            to inspect Product MVPs and close equity deals with one or multiple Product teams.
+          </div>
+        ) : (
+          <div className="max-h-[340px] overflow-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="sticky top-0 z-10 bg-[#11110d]">
+                <tr className="border-b border-[#2d2a1d]">
+                  <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">Product Team</th>
+                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">Sector</th>
+                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Invested</th>
+                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Equity Stake</th>
+                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Implied Val</th>
+                  <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Closed At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {r2EquityDeals.map((deal) => (
+                  <tr key={deal.id} className="border-b border-[#2d2a1d]/70 hover:bg-[#201e14]/70">
+                    <td className="py-2.5 px-4 font-mono text-xs text-[#F2F5F3]">
+                      <span className="text-[color:var(--desk-accent)] font-semibold">{deal.productCode}</span> · {deal.company} ({deal.ticker})
+                    </td>
+                    <td className="py-2.5 px-3 text-xs text-[#87948D]">{deal.sector}</td>
+                    <td className="py-2.5 px-3 font-mono text-xs text-[#F2F5F3] text-right tabular-nums">
+                      {formatCurrency(deal.amountInvested, 0)}
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-xs font-semibold text-[#00D68F] text-right tabular-nums">
+                      {deal.equityPct}%
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-xs text-[#BACBB9] text-right tabular-nums">
+                      {formatCurrency(deal.impliedValuation, 0)}
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-[11px] text-[#87948D] text-right tabular-nums">
+                      {deal.closedAt}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 };

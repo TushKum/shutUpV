@@ -4,90 +4,30 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FINANCE_ROUTES } from "../finance/_desk/routes";
 import {PageTitle,Panel,Metric,useDemoTrack,useTeamCode} from "../ui";
+import {
+  EmptyFilterState,
+  INITIAL_LIST_FILTER,
+  ListFilterBar,
+  buildDealAmountRanges,
+  matchesAmountFilter,
+  uniqueSortedAmounts,
+  type ListFilterState,
+} from "../list-filter-bar";
+import {useCoordination} from "../coordination-store";
+import {
+  getConsultingR3Lock,
+  getOrMakeConsultant,
+  getOrMakeProduct,
+  getProductClaimedStatement,
+  getProductR3Lock,
+  getR3AuctionDeal,
+  getR3IncumbentForConsulting,
+} from "../coordination-types";
 import {ProductRound3} from "./product-round3";
-
-interface Round3ProductTeam {
-  code: string;
-  company: string;
-  ticker: string;
-  topic: string;
-  initialOfferedDeal: number;
-  r2Score: number;
-  incomingLockFromProduct?: boolean;
-  crisisCategory: string;
-  crisisTitle: string;
-  crisisBody: string;
-  baselineContext: string;
-}
-
-const BASE_VALUATION = 40000;
-
-const R2_LOCKED_PARTNER: Round3ProductTeam = {
-  code: "XP01",
-  company: "AquaCare",
-  ticker: "QAAC",
-  topic: "FMCG · Functional Hydration & School Tiffin Packs",
-  initialOfferedDeal: BASE_VALUATION, // Consultancy base price ($40,000)
-  r2Score: 86,
-  crisisCategory: "ROUND 3 CRISIS #11 · NATIONAL RETAILER DELISTING & COPYCAT WAR",
-  crisisTitle: "Largest modern-trade chain delists AquaCare for a private-label clone at ₹14",
-  crisisBody:
-    "India's largest supermarket chain (38% of AquaCare's urban volume) launches its own ₹14 school hydration pack copying AquaCare's formula and demands a ₹1.5 Cr slotting fee within 14 days to keep AquaCare on shelves.",
-  baselineContext:
-    "Post-Round 2 baseline: ₹21 pack price, ₹13.20 unit cost, 55,000 packs/month volume. Both XP01 and your consulting team must solve this Round 3 crisis together.",
-};
-
-const AUCTION_CANDIDATES: Round3ProductTeam[] = [
-  {
-    code: "XP04",
-    company: "FreshPack Foods",
-    ticker: "FRPK",
-    topic: "D2C FoodTech · Ready-to-Eat Meal Pouches",
-    initialOfferedDeal: BASE_VALUATION,
-    r2Score: 81,
-    incomingLockFromProduct: false,
-    crisisCategory: "ROUND 3 CRISIS #14 · COLD-CHAIN COLLAPSE & QUICK-COMMERCE EXCLUSIVITY",
-    crisisTitle: "Two quick-commerce platforms demand 32% take-rate or dark-store removal",
-    crisisBody:
-      "Blinkit and Zepto account for 64% of FreshPack's daily orders. Both platforms simultaneously raise dark-store commissions from 18% to 32% and require category exclusivity within 10 days.",
-    baselineContext:
-      "Post-Round 2 baseline: ₹48 MRP pouch, ₹27.50 unit cost, ₹12 Cr annual run-rate. Both XP04 and your consulting team must solve this Round 3 crisis together.",
-  },
-  {
-    code: "XP09",
-    company: "GridWise Energy",
-    ticker: "GRID",
-    topic: "CleanTech · Smart Hostel & Campus Micro-Meters",
-    initialOfferedDeal: BASE_VALUATION,
-    r2Score: 88,
-    incomingLockFromProduct: true,
-    crisisCategory: "ROUND 3 CRISIS #09 · DISCOM REGULATORY BLOCK & FIRMWARE BREACH",
-    crisisTitle: "State electricity board halts private sub-metering after a campus billing dispute",
-    crisisBody:
-      "Two state electricity utilities issue an interim stay on third-party hostel sub-meters unless certified under a new BIS smart-grid standard within 45 days, freezing ₹8.5 Cr of signed campus deployments.",
-    baselineContext:
-      "Post-Round 2 baseline: ₹3,400 hardware unit + ₹200/mo SaaS, 42 campuses live. Both XP09 and your consulting team must solve this Round 3 crisis together.",
-  },
-  {
-    code: "XP12",
-    company: "Nova Nutrition",
-    ticker: "NOVA",
-    topic: "HealthTech · Personalised Protein & Micronutrient Sachets",
-    initialOfferedDeal: BASE_VALUATION,
-    r2Score: 79,
-    incomingLockFromProduct: false,
-    crisisCategory: "ROUND 3 CRISIS #16 · FSSAI LABELLING MANDATE & WHEY SPIKE",
-    crisisTitle: "Whey isolate costs jump 28% while FSSAI bans 'clinical recovery' claims",
-    crisisBody:
-      "Global whey isolate prices surge 28% quarter-on-quarter just as FSSAI orders removal of 'clinical recovery' front-of-pack claims within 21 days, putting ₹4.2 Cr of packaged inventory at risk.",
-    baselineContext:
-      "Post-Round 2 baseline: ₹65 sachet, ₹38 COGS, 62% repeat subscription rate. Both XP12 and your consulting team must solve this Round 3 crisis together.",
-  },
-];
 
 const parts=["Diagnosis","Three options","Recommendation","Per-pack maths","Timeline","Risks"];
 const consultingPlaceholders=[
-  "Diagnose the exact financial and operational impact of this Round 3 crisis on your allotted Product team's topic.",
+  "Diagnose the exact financial and operational impact of this Round 3 crisis on your allotted Product team's locked Problem Statement.",
   "Present three strategic options for the allotted Product team, comparing costs, risks and expected recovery.",
   "Give your single collaborative recommendation for the allotted Product team and why it outperforms the other options.",
   "Work out the updated unit economics, pricing, margins and break-even numbers after your Round 3 intervention.",
@@ -95,224 +35,245 @@ const consultingPlaceholders=[
   "Identify remaining risks and your contingency plan B.",
 ];
 
-interface AuctionDealState {
-  currentDealPrice: number;
-  currentMarkupPct: number;
-  dealPushState: "OFFERED" | "PUSHED_WAITING" | "DEAL_UPDATED";
-  pendingDealPrice?: number;
-  pendingMarkupPct?: number;
-  lockInitiatedBy: "NONE" | "CONSULTING" | "PRODUCT";
-  consultingLockAccepted: boolean;
-  productLockAccepted: boolean;
-  lockedAt?: string;
-}
-
-function initialAuctionState(): Record<string, AuctionDealState> {
-  return {
-    XP04: {
-      currentDealPrice: BASE_VALUATION,
-      currentMarkupPct: 0,
-      dealPushState: "OFFERED",
-      lockInitiatedBy: "NONE",
-      consultingLockAccepted: false,
-      productLockAccepted: false,
-    },
-    XP09: {
-      currentDealPrice: BASE_VALUATION,
-      currentMarkupPct: 0,
-      dealPushState: "OFFERED",
-      lockInitiatedBy: "PRODUCT",
-      consultingLockAccepted: false,
-      productLockAccepted: true,
-    },
-    XP12: {
-      currentDealPrice: BASE_VALUATION,
-      currentMarkupPct: 0,
-      dealPushState: "OFFERED",
-      lockInitiatedBy: "NONE",
-      consultingLockAccepted: false,
-      productLockAccepted: false,
-    },
-  };
-}
-
 export default function Trade(){
   const [track] = useDemoTrack();
   const code = useTeamCode();
   const router = useRouter();
+  const { state, dispatch, ready } = useCoordination();
+
   useEffect(() => {
     if (track === "FINANCE") router.replace(FINANCE_ROUTES.markets);
   }, [router, track]);
 
-  // Stage 1: Existing Round 2 partner (XP01) price increase request (can stay on BASE 0% or increase)
-  const [r3IncreasePct, setR3IncreasePct] = useState<number>(0);
-  const [incumbentStatus, setIncumbentStatus] = useState<
-    "PAIRED_FROM_R2" | "ASKING_WAITING" | "ACCEPTED_LOCKED" | "REJECTED_UNLOCKED"
-  >("PAIRED_FROM_R2");
-  const [incumbentFinalPrice, setIncumbentFinalPrice] = useState<number>(BASE_VALUATION);
-  const [incumbentFinalPct, setIncumbentFinalPct] = useState<number>(0);
-  const [incumbentDecidedAt, setIncumbentDecidedAt] = useState<string>("");
+  const consultant = useMemo(() => getOrMakeConsultant(state, code), [state, code]);
+  const baseValuation = consultant.baseValue;
 
-  // Stage 2: Open Auction state (active only when incumbentStatus === "REJECTED_UNLOCKED")
-  const [auctionMarkupPct, setAuctionMarkupPct] = useState<number>(0);
-  const [auctionDeals, setAuctionDeals] = useState<Record<string, AuctionDealState>>(initialAuctionState);
-
-  // Stage 3: Round 3 Crisis Solution Editor state
-  const [active, setActive] = useState(0);
-  const [values, setValues] = useState<string[]>(Array(6).fill(""));
-  const [submittedAt, setSubmittedAt] = useState<string | null>(null);
-
-  const requestedIncumbentPrice = useMemo(
-    () => Math.round(R2_LOCKED_PARTNER.initialOfferedDeal * (1 + r3IncreasePct / 100)),
-    [r3IncreasePct]
+  // Inherited Round 2 incumbent pair (live from R2 lock or default XP01 ⇄ XC01)
+  const incumbent = useMemo(() => getR3IncumbentForConsulting(state, code), [state, code]);
+  const incumbentPartner = useMemo(
+    () => getOrMakeProduct(state, incumbent.productCode),
+    [state, incumbent.productCode]
   );
 
-  // Ask current Round 2 Product team (XP01) for a price increase.
-  // In this preview: demands <= 20% are accepted by XP01 (or you can test rejection directly); demands >= 25% are rejected by XP01, unlocking you into the auction.
-  const handleAskIncumbentPriceIncrease = (forceOutcome?: "ACCEPT" | "REJECT") => {
-    if (incumbentStatus !== "PAIRED_FROM_R2") return;
-    const targetPrice = requestedIncumbentPrice;
-    const targetPct = r3IncreasePct;
-    const willAccept = forceOutcome ? forceOutcome === "ACCEPT" : targetPct <= 20;
+  // Final Round 3 1:1 Lock (either accepted incumbent, returned incumbent, or open-auction lock)
+  const r3Lock = useMemo(() => getConsultingR3Lock(state, code), [state, code]);
+  const allottedPartner = useMemo(
+    () => (r3Lock ? getOrMakeProduct(state, r3Lock.productCode) : null),
+    [state, r3Lock]
+  );
 
-    setIncumbentStatus("ASKING_WAITING");
-    window.setTimeout(() => {
-      const stamp = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) + " IST";
-      setIncumbentDecidedAt(stamp);
-      if (willAccept) {
-        setIncumbentFinalPrice(targetPrice);
-        setIncumbentFinalPct(targetPct);
-        setIncumbentStatus("ACCEPTED_LOCKED");
-      } else {
-        setIncumbentStatus("REJECTED_UNLOCKED");
-      }
-    }, 1400);
-  };
+  // Live Problem Statement claimed by our allotted Product team in Product Round 3!
+  const dispatchedStatement = useMemo(
+    () => (allottedPartner ? getProductClaimedStatement(state, allottedPartner.code) : null),
+    [state, allottedPartner]
+  );
 
-  // Check if allotted via Auction
-  const auctionLockedCode = useMemo(() => {
-    if (incumbentStatus !== "REJECTED_UNLOCKED") return null;
-    for (const c of AUCTION_CANDIDATES) {
-      const d = auctionDeals[c.code];
-      if (d && d.consultingLockAccepted && d.productLockAccepted) return c.code;
+  // Stage 1 controls
+  const [r3IncreasePct, setR3IncreasePct] = useState<number>(0);
+
+  // Stage 2: Open Auction controls
+  const [auctionMarkupPct, setAuctionMarkupPct] = useState<number>(0);
+  const [auctionFilter, setAuctionFilter] = useState<ListFilterState>(INITIAL_LIST_FILTER);
+
+  // Stage 3: Crisis solution editor
+  const [active, setActive] = useState(0);
+  const [values, setValues] = useState<string[]>(Array(6).fill(""));
+
+  useEffect(() => {
+    if (!ready || !r3Lock) return;
+    if (r3Lock.r3SolutionParts.length === 6 && r3Lock.r3SolutionParts.some(s => s.trim().length > 0)) {
+      setValues(r3Lock.r3SolutionParts);
+    } else if (!r3Lock.r3SolutionSubmittedAt) {
+      setValues(Array(6).fill(""));
     }
-    return null;
-  }, [incumbentStatus, auctionDeals]);
+  }, [ready, r3Lock?.key, r3Lock?.r3SolutionSubmittedAt]);
+
+  const requestedIncumbentPrice = useMemo(
+    () => Math.round(baseValuation * (1 + r3IncreasePct / 100)),
+    [baseValuation, r3IncreasePct]
+  );
+
+  // Auction candidates: all Product teams other than incumbent (or all if another Product team sent a live re-bid to this consultant!)
+  const auctionCandidates = useMemo(() => {
+    return state.productOrder
+      .map(pCode => state.products[pCode]!)
+      .filter(Boolean)
+      .filter(p => {
+        // Keep incumbent out of open auction unless they aren't our current incumbent, OR keep all non-incumbents
+        if (p.code === incumbent.productCode && incumbent.status !== "REJECTED_REBIDDING") return false;
+        return p.code !== incumbent.productCode;
+      });
+  }, [state.productOrder, state.products, incumbent.productCode, incumbent.status]);
+
+  // Also check if ANY Product team sent a direct R3 Re-Bid proposal to this Consulting team (e.g. XP01 removed XC01 and sent re-bid to XC04!)
+  const incomingRebidsForMe = useMemo(() => {
+    const list: string[] = [];
+    for (const deal of Object.values(state.r3AuctionDeals)) {
+      if (
+        deal.consultingCode === code &&
+        (deal.stage === "PROPOSAL_SENT" || (deal.lockInitiatedBy === "PRODUCT" && deal.productLockAccepted && !deal.consultingLockAccepted))
+      ) {
+        if (!getProductR3Lock(state, deal.productCode)) {
+          list.push(deal.productCode);
+        }
+      }
+    }
+    return list;
+  }, [state, code]);
+
+  // Merge any live re-bidder (even XP01 if logged in as XC04!) into auction candidates
+  const allAuctionCandidates = useMemo(() => {
+    const map = new Map(auctionCandidates.map(c => [c.code, c]));
+    for (const pCode of incomingRebidsForMe) {
+      if (!map.has(pCode)) {
+        map.set(pCode, getOrMakeProduct(state, pCode));
+      }
+    }
+    return Array.from(map.values());
+  }, [auctionCandidates, incomingRebidsForMe, state]);
+
+  const isAuctionActive =
+    incumbent.status === "REJECTED_REBIDDING" ||
+    (incomingRebidsForMe.length > 0 && !r3Lock && incumbent.consultingCode !== "XC01");
 
   const auctionWaitingLockCode = useMemo(() => {
-    if (incumbentStatus !== "REJECTED_UNLOCKED") return null;
-    for (const c of AUCTION_CANDIDATES) {
-      const d = auctionDeals[c.code];
-      if (d && d.lockInitiatedBy === "CONSULTING" && d.consultingLockAccepted && !d.productLockAccepted) return c.code;
+    for (const c of allAuctionCandidates) {
+      const d = getR3AuctionDeal(state, c.code, code);
+      if (d.lockInitiatedBy === "CONSULTING" && d.consultingLockAccepted && !d.productLockAccepted) {
+        return c.code;
+      }
     }
     return null;
-  }, [incumbentStatus, auctionDeals]);
+  }, [allAuctionCandidates, state, code]);
 
-  const isAuctionLockedOrPending = auctionLockedCode !== null || auctionWaitingLockCode !== null;
+  const isAuctionLockedOrPending = r3Lock !== null || auctionWaitingLockCode !== null;
 
-  // Determine the final allotted Product team for Round 3 (either XP01 if accepted, or the locked auction winner if rejected & re-sorted)
-  const allottedPartner: Round3ProductTeam | null = useMemo(() => {
-    if (incumbentStatus === "ACCEPTED_LOCKED") return R2_LOCKED_PARTNER;
-    if (incumbentStatus === "REJECTED_UNLOCKED" && auctionLockedCode) {
-      return AUCTION_CANDIDATES.find(c => c.code === auctionLockedCode) ?? null;
-    }
-    return null;
-  }, [incumbentStatus, auctionLockedCode]);
+  const auctionTeamOptions = useMemo(
+    () =>
+      allAuctionCandidates.map(c => {
+        const d = getR3AuctionDeal(state, c.code, code);
+        const price = d.pendingPrice ?? d.currentPrice;
+        const badge =
+          d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted
+            ? " [LOCK REQ]"
+            : d.stage === "PROPOSAL_SENT"
+              ? " [RE-BID]"
+              : "";
+        return { code: c.code, label: `${c.code} · ${c.company} ($${price.toLocaleString()})${badge}` };
+      }),
+    [allAuctionCandidates, state, code]
+  );
 
-  const allottedDealPrice: number = useMemo(() => {
-    if (incumbentStatus === "ACCEPTED_LOCKED") return incumbentFinalPrice;
-    if (incumbentStatus === "REJECTED_UNLOCKED" && auctionLockedCode) {
-      return auctionDeals[auctionLockedCode]?.currentDealPrice ?? 0;
-    }
-    return requestedIncumbentPrice;
-  }, [incumbentStatus, incumbentFinalPrice, auctionLockedCode, auctionDeals, requestedIncumbentPrice]);
+  const exactAuctionAmounts = useMemo(
+    () =>
+      uniqueSortedAmounts(
+        allAuctionCandidates.map(c => {
+          const d = getR3AuctionDeal(state, c.code, code);
+          return d.pendingPrice ?? d.currentPrice;
+        })
+      ),
+    [allAuctionCandidates, state, code]
+  );
 
-  // Auction handlers (when unlocked)
-  const handlePushAuctionDeal = (pCode: string) => {
-    if (incumbentStatus !== "REJECTED_UNLOCKED" || isAuctionLockedOrPending) return;
-    const cand = AUCTION_CANDIDATES.find(c => c.code === pCode)!;
-    const cur = auctionDeals[pCode]!;
-    const increasedPrice = Math.round(cand.initialOfferedDeal * (1 + auctionMarkupPct / 100));
-
-    setAuctionDeals(prev => ({
-      ...prev,
-      [pCode]: {
-        ...cur,
-        dealPushState: "PUSHED_WAITING",
-        pendingDealPrice: increasedPrice,
-        pendingMarkupPct: auctionMarkupPct,
-      },
-    }));
-
-    window.setTimeout(() => {
-      setAuctionDeals(prev => {
-        const latest = prev[pCode];
-        if (!latest || latest.dealPushState !== "PUSHED_WAITING") return prev;
-        return {
-          ...prev,
-          [pCode]: {
-            ...latest,
-            currentDealPrice: latest.pendingDealPrice ?? increasedPrice,
-            currentMarkupPct: latest.pendingMarkupPct ?? auctionMarkupPct,
-            dealPushState: "DEAL_UPDATED",
-            lockInitiatedBy: "NONE",
-            consultingLockAccepted: false,
-            productLockAccepted: false,
-          },
-        };
+  const filteredAuctionCandidates = useMemo(() => {
+    const list = allAuctionCandidates.filter(cand => {
+      if (auctionFilter.teamCode !== "ALL" && cand.code !== auctionFilter.teamCode) return false;
+      const d = getR3AuctionDeal(state, cand.code, code);
+      const price = d.pendingPrice ?? d.currentPrice;
+      return matchesAmountFilter(price, auctionFilter);
+    });
+    if (auctionFilter.sortBy === "AMOUNT_DESC") {
+      return [...list].sort((a, b) => {
+        const da = getR3AuctionDeal(state, a.code, code);
+        const db = getR3AuctionDeal(state, b.code, code);
+        return (db.pendingPrice ?? db.currentPrice) - (da.pendingPrice ?? da.currentPrice);
       });
-    }, 1200);
-  };
-
-  const handleSendAuctionLockRequest = (pCode: string) => {
-    if (incumbentStatus !== "REJECTED_UNLOCKED" || isAuctionLockedOrPending) return;
-    setAuctionDeals(prev => ({
-      ...prev,
-      [pCode]: {
-        ...prev[pCode]!,
-        lockInitiatedBy: "CONSULTING",
-        consultingLockAccepted: true,
-        productLockAccepted: false,
-      },
-    }));
-
-    window.setTimeout(() => {
-      const stamp = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) + " IST";
-      setAuctionDeals(prev => {
-        const cur = prev[pCode];
-        if (!cur || !cur.consultingLockAccepted) return prev;
-        return {
-          ...prev,
-          [pCode]: {
-            ...cur,
-            productLockAccepted: true,
-            lockedAt: stamp,
-          },
-        };
+    }
+    if (auctionFilter.sortBy === "AMOUNT_ASC") {
+      return [...list].sort((a, b) => {
+        const da = getR3AuctionDeal(state, a.code, code);
+        const db = getR3AuctionDeal(state, b.code, code);
+        return (da.pendingPrice ?? da.currentPrice) - (db.pendingPrice ?? db.currentPrice);
       });
-    }, 1500);
-  };
+    }
+    if (auctionFilter.sortBy === "CODE_ASC") {
+      return [...list].sort((a, b) => a.code.localeCompare(b.code));
+    }
+    // Bubble live incoming re-bids / locks to top
+    return [...list].sort((a, b) => {
+      const score = (pCode: string) => {
+        if (r3Lock?.productCode === pCode) return 5;
+        if (auctionWaitingLockCode === pCode) return 4;
+        const d = getR3AuctionDeal(state, pCode, code);
+        if (d.stage === "PROPOSAL_SENT" || d.stage === "COUNTER_DEMANDED" || d.stage === "DEAL_AGREED_UNLOCKED") return 3;
+        if (d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted) return 2;
+        return 1;
+      };
+      return score(b.code) - score(a.code);
+    });
+  }, [allAuctionCandidates, state, code, auctionFilter, r3Lock, auctionWaitingLockCode]);
 
-  const handleAcceptAuctionProductLock = (pCode: string) => {
-    if (incumbentStatus !== "REJECTED_UNLOCKED" || isAuctionLockedOrPending) return;
-    const stamp = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) + " IST";
-    setAuctionDeals(prev => ({
-      ...prev,
-      [pCode]: {
-        ...prev[pCode]!,
-        consultingLockAccepted: true,
-        productLockAccepted: true,
-        lockedAt: stamp,
-      },
-    }));
-  };
+  const activeAuctionCode = r3Lock?.productCode ?? auctionWaitingLockCode;
+  const isAuctionActiveHidden =
+    activeAuctionCode !== null && !filteredAuctionCandidates.some(c => c.code === activeAuctionCode);
 
-  const count = useMemo(() => values.reduce((n, v) => n + v.trim().split(/\s+/).filter(Boolean).length, 0), [values]);
+  const allottedDealPrice = r3Lock
+    ? r3Lock.finalPrice
+    : incumbent.status === "CONSULTANT_ASKED"
+      ? incumbent.requestedPrice
+      : requestedIncumbentPrice;
+
+  const submittedAt = r3Lock?.r3SolutionSubmittedAt ?? null;
+  const count = useMemo(
+    () => values.reduce((n, v) => n + v.trim().split(/\s+/).filter(Boolean).length, 0),
+    [values]
+  );
+
+  // Is our allotted partner XP01 (live Product user) who hasn't picked their PS yet?
+  const waitingForLiveProductStatement =
+    !!allottedPartner && allottedPartner.code === "XP01" && !dispatchedStatement;
+
+  // Resolve active crisis to display once allotted & statement ready (or NPC fallback)
+  const activeCrisis = useMemo(() => {
+    if (!allottedPartner) return null;
+    if (dispatchedStatement) {
+      return {
+        badge: `DISPATCHED ${dispatchedStatement.id} · ${dispatchedStatement.sector}`,
+        category: `ROUND 3 PROBLEM STATEMENT ${dispatchedStatement.id} (LOCKED BY ${allottedPartner.code})`,
+        title: dispatchedStatement.title,
+        body: `${dispatchedStatement.brief} Crisis Twist: ${dispatchedStatement.crisisTwist}`,
+        baseline: `Locked exclusively by ${allottedPartner.code} (${allottedPartner.company}) in least-money draft order and dispatched live to Team ${code}.`,
+      };
+    }
+    return {
+      badge: allottedPartner.topic,
+      category: allottedPartner.r3FallbackCrisisCategory,
+      title: allottedPartner.r3FallbackCrisisTitle,
+      body: allottedPartner.r3FallbackCrisisBody,
+      baseline: allottedPartner.r3FallbackBaseline,
+    };
+  }, [allottedPartner, dispatchedStatement, code]);
+
+  const handleSaveR3Draft = (nextValues: string[]) => {
+    setValues(nextValues);
+    if (r3Lock && !submittedAt) {
+      dispatch({
+        type: "R3_CONSULTING_SAVE_SOLUTION",
+        productCode: r3Lock.productCode,
+        consultingCode: code,
+        parts: nextValues,
+      });
+    }
+  };
 
   const handleSubmit = () => {
-    if (!allottedPartner || submittedAt || count === 0) return;
-    const stamp = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) + " IST";
-    setSubmittedAt(stamp);
+    if (!r3Lock || submittedAt || count === 0) return;
+    dispatch({
+      type: "R3_CONSULTING_SUBMIT_SOLUTION",
+      productCode: r3Lock.productCode,
+      consultingCode: code,
+      parts: values,
+    });
   };
 
   if (track === "PRODUCT") {
@@ -323,47 +284,55 @@ export default function Trade(){
     return <Link className="guide-btn" href={FINANCE_ROUTES.markets}>Open trading desk →</Link>;
   }
 
+  const isIncumbentNpc = incumbentPartner.code !== "XP01";
+
   return <>
     <PageTitle
-      eyebrow={`ROUND 3 / PRICE INCREASE, AUCTION & ALLOTTED PRODUCT CRISIS · ${code}`}
+      eyebrow={`ROUND 3 / LIVE PRICE INCREASE, AUCTION & DISPATCHED CRISIS · ${code}`}
       title="Ask for a Round 3 price increase or re-enter the auction."
-      sub="In Round 3, ask your Round 2 Product team for a price increase. If they accept, your new price is paid after Round 3 and you solve their Round 3 crisis. If they do not accept, your consultancy team is unlocked and placed back into the open auction—once allotted to a Product team, you solve that Product team's crisis."
+      sub="Live end-to-end Round 3 coordination: ask your Round 2 Product partner for a price increase (or stay on base price). Their live Accept or Remove-for-Rebid decision updates here instantaneously. Once allotted 1:1, the Problem Statement they lock in least-money order dispatches straight to you—and your submitted solution streams live into their New Round 3 MVP."
     />
 
     <div className="guide-grid three">
       <Metric
-        label="ROUND 2 LOCKED DEAL"
-        value={`$${R2_LOCKED_PARTNER.initialOfferedDeal.toLocaleString()}`}
-        delta={`CURRENT PARTNER: ${R2_LOCKED_PARTNER.code} (${R2_LOCKED_PARTNER.company})`}
+        label="ROUND 2 PARTNER & BASE"
+        value={`$${baseValuation.toLocaleString()}`}
+        delta={`R2 PARTNER: ${incumbentPartner.code} (${incumbentPartner.company})`}
       />
       <Metric
         label="ROUND 3 DEAL PRICE"
         value={`$${allottedDealPrice.toLocaleString()}`}
         delta={
-          allottedPartner
-            ? `LOCKED WITH ${allottedPartner.code} · SETTLED AFTER ROUND 3`
-            : incumbentStatus === "REJECTED_UNLOCKED"
+          r3Lock
+            ? `LOCKED WITH ${r3Lock.productCode} · SETTLED AFTER ROUND 3`
+            : isAuctionActive
               ? "UNLOCKED · NEGOTIATING IN OPEN AUCTION"
-              : `REQUESTING +${r3IncreasePct}% FROM ${R2_LOCKED_PARTNER.code}`
+              : incumbent.status === "CONSULTANT_ASKED"
+                ? `SENT +${incumbent.requestedPct}% TO ${incumbentPartner.code} · AWAITING REPLY`
+                : `BASE $${baseValuation.toLocaleString()} OR +${r3IncreasePct}% ASK`
         }
       />
       <Metric
         label="ROUND 3 ALLOTMENT STATUS"
         value={
-          allottedPartner
-            ? `ALLOTTED · ${allottedPartner.code}`
-            : incumbentStatus === "REJECTED_UNLOCKED"
+          r3Lock
+            ? `ALLOTTED · ${r3Lock.productCode}`
+            : isAuctionActive
               ? "UNLOCKED · IN AUCTION"
-              : incumbentStatus === "ASKING_WAITING"
-                ? `WAITING ON ${R2_LOCKED_PARTNER.code}…`
-                : `PAIRED WITH ${R2_LOCKED_PARTNER.code}`
+              : incumbent.status === "CONSULTANT_ASKED"
+                ? `WAITING ON ${incumbentPartner.code}…`
+                : `PAIRED WITH ${incumbentPartner.code}`
         }
         delta={
-          allottedPartner
-            ? `${code} ⇄ ${allottedPartner.code} (${allottedPartner.ticker}) · SOLVING R3 CRISIS`
-            : incumbentStatus === "REJECTED_UNLOCKED"
-              ? `${R2_LOCKED_PARTNER.code} DECLINED · PICK NEW PARTNER IN AUCTION`
-              : "AWAITING ROUND 3 PRICE INCREASE DECISION"
+          r3Lock
+            ? dispatchedStatement
+              ? `RECEIVED ${dispatchedStatement.id} LIVE FROM ${r3Lock.productCode} ✓`
+              : waitingForLiveProductStatement
+                ? `AWAITING ${r3Lock.productCode} TO PICK PROBLEM STATEMENT`
+                : `${code} ⇄ ${r3Lock.productCode} · SOLVING R3 CRISIS`
+            : isAuctionActive
+              ? `${incumbentPartner.code} OPENED RE-BID · LOCK NEW PARTNER`
+              : "SEND BASE PRICE OR INCREASE TO START R3"
         }
       />
     </div>
@@ -371,32 +340,36 @@ export default function Trade(){
     <div className="guide-grid two mt-4">
       {/* PANEL 1: Ask Current Round 2 Partner for a Round 3 Price Increase */}
       <Panel
-        title={`1. Ask ${R2_LOCKED_PARTNER.code} (${R2_LOCKED_PARTNER.company}) for a Round 3 price increase`}
+        title={`1. Ask ${incumbentPartner.code} (${incumbentPartner.company}) for a Round 3 price increase`}
         tag={
-          incumbentStatus === "ACCEPTED_LOCKED"
-            ? "ACCEPTED · LOCKED FOR ROUND 3"
-            : incumbentStatus === "REJECTED_UNLOCKED"
-              ? "NOT ACCEPTED · TEAM UNLOCKED"
-              : `CURRENT R2 PARTNER · ${R2_LOCKED_PARTNER.code}`
+          r3Lock && r3Lock.productCode === incumbentPartner.code
+            ? r3Lock.source === "RETURNED_TO_INCUMBENT"
+              ? `RETURNED & LOCKED · ${incumbentPartner.code}`
+              : `ACCEPTED · LOCKED FOR ROUND 3`
+            : incumbent.status === "REJECTED_REBIDDING"
+              ? "REMOVED FOR RE-BID · TEAM UNLOCKED"
+              : incumbent.status === "CONSULTANT_ASKED"
+                ? `SENT TO ${incumbentPartner.code} · AWAITING PRODUCT`
+                : `R2 PARTNER · ${incumbentPartner.code}`
         }
       >
         <p className="guide-muted">
-          You finished Round 2 paired with <b>{R2_LOCKED_PARTNER.code} · {R2_LOCKED_PARTNER.company} ({R2_LOCKED_PARTNER.ticker})</b> at <b>${R2_LOCKED_PARTNER.initialOfferedDeal.toLocaleString()}</b>. Ask them for a Round 3 price increase below. It is up to <b>{R2_LOCKED_PARTNER.code}</b> whether they accept or not.
+          You enter Round 3 paired with <b>{incumbentPartner.code} · {incumbentPartner.company} ({incumbentPartner.ticker})</b> starting from your consultancy base price of <b>${baseValuation.toLocaleString()}</b>. Stay at base price (0%) or ask for an increase—<b>{incumbentPartner.code}</b> receives it live on their Round 3 page and chooses whether to accept or remove you for re-bid.
         </p>
 
-        <label className="guide-label">SELECT ROUND 3 PRICE (BASE PRICE OR INCREASE %) FOR {R2_LOCKED_PARTNER.code}</label>
+        <label className="guide-label">SELECT ROUND 3 PRICE (BASE PRICE OR INCREASE %) FOR {incumbentPartner.code}</label>
         <div className="guide-tabs">
           {[0, 10, 15, 20, 25, 40].map(pct => (
             <button
               key={pct}
               type="button"
-              disabled={incumbentStatus !== "PAIRED_FROM_R2"}
+              disabled={incumbent.status !== "AWAITING_CONSULTANT_ASK" || !!r3Lock}
               className={r3IncreasePct === pct ? "active" : ""}
               onClick={() => setR3IncreasePct(pct)}
             >
               {pct === 0
-                ? `BASE (0% · $${BASE_VALUATION.toLocaleString()})`
-                : `+${pct}% ($${Math.round(BASE_VALUATION * (1 + pct / 100)).toLocaleString()})`}
+                ? `BASE (0% · $${baseValuation.toLocaleString()})`
+                : `+${pct}% ($${Math.round(baseValuation * (1 + pct / 100)).toLocaleString()})`}
             </button>
           ))}
         </div>
@@ -409,7 +382,7 @@ export default function Trade(){
               min={0}
               max={200}
               step={1}
-              disabled={incumbentStatus !== "PAIRED_FROM_R2"}
+              disabled={incumbent.status !== "AWAITING_CONSULTANT_ASK" || !!r3Lock}
               className="guide-input font-mono"
               value={r3IncreasePct}
               onChange={e => setR3IncreasePct(Math.max(0, Math.min(200, Number(e.target.value) || 0)))}
@@ -430,83 +403,121 @@ export default function Trade(){
           </div>
         </div>
 
-        {incumbentStatus === "PAIRED_FROM_R2" && (
+        {incumbent.status === "AWAITING_CONSULTANT_ASK" && !r3Lock && (
           <div className="mt-4 space-y-2">
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 className="guide-btn"
-                onClick={() => handleAskIncumbentPriceIncrease()}
+                onClick={() =>
+                  dispatch({
+                    type: "R3_CONSULTING_ASK_INCUMBENT",
+                    productCode: incumbentPartner.code,
+                    consultingCode: code,
+                    increasePct: r3IncreasePct,
+                  })
+                }
               >
                 {r3IncreasePct === 0
-                  ? `SEND BASE PRICE ($${requestedIncumbentPrice.toLocaleString()} · 0%) TO ${R2_LOCKED_PARTNER.code} →`
-                  : `ASK ${R2_LOCKED_PARTNER.code} FOR +${r3IncreasePct}% ($${requestedIncumbentPrice.toLocaleString()}) →`}
-              </button>
-              <button
-                type="button"
-                className="guide-btn secondary"
-                onClick={() => handleAskIncumbentPriceIncrease("REJECT")}
-              >
-                TEST IF {R2_LOCKED_PARTNER.code} DOES NOT ACCEPT (UNLOCK TO AUCTION) →
+                  ? `SEND BASE PRICE ($${requestedIncumbentPrice.toLocaleString()} · 0%) TO ${incumbentPartner.code} →`
+                  : `ASK ${incumbentPartner.code} FOR +${r3IncreasePct}% ($${requestedIncumbentPrice.toLocaleString()}) →`}
               </button>
             </div>
             <p className="guide-muted">
-              Note: Your consultancy price starts on its base price (<b>${BASE_VALUATION.toLocaleString()}</b>) in Round 3 too. You can stay at base price (0%) or ask for an increase.
+              This request syncs immediately to <b>{incumbentPartner.code}&apos;s</b> Round 3 workspace. They can accept your price or remove you for re-bid.
             </p>
           </div>
         )}
 
-        {incumbentStatus === "ASKING_WAITING" && (
-          <div className="guide-alert mt-4">
-            <b>● Price increase request (+{r3IncreasePct}% → ${requestedIncumbentPrice.toLocaleString()}) sent to {R2_LOCKED_PARTNER.code}…</b>
-            <br />
-            Waiting for Product Team {R2_LOCKED_PARTNER.code} ({R2_LOCKED_PARTNER.company}) to accept or decline your Round 3 price increase.
+        {incumbent.status === "CONSULTANT_ASKED" && !r3Lock && (
+          <div className="guide-alert mt-4 space-y-2.5">
+            <div>
+              <b>● Round 3 price request (+{incumbent.requestedPct}% → ${incumbent.requestedPrice.toLocaleString()}) sent live to {incumbentPartner.code}!</b>
+              <br />
+              Waiting for Product Team <b>{incumbentPartner.code} ({incumbentPartner.company})</b> to click <b>Accept</b> or <b>Remove &amp; Re-Bid</b> in their Product Round 3 workspace.
+            </div>
+            {isIncumbentNpc && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="guide-btn"
+                  onClick={() =>
+                    dispatch({
+                      type: "R3_PRODUCT_ACCEPT_INCUMBENT",
+                      productCode: incumbentPartner.code,
+                      consultingCode: code,
+                    })
+                  }
+                >
+                  SIMULATE {incumbentPartner.code} ACCEPT
+                </button>
+                <button
+                  type="button"
+                  className="guide-btn secondary"
+                  onClick={() =>
+                    dispatch({
+                      type: "R3_PRODUCT_REMOVE_INCUMBENT",
+                      productCode: incumbentPartner.code,
+                      consultingCode: code,
+                    })
+                  }
+                >
+                  SIMULATE {incumbentPartner.code} REMOVE FOR RE-BID
+                </button>
+              </div>
+            )}
           </div>
         )}
 
-        {incumbentStatus === "ACCEPTED_LOCKED" && (
+        {r3Lock && r3Lock.productCode === incumbentPartner.code && (
           <div className="guide-alert mt-4">
-            <b>✓ {R2_LOCKED_PARTNER.code} ({R2_LOCKED_PARTNER.company}) ACCEPTED your +{incumbentFinalPct}% price increase ({incumbentDecidedAt})!</b>
+            <b>
+              ✓ {incumbentPartner.code} ({incumbentPartner.company}){" "}
+              {r3Lock.source === "RETURNED_TO_INCUMBENT"
+                ? "RETURNED TO YOU & LOCKED"
+                : `ACCEPTED your +${r3Lock.markupPct}% price`}{" "}
+              ({r3Lock.lockedAt})!
+            </b>
             <br />
-            Your new price of <b>${incumbentFinalPrice.toLocaleString()}</b> is locked and will be paid after Round 3. You remain allotted 1-to-1 with <b>{R2_LOCKED_PARTNER.code}</b>—solve their Round 3 crisis below.
+            Your agreed Round 3 price of <b>${r3Lock.finalPrice.toLocaleString()}</b> is locked and settled after Round 3. Solve their dispatched Problem Statement crisis below.
           </div>
         )}
 
-        {incumbentStatus === "REJECTED_UNLOCKED" && (
+        {incumbent.status === "REJECTED_REBIDDING" && (!r3Lock || r3Lock.productCode !== incumbentPartner.code) && (
           <div className="guide-alert guide-warning mt-4">
-            <b>✕ {R2_LOCKED_PARTNER.code} ({R2_LOCKED_PARTNER.company}) DID NOT ACCEPT your +{r3IncreasePct}% price increase ({incumbentDecidedAt}).</b>
+            <b>✕ {incumbentPartner.code} ({incumbentPartner.company}) REMOVED YOU FOR RE-BID ({incumbent.decidedAt}).</b>
             <br />
-            <b>Team {code} is now UNLOCKED and back in the Round 3 Open Auction!</b> Negotiate and lock 1-to-1 with an interested Product team in Panel 2 on the right to receive your new Round 3 crisis assignment.
+            <b>Team {code} is now UNLOCKED in the Round 3 Open Auction!</b> Negotiate and lock 1-to-1 with an interested Product team in Panel 2 on the right (note: {incumbentPartner.code} can still choose to get back with you until you lock with someone else).
           </div>
         )}
       </Panel>
 
-      {/* PANEL 2: Round 3 Open Auction (Active only if current Product team did NOT accept the price increase) */}
+      {/* PANEL 2: Round 3 Open Auction */}
       <Panel
         title="2. Round 3 open auction (when unlocked)"
         tag={
-          incumbentStatus === "ACCEPTED_LOCKED"
-            ? `BYPASSED · RETAINED BY ${R2_LOCKED_PARTNER.code}`
-            : incumbentStatus === "REJECTED_UNLOCKED"
-              ? auctionLockedCode
-                ? `ALLOTTED IN AUCTION · ${auctionLockedCode}`
-                : "AUCTION LIVE · LOCK STRICTLY 1:1"
-              : "STANDBY · OPENS IF R2 PARTNER DECLINES"
+          r3Lock && r3Lock.productCode === incumbentPartner.code
+            ? `BYPASSED · RETAINED BY ${incumbentPartner.code}`
+            : r3Lock
+              ? `ALLOTTED IN AUCTION · ${r3Lock.productCode}`
+              : isAuctionActive
+                ? "AUCTION LIVE · LOCK STRICTLY 1:1"
+                : "STANDBY · OPENS IF R2 PARTNER REMOVES YOU"
         }
       >
-        {incumbentStatus !== "REJECTED_UNLOCKED" ? (
+        {!isAuctionActive && !(r3Lock && r3Lock.productCode !== incumbentPartner.code) ? (
           <div className="guide-alert">
-            {incumbentStatus === "ACCEPTED_LOCKED" ? (
+            {r3Lock ? (
               <>
-                <b>Auction Bypassed — Retained by {R2_LOCKED_PARTNER.code} ({R2_LOCKED_PARTNER.company})</b>
+                <b>Auction Bypassed — Retained by {incumbentPartner.code} ({incumbentPartner.company})</b>
                 <br />
-                Because {R2_LOCKED_PARTNER.code} accepted your Round 3 price increase (${incumbentFinalPrice.toLocaleString()}, settled after Round 3), your team stayed locked 1-to-1 with {R2_LOCKED_PARTNER.code} and did not enter the open auction.
+                Because {incumbentPartner.code} locked with you for Round 3 (${r3Lock.finalPrice.toLocaleString()}, settled after Round 3), your team stayed paired 1:1 and bypassed the open auction.
               </>
             ) : (
               <>
                 <b>Auction on Standby</b>
                 <br />
-                You are currently paired with your Round 2 partner (<b>{R2_LOCKED_PARTNER.code} · {R2_LOCKED_PARTNER.company}</b>). If you ask for a price increase on the left and <b>{R2_LOCKED_PARTNER.code} does not accept</b>, your consultancy team will immediately unlock and enter this Round 3 auction.
+                You are currently paired with your Round 2 partner (<b>{incumbentPartner.code} · {incumbentPartner.company}</b>). If <b>{incumbentPartner.code} removes you for re-bid</b> in their Product Round 3 workspace, your consultancy immediately unlocks and enters this live Round 3 auction.
               </>
             )}
           </div>
@@ -529,140 +540,252 @@ export default function Trade(){
               </div>
             </div>
 
-            <div className="space-y-3">
-              {AUCTION_CANDIDATES.map(cand => {
-                const d = auctionDeals[cand.code]!;
-                const isThisLocked = auctionLockedCode === cand.code;
-                const isThisWaitingLock = auctionWaitingLockCode === cand.code;
-                const isClosedByOther = isAuctionLockedOrPending && !isThisLocked && !isThisWaitingLock;
-                const pushedPreview = Math.round(cand.initialOfferedDeal * (1 + auctionMarkupPct / 100));
+            <ListFilterBar
+              value={auctionFilter}
+              onChange={setAuctionFilter}
+              teamOptions={auctionTeamOptions}
+              teamLabel="PRODUCT TEAM CODE"
+              allTeamsLabel="All Auction Teams"
+              amountLabel="AUCTION OFFER AMOUNT"
+              amountRanges={buildDealAmountRanges()}
+              exactAmounts={exactAuctionAmounts}
+              totalCount={allAuctionCandidates.length}
+              filteredCount={filteredAuctionCandidates.length}
+              itemNoun="auction teams"
+            />
 
-                return (
-                  <div
-                    key={cand.code}
-                    className="border border-[#294832] p-3"
-                    style={{ opacity: isClosedByOther ? 0.4 : 1 }}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <span className={`guide-chip ${isThisLocked ? "active" : ""}`}>
-                          {cand.code} · {cand.ticker}
+            {isAuctionActiveHidden && activeAuctionCode && (
+              <div className="guide-alert mb-3 flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <b>{r3Lock ? `🔒 Allotted 1:1 with ${activeAuctionCode}` : `● Lock request pending with ${activeAuctionCode}`}</b> — hidden by your current filter.
+                </span>
+                <button
+                  type="button"
+                  className="guide-btn secondary guide-filter-reset"
+                  onClick={() => setAuctionFilter({ ...INITIAL_LIST_FILTER, teamCode: activeAuctionCode })}
+                >
+                  SHOW {activeAuctionCode}
+                </button>
+              </div>
+            )}
+
+            <div className="guide-scroll-box space-y-3">
+              {filteredAuctionCandidates.length === 0 ? (
+                <EmptyFilterState noun="auction teams" onReset={() => setAuctionFilter(INITIAL_LIST_FILTER)} />
+              ) : (
+                filteredAuctionCandidates.map(cand => {
+                  const d = getR3AuctionDeal(state, cand.code, code);
+                  const productLockedElsewhere = getProductR3Lock(state, cand.code);
+                  const isLockedByOtherConsultant =
+                    productLockedElsewhere !== null && productLockedElsewhere.consultingCode !== code;
+                  const isThisLocked = r3Lock?.productCode === cand.code;
+                  const isThisWaitingLock = auctionWaitingLockCode === cand.code;
+                  const isClosedByOther =
+                    (isAuctionLockedOrPending && !isThisLocked && !isThisWaitingLock) || isLockedByOtherConsultant;
+                  const isProductLockIncoming =
+                    d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted;
+                  const pushedPreview = Math.round(d.initialOffer * (1 + auctionMarkupPct / 100));
+                  const isSimulatedNpc = cand.code !== "XP01";
+
+                  return (
+                    <div
+                      key={cand.code}
+                      className="border border-[#294832] p-3"
+                      style={{ opacity: isClosedByOther ? 0.42 : 1 }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <span className={`guide-chip ${isThisLocked || isProductLockIncoming || d.stage === "PROPOSAL_SENT" ? "active" : ""}`}>
+                            {cand.code} · {cand.ticker}
+                          </span>
+                          <b className="ml-2 text-sm">{cand.company}</b>
+                        </div>
+                        <span className="guide-status">
+                          {isThisLocked
+                            ? `🔒 ALLOTTED & LOCKED 1:1 AT $${r3Lock!.finalPrice.toLocaleString()}`
+                            : isLockedByOtherConsultant
+                              ? `CLOSED · ${cand.code} LOCKED WITH ${productLockedElsewhere!.consultingCode}`
+                              : isThisWaitingLock
+                                ? "● LOCK REQUEST SENT · AWAITING PRODUCT TEAM…"
+                                : isClosedByOther
+                                  ? "CLOSED · 1:1 ALLOTTED"
+                                  : isProductLockIncoming
+                                    ? `⚡ ${cand.code} SENT LOCK REQUEST AT $${d.currentPrice.toLocaleString()}!`
+                                    : d.stage === "PROPOSAL_SENT"
+                                      ? `⚡ LIVE RE-BID FROM ${cand.code} AT $${d.currentPrice.toLocaleString()}`
+                                      : d.stage === "COUNTER_DEMANDED"
+                                        ? `● PUSHED +${d.pendingMarkupPct}% ($${d.pendingPrice?.toLocaleString()}) · AWAITING ${cand.code}…`
+                                        : d.stage === "DEAL_AGREED_UNLOCKED"
+                                          ? `✓ DEAL AGREED AT $${d.currentPrice.toLocaleString()} · READY TO LOCK`
+                                          : `AUCTION OFFER: $${d.initialOffer.toLocaleString()} · NOT LOCKED`}
                         </span>
-                        <b className="ml-2 text-sm">{cand.company}</b>
                       </div>
-                      <span className="guide-status">
-                        {isThisLocked
-                          ? `🔒 ALLOTTED & LOCKED 1:1 AT $${d.currentDealPrice.toLocaleString()}`
-                          : isThisWaitingLock
-                            ? "● LOCK REQUEST SENT · AWAITING PRODUCT TEAM…"
-                            : isClosedByOther
-                              ? "CLOSED · 1:1 ALLOTTED"
-                              : d.dealPushState === "PUSHED_WAITING"
-                                ? `● PUSHING +${d.pendingMarkupPct}% ($${d.pendingDealPrice?.toLocaleString()})…`
-                                : d.dealPushState === "DEAL_UPDATED"
-                                  ? `✓ DEAL UPDATED TO $${d.currentDealPrice.toLocaleString()} · NOT LOCKED`
-                                  : `AUCTION OFFER: $${cand.initialOfferedDeal.toLocaleString()} · NOT LOCKED`}
-                      </span>
-                    </div>
 
-                    <p className="guide-muted mt-1">
-                      <b>Topic:</b> {cand.topic}
-                    </p>
+                      <p className="guide-muted mt-1">
+                        <b>Topic:</b> {cand.topic}
+                      </p>
 
-                    <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
-                      <div className="border border-[#294832] p-1.5">
-                        <span className="block text-[#81a4d1]">R3 DEAL PRICE</span>
-                        <b className="mt-0.5 block text-[#f0f7ff]">${d.currentDealPrice.toLocaleString()}</b>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
+                        <div className="border border-[#294832] p-1.5">
+                          <span className="block text-[#81a4d1]">R3 DEAL PRICE</span>
+                          <b className="mt-0.5 block text-[#f0f7ff]">
+                            ${(d.pendingPrice ?? d.currentPrice).toLocaleString()}
+                          </b>
+                        </div>
+                        <div className="border border-[#294832] p-1.5">
+                          <span className="block text-[#81a4d1]">CONSULTING ({code})</span>
+                          <b className="mt-0.5 block text-[#f0f7ff]">{d.consultingLockAccepted || isThisLocked ? "✓ LOCK ACCEPTED" : "NOT LOCKED"}</b>
+                        </div>
+                        <div className="border border-[#294832] p-1.5">
+                          <span className="block text-[#81a4d1]">PRODUCT ({cand.code})</span>
+                          <b className="mt-0.5 block text-[#f0f7ff]">
+                            {isThisLocked
+                              ? "✓ LOCK ACCEPTED"
+                              : isProductLockIncoming
+                                ? "⚡ SENT LOCK REQUEST"
+                                : "NOT LOCKED"}
+                          </b>
+                        </div>
                       </div>
-                      <div className="border border-[#294832] p-1.5">
-                        <span className="block text-[#81a4d1]">CONSULTING ({code})</span>
-                        <b className="mt-0.5 block text-[#f0f7ff]">{d.consultingLockAccepted ? "✓ LOCK ACCEPTED" : "NOT LOCKED"}</b>
-                      </div>
-                      <div className="border border-[#294832] p-1.5">
-                        <span className="block text-[#81a4d1]">PRODUCT ({cand.code})</span>
-                        <b className="mt-0.5 block text-[#f0f7ff]">
-                          {d.productLockAccepted
-                            ? d.lockInitiatedBy === "PRODUCT" && !d.consultingLockAccepted
-                              ? "● SENT LOCK REQUEST"
-                              : "✓ LOCK ACCEPTED"
-                            : "NOT LOCKED"}
-                        </b>
-                      </div>
-                    </div>
 
-                    {!isClosedByOther && (
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                        {!isThisLocked && !isThisWaitingLock && (
-                          <>
-                            <button
-                              type="button"
-                              disabled={d.dealPushState === "PUSHED_WAITING"}
-                              className="guide-btn secondary"
-                              onClick={() => handlePushAuctionDeal(cand.code)}
-                            >
-                              {d.dealPushState === "PUSHED_WAITING"
-                                ? `PUSHING $${d.pendingDealPrice?.toLocaleString()}…`
-                                : `PUSH +${auctionMarkupPct}% ($${pushedPreview.toLocaleString()}) →`}
-                            </button>
-
-                            {d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted ? (
+                      {!isClosedByOther && (
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          {!isThisLocked && !isThisWaitingLock && (
+                            <>
                               <button
                                 type="button"
-                                disabled={d.dealPushState === "PUSHED_WAITING"}
-                                className="guide-btn"
-                                onClick={() => handleAcceptAuctionProductLock(cand.code)}
+                                className="guide-btn secondary"
+                                onClick={() =>
+                                  dispatch({
+                                    type: "R3_CONSULTING_PUSH_AUCTION_DEMAND",
+                                    productCode: cand.code,
+                                    consultingCode: code,
+                                    markupPct: auctionMarkupPct,
+                                  })
+                                }
                               >
-                                ACCEPT LOCK REQUEST FROM {cand.code} (${d.currentDealPrice.toLocaleString()}) 🔒
+                                PUSH +{auctionMarkupPct}% (${pushedPreview.toLocaleString()}) →
                               </button>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={d.dealPushState === "PUSHED_WAITING"}
-                                className="guide-btn"
-                                onClick={() => handleSendAuctionLockRequest(cand.code)}
-                              >
-                                SEND LOCK REQUEST TO {cand.code} (${d.currentDealPrice.toLocaleString()}) →
-                              </button>
-                            )}
-                          </>
-                        )}
 
-                        {isThisWaitingLock && (
-                          <span className="guide-status">
-                            ● WAITING FOR {cand.code} TO ACCEPT LOCK REQUEST…
-                          </span>
-                        )}
+                              {d.stage === "COUNTER_DEMANDED" && isSimulatedNpc && (
+                                <button
+                                  type="button"
+                                  className="guide-btn secondary"
+                                  onClick={() =>
+                                    dispatch({
+                                      type: "R3_PRODUCT_ACCEPT_AUCTION_DEMAND",
+                                      productCode: cand.code,
+                                      consultingCode: code,
+                                    })
+                                  }
+                                >
+                                  SIMULATE {cand.code} ACCEPT
+                                </button>
+                              )}
 
-                        {isThisLocked && (
-                          <span className="guide-status">
-                            🔒 ALLOTTED 1:1 WITH {cand.code} AT ${d.currentDealPrice.toLocaleString()} (SETTLED AFTER R3)
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                              {isProductLockIncoming ? (
+                                <button
+                                  type="button"
+                                  className="guide-btn"
+                                  onClick={() =>
+                                    dispatch({
+                                      type: "R3_ACCEPT_AUCTION_LOCK",
+                                      productCode: cand.code,
+                                      consultingCode: code,
+                                      acceptedBy: "CONSULTING",
+                                    })
+                                  }
+                                >
+                                  ACCEPT LOCK REQUEST FROM {cand.code} (${d.currentPrice.toLocaleString()}) 🔒
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={d.stage === "COUNTER_DEMANDED"}
+                                  className="guide-btn"
+                                  onClick={() =>
+                                    dispatch({
+                                      type: "R3_SEND_AUCTION_LOCK",
+                                      productCode: cand.code,
+                                      consultingCode: code,
+                                      initiatedBy: "CONSULTING",
+                                    })
+                                  }
+                                >
+                                  SEND LOCK REQUEST TO {cand.code} (${d.currentPrice.toLocaleString()}) →
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                          {isThisWaitingLock && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="guide-status">
+                                ● WAITING FOR {cand.code} TO ACCEPT LOCK REQUEST…
+                              </span>
+                              {isSimulatedNpc && (
+                                <button
+                                  type="button"
+                                  className="guide-btn secondary"
+                                  onClick={() =>
+                                    dispatch({
+                                      type: "R3_ACCEPT_AUCTION_LOCK",
+                                      productCode: cand.code,
+                                      consultingCode: code,
+                                      acceptedBy: "PRODUCT",
+                                    })
+                                  }
+                                >
+                                  SIMULATE {cand.code} ACCEPT LOCK
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {isThisLocked && (
+                            <span className="guide-status">
+                              🔒 ALLOTTED 1:1 WITH {cand.code} AT ${r3Lock!.finalPrice.toLocaleString()} (SETTLED AFTER R3)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </>
         )}
       </Panel>
     </div>
 
-    {/* PANEL 3: Allotted Product Team's Round 3 Crisis & Collaborative Solution Editor */}
-    {!allottedPartner ? (
+    {/* PANEL 3: Allotted Product Team's Dispatched Problem Statement Crisis & Collaborative Solution Editor */}
+    {!allottedPartner || !r3Lock ? (
       <div className="mt-4">
         <Panel title="3. Round 3 crisis for your allotted product team" tag="LOCKED UNTIL ROUND 3 ALLOTMENT IS SORTED">
           <div className="guide-alert guide-warning">
             <b>
-              {incumbentStatus === "PAIRED_FROM_R2"
-                ? `Step 1 Required: Ask ${R2_LOCKED_PARTNER.code} (${R2_LOCKED_PARTNER.company}) for Your Round 3 Price Increase Above`
-                : incumbentStatus === "ASKING_WAITING"
-                  ? `Waiting for ${R2_LOCKED_PARTNER.code} to Respond to Your Price Increase Request…`
+              {incumbent.status === "AWAITING_CONSULTANT_ASK"
+                ? `Step 1 Required: Send Your Round 3 Base Price or Increase Request to ${incumbentPartner.code} Above`
+                : incumbent.status === "CONSULTANT_ASKED"
+                  ? `Waiting for ${incumbentPartner.code} to Accept or Remove for Re-Bid in Their Product Round 3 Tab…`
                   : `You Are Unlocked in the Round 3 Auction — Lock 1-to-1 With a Product Team in Panel 2`}
             </b>
             <br />
-            Once your Round 3 allotment is sorted—either because <b>{R2_LOCKED_PARTNER.code} accepts your price increase</b> or because you <b>mutually lock 1-to-1 with a new Product team in the Round 3 auction</b>—the Round 3 crisis related to that allotted Product team will appear here for you to solve.
+            Once your Round 3 allotment is locked 1:1, the exact Problem Statement that your allotted Product team picks in the least-money draft dispatches live into this panel for you to solve!
+          </div>
+        </Panel>
+      </div>
+    ) : waitingForLiveProductStatement ? (
+      <div className="mt-4">
+        <Panel
+          title={`3. Waiting for ${allottedPartner.code} (${allottedPartner.company}) to lock their Problem Statement`}
+          tag={`ALLOTTED 1:1 · ${code} ⇄ ${allottedPartner.code}`}
+        >
+          <div className="guide-alert guide-warning">
+            <b>⏳ Allotted 1:1 with {allottedPartner.code} ({allottedPartner.company}) at ${r3Lock.finalPrice.toLocaleString()} — Waiting on Least-Money Draft Pick…</b>
+            <br />
+            As soon as <b>{allottedPartner.code}</b> picks &amp; permanently locks a Problem Statement in their Product Round 3 pool, that exact statement and its crisis twist will dispatch live here and unlock your Round 3 Crisis Solution editor!
           </div>
         </Panel>
       </div>
@@ -671,18 +794,18 @@ export default function Trade(){
         <div className="guide-grid two mt-4">
           <Panel
             title={`3. Round 3 crisis for allotted Product team: ${allottedPartner.company}`}
-            tag={`${allottedPartner.code} · ${allottedPartner.ticker} · ALLOTTED WITH TEAM ${code}`}
+            tag={`${allottedPartner.code} · ${dispatchedStatement ? dispatchedStatement.id : allottedPartner.ticker} · DISPATCHED TO ${code}`}
           >
-            <span className="guide-chip active">{allottedPartner.topic}</span>
+            <span className="guide-chip active">{activeCrisis!.badge}</span>
             <h2 className="mt-3 text-xl font-semibold">
               {allottedPartner.company} <span className="font-mono text-[#63a8ff]">{allottedPartner.ticker}</span>
             </h2>
             <div className="guide-alert guide-warning mt-3">
-              <b>{allottedPartner.crisisCategory}</b>
+              <b>{activeCrisis!.category}</b>
               <br />
-              <b>{allottedPartner.crisisTitle}:</b> {allottedPartner.crisisBody}
+              <b>{activeCrisis!.title}:</b> {activeCrisis!.body}
             </div>
-            <p className="guide-muted mt-3">{allottedPartner.baselineContext}</p>
+            <p className="guide-muted mt-3">{activeCrisis!.baseline}</p>
           </Panel>
 
           <Panel
@@ -699,44 +822,54 @@ export default function Trade(){
                 <small>ALLOTTED PRODUCT TEAM</small>
                 <b>{allottedPartner.code} · {allottedPartner.ticker}</b>
                 <span>
-                  {allottedPartner.code === R2_LOCKED_PARTNER.code ? "ACCEPTED R3 INCREASE ✓" : "LOCKED VIA R3 AUCTION ✓"}
+                  {r3Lock.source === "INCUMBENT_ACCEPTED"
+                    ? "ACCEPTED R3 INCREASE ✓"
+                    : r3Lock.source === "RETURNED_TO_INCUMBENT"
+                      ? "RETURNED TO YOU ✓"
+                      : "LOCKED VIA R3 AUCTION ✓"}
                 </span>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="guide-metric">
                 <small>ROUND 3 DEAL (PAID AFTER R3)</small>
-                <b className="text-lg">${allottedDealPrice.toLocaleString()}</b>
+                <b className="text-lg">${r3Lock.finalPrice.toLocaleString()}</b>
                 <span>LOCKED · CANNOT UPDATE</span>
               </div>
               <div className="guide-metric">
-                <small>R3 SOLUTION STATUS</small>
-                <b className="text-lg">{submittedAt ? "SUBMITTED (LOCKED)" : "IN PROGRESS"}</b>
-                <span>{submittedAt ? `FINALIZED ${submittedAt}` : "SOLVING ALLOTTED CRISIS"}</span>
+                <small>LIVE DELIVERY STATUS</small>
+                <b className="text-lg">{submittedAt ? "DELIVERED ✓" : "SOLVING"}</b>
+                <span>
+                  {allottedPartner.r3MvpSubmittedAt
+                    ? `${allottedPartner.code} SUBMITTED NEW MVP ✓`
+                    : submittedAt
+                      ? `SENT TO ${allottedPartner.code} (${submittedAt})`
+                      : "WILL STREAM TO PRODUCT MVP"}
+                </span>
               </div>
             </div>
             <p className="guide-muted mt-3">
-              Your consulting team (<b>Team {code}</b>) is allotted to <b>{allottedPartner.code} ({allottedPartner.company})</b> for Round 3. The agreed price of <b>${allottedDealPrice.toLocaleString()}</b> is settled after Round 3 once you solve and submit their crisis below.
+              Submitting your 6-part Round 3 Crisis Solution below delivers it immediately into <b>{allottedPartner.code}&apos;s</b> New Round 3 MVP builder. Your agreed fee of <b>${r3Lock.finalPrice.toLocaleString()}</b> is settled after Round 3.
             </p>
           </Panel>
         </div>
 
         <div className="mt-4">
           <Panel
-            title={`Round 3 crisis solution editor for ${allottedPartner.company} (${allottedPartner.ticker})`}
-            tag="6 PARTS · 500 WORDS TOTAL · FINAL ON SUBMIT"
+            title={`Round 3 crisis solution editor for ${allottedPartner.company} (${dispatchedStatement ? dispatchedStatement.id : allottedPartner.ticker})`}
+            tag="6 PARTS · 500 WORDS TOTAL · DELIVERS LIVE TO PRODUCT TEAM"
           >
             {submittedAt && (
               <div className="guide-alert mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <b>✓ Round 3 crisis solution permanently submitted ({code} ⇄ {allottedPartner.code})</b> · Finalized at {submittedAt} ({count} words). Your Round 3 fee (${allottedDealPrice.toLocaleString()}) is queued for post-Round 3 settlement.
+                  <b>✓ Round 3 crisis solution permanently submitted ({code} ⇄ {allottedPartner.code})</b> · Finalized at {submittedAt} ({count} words) and delivered live to <b>{allottedPartner.code}&apos;s</b> New Round 3 MVP editor. Fee (${r3Lock.finalPrice.toLocaleString()}) queued for settlement.
                 </div>
-                <span className="guide-chip active">FINAL · LOCKED</span>
+                <span className="guide-chip active">DELIVERED LIVE ✓</span>
               </div>
             )}
             <div className="flex items-center justify-between">
               <p className="guide-muted">
-                Solving {allottedPartner.company}&apos;s Round 3 crisis ({allottedPartner.crisisCategory}) · Once submitted, your solution is locked and cannot be updated.
+                Solving {allottedPartner.company}&apos;s Round 3 crisis ({activeCrisis!.category}) · Submitting streams your solution straight to {allottedPartner.code}.
               </p>
               <b className={count > 500 ? "text-red-400" : "guide-status"}>{count} / 500 WORDS</b>
             </div>
@@ -752,24 +885,23 @@ export default function Trade(){
                 </button>
               ))}
             </div>
-            <label className="guide-label">{parts[active].toUpperCase()}</label>
+            <label className="guide-label">{parts[active]!.toUpperCase()}</label>
             <textarea
               className="guide-textarea"
               readOnly={!!submittedAt}
               value={values[active]}
               onChange={e => {
                 if (submittedAt) return;
-                setValues(v => {
-                  const next = v.map((x, i) => (i === active ? e.target.value : x));
-                  const words = next.reduce((sum, item) => sum + item.trim().split(/\s+/).filter(Boolean).length, 0);
-                  return words <= 500 ? next : v;
-                });
+                const next = values.map((x, i) => (i === active ? e.target.value : x));
+                const words = next.reduce((sum, item) => sum + item.trim().split(/\s+/).filter(Boolean).length, 0);
+                if (words <= 500) setValues(next);
               }}
+              onBlur={() => handleSaveR3Draft(values)}
               placeholder={consultingPlaceholders[active]}
             />
             <div className="mt-3 flex justify-between">
-              <span className="guide-muted">{values[active].trim().split(/\s+/).filter(Boolean).length} words in this part</span>
-              <span className="guide-status">{submittedAt ? `● SUBMITTED & LOCKED AT ${submittedAt}` : "● DRAFT IN PROGRESS"}</span>
+              <span className="guide-muted">{values[active]!.trim().split(/\s+/).filter(Boolean).length} words in this part</span>
+              <span className="guide-status">{submittedAt ? `● DELIVERED & LOCKED AT ${submittedAt}` : "● DRAFT SYNCING ON BLUR / SUBMIT"}</span>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#294832] pt-4">
               <div className="flex gap-2">
@@ -777,7 +909,10 @@ export default function Trade(){
                   type="button"
                   className="guide-btn secondary"
                   disabled={active === 0}
-                  onClick={() => setActive(v => v - 1)}
+                  onClick={() => {
+                    handleSaveR3Draft(values);
+                    setActive(v => v - 1);
+                  }}
                 >
                   ← PREVIOUS
                 </button>
@@ -785,7 +920,10 @@ export default function Trade(){
                   type="button"
                   className="guide-btn secondary"
                   disabled={active === 5}
-                  onClick={() => setActive(v => v + 1)}
+                  onClick={() => {
+                    handleSaveR3Draft(values);
+                    setActive(v => v + 1);
+                  }}
                 >
                   NEXT PART →
                 </button>
@@ -796,7 +934,7 @@ export default function Trade(){
                 disabled={count === 0 || !!submittedAt}
                 onClick={handleSubmit}
               >
-                {submittedAt ? "ROUND 3 SOLUTION SUBMITTED & LOCKED ✓" : "SUBMIT ROUND 3 SOLUTION →"}
+                {submittedAt ? "ROUND 3 SOLUTION DELIVERED ✓" : "SUBMIT & DELIVER ROUND 3 SOLUTION →"}
               </button>
             </div>
           </Panel>
@@ -805,7 +943,7 @@ export default function Trade(){
     )}
 
     <div className="guide-alert mt-4">
-      Round 3 flow: <b>1. Ask Round 2 Partner for Price Increase</b> → <b>2A. If Accepted:</b> Price is paid after Round 3 &amp; you solve their Round 3 crisis → <b>2B. If Not Accepted:</b> Unlocked into Round 3 Auction; once allotted &amp; locked 1-to-1, you solve that allotted Product team&apos;s Round 3 crisis.
+      End-to-end Round 3 flow: <b>1. Send Price Increase or Base Price to R2 Partner</b> → <b>2. Live Accept or Unlock into Open Auction</b> → <b>3. Receive Product&apos;s Locked Problem Statement Live</b> → <b>4. Deliver Crisis Solution to Product&apos;s New MVP</b>.
     </div>
   </>;
 }
