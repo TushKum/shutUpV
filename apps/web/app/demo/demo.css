@@ -143,33 +143,33 @@
 .guide-app[data-track] [class*="text-[#39ff88]"]{color:var(--track-accent)!important}
 .guide-app[data-track] [class*="bg-[#39ff88]"]{background:var(--track-accent)!important}
 
-/* Sleek Trading App Geometry & Glass Polish (Rounded corners, specular depth, tabular numbers) */
-.guide-app,.demo-login{font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
-.guide-panel{border-radius:14px;overflow:hidden;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:border-color .22s ease,box-shadow .22s ease}
-.guide-panel-head{padding:14px 18px}
-.guide-panel-body{padding:18px}
-.guide-metric{border-radius:12px;position:relative;overflow:hidden;backdrop-filter:blur(12px);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-.guide-metric:hover{transform:translateY(-1px)}
-.guide-btn{border-radius:9px;padding:10px 15px;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
-.guide-btn:hover:not(:disabled){transform:translateY(-1px)}
-.guide-tabs button{border-radius:8px;padding:8px 13px;transition:all .16s ease}
-.guide-chip{border-radius:999px;padding:4px 10px;letter-spacing:.06em}
-.guide-input,.guide-textarea,.guide-select{border-radius:10px;padding:11px 14px;transition:border-color .18s ease,box-shadow .18s ease}
-.guide-alert{border-radius:10px;padding:13px 16px}
-.guide-sidebar nav a{border-radius:9px;padding:10px 11px}
-.guide-avatar{border-radius:10px}
-.guide-phase{border-radius:7px;padding:5px 9px}
-.guide-top-right button{border-radius:8px;padding:6px 10px;transition:all .16s ease}
-.guide-taskbar>span{border-radius:6px;padding:5px 9px}
-.guide-taskbar a{border-radius:8px;padding:7px 13px;transition:transform .16s ease,box-shadow .16s ease}
-.guide-taskbar a:hover{transform:translateY(-1px)}
-.guide-table{border-radius:10px;overflow:hidden}
-.guide-table th:first-child{border-top-left-radius:8px}
-.guide-table th:last-child{border-top-right-radius:8px}
-.demo-login-card{border-radius:18px;overflow:hidden}
-.demo-login-card:before,.demo-login-card:after{display:none}
-.demo-login-primary{border-radius:11px}
-.demo-track-picker button{border-radius:10px}
+/* Sleek Trading App Geometry & Glass Polish scoped to CONSULTING & PRODUCT (FINANCE keeps exact 6a55285 styling) */
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]),.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]){font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-panel{border-radius:14px;overflow:hidden;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:border-color .22s ease,box-shadow .22s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-panel-head{padding:14px 18px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-panel-body{padding:18px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-metric{border-radius:12px;position:relative;overflow:hidden;backdrop-filter:blur(12px);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-metric:hover{transform:translateY(-1px)}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-btn{border-radius:9px;padding:10px 15px;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-btn:hover:not(:disabled){transform:translateY(-1px)}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-tabs button{border-radius:8px;padding:8px 13px;transition:all .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-chip{border-radius:999px;padding:4px 10px;letter-spacing:.06em}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-input,.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-textarea,.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-select{border-radius:10px;padding:11px 14px;transition:border-color .18s ease,box-shadow .18s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-alert{border-radius:10px;padding:13px 16px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-sidebar nav a{border-radius:9px;padding:10px 11px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-avatar{border-radius:10px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-phase{border-radius:7px;padding:5px 9px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-top-right button{border-radius:8px;padding:6px 10px;transition:all .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-taskbar>span{border-radius:6px;padding:5px 9px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-taskbar a{border-radius:8px;padding:7px 13px;transition:transform .16s ease,box-shadow .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-taskbar a:hover{transform:translateY(-1px)}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-table{border-radius:10px;overflow:hidden}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-table th:first-child{border-top-left-radius:8px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-table th:last-child{border-top-right-radius:8px}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-card{border-radius:18px;overflow:hidden}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-card:before,.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-card:after{display:none}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-primary{border-radius:11px}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-track-picker button{border-radius:10px}
 
 /* Complete Sleek Blue Trading Terminal Theme for CONSULTING Track */
 .guide-app[data-track="CONSULTING"]{background:radial-gradient(circle at 18% 0%,#091a38 0%,#040b18 45%,#02060f 100%);color:#eaf3ff}
@@ -752,19 +752,22 @@ html:has(.guide-app)::-webkit-scrollbar-thumb,body:has(.guide-app)::-webkit-scro
 .guide-app .guide-top{background:rgba(9,11,16,.96)!important}
 
 
-/* Canvas MatrixRain compatibility on login/welcome + Sleek Trading App Themes for Consulting (Blue) & Product (Amber) */
+/* Canvas MatrixRain compatibility on login/welcome + Sleek Trading App Themes scoped strictly to Consulting (Blue) & Product (Amber), leaving Finance as exact 6a55285 graphite+gold */
 .demo-login.demo-entry>canvas.demo-matrix-rain,canvas.demo-matrix-rain-fixed{display:block!important;width:100%!important;height:100%!important;opacity:.75!important;mask-image:none!important;-webkit-mask-image:none!important}
-.demo-login.demo-entry .demo-login-card{border-radius:18px!important}
-.demo-login.demo-entry .guide-input,.demo-login.demo-entry .demo-track-picker button,.demo-login.demo-entry .guide-tabs button,.demo-login.demo-entry form>button,.demo-login.demo-entry .demo-login-primary{border-radius:10px!important}
-.guide-app .guide-panel{border-radius:14px!important;overflow:hidden;backdrop-filter:blur(18px)}
-.guide-app .guide-metric{border-radius:12px!important}
-.guide-app .guide-btn{border-radius:9px!important}
-.guide-app .guide-tabs button{border-radius:8px!important}
-.guide-app .guide-chip{border-radius:999px!important}
-.guide-app .guide-input,.guide-app .guide-textarea,.guide-app .guide-select,.guide-app .guide-alert{border-radius:10px!important}
-.guide-app .guide-sidebar nav a{border-radius:9px!important}
-.guide-app .guide-avatar{border-radius:10px!important}
-.guide-app .guide-phase,.guide-app .guide-taskbar>span,.guide-app .guide-taskbar>a,.guide-app .guide-top-right button{border-radius:8px!important}
+.demo-login[data-track="CONSULTING"] .demo-login-card,.demo-login[data-track="PRODUCT"] .demo-login-card{border-radius:18px!important}
+.demo-login[data-track="CONSULTING"] .guide-input,.demo-login[data-track="CONSULTING"] .demo-track-picker button,.demo-login[data-track="CONSULTING"] .guide-tabs button,.demo-login[data-track="CONSULTING"] form>button,.demo-login[data-track="CONSULTING"] .demo-login-primary,
+.demo-login[data-track="PRODUCT"] .guide-input,.demo-login[data-track="PRODUCT"] .demo-track-picker button,.demo-login[data-track="PRODUCT"] .guide-tabs button,.demo-login[data-track="PRODUCT"] form>button,.demo-login[data-track="PRODUCT"] .demo-login-primary{border-radius:10px!important}
+.guide-app[data-track="CONSULTING"] .guide-panel,.guide-app[data-track="PRODUCT"] .guide-panel{border-radius:14px!important;overflow:hidden;backdrop-filter:blur(18px)}
+.guide-app[data-track="CONSULTING"] .guide-metric,.guide-app[data-track="PRODUCT"] .guide-metric{border-radius:12px!important}
+.guide-app[data-track="CONSULTING"] .guide-btn,.guide-app[data-track="PRODUCT"] .guide-btn{border-radius:9px!important}
+.guide-app[data-track="CONSULTING"] .guide-tabs button,.guide-app[data-track="PRODUCT"] .guide-tabs button{border-radius:8px!important}
+.guide-app[data-track="CONSULTING"] .guide-chip,.guide-app[data-track="PRODUCT"] .guide-chip{border-radius:999px!important}
+.guide-app[data-track="CONSULTING"] .guide-input,.guide-app[data-track="CONSULTING"] .guide-textarea,.guide-app[data-track="CONSULTING"] .guide-select,.guide-app[data-track="CONSULTING"] .guide-alert,
+.guide-app[data-track="PRODUCT"] .guide-input,.guide-app[data-track="PRODUCT"] .guide-textarea,.guide-app[data-track="PRODUCT"] .guide-select,.guide-app[data-track="PRODUCT"] .guide-alert{border-radius:10px!important}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a,.guide-app[data-track="PRODUCT"] .guide-sidebar nav a{border-radius:9px!important}
+.guide-app[data-track="CONSULTING"] .guide-avatar,.guide-app[data-track="PRODUCT"] .guide-avatar{border-radius:10px!important}
+.guide-app[data-track="CONSULTING"] .guide-phase,.guide-app[data-track="CONSULTING"] .guide-taskbar>span,.guide-app[data-track="CONSULTING"] .guide-taskbar>a,.guide-app[data-track="CONSULTING"] .guide-top-right button,
+.guide-app[data-track="PRODUCT"] .guide-phase,.guide-app[data-track="PRODUCT"] .guide-taskbar>span,.guide-app[data-track="PRODUCT"] .guide-taskbar>a,.guide-app[data-track="PRODUCT"] .guide-top-right button{border-radius:8px!important}
 
 /* Consulting Track: Complete Sleek Blue Trading Theme */
 .guide-app[data-track="CONSULTING"]{background:radial-gradient(circle at 18% 0%,#091a38 0%,#040b18 45%,#02060f 100%)!important;color:#eaf3ff!important}

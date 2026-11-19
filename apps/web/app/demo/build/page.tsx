@@ -72,6 +72,13 @@ export default function Build(){
   const [mvpValues,setMvpValues]=useState<string[]>(Array(7).fill(""));
   const [mvpSubmittedAt,setMvpSubmittedAt]=useState<string|null>(null);
 
+  // Finance Round 1 state (exact 6a55285 Finance frontend)
+  const [finCompany,setFinCompany]=useState("FreshPack Foods");
+  const [finTicker,setFinTicker]=useState("FRPK");
+  const [finActive,setFinActive]=useState(0);
+  const [finValues,setFinValues]=useState<string[]>(Array(9).fill(""));
+  const [finLoaded,setFinLoaded]=useState(false);
+
   // Consulting team Round 1 state
   const [active,setActive]=useState(0);
   const [values,setValues]=useState<string[]>(Array(6).fill(""));
@@ -79,13 +86,18 @@ export default function Build(){
 
   useEffect(()=>{
     try{
+      const raw=localStorage.getItem("primus-prd-draft");
+      if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed)&&parsed.length===9)setFinValues(parsed)}
       localStorage.removeItem("primus-consulting-r1-draft");
       localStorage.removeItem("primus-consulting-r1-submitted");
       localStorage.removeItem("primus-consulting-r1-draft-v2");
       localStorage.removeItem("primus-consulting-r1-submitted-v2");
     }catch{}
+    setFinLoaded(true);
   },[]);
+  useEffect(()=>{if(finLoaded)localStorage.setItem("primus-prd-draft",JSON.stringify(finValues))},[finValues,finLoaded]);
 
+  const finCount=useMemo(()=>finValues.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[finValues]);
   const mvpCount=useMemo(()=>mvpValues.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[mvpValues]);
   const count=useMemo(()=>values.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[values]);
 
@@ -252,22 +264,10 @@ export default function Build(){
     </>;
   }
 
-  // ── FINANCE TRACK: ROUND 1 OVERVIEW ──
+  // ── FINANCE TRACK: ROUND 1 (exact frontend from previous Final-Frontend 6a55285) ──
   if(track==="FINANCE"){
-    return <>
-      <PageTitle eyebrow={`ROUND 1 / FINANCE TRACK · ${code}`} title="Practice Market & Valuation Analysis." sub="Review sector benchmarks and prepare your valuation models while Product teams pitch their MVPs and Consulting teams establish their Round 1 valuations."/>
-      <div className="guide-grid two">
-        <Panel title="Sector watch" tag="3 SECTORS · LIVE">
-          <p className="guide-muted">Product teams are pitching ideas and building MVPs across 3 sectors (FMCG, FinTech, HealthTech). Once Round 1 scores lock, starting share prices open for Round 2 &amp; Round 3 trading.</p>
-        </Panel>
-        <Panel title="Fund status" tag={`TEAM ${code} · FINANCE`}>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="guide-metric"><small>FUND CODE</small><b>{code}</b><span>FINANCE TRACK</span></div>
-            <div className="guide-metric"><small>STARTING CAPITAL</small><b>$100,000</b><span>READY FOR TRADING</span></div>
-          </div>
-        </Panel>
-      </div>
-    </>;
+    const finParts=["Problem","Target user","Must have","Should have","Not in version 1","Per-pack maths","Go to market","Success metrics","Risks"];
+    return <><PageTitle eyebrow="ROUND 1 / BUILD" title="Build your company." sub="The lottery deals your team a problem card. Name your company, claim a unique four-letter ticker and write its product requirements document."/><div className="guide-grid two"><Panel title="Your problem card" tag="LOTTERY ASSIGNMENT"><span className="guide-chip">PROBLEM CARD 08 · FMCG</span><h2 className="mt-3 text-xl font-semibold">School tiffin filler</h2><p className="guide-muted mt-2">Parents of 6–12-year-olds want a packed snack for the school tiffin that is not junk, costs under ₹15 and survives a hot bag till lunch.</p></Panel><Panel title="Company identity" tag="CLAIM YOUR TICKER"><label className="guide-label">COMPANY NAME · UP TO 60 CHARACTERS</label><input className="guide-input" maxLength={60} value={finCompany} onChange={e=>setFinCompany(e.target.value)}/><label className="guide-label">FOUR-LETTER TICKER · A–Z</label><input className="guide-input font-mono uppercase" maxLength={4} value={finTicker} onChange={e=>setFinTicker(e.target.value.toUpperCase().replace(/[^A-Z]/g,""))}/><p className="guide-muted mt-2">The first team to save a ticker owns it. This preview does not reserve tickers on the event server.</p></Panel></div><div className="mt-4"><Panel title="Product requirements document" tag="9 PARTS · 800 WORDS TOTAL"><div className="mb-4 flex items-center justify-between"><div><b className="text-sm">Your PRD</b><p className="guide-muted">Each part has its own box. The editor autosaves locally in this preview.</p></div><span className={finCount>800?"text-red-400":"guide-status"}>{finCount} / 800 WORDS</span></div><div className="guide-tabs">{finParts.map((p,i)=><button key={p} type="button" className={finActive===i?"active":""} onClick={()=>setFinActive(i)}>{String(i+1).padStart(2,"0")} · {p}</button>)}</div><label className="guide-label">{finParts[finActive]!.toUpperCase()}</label><textarea className="guide-textarea" value={finValues[finActive]} onChange={e=>setFinValues(v=>{const next=v.map((x,i)=>i===finActive?e.target.value:x);const words=next.reduce((sum,item)=>sum+item.trim().split(/\s+/).filter(Boolean).length,0);return words<=800?next:v})} placeholder={"Write the "+finParts[finActive]!.toLowerCase()+" section of your PRD…"} /><div className="mt-3 flex items-center justify-between"><span className="guide-muted">{finValues[finActive]!.trim().split(/\s+/).filter(Boolean).length} words in this section</span><span className="guide-status">● AUTOSAVED IN THIS BROWSER</span></div><div className="mt-4 flex justify-between"><button type="button" className="guide-btn secondary" disabled={finActive===0} onClick={()=>setFinActive(v=>v-1)}>← PREVIOUS</button><button type="button" className="guide-btn" disabled={finActive===8} onClick={()=>setFinActive(v=>v+1)}>NEXT SECTION →</button></div></Panel></div><div className="guide-alert mt-4">The form locks at 23:00 IST. The last saved version is judged. There is no submit button. AI judges read each PRD three times; the middle score counts.</div></>;
   }
 
   // ── CONSULTING TEAM: ROUND 1 (Pre-Assigned Code, Solve Crisis, Submit) ──
