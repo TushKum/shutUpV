@@ -164,11 +164,13 @@ export interface CandleGeometry {
   path2: string;
   /** The moving average of the closes (`average` candles), from the first candle it has a full window for. */
   pathAverage: string;
+  pathSlowAverage: string;
   /** y of the last close, for the last-price line. */
   lastY: number;
   yTicks: { y: number; value: number }[];
   min: number;
   max: number;
+  priceBottom: number;
   /** The volume pane (empty when no candle has volume). */
   volTop: number;
   volBottom: number;
@@ -181,8 +183,8 @@ export function candlesFrom(values: readonly number[], labels: readonly string[]
 }
 
 /** Where every candle goes in `box`; the bottom fifth holds the volume bars when any candle has volume. */
-export function candleGeometry(input: readonly Candle[], box: ChartBox, ticks = 4, average = 0): CandleGeometry {
-  const empty = { box, candles: [], width: 0, path2: "", pathAverage: "", lastY: 0, yTicks: [], min: 0, max: 0, volTop: 0, volBottom: 0, maxVolume: 0 };
+export function candleGeometry(input: readonly Candle[], box: ChartBox, ticks = 4, average = 0, slowAverage = 0): CandleGeometry {
+  const empty = { box, candles: [], width: 0, path2: "", pathAverage: "", pathSlowAverage: "", lastY: 0, yTicks: [], min: 0, max: 0, priceBottom: 0, volTop: 0, volBottom: 0, maxVolume: 0 };
   if (input.length === 0) return empty;
   const values = input.flatMap((c) => [c.open, c.close, ...(c.high != null ? [c.high] : []), ...(c.low != null ? [c.low] : []), ...(c.second != null ? [c.second] : [])]);
   let lo = Math.min(...values);
@@ -240,13 +242,18 @@ export function candleGeometry(input: readonly Candle[], box: ChartBox, ticks = 
     path2 += `${path2 ? " " : ""}${pen ? "L" : "M"}${c.x} ${c.y2}`;
     pen = true;
   }
-  const avg = average > 1 ? movingAverage(input.map((c) => c.close), average) : [];
-  const pathAverage = candles
-    .map((c, i) => (avg[i] == null ? null : `${c.x} ${yAt(avg[i]!)}`))
-    .reduce<string>((d, p) => (p === null ? d : `${d}${d ? " L" : "M"}${p}`), "");
+  const closes = input.map((c) => c.close);
+  const averagePath = (window: number) => window > 1
+    ? movingAverage(closes, window).reduce<string>((path, price, i) => (
+      price === null ? path : `${path}${path ? " L" : "M"}${candles[i]!.x} ${yAt(price)}`
+    ), "")
+    : "";
   const yTicks: { y: number; value: number }[] = [];
   for (let v = min; v <= max; v += step) yTicks.push({ y: yAt(v), value: v });
-  return { box, candles, width, path2, pathAverage, lastY: yAt(input.at(-1)!.close), yTicks, min, max, volTop: plotBottom - volH, volBottom: plotBottom, maxVolume };
+  return {
+    box, candles, width, path2, pathAverage: averagePath(average), pathSlowAverage: averagePath(slowAverage),
+    lastY: yAt(input.at(-1)!.close), yTicks, min, max, priceBottom, volTop: plotBottom - volH, volBottom: plotBottom, maxVolume,
+  };
 }
 
 

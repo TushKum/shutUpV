@@ -11,6 +11,7 @@ import { Sparkline } from "@/components/ui/line-chart";
 import { BookTabs } from "./tabs";
 import { loadSectorRace } from "@/lib/team/sectors-data";
 import { SectorRace } from "@/components/ui/sector-race";
+import { MarketHeatmap } from "@/components/ui/market-heatmap";
 
 export const metadata: Metadata = { title: "Market" };
 
@@ -39,6 +40,21 @@ export default async function MarketPage() {
   return (
     <div className="space-y-6">
       <BookTabs open={openBooks(status.phase, released)} current="PRICES" />
+      {lines.length ? (
+        <Panel title="Market heatmap">
+          <p className="mb-3 text-sm text-paper">
+            {list.lastRound ? `Price moves from clearing round ${list.lastRound.number}.` : "Price moves appear after the first clearing."}
+          </p>
+          <MarketHeatmap quotes={lines.map((line) => ({
+            ticker: line.ticker,
+            name: line.name,
+            price: money(line.price),
+            moveBp: line.change?.bp ?? null,
+            tag: own?.id === line.id ? "Yours" : undefined,
+            href: `/team/market/${line.ticker}`,
+          }))} />
+        </Panel>
+      ) : null}
       {race ? (
         <Panel title="Sector race">
           <p className="mb-3 text-sm text-paper">Each sector&apos;s average share-price change since its companies&apos; IPO. Which sector is winning?</p>

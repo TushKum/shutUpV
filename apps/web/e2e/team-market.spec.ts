@@ -142,7 +142,13 @@ test("the IPO and round 1: IPO prices from the pitch verdicts, the last round's 
   await expect(listRow(page, 2)).toHaveText([ticker(2), "Company 3Yours", "$9.50", "$9.50", "■ 0%", ""]);
   await expect(page.getByText("IPO prices are released at the IPO")).toHaveCount(0);
 
-  await listRow(page, 0).getByRole("link", { name: ticker(0) }).click();
+  const heatmap = page.getByRole("list", { name: "Market heatmap" });
+  await expect(heatmap.getByRole("link")).toHaveCount(3);
+  await page.getByRole("searchbox", { name: "Search ticker or company" }).fill("company 1");
+  await expect(heatmap.getByRole("link")).toHaveCount(1);
+  const tile = heatmap.getByRole("link", { name: /Company 1/ });
+  await expect(tile).toContainText("+3.05%");
+  await tile.click();
   await expect(page).toHaveURL(new RegExp(`/team/market/${ticker(0)}$`));
   await expect(page.getByTestId("verdict-PITCH")).toHaveText(/^PRD66\/100\+5% on the IPO price/);
   // Why: the published judge run's points per rubric line and its rationale.

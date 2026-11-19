@@ -20,6 +20,7 @@ const C = {
   axis: "var(--chart-axis, #64748b)",
   volume: "var(--chart-volume, #cbd5e1)",
   average: "var(--chart-average, #d97706)",
+  slowAverage: "var(--chart-average-slow, #a78bfa)",
   tagText: "var(--chart-tag-text, #ffffff)",
   cross: "var(--chart-marker, #94a3b8)",
 };
@@ -30,6 +31,8 @@ export function TradingChart({
   testId,
   live = false,
   average = 5,
+  slowAverage = 0,
+  colorVolume = false,
   patterns = true,
   box: fixedBox,
   format = money,
@@ -44,6 +47,10 @@ export function TradingChart({
   live?: boolean;
   /** Moving average window in candles (0: none). */
   average?: number;
+  /** Optional slower moving average, over a second window of closes. */
+  slowAverage?: number;
+  /** Match each volume bar to the direction of its candle. */
+  colorVolume?: boolean;
   /** Mark and list candlestick patterns. */
   patterns?: boolean;
   box?: ChartBox;
@@ -63,14 +70,14 @@ export function TradingChart({
   useEffect(() => {
     const el = frame.current;
     if (!el || fixedBox) return;
-    const ro = new ResizeObserver(([e]) => setWidth(Math.max(360, Math.round(e!.contentRect.width))));
+    const ro = new ResizeObserver(([e]) => setWidth(Math.max(260, Math.round(e!.contentRect.width))));
     ro.observe(el);
     return () => ro.disconnect();
   }, [fixedBox, ready]);
   const box = useMemo(() => fixedBox ?? { ...BOX, width }, [fixedBox, width]);
   const [hover, setHover] = useState<{ i: number; y: number } | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
-  const g = useMemo(() => candleGeometry(candles, box, 5, average), [candles, box, average]);
+  const g = useMemo(() => candleGeometry(candles, box, 5, average, slowAverage), [candles, box, average, slowAverage]);
   // A forming candle is not read for patterns: it can still change.
   const found = useMemo<Pattern[]>(() => {
     if (!patterns) return [];
@@ -84,7 +91,7 @@ export function TradingChart({
   const tone = { up: C.up, down: C.down, flat: C.flat };
   const last = g.candles.at(-1)!;
   const priceTop = box.padTop;
-  const priceBottom = g.maxVolume > 0 ? g.volTop - 6 : box.height - box.padBottom;
+  const priceBottom = g.priceBottom;
   const priceAt = (y: number) => g.min + ((priceBottom - y) / (priceBottom - priceTop)) * (g.max - g.min);
   const shown = hover ? g.candles[hover.i]! : last;
   const byIndex = new Map(found.map((p) => [p.index, p]));
@@ -127,8 +134,9 @@ export function TradingChart({
         className="h-auto w-full cursor-crosshair select-none"
         role="img"
         aria-label={`${label}: ${candles.length} candles, last ${format(last.close)}.`}
+        onPointerDown={onMove}
         onPointerMove={onMove}
-        onPointerLeave={() => setHover(null)}
+        onPointerLeave={(event) => { if (event.pointerType !== "touch") setHover(null); }}
       >
         {g.yTicks.map((t) => (
           <g key={t.value}>
@@ -138,10 +146,13 @@ export function TradingChart({
             </text>
           </g>
         ))}
+        {colorVolume && g.maxVolume > 0 ? (
+          <text x={box.padLeft} y={g.volTop - 3} fontSize={fontSize} fill={C.axis}>Volume</text>
+        ) : null}
         {g.maxVolume > 0
           ? g.candles.map((c) =>
               c.volTop < g.volBottom ? (
-                <rect key={`v-${c.x}`} x={c.x - g.width / 2} y={c.volTop} width={g.width} height={g.volBottom - c.volTop} fill={C.volume} opacity="0.5" />
+                <rect key={`v-${c.x}`} x={c.x - g.width / 2} y={c.volTop} width={g.width} height={g.volBottom - c.volTop} fill={colorVolume ? tone[c.tone] : C.volume} opacity={colorVolume ? 0.68 : 0.5} />
               ) : null,
             )
           : null}
@@ -166,6 +177,7 @@ export function TradingChart({
             <rect x={c.x - g.width / 2} y={c.top} width={g.width} height={c.bottom - c.top} fill={tone[c.tone]} />
           </g>
         ))}
+        {g.pathSlowAverage ? <path d={g.pathSlowAverage} fill="none" stroke={C.slowAverage} strokeWidth="1.6" strokeLinejoin="round" /> : null}
         {g.pathAverage ? <path d={g.pathAverage} fill="none" stroke={C.average} strokeWidth="1.6" strokeLinejoin="round" opacity="0.9" /> : null}
         {/* Pattern markers. */}
         {found.map((p) => {
@@ -206,13 +218,18 @@ export function TradingChart({
           </g>
         ) : null}
       </svg>
-      <figcaption className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-        <span>
+      <figcaption className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs" style={{ color: C.axis }}>
+        {patterns ? <span>
           <span style={{ color: C.up }}>▲</span> bullish · <span style={{ color: C.down }}>▼</span> bearish · <span style={{ color: C.average }}>◆</span> indecision
-        </span>
+        </span> : null}
         {g.pathAverage ? (
           <span className="inline-flex items-center gap-1">
             <span className="inline-block h-0.5 w-5" style={{ background: C.average }} /> {average}-candle average
+          </span>
+        ) : null}
+        {g.pathSlowAverage ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="inline-block h-0.5 w-5" style={{ background: C.slowAverage }} /> {slowAverage}-candle average
           </span>
         ) : null}
         {note ? <span>{note}</span> : null}

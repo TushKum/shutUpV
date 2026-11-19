@@ -48,6 +48,7 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
   }
   const { company: c, history, submissions, scores, crisis, types } = view;
   const lines = historyLines(history);
+  const latest = lines.at(-1);
   const waiting = (["PITCH", "PLAN", "FLASH"] as const).filter((t) => !types.includes(t));
 
   return (
@@ -73,6 +74,15 @@ export default async function CompanyPage({ params }: PageProps<"/team/market/[t
           )}
         </div>
         <div className="mt-4">
+          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold text-paper">Price action</h3>
+            {latest ? (
+              <p className="text-xs text-muted">
+                {latest.label} <span className="font-mono text-paper">{money(latest.price)}</span>
+                {latest.change !== "—" ? ` · ${latest.change}` : ""}
+              </p>
+            ) : null}
+          </div>
           <CandleChart candles={chartCandles(lines)} label={`${c.ticker} price by step`} secondName="AI price" testId="price-chart" live average={3} />
         </div>
       </Panel>
