@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getViewer } from "@/lib/auth/viewer";
 import { safeNext } from "@/lib/auth/routes";
 import { LoginForm } from "./login-form";
-import { SonicWaveformCanvas } from "@/components/ui/sonic-waveform";
 import { MatrixRain } from "@/components/ui/matrix/matrix-rain";
 import { LoginHero } from "./login-hero";
 import { CipherText } from "@/components/ui/matrix/cipher-text";
@@ -28,13 +27,13 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <main className="terminal-container terminal-theme-scope relative min-h-dvh bg-black">
-      {/* The backdrop: the waveform in PRIMUS green (it settles to a still picture for reduced motion), darkened
-          towards the bottom so the card always reads. */}
-      <MatrixRain opacity={0.35} size={15} className="fixed inset-0 z-0" />
-      <SonicWaveformCanvas className="fixed" rgb="0, 255, 65" lineCount={48} />
-      <div aria-hidden className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black via-black/50 to-black/20" />
-      <div aria-hidden className="mx-crt" />
-      <div className="relative z-20 mx-auto grid min-h-dvh w-full max-w-5xl items-center gap-6 px-4 py-8 sm:gap-8 sm:py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-12">
+      {/* Sparse, side-weighted Matrix rain; the centre stays dark behind the sign-in panel. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#010302]">
+        <MatrixRain opacity={0.94} size={15} className="absolute inset-0 h-full w-full" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_88%_at_50%_48%,rgba(0,0,0,0.74)_0%,rgba(0,0,0,0.42)_48%,rgba(0,0,0,0.04)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.08),transparent_18%,transparent_82%,rgba(0,0,0,0.08))]" />
+      </div>
+      <div className="relative z-10 mx-auto grid min-h-dvh w-full max-w-5xl items-center gap-6 px-4 py-8 sm:gap-8 sm:py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-12">
         <LoginHero portal={portal} />
         <div className="mx-panel glow-box relative mx-auto w-full max-w-sm overflow-hidden rounded-xl">
           <div className="relative h-3 border-b border-line">
