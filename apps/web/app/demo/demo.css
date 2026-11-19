@@ -1,4 +1,3 @@
-
 /* Short cinematic PRIMUS glitch boot. */
 .demo-glitch-boot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;overflow:hidden;pointer-events:none;background:#010402;animation:demo-boot-out .48s cubic-bezier(.76,0,.24,1) 1.22s forwards}.demo-glitch-noise,.demo-glitch-scan{position:absolute;inset:0}.demo-glitch-noise{opacity:.2;background:repeating-linear-gradient(0deg,transparent 0 5px,rgba(70,240,151,.16) 6px 7px);mix-blend-mode:screen;animation:demo-flicker .28s steps(2,end) infinite}.demo-glitch-scan{top:-35%;height:24%;background:linear-gradient(180deg,transparent,rgba(70,240,151,.24),transparent);animation:demo-scan 1.05s ease-in-out .08s both}.demo-glitch-content{position:relative;width:min(88vw,580px);display:flex;flex-direction:column;align-items:center;text-align:center}.demo-glitch-word{position:relative;color:#f5fff8;font:900 clamp(3.2rem,10vw,6.8rem)/1 ui-monospace,monospace;letter-spacing:.14em;text-shadow:0 0 12px rgba(70,240,151,.9),0 0 42px rgba(70,240,151,.42);animation:demo-word-in .82s cubic-bezier(.16,1,.3,1) .12s both}.demo-glitch-word:after{content:attr(data-text);position:absolute;inset:0;color:#56d9ff;opacity:0;text-shadow:-4px 0 rgba(255,88,111,.75),4px 0 rgba(56,217,255,.75);animation:demo-chroma .78s steps(1,end) .2s both}.demo-glitch-rule{width:min(76%,360px);height:1px;margin-top:25px;background:linear-gradient(90deg,transparent,#46f097,#d5ffe7,#46f097,transparent);box-shadow:0 0 16px rgba(70,240,151,.85);transform:scaleX(0);animation:demo-rule .62s ease-out .48s forwards}.demo-glitch-content>p{margin:15px 0 0;color:#a6ffc9;font:700 10px ui-monospace,monospace;letter-spacing:.27em;opacity:0;animation:demo-status .36s ease .72s forwards}.demo-glitch-content>p span{color:#46f097;padding:0 6px}.demo-glitch-lines{display:grid;gap:5px;margin-top:23px;text-align:left;color:rgba(158,224,180,.62);font:600 8px ui-monospace,monospace;letter-spacing:.16em}.demo-glitch-lines span{opacity:0;animation:demo-status .26s ease-out both}.demo-glitch-lines i{margin-right:9px;color:#46f097;font-style:normal}@keyframes demo-boot-out{to{opacity:0;visibility:hidden}}@keyframes demo-word-in{0%{opacity:0;transform:scale(.72) translateY(8px);filter:blur(10px)}55%{opacity:1;transform:scale(1.035);filter:blur(0)}68%{opacity:.28;transform:translateX(5px) skewX(-4deg)}78%{opacity:1;transform:translateX(-3px)}100%{opacity:1;transform:none}}@keyframes demo-chroma{0%,100%{opacity:0}18%,23%,62%{opacity:.72;transform:translateX(5px)}20%,26%,68%{opacity:0;transform:translateX(-4px)}}@keyframes demo-rule{to{transform:scaleX(1)}}@keyframes demo-status{to{opacity:1}}@keyframes demo-scan{from{transform:translateY(-20vh);opacity:0}35%{opacity:1}to{transform:translateY(150vh);opacity:0}}@keyframes demo-flicker{0%,100%{opacity:.12}50%{opacity:.28}}@media(prefers-reduced-motion:reduce){.demo-glitch-boot{display:none}}
 
@@ -55,8 +54,10 @@
 
 /* Refined PRIMUS access portal */
 .demo-entry{min-height:100svh;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:42px 28px;background:#030805;color:#ecfff1}
-.demo-entry .demo-login-grid{position:absolute;inset:0;pointer-events:none;opacity:.3;background-image:linear-gradient(rgba(67,255,144,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(67,255,144,.055) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(180deg,transparent,#000 18%,#000 80%,transparent)}
-.demo-entry .demo-login-glow{position:absolute;pointer-events:none;width:720px;height:520px;top:50%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(ellipse,rgba(20,116,57,.16),transparent 68%)}
+.demo-matrix-rain{position:absolute;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen;display:block!important}
+.demo-matrix-rain-fixed{position:fixed;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen;display:block!important}
+.demo-entry .demo-login-grid{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.3;background-image:linear-gradient(rgba(67,255,144,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(67,255,144,.055) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(180deg,transparent,#000 18%,#000 80%,transparent)}
+.demo-entry .demo-login-glow{position:absolute;z-index:1;pointer-events:none;width:720px;height:520px;top:50%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(ellipse,rgba(20,116,57,.16),transparent 68%)}
 .demo-entry-wrap{position:relative;z-index:1;width:min(100%,940px);margin:auto}
 .demo-entry-header{display:flex;align-items:center;justify-content:space-between;margin:0 auto 30px;padding:0 4px}
 .demo-entry .demo-official-logo{width:145px;height:auto;filter:drop-shadow(0 0 14px rgba(57,255,136,.14))}
@@ -130,9 +131,9 @@
 .demo-login .demo-entry-footer{margin-top:24px}
 @media(prefers-reduced-motion:reduce){.demo-glitch-logo img{animation:none;opacity:1}.demo-glitch-logo img:nth-child(2),.demo-glitch-logo img:nth-child(3){display:none}}
 
-/* Track identity: one shared interface, three restrained accent systems. */
+/* Track identity: three distinct sector themes (PRODUCT, CONSULTING, FINANCE). */
 .guide-app[data-track="PRODUCT"],.demo-login[data-track="PRODUCT"]{--track-accent:#ff9b45;--track-soft:rgba(255,155,69,.12);--track-line:rgba(255,155,69,.3);--track-glow:rgba(255,155,69,.2)}
-.guide-app[data-track="CONSULTING"],.demo-login[data-track="CONSULTING"]{--track-accent:#63a8ff;--track-soft:rgba(99,168,255,.12);--track-line:rgba(99,168,255,.3);--track-glow:rgba(99,168,255,.2)}
+.guide-app[data-track="CONSULTING"],.demo-login[data-track="CONSULTING"]{--track-accent:#63a8ff;--track-soft:rgba(99,168,255,.14);--track-line:rgba(99,168,255,.32);--track-glow:rgba(99,168,255,.22)}
 .guide-app[data-track="FINANCE"],.demo-login[data-track="FINANCE"]{--track-accent:#ffd84d;--track-soft:rgba(255,216,77,.12);--track-line:rgba(255,216,77,.3);--track-glow:rgba(255,216,77,.2)}
 .guide-app[data-track] .guide-sidebar nav a.active,.guide-app[data-track] .guide-tabs button.active,.guide-app[data-track] .guide-chip.active{color:var(--track-accent)!important;border-color:var(--track-accent)!important;background:var(--track-soft)!important}
 .guide-app[data-track] .guide-online i,.guide-app[data-track] .guide-status,.guide-app[data-track] .guide-metric span,.guide-app[data-track] .guide-mobile-nav small{color:var(--track-accent)!important}
@@ -141,7 +142,177 @@
 .guide-app[data-track] a:not(.guide-btn):hover{color:var(--track-accent)}
 .guide-app[data-track] [class*="text-[#39ff88]"]{color:var(--track-accent)!important}
 .guide-app[data-track] [class*="bg-[#39ff88]"]{background:var(--track-accent)!important}
+
+/* Sleek Trading App Geometry & Glass Polish scoped to CONSULTING & PRODUCT (FINANCE keeps exact 6a55285 styling) */
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]),.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]){font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-panel{border-radius:14px;overflow:hidden;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:border-color .22s ease,box-shadow .22s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-panel-head{padding:14px 18px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-panel-body{padding:18px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-metric{border-radius:12px;position:relative;overflow:hidden;backdrop-filter:blur(12px);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-metric:hover{transform:translateY(-1px)}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-btn{border-radius:9px;padding:10px 15px;transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-btn:hover:not(:disabled){transform:translateY(-1px)}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-tabs button{border-radius:8px;padding:8px 13px;transition:all .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-chip{border-radius:999px;padding:4px 10px;letter-spacing:.06em}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-input,.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-textarea,.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-select{border-radius:10px;padding:11px 14px;transition:border-color .18s ease,box-shadow .18s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-alert{border-radius:10px;padding:13px 16px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-sidebar nav a{border-radius:9px;padding:10px 11px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-avatar{border-radius:10px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-phase{border-radius:7px;padding:5px 9px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-top-right button{border-radius:8px;padding:6px 10px;transition:all .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-taskbar>span{border-radius:6px;padding:5px 9px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-taskbar a{border-radius:8px;padding:7px 13px;transition:transform .16s ease,box-shadow .16s ease}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-taskbar a:hover{transform:translateY(-1px)}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-table{border-radius:10px;overflow:hidden}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-table th:first-child{border-top-left-radius:8px}
+.guide-app:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .guide-table th:last-child{border-top-right-radius:8px}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-card{border-radius:18px;overflow:hidden}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-card:before,.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-card:after{display:none}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-login-primary{border-radius:11px}
+.demo-login:is([data-track="CONSULTING"],[data-track="PRODUCT"]) .demo-track-picker button{border-radius:10px}
+
+/* Complete Sleek Blue Trading Terminal Theme for CONSULTING Track */
+.guide-app[data-track="CONSULTING"]{background:radial-gradient(circle at 18% 0%,#091a38 0%,#040b18 45%,#02060f 100%);color:#eaf3ff}
+.guide-app[data-track="CONSULTING"] .guide-atmosphere{background:radial-gradient(ellipse at 75% 0%,rgba(56,139,255,.2),transparent 50%),radial-gradient(ellipse at 15% 85%,rgba(29,78,216,.12),transparent 45%),repeating-linear-gradient(0deg,rgba(99,168,255,.015) 0 1px,transparent 1px 4px)}
+.guide-app[data-track="CONSULTING"] .guide-sidebar{background:linear-gradient(180deg,rgba(5,12,26,.94),rgba(3,8,18,.97));backdrop-filter:blur(20px);border-right:1px solid rgba(99,168,255,.22);box-shadow:8px 0 32px rgba(0,4,14,.45)}
+.guide-app[data-track="CONSULTING"] .guide-brand{border-bottom-color:rgba(99,168,255,.18);color:#eef6ff}
+.guide-app[data-track="CONSULTING"] .guide-brand b i,.guide-app[data-track="CONSULTING"] .guide-nav-label b,.guide-app[data-track="CONSULTING"] .guide-team-code,.guide-app[data-track="CONSULTING"] .guide-page-head small{color:#63a8ff}
+.guide-app[data-track="CONSULTING"] .guide-brand small,.guide-app[data-track="CONSULTING"] .guide-nav-label{color:#6e92c2}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a{color:#a3bde0}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a small{color:#6183b3}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a i{color:#63a8ff}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a:hover{background:rgba(99,168,255,.09);border-color:rgba(99,168,255,.24);color:#f0f7ff}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a.active{box-shadow:inset 3px 0 0 #63a8ff,0 6px 18px rgba(37,99,235,.16)}
+.guide-app[data-track="CONSULTING"] .guide-sidebar-bottom{border-top-color:rgba(99,168,255,.18)}
+.guide-app[data-track="CONSULTING"] .guide-sidebar-bottom>a,.guide-app[data-track="CONSULTING"] .guide-online{color:#84a5d1}
+.guide-app[data-track="CONSULTING"] .guide-online i,.guide-app[data-track="CONSULTING"] .guide-trading i{background:#63a8ff;box-shadow:0 0 10px #63a8ff}
+.guide-app[data-track="CONSULTING"] .guide-online span{color:#5a7aa6}
+.guide-app[data-track="CONSULTING"] .guide-avatar{border-color:rgba(99,168,255,.42);color:#63a8ff;background:linear-gradient(145deg,rgba(37,99,235,.22),rgba(15,35,75,.4));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.guide-app[data-track="CONSULTING"] .guide-team small{color:#7596c2}
+.guide-app[data-track="CONSULTING"] .guide-top{border-bottom-color:rgba(99,168,255,.2);background:rgba(4,11,24,.82);backdrop-filter:blur(16px);box-shadow:0 4px 24px rgba(0,4,14,.3)}
+.guide-app[data-track="CONSULTING"] .guide-top-left,.guide-app[data-track="CONSULTING"] .guide-top-right{color:#96b3d9}
+.guide-app[data-track="CONSULTING"] .guide-phase{border-color:rgba(99,168,255,.36);color:#bad8ff;background:linear-gradient(135deg,rgba(37,99,235,.2),rgba(15,38,82,.35));box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.guide-app[data-track="CONSULTING"] .guide-countdown{color:#7cc4ff}
+.guide-app[data-track="CONSULTING"] .guide-cash b,.guide-app[data-track="CONSULTING"] .guide-ticker b{color:#eaf3ff}
+.guide-app[data-track="CONSULTING"] .guide-top-right button{border-color:rgba(99,168,255,.28);background:rgba(12,27,54,.55);color:#acc9ed}
+.guide-app[data-track="CONSULTING"] .guide-top-right button:hover{border-color:#63a8ff;color:#fff}
+.guide-app[data-track="CONSULTING"] .guide-taskbar{background:linear-gradient(90deg,rgba(11,28,58,.95),rgba(19,46,94,.9) 50%,rgba(10,24,50,.95));border-bottom:1px solid rgba(99,168,255,.32);color:#eaf3ff;box-shadow:0 8px 24px rgba(0,5,18,.35)}
+.guide-app[data-track="CONSULTING"] .guide-taskbar>span{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#ffffff;box-shadow:0 2px 10px rgba(37,99,235,.4)}
+.guide-app[data-track="CONSULTING"] .guide-taskbar small{color:#accbff}
+.guide-app[data-track="CONSULTING"] .guide-taskbar>a{box-shadow:0 4px 14px rgba(99,168,255,.3)}
+.guide-app[data-track="CONSULTING"] .guide-preview-note{background:rgba(6,16,34,.85);border-bottom-color:rgba(99,168,255,.16);color:#7398c7}
+.guide-app[data-track="CONSULTING"] .guide-footer{border-top-color:rgba(99,168,255,.16);color:#6587b3}
+.guide-app[data-track="CONSULTING"] .guide-page-head p,.guide-app[data-track="CONSULTING"] .guide-muted{color:#96b2d6}
+.guide-app[data-track="CONSULTING"] .guide-panel{border-color:rgba(99,168,255,.26);background:linear-gradient(155deg,rgba(11,24,48,.9),rgba(5,12,26,.95));box-shadow:0 18px 48px rgba(0,5,18,.48),inset 0 1px 0 rgba(175,212,255,.12)}
+.guide-app[data-track="CONSULTING"] .guide-panel:hover{border-color:rgba(99,168,255,.38)}
+.guide-app[data-track="CONSULTING"] .guide-panel-head{border-bottom-color:rgba(99,168,255,.18);background:linear-gradient(90deg,rgba(37,99,235,.12),rgba(12,27,54,.25) 60%,transparent)}
+.guide-app[data-track="CONSULTING"] .guide-panel-head span{color:#86ace0}
+.guide-app[data-track="CONSULTING"] .guide-metric{border-color:rgba(99,168,255,.24);background:linear-gradient(145deg,rgba(12,27,54,.82),rgba(6,15,32,.9));box-shadow:0 8px 24px rgba(0,5,16,.32),inset 0 1px 0 rgba(175,212,255,.1)}
+.guide-app[data-track="CONSULTING"] .guide-metric:hover{border-color:rgba(99,168,255,.45);box-shadow:0 12px 30px rgba(0,8,24,.45),inset 0 1px 0 rgba(190,222,255,.16)}
+.guide-app[data-track="CONSULTING"] .guide-metric small{color:#86aad8}
+.guide-app[data-track="CONSULTING"] .guide-metric b{color:#f2f8ff}
+.guide-app[data-track="CONSULTING"] .guide-btn:not(.secondary),.guide-app[data-track="CONSULTING"] .guide-taskbar>a{background:linear-gradient(135deg,#74b3ff,#3b82f6)!important;color:#030d1c!important;box-shadow:0 4px 16px rgba(59,130,246,.32),inset 0 1px 0 rgba(255,255,255,.35)}
+.guide-app[data-track="CONSULTING"] .guide-btn:not(.secondary):hover:not(:disabled){background:linear-gradient(135deg,#93c5fd,#60a5fa)!important;box-shadow:0 6px 22px rgba(99,168,255,.45),inset 0 1px 0 rgba(255,255,255,.45)}
+.guide-app[data-track="CONSULTING"] .guide-btn.secondary{border-color:rgba(99,168,255,.34);background:rgba(12,27,54,.55);color:#c7e0ff}
+.guide-app[data-track="CONSULTING"] .guide-btn.secondary:hover:not(:disabled){border-color:#63a8ff;background:rgba(37,99,235,.18);color:#fff}
+.guide-app[data-track="CONSULTING"] .guide-tabs button{border-color:rgba(99,168,255,.24);background:rgba(8,19,38,.65);color:#97b7e0}
+.guide-app[data-track="CONSULTING"] .guide-tabs button:hover:not(:disabled){border-color:rgba(99,168,255,.5);color:#e2efff}
+.guide-app[data-track="CONSULTING"] .guide-input,.guide-app[data-track="CONSULTING"] .guide-textarea,.guide-app[data-track="CONSULTING"] .guide-select{border-color:rgba(99,168,255,.26);background:rgba(4,10,22,.85);color:#eaf3ff;box-shadow:inset 0 2px 6px rgba(0,0,0,.45)}
+.guide-app[data-track="CONSULTING"] .guide-input:focus,.guide-app[data-track="CONSULTING"] .guide-textarea:focus,.guide-app[data-track="CONSULTING"] .guide-select:focus{box-shadow:0 0 0 3px rgba(99,168,255,.16),inset 0 2px 6px rgba(0,0,0,.45)}
+.guide-app[data-track="CONSULTING"] .guide-label{color:#8bb0de}
+.guide-app[data-track="CONSULTING"] .guide-chip{border-color:rgba(99,168,255,.32);color:#b0d0fa;background:rgba(37,99,235,.12)}
+.guide-app[data-track="CONSULTING"] .guide-table th{color:#8ab0de;background:rgba(10,24,48,.85)}
+.guide-app[data-track="CONSULTING"] .guide-table td{border-bottom-color:rgba(82,145,235,.16);color:#cfe1f7}
+.guide-app[data-track="CONSULTING"] .guide-alert{border-left:3px solid #63a8ff;border-top:1px solid rgba(99,168,255,.18);border-right:1px solid rgba(99,168,255,.18);border-bottom:1px solid rgba(99,168,255,.18);background:linear-gradient(135deg,rgba(25,68,150,.24),rgba(10,26,58,.32));color:#d6e8ff;box-shadow:0 8px 22px rgba(0,5,16,.25)}
+.guide-app[data-track="CONSULTING"] .guide-warning{border-left-color:#38bdf8;background:linear-gradient(135deg,rgba(14,105,168,.26),rgba(9,32,64,.36));color:#e0f4ff}
+.guide-app[data-track="CONSULTING"] .guide-mobile-nav{background:rgba(3,9,20,.94);backdrop-filter:blur(14px);border-top-color:#25497d}
+.guide-app[data-track="CONSULTING"] .guide-mobile-nav a{color:#96b4db}
+.guide-app[data-track="CONSULTING"] [class*="border-[#294832]"],.guide-app[data-track="CONSULTING"] [class*="border-[#35523b]"]{border-color:rgba(99,168,255,.24)!important;border-radius:11px;background:linear-gradient(145deg,rgba(12,26,52,.45),rgba(6,14,29,.55))}
+.guide-app[data-track="CONSULTING"] [class*="border-t"][class*="border-[#294832]"],.guide-app[data-track="CONSULTING"] [class*="border-b"][class*="border-[#294832]"]{border-radius:0;background:transparent}
+.guide-app[data-track="CONSULTING"] [class*="border-[#39ff88]"]{border-color:#63a8ff!important}
+.guide-app[data-track="CONSULTING"] [class*="text-[#ffbd66]"]{color:#7cc4ff!important}
+.demo-login[data-track="CONSULTING"]{background:radial-gradient(circle at 50% 0%,#091b3a 0%,#020712 65%);color:#eaf3ff}
+.demo-login[data-track="CONSULTING"] .demo-login-grid{background-image:linear-gradient(rgba(99,168,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(99,168,255,.07) 1px,transparent 1px)}
+.demo-login[data-track="CONSULTING"] .demo-login-glow{background:radial-gradient(ellipse,rgba(37,99,235,.22),transparent 68%)}
+.demo-login[data-track="CONSULTING"] .demo-entry-network i{background:#63a8ff;box-shadow:0 0 10px #63a8ff}
+.demo-login[data-track="CONSULTING"] .demo-entry-eyebrow b,.demo-login[data-track="CONSULTING"] .demo-entry-footer b{color:#63a8ff}
+.demo-login[data-track="CONSULTING"] .guide-input{border-color:rgba(99,168,255,.28);background:rgba(4,10,22,.85);color:#eaf3ff}
+.demo-login[data-track="CONSULTING"] .guide-label{color:#8bb0de}
+.demo-login[data-track="CONSULTING"] .demo-login-primary{background:linear-gradient(135deg,#74b3ff,#3b82f6);color:#04101f;box-shadow:0 6px 22px rgba(59,130,246,.34)}
+.demo-login[data-track="CONSULTING"] .demo-login-primary:hover{background:linear-gradient(135deg,#93c5fd,#60a5fa);box-shadow:0 0 28px rgba(99,168,255,.42)}
+
+/* Complete Sleek Amber/Orange Trading Terminal Theme for PRODUCT Track */
+.guide-app[data-track="PRODUCT"]{background:radial-gradient(circle at 18% 0%,#2b1404 0%,#120803 45%,#090402 100%);color:#fff5eb}
+.guide-app[data-track="PRODUCT"] .guide-atmosphere{background:radial-gradient(ellipse at 75% 0%,rgba(255,145,56,.18),transparent 50%),radial-gradient(ellipse at 15% 85%,rgba(217,100,22,.12),transparent 45%),repeating-linear-gradient(0deg,rgba(255,155,69,.015) 0 1px,transparent 1px 4px)}
+.guide-app[data-track="PRODUCT"] .guide-sidebar{background:linear-gradient(180deg,rgba(22,11,5,.94),rgba(12,6,3,.97));backdrop-filter:blur(20px);border-right:1px solid rgba(255,155,69,.22);box-shadow:8px 0 32px rgba(12,4,0,.48)}
+.guide-app[data-track="PRODUCT"] .guide-brand{border-bottom-color:rgba(255,155,69,.18);color:#fff5eb}
+.guide-app[data-track="PRODUCT"] .guide-brand b i,.guide-app[data-track="PRODUCT"] .guide-nav-label b,.guide-app[data-track="PRODUCT"] .guide-team-code,.guide-app[data-track="PRODUCT"] .guide-page-head small{color:#ff9b45}
+.guide-app[data-track="PRODUCT"] .guide-brand small,.guide-app[data-track="PRODUCT"] .guide-nav-label{color:#b8865c}
+.guide-app[data-track="PRODUCT"] .guide-sidebar nav a{color:#d9b89c}
+.guide-app[data-track="PRODUCT"] .guide-sidebar nav a small{color:#a37652}
+.guide-app[data-track="PRODUCT"] .guide-sidebar nav a i{color:#ff9b45}
+.guide-app[data-track="PRODUCT"] .guide-sidebar nav a:hover{background:rgba(255,155,69,.09);border-color:rgba(255,155,69,.24);color:#fff6ed}
+.guide-app[data-track="PRODUCT"] .guide-sidebar nav a.active{box-shadow:inset 3px 0 0 #ff9b45,0 6px 18px rgba(234,110,20,.16)}
+.guide-app[data-track="PRODUCT"] .guide-sidebar-bottom{border-top-color:rgba(255,155,69,.18)}
+.guide-app[data-track="PRODUCT"] .guide-sidebar-bottom>a,.guide-app[data-track="PRODUCT"] .guide-online{color:#c99c75}
+.guide-app[data-track="PRODUCT"] .guide-online i,.guide-app[data-track="PRODUCT"] .guide-trading i{background:#ff9b45;box-shadow:0 0 10px #ff9b45}
+.guide-app[data-track="PRODUCT"] .guide-online span{color:#966d4b}
+.guide-app[data-track="PRODUCT"] .guide-avatar{border-color:rgba(255,155,69,.42);color:#ff9b45;background:linear-gradient(145deg,rgba(234,110,20,.22),rgba(68,28,8,.4));box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+.guide-app[data-track="PRODUCT"] .guide-team small{color:#b58964}
+.guide-app[data-track="PRODUCT"] .guide-top{border-bottom-color:rgba(255,155,69,.2);background:rgba(18,9,4,.84);backdrop-filter:blur(16px);box-shadow:0 4px 24px rgba(10,4,0,.35)}
+.guide-app[data-track="PRODUCT"] .guide-top-left,.guide-app[data-track="PRODUCT"] .guide-top-right{color:#d1ab8a}
+.guide-app[data-track="PRODUCT"] .guide-phase{border-color:rgba(255,155,69,.36);color:#ffd0a6;background:linear-gradient(135deg,rgba(234,110,20,.2),rgba(74,32,8,.35));box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.guide-app[data-track="PRODUCT"] .guide-countdown{color:#ffbd66}
+.guide-app[data-track="PRODUCT"] .guide-cash b,.guide-app[data-track="PRODUCT"] .guide-ticker b{color:#fff5eb}
+.guide-app[data-track="PRODUCT"] .guide-top-right button{border-color:rgba(255,155,69,.28);background:rgba(46,22,8,.55);color:#e6c09e}
+.guide-app[data-track="PRODUCT"] .guide-top-right button:hover{border-color:#ff9b45;color:#fff}
+.guide-app[data-track="PRODUCT"] .guide-taskbar{background:linear-gradient(90deg,rgba(54,24,8,.95),rgba(82,36,10,.9) 50%,rgba(44,19,6,.95));border-bottom:1px solid rgba(255,155,69,.34);color:#fff5eb;box-shadow:0 8px 24px rgba(12,4,0,.38)}
+.guide-app[data-track="PRODUCT"] .guide-taskbar>span{background:linear-gradient(135deg,#f97316,#c2410c);color:#ffffff;box-shadow:0 2px 10px rgba(234,88,12,.42)}
+.guide-app[data-track="PRODUCT"] .guide-taskbar small{color:#ffd2a8}
+.guide-app[data-track="PRODUCT"] .guide-taskbar>a{box-shadow:0 4px 14px rgba(255,155,69,.3)}
+.guide-app[data-track="PRODUCT"] .guide-preview-note{background:rgba(24,11,4,.86);border-bottom-color:rgba(255,155,69,.16);color:#b88961}
+.guide-app[data-track="PRODUCT"] .guide-footer{border-top-color:rgba(255,155,69,.16);color:#9c7453}
+.guide-app[data-track="PRODUCT"] .guide-page-head p,.guide-app[data-track="PRODUCT"] .guide-muted{color:#cca98b}
+.guide-app[data-track="PRODUCT"] .guide-panel{border-color:rgba(255,155,69,.26);background:linear-gradient(155deg,rgba(36,18,8,.9),rgba(17,8,4,.96));box-shadow:0 18px 48px rgba(10,3,0,.5),inset 0 1px 0 rgba(255,205,160,.12)}
+.guide-app[data-track="PRODUCT"] .guide-panel:hover{border-color:rgba(255,155,69,.4)}
+.guide-app[data-track="PRODUCT"] .guide-panel-head{border-bottom-color:rgba(255,155,69,.18);background:linear-gradient(90deg,rgba(234,110,20,.14),rgba(48,22,8,.28) 60%,transparent)}
+.guide-app[data-track="PRODUCT"] .guide-panel-head span{color:#d9a477}
+.guide-app[data-track="PRODUCT"] .guide-metric{border-color:rgba(255,155,69,.24);background:linear-gradient(145deg,rgba(42,20,8,.82),rgba(20,10,4,.9));box-shadow:0 8px 24px rgba(10,3,0,.35),inset 0 1px 0 rgba(255,205,160,.1)}
+.guide-app[data-track="PRODUCT"] .guide-metric:hover{border-color:rgba(255,155,69,.46);box-shadow:0 12px 30px rgba(14,5,0,.46),inset 0 1px 0 rgba(255,215,175,.16)}
+.guide-app[data-track="PRODUCT"] .guide-metric small{color:#cfa078}
+.guide-app[data-track="PRODUCT"] .guide-metric b{color:#fff7f0}
+.guide-app[data-track="PRODUCT"] .guide-btn:not(.secondary),.guide-app[data-track="PRODUCT"] .guide-taskbar>a{background:linear-gradient(135deg,#ffae5e,#f97316)!important;color:#1a0902!important;box-shadow:0 4px 16px rgba(249,115,22,.32),inset 0 1px 0 rgba(255,255,255,.35)}
+.guide-app[data-track="PRODUCT"] .guide-btn:not(.secondary):hover:not(:disabled){background:linear-gradient(135deg,#ffc385,#fb923c)!important;box-shadow:0 6px 22px rgba(255,155,69,.45),inset 0 1px 0 rgba(255,255,255,.45)}
+.guide-app[data-track="PRODUCT"] .guide-btn.secondary{border-color:rgba(255,155,69,.34);background:rgba(44,20,8,.55);color:#ffd9b8}
+.guide-app[data-track="PRODUCT"] .guide-btn.secondary:hover:not(:disabled){border-color:#ff9b45;background:rgba(234,110,20,.18);color:#fff}
+.guide-app[data-track="PRODUCT"] .guide-tabs button{border-color:rgba(255,155,69,.24);background:rgba(28,13,5,.65);color:#d9b08c}
+.guide-app[data-track="PRODUCT"] .guide-tabs button:hover:not(:disabled){border-color:rgba(255,155,69,.5);color:#fff1e3}
+.guide-app[data-track="PRODUCT"] .guide-input,.guide-app[data-track="PRODUCT"] .guide-textarea,.guide-app[data-track="PRODUCT"] .guide-select{border-color:rgba(255,155,69,.26);background:rgba(15,7,3,.86);color:#fff5eb;box-shadow:inset 0 2px 6px rgba(0,0,0,.48)}
+.guide-app[data-track="PRODUCT"] .guide-input:focus,.guide-app[data-track="PRODUCT"] .guide-textarea:focus,.guide-app[data-track="PRODUCT"] .guide-select:focus{box-shadow:0 0 0 3px rgba(255,155,69,.16),inset 0 2px 6px rgba(0,0,0,.48)}
+.guide-app[data-track="PRODUCT"] .guide-label{color:#d9a679}
+.guide-app[data-track="PRODUCT"] .guide-chip{border-color:rgba(255,155,69,.32);color:#ffd1a8;background:rgba(234,110,20,.12)}
+.guide-app[data-track="PRODUCT"] .guide-table th{color:#d9a679;background:rgba(36,17,7,.85)}
+.guide-app[data-track="PRODUCT"] .guide-table td{border-bottom-color:rgba(255,155,69,.16);color:#f0dac7}
+.guide-app[data-track="PRODUCT"] .guide-alert{border-left:3px solid #ff9b45;border-top:1px solid rgba(255,155,69,.18);border-right:1px solid rgba(255,155,69,.18);border-bottom:1px solid rgba(255,155,69,.18);background:linear-gradient(135deg,rgba(148,64,14,.26),rgba(48,22,7,.36));color:#ffe6cf;box-shadow:0 8px 22px rgba(10,3,0,.25)}
+.guide-app[data-track="PRODUCT"] .guide-warning{border-left-color:#fbbf24;background:linear-gradient(135deg,rgba(168,85,14,.28),rgba(56,26,8,.4));color:#fff0d6}
+.guide-app[data-track="PRODUCT"] .guide-mobile-nav{background:rgba(16,8,3,.94);backdrop-filter:blur(14px);border-top-color:#6b3510}
+.guide-app[data-track="PRODUCT"] .guide-mobile-nav a{color:#d4ab87}
+.guide-app[data-track="PRODUCT"] [class*="border-[#294832]"],.guide-app[data-track="PRODUCT"] [class*="border-[#35523b]"]{border-color:rgba(255,155,69,.24)!important;border-radius:11px;background:linear-gradient(145deg,rgba(40,19,8,.48),rgba(20,9,4,.58))}
+.guide-app[data-track="PRODUCT"] [class*="border-t"][class*="border-[#294832]"],.guide-app[data-track="PRODUCT"] [class*="border-b"][class*="border-[#294832]"]{border-radius:0;background:transparent}
+.guide-app[data-track="PRODUCT"] [class*="border-[#39ff88]"]{border-color:#ff9b45!important}
+.demo-login[data-track="PRODUCT"]{background:radial-gradient(circle at 50% 0%,#2b1404 0%,#0a0402 65%);color:#fff5eb}
+.demo-login[data-track="PRODUCT"] .demo-login-grid{background-image:linear-gradient(rgba(255,155,69,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,155,69,.07) 1px,transparent 1px)}
+.demo-login[data-track="PRODUCT"] .demo-login-glow{background:radial-gradient(ellipse,rgba(234,110,20,.22),transparent 68%)}
+.demo-login[data-track="PRODUCT"] .demo-entry-network i{background:#ff9b45;box-shadow:0 0 10px #ff9b45}
+.demo-login[data-track="PRODUCT"] .demo-entry-eyebrow b,.demo-login[data-track="PRODUCT"] .demo-entry-footer b{color:#ff9b45}
+.demo-login[data-track="PRODUCT"] .guide-input{border-color:rgba(255,155,69,.28);background:rgba(15,7,3,.85);color:#fff5eb}
+.demo-login[data-track="PRODUCT"] .guide-label{color:#d9a679}
+.demo-login[data-track="PRODUCT"] .demo-login-primary{background:linear-gradient(135deg,#ffae5e,#f97316);color:#1a0902;box-shadow:0 6px 22px rgba(249,115,22,.34)}
+.demo-login[data-track="PRODUCT"] .demo-login-primary:hover{background:linear-gradient(135deg,#ffc385,#fb923c);box-shadow:0 0 28px rgba(255,155,69,.42)}
+.demo-login[data-track="PRODUCT"] .demo-login-card{background-color:#120803;background-image:radial-gradient(ellipse at 50% 0%,var(--track-glow),transparent 62%),repeating-linear-gradient(0deg,transparent 0 23px,rgba(255,155,69,.08) 24px),repeating-linear-gradient(90deg,transparent 0 23px,rgba(255,155,69,.08) 24px),linear-gradient(rgba(24,11,5,.95),rgba(12,6,3,.98))}
+
 .demo-login[data-track] .demo-login-card{border-color:var(--track-line);background-color:#030906;background-image:radial-gradient(ellipse at 50% 0%,var(--track-glow),transparent 62%),repeating-linear-gradient(0deg,transparent 0 23px,rgba(113,255,164,.075) 24px),repeating-linear-gradient(90deg,transparent 0 23px,rgba(113,255,164,.075) 24px),linear-gradient(rgba(4,12,7,.94),rgba(3,9,5,.98));background-blend-mode:screen,normal,normal,normal;box-shadow:0 28px 100px rgba(0,0,0,.5),0 0 42px var(--track-glow),inset 0 1px rgba(255,255,255,.025)}
+.demo-login[data-track="CONSULTING"] .demo-login-card{background-color:#030814;background-image:radial-gradient(ellipse at 50% 0%,var(--track-glow),transparent 62%),repeating-linear-gradient(0deg,transparent 0 23px,rgba(99,168,255,.08) 24px),repeating-linear-gradient(90deg,transparent 0 23px,rgba(99,168,255,.08) 24px),linear-gradient(rgba(5,12,26,.95),rgba(3,8,18,.98))}
 .demo-login[data-track] .demo-login-card:before,.demo-login[data-track] .demo-login-card:after{border-color:var(--track-accent)}
 .demo-login[data-track] .demo-login-card .guide-tabs button.active{border-color:var(--track-accent);color:var(--track-accent);background:var(--track-soft)}
 .demo-login[data-track] .demo-login-card form>button{background:var(--track-accent)!important}
@@ -556,3 +727,88 @@ html:has(.guide-app),body:has(.guide-app){scrollbar-color:#555b66 #101319}
 html:has(.guide-app)::-webkit-scrollbar,body:has(.guide-app)::-webkit-scrollbar,.guide-app *::-webkit-scrollbar{width:9px;height:9px}
 html:has(.guide-app)::-webkit-scrollbar-track,body:has(.guide-app)::-webkit-scrollbar-track,.guide-app *::-webkit-scrollbar-track{background:#101319}
 html:has(.guide-app)::-webkit-scrollbar-thumb,body:has(.guide-app)::-webkit-scrollbar-thumb,.guide-app *::-webkit-scrollbar-thumb{background:#555b66;border:2px solid #101319;border-radius:8px}
+
+
+/* Final neutralization pass: dashboard styling is graphite with only the active track accent. */
+.guide-app{background:#090b10!important;color:#e6e8ed!important}
+.guide-app .guide-atmosphere{background:radial-gradient(ellipse at 72% -12%,rgba(150,155,168,.055),transparent 48%)!important}
+.guide-app .guide-sidebar{background:#080a0e!important;border-color:#252a33!important}
+.guide-app .guide-brand,.guide-app .guide-brand small,.guide-app .guide-nav-label,.guide-app .guide-sidebar nav a small,.guide-app .guide-sidebar-bottom>a,.guide-app .guide-online,.guide-app .guide-online span,.guide-app .guide-team small{color:#9299a5!important}
+.guide-app .guide-brand b i,.guide-app .guide-nav-label b,.guide-app .guide-team-code,.guide-app .guide-page-head small,.guide-app .guide-metric span,.guide-app .guide-status,.guide-app .guide-sidebar nav a i,.guide-app .guide-sidebar nav a.active small,.guide-app .guide-mobile-nav small{color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-online i,.guide-app .guide-trading i{background:var(--track-accent,#ffd84d)!important;box-shadow:0 0 8px color-mix(in srgb,var(--track-accent,#ffd84d),transparent 55%)!important}
+.guide-app .guide-sidebar nav a:hover,.guide-app .guide-sidebar nav a.active{background:var(--track-soft,rgba(255,216,77,.09))!important;border-color:var(--track-line,rgba(255,216,77,.3))!important;color:#f0f1f4!important}
+.guide-app .guide-avatar{border-color:var(--track-line,#665a2a)!important;color:var(--track-accent,#ffd84d)!important;background:var(--track-soft,rgba(255,216,77,.08))!important}
+.guide-app .guide-panel,.guide-app .guide-metric{background:linear-gradient(145deg,#11141b,#0c0f15)!important;border-color:#292e38!important}
+.guide-app .guide-panel-head,.guide-app .guide-sidebar-bottom,.guide-app .guide-brand,.guide-app .guide-top,.guide-app .guide-footer{border-color:#292e38!important}
+.guide-app .guide-panel h3{color:#f0f1f4!important}
+.guide-app .guide-panel h3 span{color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-chip{border-color:var(--track-line,rgba(255,216,77,.3))!important;background:var(--track-soft,rgba(255,216,77,.08))!important;color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-btn:not(.secondary),.guide-app .guide-taskbar>a{background:var(--track-accent,#ffd84d)!important;color:#111318!important}
+.guide-app .guide-tabs button.active{border-color:var(--track-accent,#ffd84d)!important;background:var(--track-soft,rgba(255,216,77,.08))!important;color:var(--track-accent,#ffd84d)!important}
+.guide-app .guide-alert:not(.guide-warning){border-left-color:var(--track-accent,#ffd84d)!important;background:var(--track-soft,rgba(255,216,77,.07))!important;color:#e2e4e9!important}
+.guide-app .guide-table th{background:#141821!important;color:#aeb4bf!important}
+.guide-app .guide-table td{border-color:#292e38!important;color:#cbd0d9!important}
+.guide-app .guide-muted{color:#9ba2ad!important}
+.guide-app .guide-top{background:rgba(9,11,16,.96)!important}
+
+
+/* Canvas MatrixRain compatibility on login/welcome + Sleek Trading App Themes scoped strictly to Consulting (Blue) & Product (Amber), leaving Finance as exact 6a55285 graphite+gold */
+.demo-login.demo-entry>canvas.demo-matrix-rain,canvas.demo-matrix-rain-fixed{display:block!important;width:100%!important;height:100%!important;opacity:.75!important;mask-image:none!important;-webkit-mask-image:none!important}
+.demo-login[data-track="CONSULTING"] .demo-login-card,.demo-login[data-track="PRODUCT"] .demo-login-card{border-radius:18px!important}
+.demo-login[data-track="CONSULTING"] .guide-input,.demo-login[data-track="CONSULTING"] .demo-track-picker button,.demo-login[data-track="CONSULTING"] .guide-tabs button,.demo-login[data-track="CONSULTING"] form>button,.demo-login[data-track="CONSULTING"] .demo-login-primary,
+.demo-login[data-track="PRODUCT"] .guide-input,.demo-login[data-track="PRODUCT"] .demo-track-picker button,.demo-login[data-track="PRODUCT"] .guide-tabs button,.demo-login[data-track="PRODUCT"] form>button,.demo-login[data-track="PRODUCT"] .demo-login-primary{border-radius:10px!important}
+.guide-app[data-track="CONSULTING"] .guide-panel,.guide-app[data-track="PRODUCT"] .guide-panel{border-radius:14px!important;overflow:hidden;backdrop-filter:blur(18px)}
+.guide-app[data-track="CONSULTING"] .guide-metric,.guide-app[data-track="PRODUCT"] .guide-metric{border-radius:12px!important}
+.guide-app[data-track="CONSULTING"] .guide-btn,.guide-app[data-track="PRODUCT"] .guide-btn{border-radius:9px!important}
+.guide-app[data-track="CONSULTING"] .guide-tabs button,.guide-app[data-track="PRODUCT"] .guide-tabs button{border-radius:8px!important}
+.guide-app[data-track="CONSULTING"] .guide-chip,.guide-app[data-track="PRODUCT"] .guide-chip{border-radius:999px!important}
+.guide-app[data-track="CONSULTING"] .guide-input,.guide-app[data-track="CONSULTING"] .guide-textarea,.guide-app[data-track="CONSULTING"] .guide-select,.guide-app[data-track="CONSULTING"] .guide-alert,
+.guide-app[data-track="PRODUCT"] .guide-input,.guide-app[data-track="PRODUCT"] .guide-textarea,.guide-app[data-track="PRODUCT"] .guide-select,.guide-app[data-track="PRODUCT"] .guide-alert{border-radius:10px!important}
+.guide-app[data-track="CONSULTING"] .guide-sidebar nav a,.guide-app[data-track="PRODUCT"] .guide-sidebar nav a{border-radius:9px!important}
+.guide-app[data-track="CONSULTING"] .guide-avatar,.guide-app[data-track="PRODUCT"] .guide-avatar{border-radius:10px!important}
+.guide-app[data-track="CONSULTING"] .guide-phase,.guide-app[data-track="CONSULTING"] .guide-taskbar>span,.guide-app[data-track="CONSULTING"] .guide-taskbar>a,.guide-app[data-track="CONSULTING"] .guide-top-right button,
+.guide-app[data-track="PRODUCT"] .guide-phase,.guide-app[data-track="PRODUCT"] .guide-taskbar>span,.guide-app[data-track="PRODUCT"] .guide-taskbar>a,.guide-app[data-track="PRODUCT"] .guide-top-right button{border-radius:8px!important}
+
+/* Consulting Track: Complete Sleek Blue Trading Theme */
+.guide-app[data-track="CONSULTING"]{background:radial-gradient(circle at 18% 0%,#091a38 0%,#040b18 45%,#02060f 100%)!important;color:#eaf3ff!important}
+.guide-app[data-track="CONSULTING"] .guide-atmosphere{background:radial-gradient(ellipse at 75% 0%,rgba(56,139,255,.2),transparent 50%),radial-gradient(ellipse at 15% 85%,rgba(29,78,216,.12),transparent 45%)!important}
+.guide-app[data-track="CONSULTING"] .guide-sidebar{background:linear-gradient(180deg,rgba(5,12,26,.94),rgba(3,8,18,.97))!important;border-right-color:rgba(99,168,255,.22)!important}
+.guide-app[data-track="CONSULTING"] .guide-top{background:rgba(4,11,24,.84)!important;border-bottom-color:rgba(99,168,255,.22)!important}
+.guide-app[data-track="CONSULTING"] .guide-taskbar{background:linear-gradient(90deg,rgba(11,28,58,.95),rgba(19,46,94,.9) 50%,rgba(10,24,50,.95))!important;border-bottom-color:rgba(99,168,255,.32)!important;color:#eaf3ff!important}
+.guide-app[data-track="CONSULTING"] .guide-taskbar>span{background:linear-gradient(135deg,#3b82f6,#1d4ed8)!important;color:#ffffff!important}
+.guide-app[data-track="CONSULTING"] .guide-preview-note{background:rgba(6,16,34,.85)!important;border-bottom-color:rgba(99,168,255,.16)!important;color:#7398c7!important}
+.guide-app[data-track="CONSULTING"] .guide-panel{border-color:rgba(99,168,255,.26)!important;background:linear-gradient(155deg,rgba(11,24,48,.9),rgba(5,12,26,.95))!important;box-shadow:0 18px 48px rgba(0,5,18,.48),inset 0 1px 0 rgba(175,212,255,.12)!important}
+.guide-app[data-track="CONSULTING"] .guide-panel-head{border-bottom-color:rgba(99,168,255,.18)!important;background:linear-gradient(90deg,rgba(37,99,235,.12),rgba(12,27,54,.25) 60%,transparent)!important}
+.guide-app[data-track="CONSULTING"] .guide-metric{border-color:rgba(99,168,255,.24)!important;background:linear-gradient(145deg,rgba(12,27,54,.82),rgba(6,15,32,.9))!important;box-shadow:0 8px 24px rgba(0,5,16,.32),inset 0 1px 0 rgba(175,212,255,.1)!important}
+.guide-app[data-track="CONSULTING"] .guide-btn:not(.secondary),.guide-app[data-track="CONSULTING"] .guide-taskbar>a{background:linear-gradient(135deg,#74b3ff,#3b82f6)!important;color:#030d1c!important;box-shadow:0 4px 16px rgba(59,130,246,.32)!important}
+.guide-app[data-track="CONSULTING"] .guide-btn.secondary{border-color:rgba(99,168,255,.34)!important;background:rgba(12,27,54,.55)!important;color:#c7e0ff!important}
+.guide-app[data-track="CONSULTING"] .guide-tabs button{border-color:rgba(99,168,255,.24)!important;background:rgba(8,19,38,.65)!important;color:#97b7e0!important}
+.guide-app[data-track="CONSULTING"] .guide-tabs button.active{border-color:#63a8ff!important;background:rgba(99,168,255,.16)!important;color:#63a8ff!important}
+.guide-app[data-track="CONSULTING"] .guide-input,.guide-app[data-track="CONSULTING"] .guide-textarea,.guide-app[data-track="CONSULTING"] .guide-select{border-color:rgba(99,168,255,.26)!important;background:rgba(4,10,22,.85)!important;color:#eaf3ff!important}
+.guide-app[data-track="CONSULTING"] .guide-alert{border-left-color:#63a8ff!important;background:linear-gradient(135deg,rgba(25,68,150,.24),rgba(10,26,58,.32))!important;color:#d6e8ff!important}
+.guide-app[data-track="CONSULTING"] .guide-warning{border-left-color:#38bdf8!important;background:linear-gradient(135deg,rgba(14,105,168,.26),rgba(9,32,64,.36))!important;color:#e0f4ff!important}
+.guide-app[data-track="CONSULTING"] [class*="border-[#294832]"]{border-color:rgba(99,168,255,.24)!important;border-radius:11px;background:linear-gradient(145deg,rgba(12,26,52,.45),rgba(6,14,29,.55))}
+.guide-app[data-track="CONSULTING"] [class*="border-t"][class*="border-[#294832]"],.guide-app[data-track="CONSULTING"] [class*="border-b"][class*="border-[#294832]"]{border-radius:0;background:transparent}
+.demo-login[data-track="CONSULTING"]{background:radial-gradient(circle at 50% 0%,#091b3a 0%,#020712 65%)!important}
+
+/* Product Track: Complete Sleek Amber/Orange Trading Theme */
+.guide-app[data-track="PRODUCT"]{background:radial-gradient(circle at 18% 0%,#2b1404 0%,#120803 45%,#090402 100%)!important;color:#fff5eb!important}
+.guide-app[data-track="PRODUCT"] .guide-atmosphere{background:radial-gradient(ellipse at 75% 0%,rgba(255,145,56,.18),transparent 50%),radial-gradient(ellipse at 15% 85%,rgba(217,100,22,.12),transparent 45%)!important}
+.guide-app[data-track="PRODUCT"] .guide-sidebar{background:linear-gradient(180deg,rgba(22,11,5,.94),rgba(12,6,3,.97))!important;border-right-color:rgba(255,155,69,.22)!important}
+.guide-app[data-track="PRODUCT"] .guide-top{background:rgba(18,9,4,.84)!important;border-bottom-color:rgba(255,155,69,.22)!important}
+.guide-app[data-track="PRODUCT"] .guide-taskbar{background:linear-gradient(90deg,rgba(54,24,8,.95),rgba(82,36,10,.9) 50%,rgba(44,19,6,.95))!important;border-bottom-color:rgba(255,155,69,.34)!important;color:#fff5eb!important}
+.guide-app[data-track="PRODUCT"] .guide-taskbar>span{background:linear-gradient(135deg,#f97316,#c2410c)!important;color:#ffffff!important}
+.guide-app[data-track="PRODUCT"] .guide-preview-note{background:rgba(24,11,4,.86)!important;border-bottom-color:rgba(255,155,69,.16)!important;color:#b88961!important}
+.guide-app[data-track="PRODUCT"] .guide-panel{border-color:rgba(255,155,69,.26)!important;background:linear-gradient(155deg,rgba(36,18,8,.9),rgba(17,8,4,.96))!important;box-shadow:0 18px 48px rgba(10,3,0,.5),inset 0 1px 0 rgba(255,205,160,.12)!important}
+.guide-app[data-track="PRODUCT"] .guide-panel-head{border-bottom-color:rgba(255,155,69,.18)!important;background:linear-gradient(90deg,rgba(234,110,20,.14),rgba(48,22,8,.28) 60%,transparent)!important}
+.guide-app[data-track="PRODUCT"] .guide-metric{border-color:rgba(255,155,69,.24)!important;background:linear-gradient(145deg,rgba(42,20,8,.82),rgba(20,10,4,.9))!important;box-shadow:0 8px 24px rgba(10,3,0,.35),inset 0 1px 0 rgba(255,205,160,.1)!important}
+.guide-app[data-track="PRODUCT"] .guide-btn:not(.secondary),.guide-app[data-track="PRODUCT"] .guide-taskbar>a{background:linear-gradient(135deg,#ffae5e,#f97316)!important;color:#1a0902!important;box-shadow:0 4px 16px rgba(249,115,22,.32)!important}
+.guide-app[data-track="PRODUCT"] .guide-btn.secondary{border-color:rgba(255,155,69,.34)!important;background:rgba(44,20,8,.55)!important;color:#ffd9b8!important}
+.guide-app[data-track="PRODUCT"] .guide-tabs button{border-color:rgba(255,155,69,.24)!important;background:rgba(28,13,5,.65)!important;color:#d9b08c!important}
+.guide-app[data-track="PRODUCT"] .guide-tabs button.active{border-color:#ff9b45!important;background:rgba(255,155,69,.16)!important;color:#ff9b45!important}
+.guide-app[data-track="PRODUCT"] .guide-input,.guide-app[data-track="PRODUCT"] .guide-textarea,.guide-app[data-track="PRODUCT"] .guide-select{border-color:rgba(255,155,69,.26)!important;background:rgba(15,7,3,.86)!important;color:#fff5eb!important}
+.guide-app[data-track="PRODUCT"] .guide-alert{border-left-color:#ff9b45!important;background:linear-gradient(135deg,rgba(148,64,14,.26),rgba(48,22,7,.36))!important;color:#ffe6cf!important}
+.guide-app[data-track="PRODUCT"] .guide-warning{border-left-color:#fbbf24!important;background:linear-gradient(135deg,rgba(168,85,14,.28),rgba(56,26,8,.4))!important;color:#fff0d6!important}
+.guide-app[data-track="PRODUCT"] [class*="border-[#294832]"]{border-color:rgba(255,155,69,.24)!important;border-radius:11px;background:linear-gradient(145deg,rgba(40,19,8,.48),rgba(20,9,4,.58))}
+.guide-app[data-track="PRODUCT"] [class*="border-t"][class*="border-[#294832]"],.guide-app[data-track="PRODUCT"] [class*="border-b"][class*="border-[#294832]"]{border-radius:0;background:transparent}
+.demo-login[data-track="PRODUCT"]{background:radial-gradient(circle at 50% 0%,#2b1404 0%,#0a0402 65%)!important}

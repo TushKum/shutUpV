@@ -27,14 +27,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <main className="terminal-container terminal-theme-scope relative min-h-dvh bg-black">
-      {/* Matrix digital rain belongs to the page background, never to the sign-in panel. */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#020704]">
-        <MatrixRain opacity={0.42} size={17} className="absolute inset-0 h-full w-full" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,12,4,0.08)_0%,rgba(0,0,0,0.42)_72%,rgba(0,0,0,0.78)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-black via-black/70 to-transparent" />
-        <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(0,255,65,0.09)_1px,transparent_1px)] [background-size:100%_4px]" />
+      {/* Sparse, side-weighted Matrix rain; the centre stays dark behind the sign-in panel. */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#010302]">
+        <MatrixRain opacity={0.94} size={15} className="absolute inset-0 h-full w-full" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_58%_88%_at_50%_48%,rgba(0,0,0,0.74)_0%,rgba(0,0,0,0.42)_48%,rgba(0,0,0,0.04)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.08),transparent_18%,transparent_82%,rgba(0,0,0,0.08))]" />
       </div>
-      <div aria-hidden className="mx-crt pointer-events-none" />
       <div className="relative z-10 mx-auto grid min-h-dvh w-full max-w-5xl items-center gap-6 px-4 py-8 sm:gap-8 sm:py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-12">
         <LoginHero portal={portal} />
         <div className="mx-panel glow-box relative mx-auto w-full max-w-sm overflow-hidden rounded-xl">

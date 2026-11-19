@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MarketHeatmap, type HeatmapQuote } from "@/components/ui/market-heatmap";
 import { bp } from "@/lib/format";
-import { Metric, PageTitle, Panel } from "../ui";
+import { Metric, PageTitle, Panel, useDemoTrack } from "../ui";
 
 const companies: readonly HeatmapQuote[] = [
   { ticker: "FRPK", name: "FreshPack Foods", price: "$11.80", moveBp: null, tag: "Built by you" },
@@ -18,6 +18,7 @@ const companies: readonly HeatmapQuote[] = [
 ];
 
 export default function Market() {
+  const [track] = useDemoTrack();
   const [selected, setSelected] = useState("NOVA");
   const company = companies.find(({ ticker }) => ticker === selected) ?? companies[2];
 
@@ -50,7 +51,7 @@ export default function Market() {
         </Panel>
         <Panel title="Trading access" tag="ROUND 3 ONLY">
           <p className="guide-muted">During Round 3 you may trade any company except the one you built and the one you rescued.</p>
-          <Link className="mt-3 inline-block text-xs text-[#39ff88]" href="/demo/trade/event">Open Round 3 order ticket →</Link>
+          {track === "FINANCE" && <Link className="mt-3 inline-block text-xs text-[#39ff88]" href="/demo/trade/event">Open Round 3 order ticket →</Link>}
         </Panel>
       </div>
     </>
