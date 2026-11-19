@@ -4,6 +4,7 @@ import { getViewer } from "@/lib/auth/viewer";
 import { safeNext } from "@/lib/auth/routes";
 import { LoginForm } from "./login-form";
 import { SonicWaveformCanvas } from "@/components/ui/sonic-waveform";
+import { MatrixRain } from "@/components/ui/matrix/matrix-rain";
 import { LoginHero } from "./login-hero";
 import { CipherText } from "@/components/ui/matrix/cipher-text";
 import { DitherLayer } from "@/components/ui/matrix/dither-layer";
@@ -29,6 +30,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
     <main className="terminal-container terminal-theme-scope relative min-h-dvh bg-black">
       {/* The backdrop: the waveform in PRIMUS green (it settles to a still picture for reduced motion), darkened
           towards the bottom so the card always reads. */}
+      <MatrixRain opacity={0.35} size={15} className="fixed inset-0 z-0" />
       <SonicWaveformCanvas className="fixed" rgb="0, 255, 65" lineCount={48} />
       <div aria-hidden className="pointer-events-none fixed inset-0 z-10 bg-gradient-to-t from-black via-black/50 to-black/20" />
       <div aria-hidden className="mx-crt" />
