@@ -53,7 +53,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
     <div className="space-y-4">
       {/* Risk KPI Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4">
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
             1-Day 95% Value at Risk
           </div>
@@ -65,7 +65,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4">
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
             Rolling Sharpe Ratio
           </div>
@@ -77,7 +77,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4">
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
             Peak-to-Trough Drawdown
           </div>
@@ -89,7 +89,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4">
           <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
             Net Directional Beta
           </div>
@@ -104,8 +104,8 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
 
       {/* Position Risk Matrix + Sector Exposure */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <section className="xl:col-span-8 bg-[#101715] border border-white/[0.07] rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#1B2420] flex items-center justify-between">
+        <section className="xl:col-span-8 bg-[#171610] border border-white/[0.07] rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#2d2a1d] flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[#F2F5F3]">
               Position Risk &amp; Liquidation Matrix
             </h2>
@@ -122,7 +122,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-[#1B2420] bg-[#0C1110]">
+                  <tr className="border-b border-[#2d2a1d] bg-[#11110d]">
                     <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
                       Symbol
                     </th>
@@ -151,8 +151,8 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
                     return (
                       <tr
                         key={pos.symbol}
-                        className={`border-b border-[#1B2420]/70 ${
-                          idx % 2 === 0 ? 'bg-[#0C1110]' : 'bg-[#101715]'
+                        className={`border-b border-[#2d2a1d]/70 ${
+                          idx % 2 === 0 ? 'bg-[#11110d]' : 'bg-[#171610]'
                         }`}
                       >
                         <td className="py-2.5 px-4 font-mono text-[13px] font-semibold text-[#F2F5F3]">
@@ -185,7 +185,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
                             <button
                               type="button"
                               onClick={() => onReducePosition(pos.symbol, 0.5)}
-                              className="px-2.5 py-1 bg-[#0C1110] border border-[#1B2420] hover:border-[#285D46] rounded font-mono text-[11px] text-[#F2F5F3]"
+                              className="px-2.5 py-1 bg-[#11110d] border border-[#2d2a1d] hover:border-[color:var(--desk-accent-line)] rounded font-mono text-[11px] text-[#F2F5F3]"
                             >
                               Reduce 50%
                             </button>
@@ -207,8 +207,8 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
           </div>
         </section>
 
-        <section className="xl:col-span-4 bg-[#101715] border border-white/[0.07] rounded-lg p-4 space-y-4">
-          <div className="pb-3 border-b border-[#1B2420]">
+        <section className="xl:col-span-4 bg-[#171610] border border-white/[0.07] rounded-lg p-4 space-y-4">
+          <div className="pb-3 border-b border-[#2d2a1d]">
             <h2 className="text-sm font-semibold text-[#F2F5F3]">
               Sector Exposure Allocation
             </h2>
@@ -225,7 +225,7 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
                 </div>
                 <div className="h-2 w-full bg-[#070909] rounded-sm overflow-hidden">
                   <div
-                    className="h-full bg-[#00E676]"
+                    className="h-full bg-[var(--desk-accent)]"
                     style={{ width: `${Math.min(100, item.pct)}%` }}
                   />
                 </div>
@@ -233,14 +233,14 @@ export const RiskTelemetryScreen: React.FC<RiskTelemetryScreenProps> = ({
             ))}
           </div>
 
-          <div className="pt-4 border-t border-[#1B2420] space-y-2.5">
+          <div className="pt-4 border-t border-[#2d2a1d] space-y-2.5">
             <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
               Data Feed Channels
             </h3>
             {diagnostics.map((d) => (
               <div
                 key={d.id}
-                className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-[#1B2420]/50 last:border-b-0"
+                className="flex items-center justify-between text-xs font-mono py-1.5 border-b border-[#2d2a1d]/50 last:border-b-0"
               >
                 <div className="min-w-0 pr-2">
                   <div className="text-[#F2F5F3] truncate">{d.channel}</div>

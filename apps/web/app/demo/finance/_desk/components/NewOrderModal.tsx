@@ -33,8 +33,8 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
       aria-label="New Order Ticket"
     >
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-md bg-[#151D19] border border-[#285D46] rounded-lg shadow-[0_0_16px_rgba(0,230,118,0.08)] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#1B2420] flex items-center justify-between">
+      <div className="relative z-10 w-full max-w-md bg-[#201e14] border border-[color:var(--desk-accent-line)] rounded-lg shadow-[0_0_16px_var(--desk-accent-soft)] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#2d2a1d] flex items-center justify-between">
           <h2 className="text-sm font-semibold text-[#F2F5F3]">
             Direct Execution Ticket
           </h2>

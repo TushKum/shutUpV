@@ -4,8 +4,7 @@ export type ScreenId =
   | 'overview'
   | 'markets'
   | 'arena'
-  | 'risk'
-  | 'config';
+  | 'risk';
 
 export type AssetSector = 'Perps' | 'Equities' | 'Venture' | 'Macro';
 
@@ -94,22 +93,6 @@ export interface FeedDiagnostic {
   latencyMs: number;
   msgPerSec: number;
   status: 'NOMINAL' | 'DEGRADED';
-}
-
-export interface ApiEndpointConfig {
-  mode: 'DEMO_SEED' | 'LIVE_BACKEND';
-  restBaseUrl: string;
-  wsStreamUrl: string;
-  authHeader: string;
-  pollIntervalMs: number;
-  autoReconnect: boolean;
-  endpoints: {
-    portfolio: string;
-    orders: string;
-    positions: string;
-    arena: string;
-    risk: string;
-  };
 }
 
 export interface DeskState {

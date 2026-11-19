@@ -12,6 +12,8 @@ import { BookTabs } from "./tabs";
 import { loadSectorRace } from "@/lib/team/sectors-data";
 import { SectorRace } from "@/components/ui/sector-race";
 import { MarketHeatmap } from "@/components/ui/market-heatmap";
+import { loadTradeCandles } from "@/lib/team/trade-candles-data";
+import { TradeDesk } from "../trade/desk";
 
 export const metadata: Metadata = { title: "Market" };
 
@@ -33,13 +35,27 @@ export default async function MarketPage() {
       </Panel>
     );
   }
-  const [list, released, race] = await Promise.all([loadMarketList(event.id), loadReleased(sb, event.id), loadSectorRace(event.id)]);
+  const [list, released, race, chart, openRound] = await Promise.all([
+    loadMarketList(event.id), loadReleased(sb, event.id), loadSectorRace(event.id), loadTradeCandles(event.id),
+    status.trading === "OPEN" && !status.paused && status.open_round
+      ? sb.from("rounds").select("id, number").eq("event_id", event.id).eq("number", status.open_round.number)
+          .maybeSingle<{ id: string; number: number }>().then(({ data }) => data)
+      : null,
+  ]);
   const ctx = await loadTeamContext();
   const lines = marketLines(list.companies, list.lastRound?.rows ?? []);
+  const priced = lines.flatMap(({ id, ticker, name, price }) => price === null ? [] : [{ id, ticker, name, price }]);
 
   return (
-    <div className="space-y-6">
+    <div className="market-board market-type space-y-6">
       <BookTabs open={openBooks(status.phase, released)} current="PRICES" />
+      {priced.length ? (
+        <section className="market-chart">
+          <h2 className="mb-3 text-xl font-semibold">Candlestick chart</h2>
+          <TradeDesk companies={priced} candles={chart.candles} initialRanges={chart.ranges}
+            openRound={openRound} ticket={null} embedded />
+        </section>
+      ) : null}
       {lines.length ? (
         <Panel title="Market heatmap">
           <p className="mb-3 text-sm text-paper">

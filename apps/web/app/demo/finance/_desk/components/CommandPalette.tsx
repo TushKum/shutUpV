@@ -17,7 +17,6 @@ const SCREENS: { id: ScreenId; label: string; hint: string }[] = [
   { id: 'markets', label: 'Markets & Execution', hint: 'Screener, Order Book & Blotter' },
   { id: 'arena', label: 'Pitch Arena', hint: 'Competing Startups & Backing' },
   { id: 'risk', label: 'Risk & Telemetry', hint: 'VaR, Liquidation & Feeds' },
-  { id: 'config', label: 'API & Desk Config', hint: 'REST & WebSocket Backend Bridge' },
 ];
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -52,9 +51,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       aria-label="Command palette"
     >
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-xl bg-[#151D19] border border-[#285D46] rounded-lg shadow-[0_0_16px_rgba(0,230,118,0.08)] overflow-hidden">
-        <div className="flex items-center gap-2 px-4 h-12 border-b border-[#1B2420]">
-          <Search className="w-4 h-4 text-[#00E676] shrink-0" aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-xl bg-[#201e14] border border-[color:var(--desk-accent-line)] rounded-lg shadow-[0_0_16px_var(--desk-accent-soft)] overflow-hidden">
+        <div className="flex items-center gap-2 px-4 h-12 border-b border-[#2d2a1d]">
+          <Search className="w-4 h-4 text-[color:var(--desk-accent)] shrink-0" aria-hidden="true" />
           <input
             type="text"
             autoFocus
@@ -89,7 +88,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       onNavigate(screen.id);
                       onClose();
                     }}
-                    className="w-full px-3 py-2 rounded flex items-center justify-between text-left hover:bg-[#101715] transition-colors"
+                    className="w-full px-3 py-2 rounded flex items-center justify-between text-left hover:bg-[#171610] transition-colors"
                   >
                     <div>
                       <div className="text-xs font-medium text-[#F2F5F3]">{screen.label}</div>
@@ -117,13 +116,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       onNavigate('markets');
                       onClose();
                     }}
-                    className="w-full px-3 py-2 rounded flex items-center justify-between text-left hover:bg-[#101715] transition-colors font-mono text-xs"
+                    className="w-full px-3 py-2 rounded flex items-center justify-between text-left hover:bg-[#171610] transition-colors font-mono text-xs"
                   >
                     <span className="text-[#F2F5F3] font-semibold">
                       {ticker.symbol}{' '}
                       <span className="font-normal text-[#87948D] ml-1.5">{ticker.name}</span>
                     </span>
-                    <span className="text-[#00E676] tabular-nums">
+                    <span className="text-[color:var(--desk-accent)] tabular-nums">
                       {formatCurrency(ticker.price, ticker.price < 2 ? 3 : 2)}
                     </span>
                   </button>
@@ -142,7 +141,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 onToggleStream();
                 onClose();
               }}
-              className="w-full px-3 py-2 rounded flex items-center justify-between text-left hover:bg-[#101715] transition-colors font-mono text-xs text-[#F2F5F3]"
+              className="w-full px-3 py-2 rounded flex items-center justify-between text-left hover:bg-[#171610] transition-colors font-mono text-xs text-[#F2F5F3]"
             >
               <span>{isStreaming ? 'Pause Live Market Stream' : 'Resume Live Market Stream'}</span>
               <span className="text-[#87948D]">Toggle</span>

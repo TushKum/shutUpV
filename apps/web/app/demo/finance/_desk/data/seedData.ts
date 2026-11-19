@@ -1,5 +1,4 @@
 import type {
-  ApiEndpointConfig,
   DeskState,
   EquityPoint,
   EquityTimeframe,
@@ -119,7 +118,57 @@ const tickerSeeds: Omit<MarketTicker, 'candles'>[] = [
   },
 ];
 
-export const SEED_TICKERS: MarketTicker[] = tickerSeeds.map((ticker) => ({ ...ticker, candles: seedBars(ticker) }));
+const extraListings: Record<MarketTicker['sector'], readonly [string, string, number][]> = {
+  Perps: [
+    ['ETH-PERP', 'Ethereum Index', 3120], ['XRP-PERP', 'XRP Index', 1.84],
+    ['ADA-PERP', 'Cardano Index', 0.62], ['DOGE-PERP', 'Dogecoin Index', 0.18],
+    ['AVAX-PERP', 'Avalanche Index', 36.12], ['LINK-PERP', 'Chainlink Index', 18.74],
+    ['DOT-PERP', 'Polkadot Index', 6.35], ['LTC-PERP', 'Litecoin Index', 88.21],
+    ['SUI-PERP', 'Sui Index', 3.22], ['ATOM-PERP', 'Cosmos Index', 8.47],
+  ],
+  Equities: [
+    ['AAPL-EQ', 'Apple Synthetic', 214.05], ['MSFT-EQ', 'Microsoft Synthetic', 431.92],
+    ['AMZN-EQ', 'Amazon Synthetic', 195.62], ['GOOG-EQ', 'Alphabet Synthetic', 178.12],
+    ['META-EQ', 'Meta Synthetic', 583.45], ['AMD-EQ', 'AMD Synthetic', 152.23],
+    ['AVGO-EQ', 'Broadcom Synthetic', 219.74], ['JPM-EQ', 'JPMorgan Synthetic', 247.53],
+    ['COST-EQ', 'Costco Synthetic', 925.3], ['ORCL-EQ', 'Oracle Synthetic', 164.58],
+    ['UBER-EQ', 'Uber Synthetic', 82.94], ['SPOT-EQ', 'Spotify Synthetic', 654.2],
+  ],
+  Venture: [
+    ['NOVA-V', 'Nova Nutrition', 12.4], ['GRID-V', 'GridWise Energy', 9.8],
+    ['MINT-V', 'Mint Mobility', 13.1], ['LUMA-V', 'Luma Living', 8.9],
+    ['VITA-V', 'VitaCart', 10.6], ['ORBI-V', 'Orbit Health', 11.2],
+    ['FRPK-V', 'FreshPack Foods', 11.8], ['QAAC-V', 'AquaCare', 10.03],
+    ['RELY-V', 'Relay Logistics', 15.26], ['TIDE-V', 'Tide Water Systems', 9.42],
+  ],
+  Macro: [
+    ['GOLD-M', 'Gold Benchmark', 2638.5], ['SILV-M', 'Silver Benchmark', 30.72],
+    ['WTI-M', 'WTI Crude', 72.44], ['BRENT-M', 'Brent Crude', 76.31],
+    ['GAS-M', 'Natural Gas', 3.17], ['COPR-M', 'Copper Benchmark', 4.21],
+    ['DXY-M', 'US Dollar Index', 104.36], ['EURUSD-M', 'Euro / Dollar', 1.086],
+    ['SPX-M', 'US Large-Cap Index', 5864.5], ['NDX-M', 'Nasdaq-100 Index', 20582.4],
+  ],
+};
+
+const moves = [2.31, -0.68, 5.62, -3.44, 0, 1.26, -5.13, 0.43, -1.82, 3.75];
+const extraSeeds = (Object.keys(extraListings) as MarketTicker['sector'][]).flatMap((sector, group) =>
+  extraListings[sector].map(([symbol, name, price], index) => {
+    const changePct24h = moves[(group * 3 + index) % moves.length]!;
+    const start = price / (1 + changePct24h / 100);
+    const decimals = price < 2 ? 3 : 2;
+    const sparkline = Array.from({ length: 10 }, (_, i) =>
+      Number((start + (price - start) * i / 9 + price * 0.006 * Math.sin(i * Math.PI / 9) * Math.sin(i + index)).toFixed(decimals)),
+    );
+    return {
+      symbol, name, sector, price, changePct24h, sparkline, prevPrice: sparkline[8]!,
+      volume24h: (group + 1) * (index + 3) * 970_000, spreadBps: 1.2 + group * 1.2 + index * 0.1,
+      high24h: Number((Math.max(...sparkline) * 1.005).toFixed(decimals)),
+      low24h: Number((Math.min(...sparkline) * 0.995).toFixed(decimals)),
+    };
+  }),
+);
+
+export const SEED_TICKERS: MarketTicker[] = [...tickerSeeds, ...extraSeeds].map((ticker) => ({ ...ticker, candles: seedBars(ticker) }));
 
 export const SEED_POSITIONS: Position[] = [
   {
@@ -402,22 +451,6 @@ export const SEED_DIAGNOSTICS: FeedDiagnostic[] = [
     status: 'NOMINAL',
   },
 ];
-
-export const DEFAULT_API_CONFIG: ApiEndpointConfig = {
-  mode: 'DEMO_SEED',
-  restBaseUrl: 'http://localhost:8080/api/v1',
-  wsStreamUrl: 'ws://localhost:8080/ws/ticks',
-  authHeader: 'Bearer mc_live_desk_98f2a4c1',
-  pollIntervalMs: 1500,
-  autoReconnect: true,
-  endpoints: {
-    portfolio: '/portfolio/summary',
-    orders: '/orders',
-    positions: '/positions',
-    arena: '/arena/teams',
-    risk: '/risk/telemetry',
-  },
-};
 
 export const INITIAL_DESK_STATE: DeskState = {
   cash: 266000.0,

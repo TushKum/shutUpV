@@ -43,8 +43,8 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
     <div className="space-y-4">
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Leaderboard Table (7 cols) */}
-        <section className="xl:col-span-7 bg-[#101715] border border-white/[0.07] rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#1B2420] flex items-center justify-between gap-3">
+        <section className="xl:col-span-7 bg-[#171610] border border-white/[0.07] rounded-lg overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#2d2a1d] flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-[#F2F5F3]">
                 Live Venture Pitch Order Book
@@ -61,7 +61,7 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#1B2420] bg-[#0C1110]">
+                <tr className="border-b border-[#2d2a1d] bg-[#11110d]">
                   <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
                     Rank / Team
                   </th>
@@ -89,12 +89,12 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
                         setSelectedId(team.id);
                         setFeedback(null);
                       }}
-                      className={`border-b border-[#1B2420]/70 cursor-pointer transition-colors ${
+                      className={`border-b border-[#2d2a1d]/70 cursor-pointer transition-colors ${
                         isSelected
-                          ? 'bg-[#151D19]'
+                          ? 'bg-[#201e14]'
                           : idx % 2 === 0
-                            ? 'bg-[#0C1110] hover:bg-[#151D19]/70'
-                            : 'bg-[#101715] hover:bg-[#151D19]/70'
+                            ? 'bg-[#11110d] hover:bg-[#201e14]/70'
+                            : 'bg-[#171610] hover:bg-[#201e14]/70'
                       }`}
                     >
                       <td className="py-3 px-4">
@@ -105,7 +105,7 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
                           <div>
                             <div className="font-mono text-[13px] font-semibold text-[#F2F5F3]">
                               {team.name}{' '}
-                              <span className="text-[#00E676] font-normal ml-1">
+                              <span className="text-[color:var(--desk-accent)] font-normal ml-1">
                                 {team.ticker}
                               </span>
                             </div>
@@ -145,9 +145,9 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
         </section>
 
         {/* Diligence Brief & Backing Execution (5 cols) */}
-        <section className="xl:col-span-5 bg-[#101715] border border-white/[0.07] rounded-lg p-5 flex flex-col justify-between gap-4">
+        <section className="xl:col-span-5 bg-[#171610] border border-white/[0.07] rounded-lg p-5 flex flex-col justify-between gap-4">
           <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#1B2420]">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#2d2a1d]">
               <div>
                 <div className="font-mono text-[11px] text-[#87948D]">
                   {selectedTeam.pitchSlot} · {selectedTeam.sector}
@@ -160,7 +160,7 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
                 <div className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#87948D]">
                   Judge Rubric
                 </div>
-                <div className="font-mono text-lg font-semibold text-[#00E676] tabular-nums">
+                <div className="font-mono text-lg font-semibold text-[color:var(--desk-accent)] tabular-nums">
                   {selectedTeam.judgesScore.toFixed(1)} / 10
                 </div>
               </div>
@@ -174,21 +174,21 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
                 <p className="text-[#F2F5F3]">{selectedTeam.thesisSummary}</p>
               </div>
 
-              <div className="pt-2 border-t border-[#1B2420]">
+              <div className="pt-2 border-t border-[#2d2a1d]">
                 <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] mb-1">
                   Technical Moat
                 </h3>
                 <p className="text-[#BACBB9]">{selectedTeam.moat}</p>
               </div>
 
-              <div className="pt-2 border-t border-[#1B2420]">
+              <div className="pt-2 border-t border-[#2d2a1d]">
                 <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] mb-1">
                   Unit Economics
                 </h3>
                 <p className="text-[#BACBB9]">{selectedTeam.unitEconomics}</p>
               </div>
 
-              <div className="pt-2 border-t border-[#1B2420]">
+              <div className="pt-2 border-t border-[#2d2a1d]">
                 <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] mb-1">
                   Primary Downside Risk
                 </h3>
@@ -199,7 +199,7 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
 
           <form
             onSubmit={handleBack}
-            className="pt-4 border-t border-[#1B2420] space-y-3"
+            className="pt-4 border-t border-[#2d2a1d] space-y-3"
           >
             <div className="flex items-center justify-between text-xs font-mono">
               <label
@@ -224,11 +224,11 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
                   setStakeInput(e.target.value);
                   setFeedback(null);
                 }}
-                className="min-w-0 flex-1 h-10 px-3 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:outline-none rounded font-mono text-sm text-[#F2F5F3] tabular-nums"
+                className="min-w-0 flex-1 h-10 px-3 bg-[#11110d] border border-[#2d2a1d] focus:border-[color:var(--desk-accent)] focus:outline-none rounded font-mono text-sm text-[#F2F5F3] tabular-nums"
               />
               <button
                 type="submit"
-                className="h-10 px-5 bg-[#00E676] hover:bg-[#00B86B] text-[#070909] font-mono text-xs font-semibold uppercase tracking-wider rounded transition-all hover:shadow-[0_0_12px_rgba(0,230,118,0.3)] whitespace-nowrap shrink-0"
+                className="h-10 px-5 bg-[var(--desk-accent)] hover:bg-[var(--desk-accent-hover)] text-[#070909] font-mono text-xs font-semibold uppercase tracking-wider rounded transition-all hover:shadow-[0_0_12px_var(--desk-accent-soft)] whitespace-nowrap shrink-0"
               >
                 Back {selectedTeam.ticker}
               </button>
@@ -237,7 +237,7 @@ export const PitchArenaScreen: React.FC<PitchArenaScreenProps> = ({
             {feedback && (
               <div
                 role="status"
-                className="px-3 py-2 rounded bg-[#00E676]/10 border border-[#285D46] font-mono text-xs text-[#75FF9E]"
+                className="px-3 py-2 rounded bg-[var(--desk-accent-soft)] border border-[color:var(--desk-accent-line)] font-mono text-xs text-[#75FF9E]"
               >
                 {feedback}
               </div>

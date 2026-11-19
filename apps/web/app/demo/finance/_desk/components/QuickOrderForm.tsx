@@ -76,7 +76,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className={`bg-[#101715] border border-white/[0.07] rounded-lg ${
+      className={`bg-[#171610] border border-white/[0.07] rounded-lg ${
         compact ? 'p-4' : 'p-5'
       } flex flex-col gap-3`}
     >
@@ -88,7 +88,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 bg-[#0C1110] p-1 rounded border border-[#1B2420]">
+      <div className="grid grid-cols-2 gap-1.5 bg-[#11110d] p-1 rounded border border-[#2d2a1d]">
         <button
           type="button"
           onClick={() => {
@@ -97,7 +97,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
           }}
           className={`h-9 rounded-sm font-mono text-xs font-semibold uppercase transition-colors ${
             side === 'BUY'
-              ? 'bg-[#00E676] text-[#070909]'
+              ? 'bg-[var(--desk-accent)] text-[#070909]'
               : 'text-[#87948D] hover:text-[#F2F5F3]'
           }`}
         >
@@ -135,7 +135,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
               setLimitDraft(undefined);
               setFeedback(null);
             }}
-            className="w-full h-9 px-2.5 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:outline-none rounded text-[13px] font-mono text-[#F2F5F3]"
+            className="w-full h-9 px-2.5 bg-[#11110d] border border-[#2d2a1d] focus:border-[color:var(--desk-accent)] focus:outline-none rounded text-[13px] font-mono text-[#F2F5F3]"
           >
             {tickers.map((t) => (
               <option key={t.symbol} value={t.symbol}>
@@ -159,7 +159,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
               setOrderType(e.target.value as OrderType);
               setFeedback(null);
             }}
-            className="w-full h-9 px-2.5 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:outline-none rounded text-[13px] font-mono text-[#F2F5F3]"
+            className="w-full h-9 px-2.5 bg-[#11110d] border border-[#2d2a1d] focus:border-[color:var(--desk-accent)] focus:outline-none rounded text-[13px] font-mono text-[#F2F5F3]"
           >
             <option value="MARKET">MARKET</option>
             <option value="LIMIT">LIMIT</option>
@@ -182,7 +182,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
                   key={pct}
                   type="button"
                   onClick={() => applyPresetPct(pct)}
-                  className="px-1.5 py-0.5 font-mono text-[10px] bg-[#0C1110] border border-[#1B2420] hover:border-[#285D46] text-[#87948D] hover:text-[#F2F5F3] rounded-sm"
+                  className="px-1.5 py-0.5 font-mono text-[10px] bg-[#11110d] border border-[#2d2a1d] hover:border-[color:var(--desk-accent-line)] text-[#87948D] hover:text-[#F2F5F3] rounded-sm"
                 >
                   {pct * 100}%
                 </button>
@@ -200,7 +200,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
               setFeedback(null);
             }}
             placeholder="0.00"
-            className="w-full h-9 px-3 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:shadow-[0_0_0_1px_#00E676,0_0_8px_rgba(0,230,118,0.2)] focus:outline-none rounded font-mono text-[13px] text-[#F2F5F3] tabular-nums"
+            className="w-full h-9 px-3 bg-[#11110d] border border-[#2d2a1d] focus:border-[color:var(--desk-accent)] focus:ring-1 focus:ring-[color:var(--desk-accent)] focus:outline-none rounded font-mono text-[13px] text-[#F2F5F3] tabular-nums"
           />
         </div>
 
@@ -223,13 +223,13 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
                 setFeedback(null);
               }}
               placeholder={String(activeTicker.price)}
-              className="w-full h-9 px-3 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:shadow-[0_0_0_1px_#00E676,0_0_8px_rgba(0,230,118,0.2)] focus:outline-none rounded font-mono text-[13px] text-[#F2F5F3] tabular-nums"
+              className="w-full h-9 px-3 bg-[#11110d] border border-[#2d2a1d] focus:border-[color:var(--desk-accent)] focus:ring-1 focus:ring-[color:var(--desk-accent)] focus:outline-none rounded font-mono text-[13px] text-[#F2F5F3] tabular-nums"
             />
           </div>
         )}
       </div>
 
-      <div className="bg-[#0C1110] border border-[#1B2420] rounded px-3 py-2 flex items-center justify-between text-xs font-mono">
+      <div className="bg-[#11110d] border border-[#2d2a1d] rounded px-3 py-2 flex items-center justify-between text-xs font-mono">
         <span className="text-[#87948D]">Est. Notional</span>
         <span className="text-[#F2F5F3] font-medium tabular-nums">
           {formatCurrency(estNotional)}
@@ -242,7 +242,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
           className={`px-3 py-2 rounded border font-mono text-[11px] ${
             feedback.type === 'err'
               ? 'bg-[#FF5364]/10 border-[#FF5364]/40 text-[#FF5364]'
-              : 'bg-[#00E676]/10 border-[#285D46] text-[#75FF9E]'
+              : 'bg-[var(--desk-accent-soft)] border-[color:var(--desk-accent-line)] text-[color:var(--desk-accent)]'
           }`}
         >
           {feedback.msg}
@@ -253,7 +253,7 @@ export const QuickOrderForm: React.FC<QuickOrderFormProps> = ({
         type="submit"
         className={`h-10 w-full rounded font-mono text-xs font-semibold uppercase tracking-wider transition-all ${
           side === 'BUY'
-            ? 'bg-[#00E676] hover:bg-[#00B86B] text-[#070909] hover:shadow-[0_0_12px_rgba(0,230,118,0.3)]'
+            ? 'bg-[var(--desk-accent)] hover:bg-[var(--desk-accent-hover)] text-[#070909] hover:shadow-[0_0_12px_var(--desk-accent-soft)]'
             : 'bg-[#FF5364] hover:bg-[#e14353] text-[#070909]'
         }`}
       >

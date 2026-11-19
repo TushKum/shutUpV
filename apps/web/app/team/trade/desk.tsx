@@ -2,8 +2,7 @@
 
 // The order screen's chart, beside the ticket: pick a company (the ticket follows the pick), read its candles (each
 // trading round's real high and low, crisis and score moves marked as their own candles), the candlestick patterns,
-// and, while a round is open, its live candle: the indicative price (the price the round would clear at if no other
-// order came) moving as the funds' orders come in, read every 5 seconds.
+// and, while a round is open, its live indicative candle, read every 5 seconds.
 
 import { useEffect, useMemo, useState } from "react";
 import type { OrderContext } from "@msim/engine";
@@ -30,11 +29,13 @@ export function TradeDesk({
   openRound,
   initialRanges,
   ticket,
+  embedded = false,
 }: {
   companies: DeskCompany[];
   candles: Record<string, Candle[]>;
   openRound: { id: string; number: number } | null;
   initialRanges: RangeRow[];
+  embedded?: boolean;
   /** The order ticket while a round accepts orders (it trades the company picked on the chart). */
   ticket: {
     ctx: OrderContext;
@@ -44,8 +45,11 @@ export function TradeDesk({
   } | null;
 }) {
   const [picked, setPicked] = useState(companies[0]?.id ?? "");
-  const [ranges, setRanges] = useState<RangeRow[]>(() => (openRound ? initialRanges.filter((r) => r.round_id === openRound.id) : []));
+  const [snapshot, setSnapshot] = useState<{ roundId: string; ranges: RangeRow[] }>();
   const roundId = openRound?.id ?? null;
+  const ranges = roundId && snapshot?.roundId === roundId
+    ? snapshot.ranges
+    : roundId ? initialRanges.filter((range) => range.round_id === roundId) : [];
 
   useEffect(() => {
     if (!roundId) return;
@@ -53,8 +57,9 @@ export function TradeDesk({
     let stop = false;
     const read = async () => {
       const { data } = await sb.from("round_ranges").select("round_id, company_id, open_cents, high_cents, low_cents, last_cents").eq("round_id", roundId);
-      if (!stop && data) setRanges(data as RangeRow[]);
+      if (!stop && data) setSnapshot({ roundId, ranges: data as RangeRow[] });
     };
+    void read();
     const t = setInterval(read, 5000);
     return () => {
       stop = true;
@@ -80,10 +85,18 @@ export function TradeDesk({
   return (
     // Laptop screens: the chart and the ticket use the full width of the window, not the team pages' reading column.
     <div
-      className={`relative left-1/2 w-[calc(100vw-3rem)] max-w-[1700px] -translate-x-1/2 ${ticket ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]" : ""}`}
+      className={`${embedded ? "min-w-0" : "relative left-1/2 w-[calc(100vw-3rem)] max-w-[1700px] -translate-x-1/2"} ${ticket ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]" : ""}`}
     >
-      <section className="min-w-0 rounded-md bg-panel p-3 ring-1 ring-inset ring-line" data-testid="trade-chart-panel">
-        <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Company chart">
+      <section className={embedded ? "min-w-0" : "min-w-0 rounded-md bg-panel p-3 ring-1 ring-inset ring-line"} data-testid="trade-chart-panel">
+        {embedded ? (
+          <label className="mb-3 flex flex-wrap items-center gap-2 text-sm text-paper">
+            Company chart
+            <select value={company.id} onChange={(event) => setPicked(event.target.value)}
+              className="max-w-full rounded border border-line px-2 py-1 font-mono text-sm">
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.ticker} · {c.name}</option>)}
+            </select>
+          </label>
+        ) : <div className="mb-2 flex flex-wrap gap-1" role="tablist" aria-label="Company chart">
           {companies.map((c) => {
             const ind = indicative(c.id);
             const d = ind !== null ? ind - c.price : 0;
@@ -102,7 +115,7 @@ export function TradeDesk({
               </button>
             );
           })}
-        </div>
+        </div>}
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-mono text-base font-semibold text-paper">
             {company.ticker} <span className="text-sm font-normal text-muted">{company.name}</span>

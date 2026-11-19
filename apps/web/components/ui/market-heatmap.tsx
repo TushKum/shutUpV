@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { bp } from "@/lib/format";
+import "./market-board.css";
 
 export interface HeatmapQuote {
   ticker: string;
@@ -35,31 +36,43 @@ function bandFor(move: number | null) {
   return move >= -500 ? bands[5] : bands[6];
 }
 
-export function HeatmapTiles({ quotes, selected, onSelect }: {
+const PAGE_SIZE = 50;
+
+export function HeatmapTiles({ quotes, selected, onSelect, opensDialog = false }: {
   quotes: readonly HeatmapQuote[];
   selected?: string;
   onSelect?: (ticker: string) => void;
+  opensDialog?: boolean;
 }) {
+  const [page, setPage] = useState(0);
+  const pageCount = Math.ceil(quotes.length / PAGE_SIZE);
+  const currentPage = Math.min(page, Math.max(0, pageCount - 1));
+  const start = currentPage * PAGE_SIZE;
+  const visible = quotes.slice(start, start + PAGE_SIZE);
+
   return (
-    <div className="space-y-3">
-      <ul aria-label="Price change legend" className="flex flex-wrap gap-1.5">
+    <div className="market-type @container space-y-3">
+      <ul aria-label="Price change legend" className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-paper">
         {bands.map(({ label, tone }) => (
-          <li key={label} className={`rounded border px-2 py-1 font-mono text-xs text-white ${tone}`}>{label}</li>
+          <li key={label} className="inline-flex items-center gap-1.5">
+            <span aria-hidden="true" className={`size-2.5 rounded-sm border ${tone}`} />
+            {label}
+          </li>
         ))}
       </ul>
       {quotes.length ? (
-        <ul aria-label="Market heatmap" className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-          {quotes.map((quote) => {
+        <ul aria-label="Market heatmap" className="grid grid-cols-2 gap-1.5 @min-[650px]:grid-cols-5 @min-[1080px]:grid-cols-10">
+          {visible.map((quote) => {
             const active = quote.ticker === selected;
-            const tileClass = `flex h-full min-h-24 w-full flex-col rounded-md border-t-2 px-3 py-2 text-left text-white hover:brightness-125 focus-visible:outline-offset-2 ${bandFor(quote.moveBp).tone} ${active ? "ring-2 ring-inset ring-white" : ""}`;
+            const tileClass = `flex h-full min-h-22 w-full cursor-pointer flex-col rounded-md border-t px-2.5 py-2 text-left text-white hover:brightness-110 focus-visible:outline-offset-2 ${bandFor(quote.moveBp).tone} ${active ? "ring-2 ring-inset ring-[color:var(--heatmap-selection,white)]" : ""}`;
             const content = (
               <>
                 <span className="flex flex-wrap justify-between gap-x-2">
-                  <span className="font-mono text-sm font-semibold">{quote.ticker}</span>
+                  <span className="text-sm font-semibold">{quote.ticker}</span>
                   {quote.tag && <span className="text-xs text-white/90">{quote.tag}</span>}
                 </span>
                 <span className="w-full truncate text-xs text-white/90" title={quote.name}>{quote.name}</span>
-                <span className="mt-auto flex flex-wrap justify-between gap-x-1 pt-2 font-mono text-xs font-semibold tabular-nums sm:text-sm">
+                <span className="mt-auto flex flex-wrap justify-between gap-x-2 pt-2 text-xs font-semibold tabular-nums">
                   <span>{quote.price}</span>
                   <span>{bp(quote.moveBp)}</span>
                 </span>
@@ -70,7 +83,7 @@ export function HeatmapTiles({ quotes, selected, onSelect }: {
                 {quote.href ? (
                   <Link href={quote.href} prefetch={false} className={tileClass}>{content}</Link>
                 ) : (
-                  <button type="button" aria-pressed={active} onClick={() => onSelect?.(quote.ticker)} className={tileClass}>
+                  <button type="button" aria-pressed={active} aria-haspopup={opensDialog ? "dialog" : undefined} onClick={() => onSelect?.(quote.ticker)} className={tileClass}>
                     {content}
                   </button>
                 )}
@@ -79,36 +92,47 @@ export function HeatmapTiles({ quotes, selected, onSelect }: {
           })}
         </ul>
       ) : <p className="py-2 text-sm text-muted">No companies match your search.</p>}
+      {pageCount > 1 && (
+        <nav aria-label="Heatmap pages" className="flex flex-wrap items-center justify-end gap-2 text-sm">
+          <span role="status" className="mr-auto text-xs text-paper tabular-nums">
+            {start + 1}–{start + visible.length} of {quotes.length}
+          </span>
+          <button type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}
+            className="min-h-11 cursor-pointer rounded border border-line px-3 text-paper hover:bg-raised disabled:cursor-default disabled:opacity-50">Previous</button>
+          <button type="button" disabled={currentPage === pageCount - 1} onClick={() => setPage(currentPage + 1)}
+            className="min-h-11 cursor-pointer rounded border border-line px-3 text-paper hover:bg-raised disabled:cursor-default disabled:opacity-50">Next</button>
+        </nav>
+      )}
     </div>
   );
 }
 
-export function MarketHeatmap({ quotes, selected, onSelect }: {
+export function MarketHeatmap({ quotes, selected, onSelect, opensDialog }: {
   quotes: readonly HeatmapQuote[];
   selected?: string;
   onSelect?: (ticker: string) => void;
+  opensDialog?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
   const matches = quotes.filter(({ ticker, name }) => `${ticker} ${name}`.toLowerCase().includes(needle));
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="market-type space-y-3">
+      <div className="flex flex-wrap items-end gap-3">
         <label className="relative min-w-0 flex-1">
-          <Search aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted" />
+          <span className="mb-1 block text-sm font-medium text-paper">Search ticker or company</span>
+          <Search aria-hidden="true" className="pointer-events-none absolute bottom-3.5 left-3 size-4 text-muted" />
           <input
             type="search"
-            aria-label="Search ticker or company"
-            placeholder="Search ticker or company"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            className="w-full rounded-md border border-line bg-ink py-2 pr-3 pl-9 text-sm text-paper"
+            className="min-h-11 w-full rounded-md border border-line bg-ink py-2 pr-3 pl-9 text-sm text-paper"
           />
         </label>
-        <span className="font-mono text-xs text-muted" role="status">{matches.length} / {quotes.length}</span>
+        <span className="self-end pb-3 text-xs text-muted tabular-nums" role="status">{matches.length} / {quotes.length}</span>
       </div>
-      <HeatmapTiles quotes={matches} selected={selected} onSelect={onSelect} />
+      <HeatmapTiles key={needle} quotes={matches} selected={selected} onSelect={onSelect} opensDialog={opensDialog} />
     </div>
   );
 }

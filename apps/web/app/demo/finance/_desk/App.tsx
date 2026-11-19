@@ -5,15 +5,17 @@ import Link from 'next/link';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FINANCE_ROUTES } from './routes';
-import type { ApiEndpointConfig, DeskState, ScreenId } from './types/command';
+import { Panel, useDemoTrack } from '../../ui';
+import { followPaperQuotes, publishPaperQuotes } from './data/paper-quotes';
+import type { DeskState, ScreenId } from './types/command';
 import {
-  DEFAULT_API_CONFIG,
   EQUITY_SERIES,
   INITIAL_DESK_STATE,
   SEED_DIAGNOSTICS,
 } from './data/seedData';
 import {
   applyMarketTick,
+  applyPaperFill,
   calculatePortfolioMetrics,
   cancelOpenOrder,
   executeOrder,
@@ -25,7 +27,6 @@ import { OverviewScreen } from './components/OverviewScreen';
 import { MarketsScreen } from './components/MarketsScreen';
 import { PitchArenaScreen } from './components/PitchArenaScreen';
 import { RiskTelemetryScreen } from './components/RiskTelemetryScreen';
-import { ApiBridgeScreen } from './components/ApiBridgeScreen';
 import { CommandPalette } from './components/CommandPalette';
 import { NewOrderModal } from './components/NewOrderModal';
 
@@ -39,6 +40,19 @@ export function FinanceView({ screen }: { screen: ScreenId }) {
 }
 
 export default function App({ children }: { children: ReactNode }) {
+  const [track] = useDemoTrack();
+  if (track !== 'FINANCE') {
+    return (
+      <Panel title="Finance desk">
+        <p className="guide-muted">Paper trading is available in the Finance track.</p>
+        <Link href="/demo/market" className="guide-chip mt-3 inline-block">View market charts</Link>
+      </Panel>
+    );
+  }
+  return <FinanceDesk>{children}</FinanceDesk>;
+}
+
+function FinanceDesk({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const activeScreen = screens.find((screen) => FINANCE_ROUTES[screen] === pathname) ?? 'overview';
@@ -47,7 +61,6 @@ export default function App({ children }: { children: ReactNode }) {
   }, [router]);
   const [deskState, setDeskState] = useState<DeskState>(INITIAL_DESK_STATE);
   const currentDesk = useRef(deskState);
-  const [apiConfig, setApiConfig] = useState<ApiEndpointConfig>(DEFAULT_API_CONFIG);
   const tickStep = useRef(1);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newOrderOpen, setNewOrderOpen] = useState(false);
@@ -60,19 +73,20 @@ export default function App({ children }: { children: ReactNode }) {
     setDeskState(next);
   }, []);
 
-  // Simulated deterministic live tick stream (pausable from Sidebar or Cmd+K)
+  useEffect(() => followPaperQuotes((tickers) => updateDesk((prev) => ({ ...prev, tickers }))), [updateDesk]);
+
+  // The paper feed runs while the Finance desk is open and streaming.
   useEffect(() => {
     if (!deskState.isStreaming) return;
     const timer = window.setInterval(() => {
-      updateDesk((prev) => ({
-        ...prev,
-        tickers: applyMarketTick(prev.tickers, tickStep.current++),
-      }));
+      const tickers = applyMarketTick(currentDesk.current.tickers, tickStep.current++);
+      updateDesk((prev) => ({ ...prev, tickers }));
+      publishPaperQuotes(tickers);
     }, 2400);
     return () => window.clearInterval(timer);
   }, [deskState.isStreaming, updateDesk]);
 
-  // Global keyboard shortcuts: Cmd/Ctrl+K for Command Palette, 1-5 for screens
+  // Global keyboard shortcuts: Cmd/Ctrl+K for Command Palette, 1-4 for screens
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -89,7 +103,7 @@ export default function App({ children }: { children: ReactNode }) {
         paletteOpen || newOrderOpen || e.ctrlKey || e.metaKey || e.altKey ||
         (e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.closest('input, textarea, select')))
       ) return;
-      const screen = /^[1-5]$/.test(e.key) ? screens[Number(e.key) - 1] : undefined;
+      const screen = /^[1-4]$/.test(e.key) ? screens[Number(e.key) - 1] : undefined;
       if (screen) {
         navigate(screen);
       }
@@ -114,8 +128,10 @@ export default function App({ children }: { children: ReactNode }) {
   }, [updateDesk]);
 
   const handleSubmitOrder = useCallback((req: OrderRequest) => {
-    const { ok, error, nextState } = executeOrder(currentDesk.current, req);
-    updateDesk(() => nextState);
+    const { ok, error, nextState, createdOrder } = executeOrder(currentDesk.current, req);
+    const tickers = createdOrder ? applyPaperFill(nextState.tickers, createdOrder, tickStep.current++) : nextState.tickers;
+    updateDesk(() => tickers === nextState.tickers ? nextState : { ...nextState, tickers });
+    if (tickers !== nextState.tickers) publishPaperQuotes(tickers);
     return { ok, error };
   }, [updateDesk]);
 
@@ -157,7 +173,7 @@ export default function App({ children }: { children: ReactNode }) {
   const views: Record<ScreenId, ReactNode> = {
     overview: (
     <>
-    <dl className="mb-4 grid gap-2 rounded border border-white/10 bg-[#0C1110] p-3 text-xs leading-relaxed text-[#BACBB9] sm:grid-cols-3">
+    <dl className="mb-4 grid gap-2 rounded border border-white/10 bg-[#11110d] p-3 text-xs leading-relaxed text-[#BACBB9] sm:grid-cols-3">
       <div><dt className="font-semibold text-[#F2F5F3]">Portfolio NAV</dt><dd>What the portfolio is worth at current marks.</dd></div>
       <div><dt className="font-semibold text-[#F2F5F3]">Buying power</dt><dd>How much capacity remains for new positions.</dd></div>
       <div><dt className="font-semibold text-[#F2F5F3]">Margin used</dt><dd>How much capital your open positions tie up.</dd></div>
@@ -196,13 +212,6 @@ export default function App({ children }: { children: ReactNode }) {
       onReducePosition={handleReducePosition}
     />
     ),
-    config: (
-    <ApiBridgeScreen
-      config={apiConfig}
-      state={deskState}
-      onUpdateConfig={setApiConfig}
-    />
-    ),
   };
 
   return (
@@ -214,9 +223,9 @@ export default function App({ children }: { children: ReactNode }) {
           onOpenNewOrder={() => setNewOrderOpen(true)}
         />
         <nav aria-label="Finance workspace" className="flex flex-wrap gap-2 border-b border-white/10 p-3">
-          {([['overview', 'Portfolio'], ['markets', 'Trade'], ['arena', 'Pitch Arena'], ['risk', 'Risk & Telemetry'], ['config', 'Data settings']] as const).map(([screen, label]) => (
+          {([['overview', 'Portfolio'], ['markets', 'Trade'], ['arena', 'Pitch Arena'], ['risk', 'Risk & Telemetry']] as const).map(([screen, label]) => (
             <Link key={screen} href={FINANCE_ROUTES[screen]} aria-current={activeScreen === screen ? 'page' : undefined}
-              className="rounded border border-white/15 px-3 py-1.5 text-xs text-[#BACBB9] aria-[current=page]:border-[#8fddc3] aria-[current=page]:text-[#d7fbee]">
+              className="rounded border border-white/15 px-3 py-1.5 text-xs text-[#BACBB9] aria-[current=page]:border-[color:var(--desk-accent)] aria-[current=page]:text-[color:var(--desk-accent)]">
               {label}
             </Link>
           ))}
@@ -225,7 +234,7 @@ export default function App({ children }: { children: ReactNode }) {
           </button>
         </nav>
 
-        <p className="border-b border-[#1B2420] bg-[#0C1110] px-4 py-2 font-mono text-xs text-[#BACBB9] lg:px-6">
+        <p className="border-b border-[#2d2a1d] bg-[#11110d] px-4 py-2 font-mono text-xs text-[#BACBB9] lg:px-6">
           Paper trading · {openOrdersCount} open orders · Simulated prices and balances
         </p>
         <div key={pathname} className="p-3 sm:p-4">

@@ -1,6 +1,19 @@
 .finance-desk {
+  --desk-accent: #ffd84d;
+  --desk-accent-soft: color-mix(in srgb, var(--desk-accent) 15%, transparent);
+  --desk-accent-line: color-mix(in srgb, var(--desk-accent) 42%, #171610);
+  --desk-accent-hover: color-mix(in srgb, var(--desk-accent) 82%, white);
+  --heatmap-selection: var(--desk-accent);
   letter-spacing: 0.005em;
-  scrollbar-color: #1b2420 #070909;
+  scrollbar-color: #53482a #070909;
+}
+
+.guide-app[data-track="FINANCE"] .finance-desk {
+  --desk-accent: var(--track-accent);
+}
+
+.finance-desk :focus-visible {
+  outline-color: var(--desk-accent);
 }
 
 .finance-candles {

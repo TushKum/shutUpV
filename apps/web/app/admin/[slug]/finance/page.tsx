@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { practiceEdge } from "@msim/engine";
 import { loadAdminEvent, loadEventStatus } from "@/lib/admin/event";
 import { loadSquads } from "@/lib/admin/tracks-data";
 import { supabaseServer } from "@/lib/supabase/server";
 import { clock, count, money } from "@/lib/format";
 import { Badge, Panel, Stat, Table, Td } from "@/components/ui/ui";
+import { currentViewer } from "@/lib/auth/viewer";
 
 export const metadata: Metadata = { title: "Finance" };
 
@@ -12,7 +14,7 @@ export const metadata: Metadata = { title: "Finance" };
 // market), and every fund's cash, collateral, IPO bids and orders in the open round.
 export default async function FinanceTrack({ params }: PageProps<"/admin/[slug]/finance">) {
   const { slug } = await params;
-  const event = await loadAdminEvent(slug);
+  const [event, viewer] = await Promise.all([loadAdminEvent(slug), currentViewer()]);
   const [status, { teams, squads }] = await Promise.all([loadEventStatus(event.id), loadSquads(event.id)]);
   const sb = await supabaseServer();
   const funds = teams.filter((t) => t.track === "FINANCE");
@@ -49,6 +51,13 @@ export default async function FinanceTrack({ params }: PageProps<"/admin/[slug]/
 
   return (
     <div className="space-y-6">
+      {viewer?.role === "ORGANISER" && (
+        <div className="flex justify-end">
+          <Link href={`/admin/${slug}/finance/data-settings`} className="rounded-md border border-line px-3 py-2 text-sm font-medium text-phosphor">
+            Data settings
+          </Link>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Funds" value={funds.length} />
         <Stat label="Practice market" value={practiceState} hint={`${accounts.length} funds traded`} />

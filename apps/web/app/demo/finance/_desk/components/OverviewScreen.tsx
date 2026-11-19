@@ -80,7 +80,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
     <div className="space-y-4">
       {/* 4-Column Top KPI Metric Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
               Portfolio NAV
@@ -107,7 +107,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
               Overnight Alpha
@@ -129,7 +129,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
               Gross Exposure
@@ -147,14 +147,14 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
             </span>
             <div className="w-24 h-1.5 bg-[#070909] rounded-sm overflow-hidden">
               <div
-                className="h-full bg-[#00E676] transition-all"
+                className="h-full bg-[var(--desk-accent)] transition-all"
                 style={{ width: `${Math.min(100, metrics.marginUtilPct)}%` }}
               />
             </div>
           </div>
         </div>
 
-        <div className="bg-[#101715] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
+        <div className="bg-[#171610] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
               Available Cash
@@ -171,7 +171,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
             <button
               type="button"
               onClick={onNavigateMarkets}
-              className="font-mono text-[11px] text-[#00E676] hover:underline whitespace-nowrap"
+              className="font-mono text-[11px] text-[color:var(--desk-accent)] hover:underline whitespace-nowrap"
             >
               Order Book
             </button>
@@ -198,15 +198,15 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
 
       {/* Secondary Grid: Active Positions/Watchlist (8 cols) + Live Order Book & Tape (4 cols) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <section className="xl:col-span-8 bg-[#101715] border border-white/[0.07] rounded-lg overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-[#1B2420] flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 bg-[#0C1110] border border-[#1B2420] p-0.5 rounded">
+        <section className="xl:col-span-8 bg-[#171610] border border-white/[0.07] rounded-lg overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-[#2d2a1d] flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1 bg-[#11110d] border border-[#2d2a1d] p-0.5 rounded">
               <button
                 type="button"
                 onClick={() => setTableTab('POSITIONS')}
                 className={`px-3 py-1.5 rounded-sm font-mono text-xs font-medium transition-colors whitespace-nowrap ${
                   tableTab === 'POSITIONS'
-                    ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                    ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                     : 'text-[#87948D] hover:text-[#F2F5F3]'
                 }`}
               >
@@ -217,7 +217,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                 onClick={() => setTableTab('WATCHLIST')}
                 className={`px-3 py-1.5 rounded-sm font-mono text-xs font-medium transition-colors whitespace-nowrap ${
                   tableTab === 'WATCHLIST'
-                    ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                    ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                     : 'text-[#87948D] hover:text-[#F2F5F3]'
                 }`}
               >
@@ -237,13 +237,13 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter symbol..."
                   aria-label="Filter positions or watchlist"
-                  className="h-8 pl-8 pr-3 w-44 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:outline-none rounded font-mono text-xs text-[#F2F5F3] placeholder:text-[#87948D]"
+                  className="h-8 pl-8 pr-3 w-44 bg-[#11110d] border border-[#2d2a1d] focus:border-[color:var(--desk-accent)] focus:outline-none rounded font-mono text-xs text-[#F2F5F3] placeholder:text-[#87948D]"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="h-8 px-2.5 bg-[#0C1110] border border-[#1B2420] hover:border-[#285D46] rounded font-mono text-[11px] text-[#BACBB9] hover:text-[#F2F5F3] flex items-center gap-1.5 whitespace-nowrap"
+                className="h-8 px-2.5 bg-[#11110d] border border-[#2d2a1d] hover:border-[color:var(--desk-accent-line)] rounded font-mono text-[11px] text-[#BACBB9] hover:text-[#F2F5F3] flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Download className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>CSV</span>
@@ -264,7 +264,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-[#1B2420] bg-[#0C1110]">
+                    <tr className="border-b border-[#2d2a1d] bg-[#11110d]">
                       <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
                         Symbol
                       </th>
@@ -313,12 +313,12 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                         <tr
                           key={pos.symbol}
                           onClick={() => onSelectSymbol(pos.symbol)}
-                          className={`border-b border-[#1B2420]/70 cursor-pointer transition-colors ${
+                          className={`border-b border-[#2d2a1d]/70 cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-[#151D19]'
+                              ? 'bg-[#201e14]'
                               : idx % 2 === 0
-                                ? 'bg-[#0C1110] hover:bg-[#151D19]/70'
-                                : 'bg-[#101715] hover:bg-[#151D19]/70'
+                                ? 'bg-[#11110d] hover:bg-[#201e14]/70'
+                                : 'bg-[#171610] hover:bg-[#201e14]/70'
                           }`}
                         >
                           <td className="py-2.5 px-4 font-mono text-[13px] font-semibold text-[#F2F5F3] whitespace-nowrap">
@@ -367,7 +367,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-[#1B2420] bg-[#0C1110]">
+                  <tr className="border-b border-[#2d2a1d] bg-[#11110d]">
                     <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
                       Instrument
                     </th>
@@ -393,12 +393,12 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                     <tr
                       key={ticker.symbol}
                       onClick={() => onSelectSymbol(ticker.symbol)}
-                      className={`border-b border-[#1B2420]/70 cursor-pointer transition-colors ${
+                      className={`border-b border-[#2d2a1d]/70 cursor-pointer transition-colors ${
                         state.selectedSymbol === ticker.symbol
-                          ? 'bg-[#151D19]'
+                          ? 'bg-[#201e14]'
                           : idx % 2 === 0
-                            ? 'bg-[#0C1110] hover:bg-[#151D19]/70'
-                            : 'bg-[#101715] hover:bg-[#151D19]/70'
+                            ? 'bg-[#11110d] hover:bg-[#201e14]/70'
+                            : 'bg-[#171610] hover:bg-[#201e14]/70'
                       }`}
                     >
                       <td className="py-2.5 px-4">
@@ -440,9 +440,9 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
         </section>
 
         {/* Compact L2 Depth Preview */}
-        <section className="xl:col-span-4 bg-[#101715] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between">
+        <section className="xl:col-span-4 bg-[#171610] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-[#1B2420]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#2d2a1d]">
               <div>
                 <h2 className="text-sm font-semibold text-[#F2F5F3]">
                   L2 Depth · {selectedTicker.symbol}
@@ -451,7 +451,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                   Spread {selectedTicker.spreadBps.toFixed(1)} bps
                 </span>
               </div>
-              <span className="font-mono text-sm font-semibold text-[#00E676] tabular-nums">
+              <span className="font-mono text-sm font-semibold text-[color:var(--desk-accent)] tabular-nums">
                 {formatCurrency(selectedTicker.price, selectedTicker.price < 2 ? 3 : 2)}
               </span>
             </div>
@@ -480,7 +480,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                 </div>
               ))}
 
-              <div className="my-1.5 py-1 border-y border-[#1B2420] flex items-center justify-between text-[11px] text-[#BACBB9]">
+              <div className="my-1.5 py-1 border-y border-[#2d2a1d] flex items-center justify-between text-[11px] text-[#BACBB9]">
                 <span>Mid Mark</span>
                 <span className="font-semibold text-[#F2F5F3]">
                   {formatCurrency(selectedTicker.price, selectedTicker.price < 2 ? 3 : 2)}
@@ -506,7 +506,7 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
             </div>
           </div>
 
-          <div className="mt-3 pt-3 border-t border-[#1B2420] flex items-center justify-between text-xs font-mono">
+          <div className="mt-3 pt-3 border-t border-[#2d2a1d] flex items-center justify-between text-xs font-mono">
             <span className="text-[#87948D]">Latest Fill</span>
             <span className="text-[#F2F5F3] truncate max-w-[200px]">
               {state.orders[0]

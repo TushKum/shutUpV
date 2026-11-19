@@ -71,7 +71,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
   const gridTicks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <section className="bg-[#101715] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between">
+    <section className="bg-[#171610] border border-white/[0.07] rounded-lg p-4 flex flex-col justify-between">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div>
           <div className="flex items-center gap-3">
@@ -97,13 +97,13 @@ export const EquityChart: React.FC<EquityChartProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center bg-[#0C1110] border border-[#1B2420] rounded p-0.5">
+          <div className="flex items-center bg-[#11110d] border border-[#2d2a1d] rounded p-0.5">
             <button
               type="button"
               onClick={() => setMode('EQUITY')}
               className={`px-2.5 py-1.5 text-[11px] font-mono font-medium rounded-sm transition-colors whitespace-nowrap shrink-0 ${
                 mode === 'EQUITY'
-                  ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                  ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                   : 'text-[#87948D] hover:text-[#F2F5F3]'
               }`}
             >
@@ -114,7 +114,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
               onClick={() => setMode('DRAWDOWN')}
               className={`px-2.5 py-1.5 text-[11px] font-mono font-medium rounded-sm transition-colors whitespace-nowrap shrink-0 ${
                 mode === 'DRAWDOWN'
-                  ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                  ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                   : 'text-[#87948D] hover:text-[#F2F5F3]'
               }`}
             >
@@ -122,7 +122,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center bg-[#0C1110] border border-[#1B2420] rounded p-0.5">
+          <div className="flex items-center bg-[#11110d] border border-[#2d2a1d] rounded p-0.5">
             {(['1H', '4H', '12H', 'ALL'] as EquityTimeframe[]).map((tf) => (
               <button
                 key={tf}
@@ -133,7 +133,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
                 }}
                 className={`px-2.5 py-1.5 text-[11px] font-mono font-medium rounded-sm transition-colors whitespace-nowrap shrink-0 ${
                   timeframe === tf
-                    ? 'bg-[#00E676] text-[#070909] font-semibold'
+                    ? 'bg-[var(--desk-accent)] text-[#070909] font-semibold'
                     : 'text-[#87948D] hover:text-[#F2F5F3]'
                 }`}
               >
@@ -156,12 +156,12 @@ export const EquityChart: React.FC<EquityChartProps> = ({
             <linearGradient id="mcEquityGrad" x1="0" y1="0" x2="0" y2="1">
               <stop
                 offset="0%"
-                stopColor={mode === 'EQUITY' ? '#00E676' : '#FF5364'}
+                stopColor={mode === 'EQUITY' ? 'var(--desk-accent)' : '#FF5364'}
                 stopOpacity="0.22"
               />
               <stop
                 offset="100%"
-                stopColor={mode === 'EQUITY' ? '#00E676' : '#FF5364'}
+                stopColor={mode === 'EQUITY' ? 'var(--desk-accent)' : '#FF5364'}
                 stopOpacity="0.0"
               />
             </linearGradient>
@@ -222,7 +222,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
 
           <polyline
             fill="none"
-            stroke={mode === 'EQUITY' ? '#00E676' : '#FF5364'}
+            stroke={mode === 'EQUITY' ? 'var(--desk-accent)' : '#FF5364'}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -234,7 +234,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
             y1={padTop}
             x2={toX(activeIdx)}
             y2={padTop + plotH}
-            stroke="#285D46"
+            stroke="var(--desk-accent-line)"
             strokeWidth="1"
           />
 
@@ -242,7 +242,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
             cx={toX(activeIdx)}
             cy={toY(mode === 'EQUITY' ? activePoint.nav : activePoint.drawdownPct)}
             r="4"
-            fill={mode === 'EQUITY' ? '#00E676' : '#FF5364'}
+            fill={mode === 'EQUITY' ? 'var(--desk-accent)' : '#FF5364'}
             stroke="#070909"
             strokeWidth="2"
           />

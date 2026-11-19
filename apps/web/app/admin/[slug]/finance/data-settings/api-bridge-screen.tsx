@@ -1,26 +1,39 @@
+"use client";
+
 import React, { useState } from 'react';
 import { CheckCircle2, RefreshCw } from 'lucide-react';
-import type { ApiEndpointConfig, DeskState } from '../types/command';
+import type { DeskState } from '@/app/demo/finance/_desk/types/command';
 
-interface ApiBridgeScreenProps {
-  config: ApiEndpointConfig;
-  state: DeskState;
-  onUpdateConfig: (next: ApiEndpointConfig) => void;
-}
+const defaultConfig = {
+  mode: 'DEMO_SEED' as 'DEMO_SEED' | 'LIVE_BACKEND',
+  restBaseUrl: 'http://localhost:8080/api/v1',
+  wsStreamUrl: 'ws://localhost:8080/ws/ticks',
+  authHeader: '',
+  pollIntervalMs: 1500,
+  endpoints: {
+    portfolio: '/portfolio/summary',
+    orders: '/orders',
+    positions: '/positions',
+    arena: '/arena/teams',
+    risk: '/risk/telemetry',
+  },
+};
 
-export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
-  config,
-  state,
-  onUpdateConfig,
-}) => {
-  const [draft, setDraft] = useState<ApiEndpointConfig>(config);
+type ApiEndpointConfig = typeof defaultConfig;
+type ContractSamples = Pick<DeskState, 'orders' | 'positions'> & {
+  portfolio: Pick<DeskState, 'cash' | 'initialCapital' | 'realizedPnl'> & { positionsCount: number };
+};
+
+export function ApiBridgeScreen({ sample }: { sample: ContractSamples }) {
+  const [draft, setDraft] = useState(defaultConfig);
+  const [saved, setSaved] = useState(defaultConfig);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState<'portfolio' | 'orders' | 'positions'>('portfolio');
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateConfig(draft);
-    setTestResult('Backend adapter configuration saved to active desk session.');
+    setSaved(draft);
+    setTestResult('Draft saved for this open page.');
   };
 
   const handleProbe = () => {
@@ -31,17 +44,7 @@ export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
     );
   };
 
-  const samplePayload =
-    previewKey === 'portfolio'
-      ? {
-          cash: state.cash,
-          initialCapital: state.initialCapital,
-          realizedPnl: state.realizedPnl,
-          positionsCount: state.positions.length,
-        }
-      : previewKey === 'orders'
-        ? state.orders.slice(0, 2)
-        : state.positions.slice(0, 2);
+  const samplePayload = sample[previewKey];
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
@@ -55,7 +58,7 @@ export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
               Backend Integration Bridge
             </h2>
             <p className="text-xs text-[#87948D] mt-0.5">
-              Preview REST and WebSocket connection settings. This desk uses sample data.
+              Preview REST and WebSocket settings with sample data. Drafts apply only to this open page.
             </p>
           </div>
           <div className="flex items-center bg-[#0C1110] border border-[#1B2420] p-0.5 rounded">
@@ -128,7 +131,8 @@ export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
             </label>
             <input
               id="auth-header"
-              type="text"
+              type="password"
+              autoComplete="off"
               value={draft.authHeader}
               onChange={(e) => setDraft({ ...draft, authHeader: e.target.value })}
               className="w-full h-9 px-3 bg-[#0C1110] border border-[#1B2420] focus:border-[#00E676] focus:outline-none rounded font-mono text-xs text-[#F2F5F3]"
@@ -199,6 +203,10 @@ export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
         )}
 
         <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+          <button type="button" disabled={draft === saved} onClick={() => { setDraft(saved); setTestResult(null); }}
+            className="h-9 rounded border border-[#1B2420] px-3 text-xs text-[#BACBB9] disabled:opacity-50">
+            Restore saved draft
+          </button>
           <button
             type="button"
             onClick={handleProbe}
@@ -211,7 +219,7 @@ export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
             type="submit"
             className="h-9 px-5 bg-[#00E676] hover:bg-[#00B86B] text-[#070909] font-mono text-xs font-semibold uppercase tracking-wide rounded transition-all hover:shadow-[0_0_12px_rgba(0,230,118,0.3)] whitespace-nowrap"
           >
-            Save Adapter Config
+            Save draft
           </button>
         </div>
       </form>
@@ -246,4 +254,4 @@ export const ApiBridgeScreen: React.FC<ApiBridgeScreenProps> = ({
       </section>
     </div>
   );
-};
+}

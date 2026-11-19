@@ -4,7 +4,6 @@ import { FINANCE_ROUTES } from '../routes';
 import {
   Activity,
   BarChart3,
-  Cpu,
   LayoutGrid,
   ShieldAlert,
   Terminal,
@@ -32,7 +31,6 @@ const NAV_ITEMS: {
   { id: 'markets', label: 'Markets & Execution', shortcut: '2', icon: BarChart3 },
   { id: 'arena', label: 'Pitch Arena', shortcut: '3', icon: Trophy },
   { id: 'risk', label: 'Risk & Telemetry', shortcut: '4', icon: ShieldAlert },
-  { id: 'config', label: 'API & Desk Config', shortcut: '5', icon: Cpu },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({

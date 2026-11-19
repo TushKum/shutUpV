@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { LayoutGrid, List, Search, XCircle } from 'lucide-react';
 import { HeatmapTiles } from '@/components/ui/market-heatmap';
 import { TradingChart } from '@/components/ui/trading-chart';
@@ -33,6 +33,12 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
 }) => {
   const [sectorFilter, setSectorFilter] = useState<'ALL' | AssetSector>('ALL');
   const [search, setSearch] = useState('');
+  const quoteDialog = useRef<HTMLDialogElement>(null);
+  const analysisPanel = useRef<HTMLElement>(null);
+  const inspectQuote = (symbol: string) => {
+    onSelectSymbol(symbol);
+    quoteDialog.current?.showModal();
+  };
   const [view, setView] = useState<'heatmap' | 'table'>('heatmap');
   const [blotterTab, setBlotterTab] = useState<'OPEN' | 'ALL'>('ALL');
 
@@ -64,7 +70,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
     [activeTicker.candles],
   );
   const summary = [
-    ['Mark', formatCurrency(activeTicker.price, decimals)],
+    ['Market price', formatCurrency(activeTicker.price, decimals)],
     ['24h move', formatSignedPercent(activeTicker.changePct24h)],
     ['Best bid', formatCurrency(book.bids[0].price, decimals)],
     ['Best ask', formatCurrency(book.asks.at(-1)!.price, decimals)],
@@ -75,10 +81,13 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
   return (
     <div className="space-y-4">
       {/* Market Screener Matrix */}
-      <section className="bg-[#101715] border border-white/[0.07] rounded-lg overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1B2420] px-4 py-3">
+      <section className="bg-[#171610] border border-white/[0.07] rounded-lg overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2d2a1d] px-4 py-3">
           <div className="flex w-full flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-[#F2F5F3]">Market screener</h2>
+            <div>
+              <h2 className="text-base font-semibold text-[#F2F5F3]">Market screener</h2>
+              <p className="mt-1 text-xs text-[#BACBB9]" role="status">{filteredTickers.length} of {state.tickers.length} instruments</p>
+            </div>
             <div aria-label="Screener view" role="group" className="flex gap-1">
               {(['heatmap', 'table'] as const).map((mode) => {
                 const Icon = mode === 'heatmap' ? LayoutGrid : List;
@@ -88,7 +97,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                     type="button"
                     aria-pressed={view === mode}
                     onClick={() => setView(mode)}
-                    className="inline-flex items-center gap-1.5 rounded border border-[#33473e] px-2 py-1.5 text-xs capitalize text-[#F2F5F3] aria-pressed:border-[#8fddc3] aria-pressed:bg-[#213b32]"
+                    className="inline-flex items-center gap-1.5 rounded border border-[#423c28] px-2 py-1.5 text-xs capitalize text-[#F2F5F3] aria-pressed:border-[color:var(--desk-accent)] aria-pressed:bg-[var(--desk-accent-soft)]"
                   >
                     <Icon className="size-3.5" aria-hidden="true" />
                     {mode}
@@ -97,7 +106,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
               })}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1 bg-[#0C1110] border border-[#1B2420] p-0.5 rounded">
+          <div className="flex flex-wrap items-center gap-1 bg-[#11110d] border border-[#2d2a1d] p-0.5 rounded">
             {SECTORS.map((sec) => (
               <button
                 key={sec}
@@ -106,7 +115,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                 onClick={() => setSectorFilter(sec)}
                 className={`px-3 py-1.5 rounded-sm font-mono text-xs transition-colors whitespace-nowrap shrink-0 ${
                   sectorFilter === sec
-                    ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                    ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                     : 'text-[#87948D] hover:text-[#F2F5F3]'
                 }`}
               >
@@ -126,7 +135,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search ticker or contract..."
               aria-label="Search market instruments"
-              className="h-9 w-full rounded border border-[#33473e] bg-[#0C1110] pr-3 pl-9 font-mono text-xs text-[#F2F5F3] placeholder:text-[#87948D]"
+              className="h-9 w-full rounded border border-[#423c28] bg-[#11110d] pr-3 pl-9 font-mono text-xs text-[#F2F5F3] placeholder:text-[#87948D]"
             />
           </div>
         </div>
@@ -143,7 +152,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                   setSearch('');
                   setSectorFilter('ALL');
                 }}
-                className="px-3 py-1.5 bg-[#0C1110] border border-[#1B2420] hover:border-[#285D46] rounded font-mono text-xs text-[#00E676]"
+                className="px-3 py-1.5 bg-[#11110d] border border-[#2d2a1d] hover:border-[color:var(--desk-accent-line)] rounded font-mono text-xs text-[color:var(--desk-accent)]"
               >
                 Reset Market Filters
               </button>
@@ -151,8 +160,9 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
           ) : view === 'heatmap' ? (
             <div className="p-3">
               <HeatmapTiles
+                opensDialog
                 selected={activeTicker.symbol}
-                onSelect={onSelectSymbol}
+                onSelect={inspectQuote}
                 quotes={filteredTickers.map((ticker) => ({
                   ticker: ticker.symbol,
                   name: ticker.name,
@@ -165,7 +175,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-[#1B2420] bg-[#0C1110]">
+                <tr className="border-b border-[#2d2a1d] bg-[#11110d]">
                   <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">
                     Instrument
                   </th>
@@ -201,17 +211,16 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                   return (
                     <tr
                       key={t.symbol}
-                      onClick={() => onSelectSymbol(t.symbol)}
-                      className={`border-b border-[#1B2420]/70 cursor-pointer transition-colors ${
+                      className={`border-b border-[#2d2a1d]/70 transition-colors ${
                         selected
-                          ? 'bg-[#151D19]'
+                          ? 'bg-[#201e14]'
                           : idx % 2 === 0
-                            ? 'bg-[#0C1110] hover:bg-[#151D19]/70'
-                            : 'bg-[#101715] hover:bg-[#151D19]/70'
+                            ? 'bg-[#11110d] hover:bg-[#201e14]/70'
+                            : 'bg-[#171610] hover:bg-[#201e14]/70'
                       }`}
                     >
                       <td className="py-2.5 px-4">
-                        <button type="button" aria-pressed={selected} className="font-mono text-[13px] font-semibold text-[#F2F5F3] underline underline-offset-4">
+                        <button type="button" aria-haspopup="dialog" onClick={() => inspectQuote(t.symbol)} className="font-mono text-[13px] font-semibold text-[#F2F5F3] underline underline-offset-4">
                           {t.symbol}
                         </button>
                         <div className="text-[11px] text-[#87948D]">{t.name}</div>
@@ -255,19 +264,43 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
         </div>
       </section>
 
-      <section aria-label="Instrument analysis" className="rounded-lg border border-white/10 bg-[#101715] p-4">
+      <dialog ref={quoteDialog} aria-labelledby="market-quote-title"
+        className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%_-_2rem)] max-w-lg overflow-auto rounded-lg border border-[color:var(--desk-accent-line)] bg-[#171610] p-5 text-[#F2F5F3] backdrop:bg-black/75">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="market-quote-title" className="text-lg font-semibold">{activeTicker.symbol} quote</h2>
+            <p className="mt-1 text-xs text-[#BACBB9]">{activeTicker.name} · {activeTicker.sector} · Simulated</p>
+          </div>
+          <button type="button" onClick={() => quoteDialog.current?.close()} className="rounded border border-white/15 px-3 py-1.5 text-xs">Close quote</button>
+        </div>
+        <dl className="mt-4 grid grid-cols-2 gap-2">
+          {summary.map(([label, value]) => (
+            <div key={label} className="min-w-0 rounded border border-white/10 bg-[#11110d] p-2">
+              <dt className="text-xs text-[#BACBB9]">{label}</dt>
+              <dd className="mt-1 break-words font-mono text-sm font-semibold tabular-nums">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <button type="button" onClick={() => {
+          quoteDialog.current?.close();
+          analysisPanel.current?.focus();
+          analysisPanel.current?.scrollIntoView({ block: 'start' });
+        }} className="mt-4 rounded bg-[var(--desk-accent)] px-3 py-2 text-sm font-semibold text-[#070909]">Open chart &amp; trade</button>
+      </dialog>
+
+      <section ref={analysisPanel} tabIndex={-1} aria-label="Instrument analysis" className="scroll-mt-24 rounded-lg border border-white/10 bg-[#171610] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-[#F2F5F3]">{activeTicker.symbol}</h2>
             <p className="text-xs text-[#BACBB9]">{activeTicker.name}</p>
           </div>
-          <a href="#order-ticket" className="rounded border border-[#408a72] px-3 py-2 text-sm font-semibold text-[#8fddc3]">
+          <a href="#order-ticket" className="rounded border border-[color:var(--desk-accent-line)] px-3 py-2 text-sm font-semibold text-[color:var(--desk-accent)]">
             Buy or sell {activeTicker.symbol} ↓
           </a>
         </div>
         <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {summary.map(([label, value]) => (
-            <div key={label} className="min-w-0 rounded border border-white/10 bg-[#0C1110] p-2">
+            <div key={label} className="min-w-0 rounded border border-white/10 bg-[#11110d] p-2">
               <dt className="text-xs text-[#BACBB9]">{label}</dt>
               <dd className="mt-1 break-words font-mono text-xs font-semibold text-[#F2F5F3] tabular-nums">{value}</dd>
             </div>
@@ -295,8 +328,8 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
 
       {/* Execution Workspace: L2 Order Book (4 cols) + Full Order Ticket (4 cols) + Order Blotter (4 cols) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <section className="xl:col-span-4 bg-[#101715] border border-white/[0.07] rounded-lg p-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#1B2420]">
+        <section className="xl:col-span-4 bg-[#171610] border border-white/[0.07] rounded-lg p-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#2d2a1d]">
             <div>
               <h2 className="text-sm font-semibold text-[#F2F5F3]">
                 Order Book · {activeTicker.symbol}
@@ -305,7 +338,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                 6-Level Aggregated Depth
               </span>
             </div>
-            <span className="font-mono text-xs text-[#00E676] tabular-nums">
+            <span className="font-mono text-xs text-[color:var(--desk-accent)] tabular-nums">
               {activeTicker.spreadBps.toFixed(1)} bps
             </span>
           </div>
@@ -333,7 +366,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
               </div>
             ))}
 
-            <div className="my-2 py-1.5 border-y border-[#1B2420] flex items-center justify-between text-xs">
+            <div className="my-2 py-1.5 border-y border-[#2d2a1d] flex items-center justify-between text-xs">
               <span className="text-[#87948D]">Index Mark</span>
               <span className="font-semibold text-[#F2F5F3]">
                 {formatCurrency(activeTicker.price, activeTicker.price < 2 ? 3 : 2)}
@@ -369,16 +402,16 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
           />
         </div>
 
-        <section className="xl:col-span-4 bg-[#101715] border border-white/[0.07] rounded-lg overflow-hidden flex flex-col">
-          <div className="px-4 py-3 border-b border-[#1B2420] flex items-center justify-between gap-2">
+        <section className="xl:col-span-4 bg-[#171610] border border-white/[0.07] rounded-lg overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-[#2d2a1d] flex items-center justify-between gap-2">
             <h2 className="text-sm font-semibold text-[#F2F5F3]">Order Blotter</h2>
-            <div className="flex items-center bg-[#0C1110] border border-[#1B2420] p-0.5 rounded">
+            <div className="flex items-center bg-[#11110d] border border-[#2d2a1d] p-0.5 rounded">
               <button
                 type="button"
                 onClick={() => setBlotterTab('OPEN')}
                 className={`px-2.5 py-1 rounded-sm font-mono text-[11px] whitespace-nowrap ${
                   blotterTab === 'OPEN'
-                    ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                    ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                     : 'text-[#87948D] hover:text-[#F2F5F3]'
                 }`}
               >
@@ -389,7 +422,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                 onClick={() => setBlotterTab('ALL')}
                 className={`px-2.5 py-1 rounded-sm font-mono text-[11px] whitespace-nowrap ${
                   blotterTab === 'ALL'
-                    ? 'bg-[#151D19] text-[#00E676] border border-[#285D46]'
+                    ? 'bg-[#201e14] text-[color:var(--desk-accent)] border border-[color:var(--desk-accent-line)]'
                     : 'text-[#87948D] hover:text-[#F2F5F3]'
                 }`}
               >
@@ -407,7 +440,7 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
               displayedOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#151D19]/60"
+                  className="px-4 py-3 flex items-center justify-between gap-3 hover:bg-[#201e14]/60"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 font-mono text-xs">
@@ -435,10 +468,10 @@ export const MarketsScreen: React.FC<MarketsScreenProps> = ({
                     <span
                       className={`font-mono text-[10px] font-semibold uppercase tracking-[0.06em] px-2 py-0.5 rounded-sm border ${
                         order.status === 'FILLED'
-                          ? 'bg-[#00D68F]/10 border-[#285D46] text-[#00D68F]'
+                          ? 'bg-[#00D68F]/10 border-[color:var(--desk-accent-line)] text-[#00D68F]'
                           : order.status === 'OPEN'
-                            ? 'bg-[#00E676]/10 border-[#285D46] text-[#75FF9E]'
-                            : 'bg-[#151D19] border-[#1B2420] text-[#87948D]'
+                            ? 'bg-[var(--desk-accent-soft)] border-[color:var(--desk-accent-line)] text-[color:var(--desk-accent)]'
+                            : 'bg-[#201e14] border-[#2d2a1d] text-[#87948D]'
                       }`}
                     >
                       {order.status}

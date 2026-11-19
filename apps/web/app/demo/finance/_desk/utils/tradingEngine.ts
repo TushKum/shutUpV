@@ -278,10 +278,26 @@ export function applyMarketTick(tickers: MarketTicker[], step: number): MarketTi
   return tickers.map((ticker, idx) => {
     const wave = Math.sin(step * 0.85 + idx * 1.9) * 0.0022 + Math.cos(step * 0.4 + idx) * 0.0012;
     const nextPriceRaw = ticker.price * (1 + wave);
+    return markTicker(ticker, nextPriceRaw, step + idx * 7);
+  });
+}
+
+/** A paper fill nudges the public simulation by up to 1% of the mark. */
+export function applyPaperFill(tickers: MarketTicker[], order: Order, step: number): MarketTicker[] {
+  if (order.status !== 'FILLED') return tickers;
+  return tickers.map((ticker) => {
+    if (ticker.symbol !== order.symbol) return ticker;
+    const minTick = ticker.price < 2 ? 0.001 : 0.01;
+    const impact = Math.max(minTick, ticker.price * Math.min(0.01, order.notional / ticker.volume24h));
+    return markTicker(ticker, ticker.price + (order.side === 'BUY' ? impact : -impact), step);
+  });
+}
+
+function markTicker(ticker: MarketTicker, nextPriceRaw: number, step: number): MarketTicker {
     const decimals = ticker.price < 2 ? 3 : 2;
     const nextPrice = Number(Math.max(0.01, nextPriceRaw).toFixed(decimals));
-    const candle = simulateBar(ticker.price, nextPrice, step + idx * 7, ticker.volume24h);
-    const deltaPct = Number((ticker.changePct24h + wave * 100).toFixed(2));
+    const candle = simulateBar(ticker.price, nextPrice, step, ticker.volume24h);
+    const deltaPct = Number(((1 + ticker.changePct24h / 100) * nextPrice / ticker.price * 100 - 100).toFixed(2));
     const flash: 'up' | 'down' | null =
       nextPrice > ticker.price ? 'up' : nextPrice < ticker.price ? 'down' : null;
 
@@ -296,7 +312,6 @@ export function applyMarketTick(tickers: MarketTicker[], step: number): MarketTi
       candles: [...ticker.candles.slice(1 - CANDLE_LIMIT), candle],
       lastFlash: flash,
     };
-  });
 }
 
 export function formatCurrency(value: number, decimals = 2): string {

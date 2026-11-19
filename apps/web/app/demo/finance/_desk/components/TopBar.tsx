@@ -13,7 +13,6 @@ const SCREEN_TITLES: Record<ScreenId, string> = {
   markets: 'Markets & Execution',
   arena: 'Pitch Arena',
   risk: 'Risk & Telemetry',
-  config: 'API & Desk Config',
 };
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -22,7 +21,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenNewOrder,
 }) => {
   return (
-    <header className="h-14 bg-[#0C1110] border-b border-[#1B2420] px-4 lg:px-6 flex items-center justify-between gap-4 shrink-0">
+    <header className="h-14 bg-[#11110d] border-b border-[#2d2a1d] px-4 lg:px-6 flex items-center justify-between gap-4 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
         <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm min-w-0">
           <span className="hidden sm:inline font-mono text-xs text-[#87948D] whitespace-nowrap">
@@ -41,11 +40,11 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           type="button"
           onClick={onOpenCommandPalette}
-          className="hidden sm:flex items-center gap-2 h-9 px-3 bg-[#070909] border border-[#1B2420] hover:border-[#285D46] rounded text-xs font-mono text-[#87948D] hover:text-[#F2F5F3] transition-colors whitespace-nowrap shrink-0"
+          className="hidden sm:flex items-center gap-2 h-9 px-3 bg-[#070909] border border-[#2d2a1d] hover:border-[color:var(--desk-accent-line)] rounded text-xs font-mono text-[#87948D] hover:text-[#F2F5F3] transition-colors whitespace-nowrap shrink-0"
         >
           <Command className="w-3.5 h-3.5" aria-hidden="true" />
           <span>Command</span>
-          <kbd className="ml-1 px-1.5 py-0.5 text-[10px] bg-[#101715] border border-[#1B2420] rounded-sm text-[#BACBB9]">
+          <kbd className="ml-1 px-1.5 py-0.5 text-[10px] bg-[#171610] border border-[#2d2a1d] rounded-sm text-[#BACBB9]">
             ⌘K
           </kbd>
         </button>
@@ -53,7 +52,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           type="button"
           onClick={onOpenNewOrder}
-          className="h-9 px-4 bg-[#00E676] hover:bg-[#00B86B] text-[#070909] font-mono text-xs font-semibold uppercase tracking-wide rounded transition-all hover:shadow-[0_0_12px_rgba(0,230,118,0.3)] flex items-center gap-1.5 whitespace-nowrap shrink-0"
+          className="h-9 px-4 bg-[var(--desk-accent)] hover:bg-[var(--desk-accent-hover)] text-[#070909] font-mono text-xs font-semibold uppercase tracking-wide rounded transition-all hover:shadow-[0_0_12px_var(--desk-accent-soft)] flex items-center gap-1.5 whitespace-nowrap shrink-0"
         >
           <Plus className="w-3.5 h-3.5" aria-hidden="true" />
           <span>New Order</span>
