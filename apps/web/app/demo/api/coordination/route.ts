@@ -11,9 +11,10 @@ declare global {
 }
 
 function getServerState(): CoordinationState {
-  if (!globalThis.__primusCoordinationState) {
   if (
     !globalThis.__primusCoordinationState ||
+    typeof globalThis.__primusCoordinationState.products?.XP01?.sharePrice !== "number" ||
+    typeof globalThis.__primusCoordinationState.consultants?.XC01?.baseEquityPct !== "number" ||
     !Array.isArray(globalThis.__primusCoordinationState.raiseRequests) ||
     !Array.isArray(globalThis.__primusCoordinationState.financeDeals)
   ) {

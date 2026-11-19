@@ -1,11 +1,15 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
-import {PageTitle,Panel,useDemoTrack,useTeamCode} from "../ui";
 import Link from "next/link";
 import {PageTitle,Panel,Metric,useDemoTrack,useTeamCode} from "../ui";
 import {useCoordination} from "../coordination-store";
-import {getOrMakeConsultant,getOrMakeProduct} from "../coordination-types";
-import {getFinancePortfolio,getFinanceTeam,getOrMakeConsultant,getOrMakeProduct} from "../coordination-types";
+import {
+  equityPctToShares,
+  getFinancePortfolio,
+  getFinanceTeam,
+  getOrMakeConsultant,
+  getOrMakeProduct,
+} from "../coordination-types";
 import {FINANCE_ROUTES} from "../finance/_desk/routes";
 
 const PRODUCT_SECTORS = [
@@ -81,13 +85,6 @@ export default function Build(){
   const [mvpActive,setMvpActive]=useState(0);
   const [mvpValues,setMvpValues]=useState<string[]>(prodState.r1MvpParts);
 
-  // Finance Round 1 state (exact 6a55285 Finance frontend)
-  const [finCompany,setFinCompany]=useState("FreshPack Foods");
-  const [finTicker,setFinTicker]=useState("FRPK");
-  const [finActive,setFinActive]=useState(0);
-  const [finValues,setFinValues]=useState<string[]>(Array(9).fill(""));
-  const [finLoaded,setFinLoaded]=useState(false);
-
   // Consulting team Round 1 state (synced with coordination store)
   const [active,setActive]=useState(0);
   const [values,setValues]=useState<string[]>(consState.r1SolutionParts);
@@ -108,19 +105,9 @@ export default function Build(){
     setValues(consState.r1SolutionParts.length===6?consState.r1SolutionParts:Array(6).fill(""));
   },[ready,code,consState.r1SubmittedAt,state.version===1]);
 
-  useEffect(()=>{
-    try{
-      const raw=localStorage.getItem("primus-prd-draft");
-      if(raw){const parsed=JSON.parse(raw);if(Array.isArray(parsed)&&parsed.length===9)setFinValues(parsed)}
-    }catch{}
-    setFinLoaded(true);
-  },[]);
-  useEffect(()=>{if(finLoaded)localStorage.setItem("primus-prd-draft",JSON.stringify(finValues))},[finValues,finLoaded]);
-
   const mvpSubmittedAt=prodState.r1SubmittedAt;
   const submittedAt=consState.r1SubmittedAt;
 
-  const finCount=useMemo(()=>finValues.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[finValues]);
   const mvpCount=useMemo(()=>mvpValues.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[mvpValues]);
   const count=useMemo(()=>values.reduce((n,v)=>n+v.trim().split(/\s+/).filter(Boolean).length,0),[values]);
 
@@ -149,11 +136,12 @@ export default function Build(){
   // ── PRODUCT TEAM: ROUND 1 (Assigned 1 of 3 Sectors, Pitch Idea & Build MVP) ──
   if(track==="PRODUCT"){
     const assignedSector=PRODUCT_SECTORS[sectorIdx]!;
+    const impliedValuation=Math.round(prodState.totalShares*prodState.sharePrice);
     return <>
       <PageTitle
         eyebrow={`ROUND 1 / PRODUCT IDEA & MVP · ${code}`}
         title="Pitch your idea and build your MVP."
-        sub="Your Product team is assigned one of the 3 competition sectors. Pitch your startup idea, claim your company identity, and write your complete MVP specification before submitting. Your submitted company profile syncs live to Consulting teams in Round 2 & 3."
+        sub={`Your Product team is assigned one of the 3 competition sectors. Pitch your startup idea, claim your company identity, and write your complete MVP specification before submitting. Your Round 1 score sets your share price ($${prodState.sharePrice.toFixed(2)}/sh across ${prodState.totalShares.toLocaleString()} shares) — all Round 2 & 3 Finance and Consulting deals trade in Shares & Equity % with money calculated automatically.`}
       />
       <div className="guide-grid two">
         <Panel title="Your assigned sector (1 of 3)" tag="SECTOR ALLOCATION">
@@ -212,9 +200,9 @@ export default function Build(){
           />
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div className="guide-metric">
-              <small>ASSIGNED TEAM</small>
-              <b className="text-base">Team {code}</b>
-              <span>SECTOR: {assignedSector.id}</span>
+              <small>SHARE STRUCTURE</small>
+              <b className="text-base">${prodState.sharePrice.toFixed(2)}/sh</b>
+              <span>{prodState.totalShares.toLocaleString()} SHARES · ${impliedValuation.toLocaleString()} VAL</span>
             </div>
             <div className="guide-metric">
               <small>MVP STATUS</small>
@@ -282,25 +270,23 @@ export default function Build(){
           </div>
         </Panel>
       </div>
-      <div className="guide-alert mt-4">Round 1 closes at 23:00 IST. Your submitted Idea &amp; MVP sets your company&apos;s starting valuation and syncs live to Consulting &amp; Finance teams in Round 2.</div>
+      <div className="guide-alert mt-4">Round 1 closes at 23:00 IST. Your submitted Idea &amp; MVP sets your company&apos;s starting share price (${prodState.sharePrice.toFixed(2)}/sh) and syncs live to Finance &amp; Consulting teams in Round 2.</div>
     </>;
   }
 
-  // ── FINANCE TRACK: ROUND 1 (exact frontend from previous Final-Frontend 6a55285) ──
-  // ── FINANCE TRACK: ROUND 1 (Initial Capital Allocation & Investment Mandate) ──
+  // ── FINANCE TRACK: ROUND 1 (Initial Capital Allocation & Share/Equity Investment Mandate) ──
   if(track==="FINANCE"){
-    const finParts=["Problem","Target user","Must have","Should have","Not in version 1","Per-pack maths","Go to market","Success metrics","Risks"];
-    return <><PageTitle eyebrow="ROUND 1 / BUILD" title="Build your company." sub="The lottery deals your team a problem card. Name your company, claim a unique four-letter ticker and write its product requirements document."/><div className="guide-grid two"><Panel title="Your problem card" tag="LOTTERY ASSIGNMENT"><span className="guide-chip">PROBLEM CARD 08 · FMCG</span><h2 className="mt-3 text-xl font-semibold">School tiffin filler</h2><p className="guide-muted mt-2">Parents of 6–12-year-olds want a packed snack for the school tiffin that is not junk, costs under ₹15 and survives a hot bag till lunch.</p></Panel><Panel title="Company identity" tag="CLAIM YOUR TICKER"><label className="guide-label">COMPANY NAME · UP TO 60 CHARACTERS</label><input className="guide-input" maxLength={60} value={finCompany} onChange={e=>setFinCompany(e.target.value)}/><label className="guide-label">FOUR-LETTER TICKER · A–Z</label><input className="guide-input font-mono uppercase" maxLength={4} value={finTicker} onChange={e=>setFinTicker(e.target.value.toUpperCase().replace(/[^A-Z]/g,""))}/><p className="guide-muted mt-2">The first team to save a ticker owns it. This preview does not reserve tickers on the event server.</p></Panel></div><div className="mt-4"><Panel title="Product requirements document" tag="9 PARTS · 800 WORDS TOTAL"><div className="mb-4 flex items-center justify-between"><div><b className="text-sm">Your PRD</b><p className="guide-muted">Each part has its own box. The editor autosaves locally in this preview.</p></div><span className={finCount>800?"text-red-400":"guide-status"}>{finCount} / 800 WORDS</span></div><div className="guide-tabs">{finParts.map((p,i)=><button key={p} type="button" className={finActive===i?"active":""} onClick={()=>setFinActive(i)}>{String(i+1).padStart(2,"0")} · {p}</button>)}</div><label className="guide-label">{finParts[finActive]!.toUpperCase()}</label><textarea className="guide-textarea" value={finValues[finActive]} onChange={e=>setFinValues(v=>{const next=v.map((x,i)=>i===finActive?e.target.value:x);const words=next.reduce((sum,item)=>sum+item.trim().split(/\s+/).filter(Boolean).length,0);return words<=800?next:v})} placeholder={"Write the "+finParts[finActive]!.toLowerCase()+" section of your PRD…"} /><div className="mt-3 flex items-center justify-between"><span className="guide-muted">{finValues[finActive]!.trim().split(/\s+/).filter(Boolean).length} words in this section</span><span className="guide-status">● AUTOSAVED IN THIS BROWSER</span></div><div className="mt-4 flex justify-between"><button type="button" className="guide-btn secondary" disabled={finActive===0} onClick={()=>setFinActive(v=>v-1)}>← PREVIOUS</button><button type="button" className="guide-btn" disabled={finActive===8} onClick={()=>setFinActive(v=>v+1)}>NEXT SECTION →</button></div></Panel></div><div className="guide-alert mt-4">The form locks at 23:00 IST. The last saved version is judged. There is no submit button. AI judges read each PRD three times; the middle score counts.</div></>;
     const finCode=code.startsWith("XF")?code:"XF01";
     const finTeam=getFinanceTeam(state,finCode);
     const portfolio=getFinancePortfolio(state,finCode);
     const deployed=portfolio.reduce((sum,d)=>sum+d.amountInvested,0);
+    const totalSharesHeld=portfolio.reduce((sum,d)=>sum+d.sharesAcquired,0);
     const openRequests=state.raiseRequests.filter(r=>r.status==="OPEN").length;
     return <>
       <PageTitle
         eyebrow={`ROUND 1 / FINANCE CAPITAL ALLOCATION · ${finTeam.code} (${finTeam.name})`}
         title="Your Round 1 fund capital is live."
-        sub="In Round 1, every Finance team is allocated starting investment capital. Prepare your sector mandate before Round 2 opens—where you will inspect every Product team's MVP, review their equity-for-cash funding requests, and close deals with one or multiple Product teams."
+        sub="In Round 1, every Finance team is allocated starting investment capital. In Round 2, you will inspect every Product team's MVP in popups, evaluate the exact Shares & Equity % they offer (capital cost calculated automatically from shares × share price), and close share deals with one or multiple Product teams."
       />
       <div className="guide-grid three">
         <Metric
@@ -311,11 +297,11 @@ export default function Build(){
         <Metric
           label="AVAILABLE CAPITAL NOW"
           value={`$${finTeam.availableCapital.toLocaleString()}`}
-          delta={`DEPLOYED $${deployed.toLocaleString()} ACROSS ${portfolio.length} DEALS`}
+          delta={`DEPLOYED $${deployed.toLocaleString()} · ${totalSharesHeld.toLocaleString()} SHARES HELD`}
         />
         <Metric
           label="ROUND 2 DEAL PIPELINE"
-          value={`${openRequests} OPEN ASKS`}
+          value={`${openRequests} OPEN OFFERS`}
           delta={`${state.productOrder.length} PRODUCT MVPS READY TO INSPECT`}
         />
       </div>
@@ -328,23 +314,23 @@ export default function Build(){
             <b>Sector Focus:</b> {finTeam.focus}
           </p>
           <div className="guide-alert mt-3">
-            <b>How Finance Rounds Connect:</b>
+            <b>How Finance Rounds Connect (Shares &amp; Equity Model):</b>
             <br />
             1. <b>Round 1 (Capital Allocation):</b> You receive <b>${finTeam.initialCapital.toLocaleString()}</b> starting investment capital.
             <br />
-            2. <b>Round 2 (Product MVPs &amp; Equity Deals):</b> View all Product teams, open full MVP popups, evaluate how much money they want vs. the equity they offer, and close deals with <b>one or multiple Product teams</b>—updating your live portfolio immediately.
+            2. <b>Round 2 (Product MVPs &amp; Share Deals):</b> View all Product teams, open full MVP popups, evaluate the <b>Shares &amp; Equity %</b> offered (with dollar cost calculated automatically from shares × share price), and close deals with <b>one or multiple Product teams</b>—updating your live share portfolio immediately.
             <br />
-            3. <b>Round 3 (Finance Desk &amp; Trading):</b> Track your portfolio and trade live on the Finance Desk.
+            3. <b>Round 3 (Finance Desk &amp; Trading):</b> Track your acquired shares and trade live on the Finance Desk.
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link className="guide-btn" href="/demo/rescue">OPEN ROUND 2: PRODUCT MVPs &amp; DEALS →</Link>
+            <Link className="guide-btn" href="/demo/rescue">OPEN ROUND 2: PRODUCT MVPs &amp; SHARE DEALS →</Link>
             <Link className="guide-btn secondary" href={FINANCE_ROUTES.overview}>OPEN FINANCE DESK →</Link>
           </div>
         </Panel>
 
         <Panel title="Finance sector capital pools" tag={`${state.financeTeams.length} FINANCE TEAMS`}>
           <p className="guide-muted mb-3">
-            Live capital across all Finance teams (Product teams also see these capital pools when deciding what equity &amp; cash to request in Round 2).
+            Live capital across all Finance teams (Product teams also see these capital pools when deciding how many shares &amp; equity % to offer in Round 2).
           </p>
           <div className="guide-scroll-box compact space-y-2">
             {state.financeTeams.map(ft=>(
@@ -367,11 +353,16 @@ export default function Build(){
   }
 
   // ── CONSULTING TEAM: ROUND 1 (Pre-Assigned Code, Solve Crisis, Submit) ──
+  const baseSharesBenchmark = equityPctToShares(consState.baseEquityPct);
   return <>
-    <PageTitle eyebrow={`ROUND 1 / CONSULTING CRISIS · ${code}`} title="Solve the crisis." sub="Read the Round 1 crisis case below, write your six-part crisis solution across the sections, and submit your solution for evaluation. Your Round 1 base valuation syncs live to Product teams in Round 2."/>
+    <PageTitle
+      eyebrow={`ROUND 1 / CONSULTING CRISIS · ${code}`}
+      title="Solve the crisis."
+      sub="Read the Round 1 crisis case below, write your six-part crisis solution across the sections, and submit your solution for evaluation. Your Round 1 score sets your Consultancy Base Equity Rate (% of shares) — in Rounds 2 & 3 you negotiate Shares & Equity % directly with Product teams and dollar value calculates automatically."
+    />
     <div className="guide-grid two">
       <Panel title="The crisis to solve" tag="ROUND 1 · CRISIS CASE">
-        <span className="guide-chip">CRISIS CASE 01 · AI VOICE & ENTERPRISE SAAS</span>
+        <span className="guide-chip">CRISIS CASE 01 · AI VOICE &amp; ENTERPRISE SAAS</span>
         <h2 className="mt-3 text-xl font-semibold">ElevenLabs India: The ₹30 Crore Mandate</h2>
         <p className="guide-muted mt-2">India brings ₹8 Cr a year from 300 business customers. 4 lakh individuals have signed up, but only 1.2% pay (against 4% in other markets): dollar-priced plans feel expensive, and a local rival gives Indian-language voices away free with ads. The 25-person India team has ₹20 Cr to spend this year, and the board wants ₹30 Cr a year of revenue within 12 months or it will scale India back.</p>
         <p className="guide-muted mt-2">Three offers are on the table: <b>(1) Ed-tech exclusivity</b> at ₹6 Cr/yr to dub 10,000 hours into 6 languages if all data stays in India (education is 40% of current revenue); <b>(2) Telecom white-label</b> guarantee at ₹12 Cr/yr for 5 Cr subscribers under the telecom&apos;s brand; <b>(3) Cut Indian prices</b> to ₹199/month. A state election is 4 months away with rising scrutiny on political voice cloning.</p>
@@ -379,18 +370,22 @@ export default function Build(){
       <Panel title="Assigned team details" tag="PRE-ASSIGNED · CONSULTING">
         <div className="grid grid-cols-2 gap-3">
           <div className="guide-metric"><small>TEAM CODE</small><b>{code}</b><span>CONSULTING TRACK</span></div>
-          <div className="guide-metric"><small>BASE VALUATION</small><b>${consState.baseValue.toLocaleString()}</b><span>R1 SCORE {consState.r1Score}/100</span></div>
+          <div className="guide-metric">
+            <small>BASE EQUITY RATE</small>
+            <b>{consState.baseEquityPct}% · {baseSharesBenchmark.toLocaleString()} sh</b>
+            <span>R1 SCORE {consState.r1Score}/100 · ~${consState.baseValue.toLocaleString()} CALC</span>
+          </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div className="guide-metric"><small>ROUND 1 TASK</small><b className="text-base">Crisis Solution</b><span>6 SECTIONS · 500 WORDS</span></div>
           <div className="guide-metric"><small>STATUS</small><b className="text-base">{submittedAt?"SUBMITTED (LOCKED)":"IN PROGRESS"}</b><span>{submittedAt?`SYNCED ${submittedAt}`:"AWAITING SUBMISSION"}</span></div>
         </div>
-        <p className="guide-muted mt-3">Your team code (<b>{code}</b>) and team name (<b>Team {code}</b>) are fixed. Write your solution to the crisis below and click <b>Submit Solution</b> when ready. Once submitted, it locks and syncs live to Product teams in Round 2.</p>
+        <p className="guide-muted mt-3">Your team code (<b>{code}</b>) and team name (<b>Team {code}</b>) are fixed. Write your solution to the crisis below and click <b>Submit Solution</b> when ready. Once submitted, your base equity rate (<b>{consState.baseEquityPct}% / {baseSharesBenchmark.toLocaleString()} shares</b>) syncs live to Product teams in Round 2.</p>
       </Panel>
     </div>
     <div className="mt-4">
       <Panel title="Crisis solution editor" tag="6 PARTS · 500 WORDS TOTAL · FINAL ON SUBMIT">
-        {submittedAt&&<div className="guide-alert mb-4 flex flex-wrap items-center justify-between gap-2"><div><b>✓ Crisis solution permanently submitted for Team {code}</b> · Finalized at {submittedAt} ({count} words). Base valuation (${consState.baseValue.toLocaleString()}) synced live to Product teams.</div><span className="guide-chip active">FINAL · LIVE SYNCED</span></div>}
+        {submittedAt&&<div className="guide-alert mb-4 flex flex-wrap items-center justify-between gap-2"><div><b>✓ Crisis solution permanently submitted for Team {code}</b> · Finalized at {submittedAt} ({count} words). Base equity rate ({consState.baseEquityPct}% · {baseSharesBenchmark.toLocaleString()} sh · ~${consState.baseValue.toLocaleString()}) synced live to Product teams.</div><span className="guide-chip active">FINAL · LIVE SYNCED</span></div>}
         <div className="mb-4 flex items-center justify-between">
           <div><b className="text-sm">Your crisis solution ({code})</b><p className="guide-muted">Each section has its own box. Complete all six parts and click Submit Solution. Once submitted, it cannot be updated.</p></div>
           <span className={count>500?"text-red-400":"guide-status"}>{count} / 500 WORDS</span>
@@ -413,6 +408,6 @@ export default function Build(){
         </div>
       </Panel>
     </div>
-    <div className="guide-alert mt-4">Round 1 closes at 23:00 IST. Make sure to click <b>Submit Solution</b> after completing your six sections—once submitted, your answer is locked and your valuation syncs live to Product teams in Round 2.</div>
+    <div className="guide-alert mt-4">Round 1 closes at 23:00 IST. Make sure to click <b>Submit Solution</b> after completing your six sections—once submitted, your answer is locked and your base equity rate ({consState.baseEquityPct}%) syncs live to Product teams in Round 2.</div>
   </>;
 }

@@ -6,7 +6,7 @@ import {
   EmptyFilterState,
   INITIAL_LIST_FILTER,
   ListFilterBar,
-  buildDealAmountRanges,
+  buildEquityRanges,
   matchesAmountFilter,
   uniqueSortedAmounts,
   type ListFilterState,
@@ -34,12 +34,9 @@ export function FinanceRound2() {
     [state.productOrder, state.products]
   );
 
-  // Filters for Product Deal Room (Left Panel) & Portfolio (Right Panel)
   const [statusTab, setStatusTab] = useState<"ALL" | "OPEN" | "BACKED">("ALL");
   const [productFilter, setProductFilter] = useState<ListFilterState>(INITIAL_LIST_FILTER);
   const [portfolioFilter, setPortfolioFilter] = useState<ListFilterState>(INITIAL_LIST_FILTER);
-
-  // MVP & Complete Details Modal Popup
   const [modalProductCode, setModalProductCode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,7 +48,6 @@ export function FinanceRound2() {
     return () => window.removeEventListener("keydown", onKey);
   }, [modalProductCode]);
 
-  // Map each Product team -> its latest OPEN raise request (or latest funded request)
   const openRequestByProduct = useMemo(() => {
     const map = new Map<string, LiveRaiseRequest>();
     for (const r of state.raiseRequests) {
@@ -76,36 +72,38 @@ export function FinanceRound2() {
     () => portfolio.reduce((sum, d) => sum + d.amountInvested, 0),
     [portfolio]
   );
+  const totalSharesHeld = useMemo(
+    () => portfolio.reduce((sum, d) => sum + d.sharesAcquired, 0),
+    [portfolio]
+  );
   const uniqueCompaniesBacked = useMemo(
     () => new Set(portfolio.map(d => d.productCode)).size,
     [portfolio]
   );
   const openRequestCount = openRequestByProduct.size;
-
-  // Check if XP01 (live Product user) has an open request right now for instant callout
   const liveXp01Request = openRequestByProduct.get("XP01") ?? null;
 
-  // ── DEAL ROOM FILTER OPTIONS ──
+  // ── DEAL ROOM FILTER OPTIONS (SHARES & EQUITY) ──
   const productTeamOptions = useMemo(
     () =>
       products.map(p => {
         const req = openRequestByProduct.get(p.code);
         const backed = (myDealsByProduct.get(p.code)?.length ?? 0) > 0;
         const suffix = req
-          ? ` — Ask $${req.amount.toLocaleString()} (${req.equityPct}%)`
+          ? ` — ${req.equityPct}% (${req.shares.toLocaleString()} sh · calc $${req.amount.toLocaleString()})`
           : backed
             ? " [IN PORTFOLIO ✓]"
-            : " (No active ask)";
+            : " (No share offer yet)";
         return { code: p.code, label: `${p.code} · ${p.company}${suffix}` };
       }),
     [products, openRequestByProduct, myDealsByProduct]
   );
 
-  const exactRequestAmounts = useMemo(
+  const exactOfferEquities = useMemo(
     () =>
       uniqueSortedAmounts(
         products
-          .map(p => openRequestByProduct.get(p.code)?.amount)
+          .map(p => openRequestByProduct.get(p.code)?.equityPct)
           .filter((n): n is number => typeof n === "number" && n > 0)
       ),
     [products, openRequestByProduct]
@@ -118,34 +116,34 @@ export function FinanceRound2() {
       if (statusTab === "OPEN" && !req) return false;
       if (statusTab === "BACKED" && myDeals.length === 0) return false;
       if (productFilter.teamCode !== "ALL" && p.code !== productFilter.teamCode) return false;
-      const amountFilterActive =
+      const eqFilterActive =
         productFilter.amountFilter !== "ALL" ||
         productFilter.minAmount.trim() !== "" ||
         productFilter.maxAmount.trim() !== "";
-      if (amountFilterActive) {
+      if (eqFilterActive) {
         if (!req) return false;
-        if (!matchesAmountFilter(req.amount, productFilter)) return false;
+        if (!matchesAmountFilter(req.equityPct, productFilter)) return false;
       }
       return true;
     });
 
-    if (productFilter.sortBy === "AMOUNT_DESC") {
-      return [...list].sort(
-        (a, b) => (openRequestByProduct.get(b.code)?.amount ?? 0) - (openRequestByProduct.get(a.code)?.amount ?? 0)
-      );
-    }
-    if (productFilter.sortBy === "AMOUNT_ASC") {
-      return [...list].sort(
-        (a, b) =>
-          (openRequestByProduct.get(a.code)?.amount ?? Number.MAX_SAFE_INTEGER) -
-          (openRequestByProduct.get(b.code)?.amount ?? Number.MAX_SAFE_INTEGER)
-      );
-    }
     if (productFilter.sortBy === "EQUITY_DESC") {
       return [...list].sort(
         (a, b) =>
           (openRequestByProduct.get(b.code)?.equityPct ?? 0) -
           (openRequestByProduct.get(a.code)?.equityPct ?? 0)
+      );
+    }
+    if (productFilter.sortBy === "EQUITY_ASC") {
+      return [...list].sort(
+        (a, b) =>
+          (openRequestByProduct.get(a.code)?.equityPct ?? Number.MAX_SAFE_INTEGER) -
+          (openRequestByProduct.get(b.code)?.equityPct ?? Number.MAX_SAFE_INTEGER)
+      );
+    }
+    if (productFilter.sortBy === "VALUE_DESC") {
+      return [...list].sort(
+        (a, b) => (openRequestByProduct.get(b.code)?.amount ?? 0) - (openRequestByProduct.get(a.code)?.amount ?? 0)
       );
     }
     if (productFilter.sortBy === "SCORE_DESC") {
@@ -154,7 +152,6 @@ export function FinanceRound2() {
     if (productFilter.sortBy === "CODE_ASC") {
       return [...list].sort((a, b) => a.code.localeCompare(b.code));
     }
-    // Default sort: bubble XP01 live open request first, then other open non-passed requests, then backed/idle
     return [...list].sort((a, b) => {
       const rank = (p: ProductTeamState) => {
         const req = openRequestByProduct.get(p.code);
@@ -168,38 +165,41 @@ export function FinanceRound2() {
     });
   }, [products, openRequestByProduct, myDealsByProduct, statusTab, productFilter, code]);
 
-  // ── PORTFOLIO FILTER OPTIONS ──
+  // ── PORTFOLIO FILTER OPTIONS (SHARES & EQUITY) ──
   const portfolioTeamOptions = useMemo(() => {
-    const seen = new Map<string, { company: string; totalAmt: number; totalEq: number }>();
+    const seen = new Map<string, { company: string; totalSh: number; totalEq: number }>();
     for (const d of portfolio) {
-      const cur = seen.get(d.productCode) ?? { company: d.company, totalAmt: 0, totalEq: 0 };
+      const cur = seen.get(d.productCode) ?? { company: d.company, totalSh: 0, totalEq: 0 };
       seen.set(d.productCode, {
         company: d.company,
-        totalAmt: cur.totalAmt + d.amountInvested,
+        totalSh: cur.totalSh + d.sharesAcquired,
         totalEq: Number((cur.totalEq + d.equityPct).toFixed(2)),
       });
     }
     return Array.from(seen.entries()).map(([pCode, info]) => ({
       code: pCode,
-      label: `${pCode} · ${info.company} ($${info.totalAmt.toLocaleString()} · ${info.totalEq}%)`,
+      label: `${pCode} · ${info.company} — ${info.totalEq}% (${info.totalSh.toLocaleString()} sh)`,
     }));
   }, [portfolio]);
 
-  const exactPortfolioAmounts = useMemo(
-    () => uniqueSortedAmounts(portfolio.map(d => d.amountInvested)),
+  const exactPortfolioEquities = useMemo(
+    () => uniqueSortedAmounts(portfolio.map(d => d.equityPct)),
     [portfolio]
   );
 
   const filteredPortfolio = useMemo(() => {
     const list = portfolio.filter(d => {
       if (portfolioFilter.teamCode !== "ALL" && d.productCode !== portfolioFilter.teamCode) return false;
-      return matchesAmountFilter(d.amountInvested, portfolioFilter);
+      return matchesAmountFilter(d.equityPct, portfolioFilter);
     });
-    if (portfolioFilter.sortBy === "AMOUNT_DESC") {
-      return [...list].sort((a, b) => b.amountInvested - a.amountInvested);
+    if (portfolioFilter.sortBy === "EQUITY_DESC") {
+      return [...list].sort((a, b) => b.equityPct - a.equityPct);
     }
-    if (portfolioFilter.sortBy === "AMOUNT_ASC") {
-      return [...list].sort((a, b) => a.amountInvested - b.amountInvested);
+    if (portfolioFilter.sortBy === "EQUITY_ASC") {
+      return [...list].sort((a, b) => a.equityPct - b.equityPct);
+    }
+    if (portfolioFilter.sortBy === "VALUE_DESC") {
+      return [...list].sort((a, b) => b.amountInvested - a.amountInvested);
     }
     if (portfolioFilter.sortBy === "CODE_ASC") {
       return [...list].sort((a, b) => a.productCode.localeCompare(b.productCode));
@@ -225,49 +225,49 @@ export function FinanceRound2() {
   return (
     <>
       <PageTitle
-        eyebrow={`ROUND 2 / PRODUCT MVP DEAL ROOM & EQUITY PORTFOLIO · ${finTeam.code} (${finTeam.name})`}
-        title="Inspect Product MVPs and close equity deals."
-        sub="Every Product team and their Round 1 MVP is listed below along with their live funding request (amount requested and equity offered). Open any team's full MVP popup, decide whether to close the deal or pass, and build a multi-company equity portfolio with your Round 1 capital."
+        eyebrow={`ROUND 2 / PRODUCT MVP SHARE & EQUITY DEAL ROOM · ${finTeam.code} (${finTeam.name})`}
+        title="Inspect Product MVPs and acquire shares & equity."
+        sub="Finance teams deal strictly in Shares & Equity %—money is calculated automatically from shares × share price. Open any Product team's full MVP popup, decide whether to acquire their offered shares & equity, and build a multi-company equity portfolio."
       />
 
       <div className="guide-grid three">
         <Metric
-          label="AVAILABLE CAPITAL"
+          label="CALCULATED CAPITAL LEFT"
           value={`$${finTeam.availableCapital.toLocaleString()}`}
-          delta={`STARTED R1 WITH $${finTeam.initialCapital.toLocaleString()} · DEPLOYED $${totalDeployed.toLocaleString()}`}
+          delta={`R1 START $${finTeam.initialCapital.toLocaleString()} · DEPLOYED $${totalDeployed.toLocaleString()}`}
         />
         <Metric
-          label="OPEN RAISE REQUESTS"
+          label="OPEN SHARE OFFERS"
           value={`${openRequestCount} LIVE`}
           delta={
             liveXp01Request
-              ? `⚡ XP01 ASKING $${liveXp01Request.amount.toLocaleString()} FOR ${liveXp01Request.equityPct}% EQUITY`
-              : `${products.length} PRODUCT TEAMS & MVPS AVAILABLE`
+              ? `⚡ XP01 OFFERING ${liveXp01Request.equityPct}% (${liveXp01Request.shares.toLocaleString()} SH · CALC $${liveXp01Request.amount.toLocaleString()})`
+              : `${products.length} PRODUCT MVPS READY TO INSPECT`
           }
         />
         <Metric
-          label="PORTFOLIO HOLDINGS"
-          value={`${portfolio.length} DEAL${portfolio.length === 1 ? "" : "S"}`}
+          label="SHARES & EQUITY PORTFOLIO"
+          value={`${totalSharesHeld.toLocaleString()} SH`}
           delta={
             uniqueCompaniesBacked > 0
-              ? `BACKED ${uniqueCompaniesBacked} PRODUCT COMPAN${uniqueCompaniesBacked === 1 ? "Y" : "IES"} · MULTIPLE DEALS ALLOWED`
-              : "NO DEALS CLOSED YET · CLOSE DEALS BELOW"
+              ? `${portfolio.length} DEALS ACROSS ${uniqueCompaniesBacked} PRODUCT COMPAN${uniqueCompaniesBacked === 1 ? "Y" : "IES"}`
+              : "ACQUIRE SHARES FROM MULTIPLE PRODUCT TEAMS"
           }
         />
       </div>
 
       <div className="guide-grid two mt-4">
-        {/* ── PANEL 1: ALL PRODUCT TEAMS, LIVE RAISE REQUESTS & MVP POPUP ── */}
+        {/* ── PANEL 1: ALL PRODUCT TEAMS, LIVE SHARE OFFERS & MVP POPUP ── */}
         <Panel
-          title="1. Product teams, Round 1 MVPs & live funding requests"
-          tag={`${openRequestCount} OPEN REQUESTS · CLICK MVP FOR FULL DETAILS`}
+          title="1. Product teams, Round 1 MVPs & share/equity offers"
+          tag={`${openRequestCount} OPEN OFFERS · MONEY AUTO-CALCULATED`}
         >
           {liveXp01Request && (
             <div className="guide-alert guide-warning mb-3 flex flex-wrap items-center justify-between gap-2">
               <span>
-                <b>⚡ Live Raise Request from XP01 ({state.products.XP01?.company}):</b> Asking{" "}
-                <b>${liveXp01Request.amount.toLocaleString()}</b> for{" "}
-                <b>{liveXp01Request.equityPct}% equity</b> (Implied Val: ${liveXp01Request.impliedValuation.toLocaleString()}).
+                <b>⚡ Live Share Offer from XP01 ({state.products.XP01?.company}):</b> Offering{" "}
+                <b>{liveXp01Request.equityPct}% equity ({liveXp01Request.shares.toLocaleString()} shares @ ${liveXp01Request.sharePrice.toFixed(2)})</b>{" "}
+                → Auto-Calc Value <b>${liveXp01Request.amount.toLocaleString()}</b>.
               </span>
               <div className="flex gap-1.5">
                 <button
@@ -283,7 +283,7 @@ export function FinanceRound2() {
                   disabled={finTeam.availableCapital < liveXp01Request.amount}
                   onClick={() => handleCloseDeal(liveXp01Request.id)}
                 >
-                  CLOSE DEAL ✓
+                  ACQUIRE SHARES ✓
                 </button>
               </div>
             </div>
@@ -302,7 +302,7 @@ export function FinanceRound2() {
               className={statusTab === "OPEN" ? "active" : ""}
               onClick={() => setStatusTab("OPEN")}
             >
-              OPEN RAISE REQUESTS ({openRequestCount})
+              OPEN SHARE OFFERS ({openRequestCount})
             </button>
             <button
               type="button"
@@ -319,16 +319,15 @@ export function FinanceRound2() {
             teamOptions={productTeamOptions}
             teamLabel="PRODUCT TEAM CODE"
             allTeamsLabel="All Product Teams"
-            amountLabel="REQUESTED AMOUNT FILTER"
-            amountRanges={buildDealAmountRanges()}
-            exactAmounts={exactRequestAmounts}
-            minPlaceholder="e.g. 30000"
-            maxPlaceholder="e.g. 50000"
+            valueKind="EQUITY"
+            amountLabel="EQUITY % / SHARES OFFERED"
+            amountRanges={buildEquityRanges()}
+            exactAmounts={exactOfferEquities}
             sortOptions={[
-              { value: "DEFAULT", label: "Live Requests First" },
-              { value: "AMOUNT_DESC", label: "Ask Amount: High → Low" },
-              { value: "AMOUNT_ASC", label: "Ask Amount: Low → High" },
-              { value: "EQUITY_DESC", label: "Equity Offered: High → Low" },
+              { value: "DEFAULT", label: "Live Offers First" },
+              { value: "EQUITY_DESC", label: "Equity %: High → Low" },
+              { value: "EQUITY_ASC", label: "Equity %: Low → High" },
+              { value: "VALUE_DESC", label: "Calculated $: High → Low" },
               { value: "SCORE_DESC", label: "R1 MVP Score: High → Low" },
               { value: "CODE_ASC", label: "Team Code: A → Z" },
             ]}
@@ -350,7 +349,7 @@ export function FinanceRound2() {
               filteredProducts.map(p => {
                 const req = openRequestByProduct.get(p.code) ?? null;
                 const myDeals = myDealsByProduct.get(p.code) ?? [];
-                const myTotalInvested = myDeals.reduce((s, d) => s + d.amountInvested, 0);
+                const myTotalShares = myDeals.reduce((s, d) => s + d.sharesAcquired, 0);
                 const myTotalEquity = Number(myDeals.reduce((s, d) => s + d.equityPct, 0).toFixed(2));
                 const isPassed = req ? req.passedBy.includes(code) : false;
                 const canAfford = req ? finTeam.availableCapital >= req.amount : false;
@@ -369,7 +368,7 @@ export function FinanceRound2() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <span className={`guide-chip ${req && !isPassed ? "active" : ""}`}>
-                          {p.code} · {p.ticker} · R1 {p.r1Score}/100
+                          {p.code} · {p.ticker} · ${p.sharePrice.toFixed(2)}/sh
                         </span>
                         <b className="ml-2 text-sm">{p.company}</b>
                       </div>
@@ -377,12 +376,12 @@ export function FinanceRound2() {
                         {req
                           ? isPassed
                             ? "PASSED BY YOUR DESK · STILL OPEN"
-                            : `⚡ ASKING $${req.amount.toLocaleString()} FOR ${req.equityPct}% EQUITY`
+                            : `⚡ OFFERING ${req.equityPct}% (${req.shares.toLocaleString()} SH · CALC $${req.amount.toLocaleString()})`
                           : myDeals.length > 0
-                            ? `✓ IN YOUR PORTFOLIO (${myTotalEquity}% · $${myTotalInvested.toLocaleString()})`
+                            ? `✓ OWNED: ${myTotalEquity}% (${myTotalShares.toLocaleString()} SH)`
                             : latestFundedByOther
-                              ? `FUNDED BY ${latestFundedByOther.fundedBy} ($${latestFundedByOther.amount.toLocaleString()})`
-                              : "NO ACTIVE RAISE REQUEST YET"}
+                              ? `ACQUIRED BY ${latestFundedByOther.fundedBy} (${latestFundedByOther.equityPct}%)`
+                              : "NO ACTIVE SHARE OFFER YET"}
                       </span>
                     </div>
 
@@ -394,16 +393,16 @@ export function FinanceRound2() {
                       <>
                         <div className="mt-2.5 grid grid-cols-3 gap-2 text-[10px] font-mono">
                           <div className="border border-[#294832] p-2">
-                            <span className="block text-[#9ba2ad]">MONEY REQUESTED</span>
-                            <b className="mt-0.5 block text-[#f0f1f4]">${req.amount.toLocaleString()}</b>
-                          </div>
-                          <div className="border border-[#294832] p-2">
                             <span className="block text-[#9ba2ad]">EQUITY OFFERED</span>
                             <b className="mt-0.5 block text-[#ffd84d]">{req.equityPct}% EQUITY</b>
                           </div>
                           <div className="border border-[#294832] p-2">
-                            <span className="block text-[#9ba2ad]">IMPLIED VALUATION</span>
-                            <b className="mt-0.5 block text-[#f0f1f4]">${req.impliedValuation.toLocaleString()}</b>
+                            <span className="block text-[#9ba2ad]">SHARES (@ ${req.sharePrice.toFixed(2)})</span>
+                            <b className="mt-0.5 block text-[#f0f1f4]">{req.shares.toLocaleString()} SH</b>
+                          </div>
+                          <div className="border border-[#294832] p-2">
+                            <span className="block text-[#9ba2ad]">AUTO-CALC VALUE</span>
+                            <b className="mt-0.5 block text-[#f0f1f4]">${req.amount.toLocaleString()}</b>
                           </div>
                         </div>
                         {req.note && (
@@ -415,16 +414,16 @@ export function FinanceRound2() {
                     ) : (
                       <div className="mt-2.5 grid grid-cols-3 gap-2 text-[10px] font-mono">
                         <div className="border border-[#294832] p-2">
-                          <span className="block text-[#9ba2ad]">RAISED SO FAR</span>
-                          <b className="mt-0.5 block text-[#f0f1f4]">${p.raisedCash.toLocaleString()}</b>
+                          <span className="block text-[#9ba2ad]">SHARE PRICE</span>
+                          <b className="mt-0.5 block text-[#f0f1f4]">${p.sharePrice.toFixed(2)}</b>
                         </div>
                         <div className="border border-[#294832] p-2">
                           <span className="block text-[#9ba2ad]">EQUITY DILUTED</span>
                           <b className="mt-0.5 block text-[#f0f1f4]">{p.equityGivenPct}%</b>
                         </div>
                         <div className="border border-[#294832] p-2">
-                          <span className="block text-[#9ba2ad]">R1 MVP STATUS</span>
-                          <b className="mt-0.5 block text-[#ffd84d]">{p.r1SubmittedAt ? "SUBMITTED ✓" : "BASELINE READY"}</b>
+                          <span className="block text-[#9ba2ad]">R1 SCORE</span>
+                          <b className="mt-0.5 block text-[#ffd84d]">{p.r1Score} / 100</b>
                         </div>
                       </div>
                     )}
@@ -447,7 +446,7 @@ export function FinanceRound2() {
                             onClick={() => handleCloseDeal(req.id)}
                           >
                             {canAfford
-                              ? `CLOSE DEAL ($${req.amount.toLocaleString()} FOR ${req.equityPct}%) ✓`
+                              ? `CLOSE DEAL (${req.equityPct}% · ${req.shares.toLocaleString()} SH · CALC $${req.amount.toLocaleString()}) ✓`
                               : `INSUFFICIENT CAPITAL ($${finTeam.availableCapital.toLocaleString()} LEFT)`}
                           </button>
                           <button
@@ -478,7 +477,7 @@ export function FinanceRound2() {
                             })
                           }
                         >
-                          RECONSIDER DEAL
+                          RECONSIDER OFFER
                         </button>
                       )}
                     </div>
@@ -489,43 +488,43 @@ export function FinanceRound2() {
           </div>
         </Panel>
 
-        {/* ── PANEL 2: LIVE FINANCE EQUITY PORTFOLIO (MULTIPLE DEALS SUPPORTED) ── */}
+        {/* ── PANEL 2: LIVE FINANCE SHARE & EQUITY PORTFOLIO (MULTIPLE DEALS SUPPORTED) ── */}
         <Panel
-          title={`2. ${finTeam.name} (${finTeam.code}) — Live equity portfolio`}
-          tag={`${portfolio.length} CLOSED DEALS · $${totalDeployed.toLocaleString()} DEPLOYED`}
+          title={`2. ${finTeam.name} (${finTeam.code}) — Live share & equity portfolio`}
+          tag={`${totalSharesHeld.toLocaleString()} SHARES · ${portfolio.length} DEALS`}
         >
           <p className="guide-muted mb-3">
-            Your Finance team can close deals with <b>multiple Product teams</b> as long as you have capital available. Every closed deal immediately updates your cash balance, equity stakes, and the Product team&apos;s live balance.
+            Your Finance team can acquire shares &amp; equity across <b>multiple Product teams</b>. Each closed deal adds the exact share count &amp; equity stake to your portfolio and deducts the auto-calculated cost (`shares × share price`).
           </p>
 
           <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <div className="guide-metric">
-              <small>R1 CAPITAL</small>
-              <b className="!text-base">${finTeam.initialCapital.toLocaleString()}</b>
-              <span>STARTING</span>
+              <small>SHARES HELD</small>
+              <b className="!text-base">{totalSharesHeld.toLocaleString()}</b>
+              <span>{uniqueCompaniesBacked} COMPANIES</span>
             </div>
             <div className="guide-metric">
-              <small>CASH LEFT</small>
+              <small>CALC DEPLOYED</small>
+              <b className="!text-base">${totalDeployed.toLocaleString()}</b>
+              <span>{Math.round((totalDeployed / finTeam.initialCapital) * 100)}% OF R1</span>
+            </div>
+            <div className="guide-metric">
+              <small>CAPITAL LEFT</small>
               <b className="!text-base">${finTeam.availableCapital.toLocaleString()}</b>
               <span>DEPLOYABLE</span>
             </div>
             <div className="guide-metric">
-              <small>DEPLOYED</small>
-              <b className="!text-base">${totalDeployed.toLocaleString()}</b>
-              <span>{Math.round((totalDeployed / finTeam.initialCapital) * 100)}% USED</span>
-            </div>
-            <div className="guide-metric">
-              <small>COMPANIES</small>
-              <b className="!text-base">{uniqueCompaniesBacked}</b>
-              <span>{portfolio.length} TOTAL DEALS</span>
+              <small>CLOSED DEALS</small>
+              <b className="!text-base">{portfolio.length}</b>
+              <span>MULTI-DEAL</span>
             </div>
           </div>
 
           {portfolio.length === 0 ? (
             <div className="guide-alert">
-              <b>Your Round 2 Venture Portfolio is empty.</b>
+              <b>Your Share &amp; Equity Portfolio is empty.</b>
               <br />
-              Inspect Product MVPs on the left via <b>View Full MVP &amp; Details</b> and click <b>Close Deal</b> on one or more Product teams to acquire equity stakes.
+              Inspect Product MVPs on the left via <b>View Full MVP &amp; Details</b> and click <b>Close Deal</b> on one or more Product teams to acquire their shares &amp; equity.
             </div>
           ) : (
             <>
@@ -535,9 +534,17 @@ export function FinanceRound2() {
                 teamOptions={portfolioTeamOptions}
                 teamLabel="BACKED PRODUCT TEAM"
                 allTeamsLabel="All Portfolio Companies"
-                amountLabel="INVESTMENT AMOUNT"
-                amountRanges={buildDealAmountRanges()}
-                exactAmounts={exactPortfolioAmounts}
+                valueKind="EQUITY"
+                amountLabel="EQUITY STAKE %"
+                amountRanges={buildEquityRanges()}
+                exactAmounts={exactPortfolioEquities}
+                sortOptions={[
+                  { value: "DEFAULT", label: "Most Recent Deals" },
+                  { value: "EQUITY_DESC", label: "Equity %: High → Low" },
+                  { value: "VALUE_DESC", label: "Calculated $: High → Low" },
+                  { value: "EQUITY_ASC", label: "Equity %: Low → High" },
+                  { value: "CODE_ASC", label: "Team Code: A → Z" },
+                ]}
                 totalCount={portfolio.length}
                 filteredCount={filteredPortfolio.length}
                 itemNoun="portfolio deals"
@@ -563,18 +570,20 @@ export function FinanceRound2() {
                             <b className="ml-2 text-sm">{deal.company}</b>
                           </div>
                           <span className="font-mono text-sm font-bold text-[#ffd84d]">
-                            {deal.equityPct}% EQUITY · ${deal.amountInvested.toLocaleString()}
+                            {deal.equityPct}% · {deal.sharesAcquired.toLocaleString()} SH
                           </span>
                         </div>
                         <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
                           <div className="border border-[#294832] p-1.5">
-                            <span className="block text-[#9ba2ad]">IMPLIED VAL</span>
-                            <b className="text-[#f0f1f4]">${deal.impliedValuation.toLocaleString()}</b>
+                            <span className="block text-[#9ba2ad]">CALC VALUE (@ ${deal.sharePrice.toFixed(2)})</span>
+                            <b className="text-[#f0f1f4]">${deal.amountInvested.toLocaleString()}</b>
                           </div>
                           <div className="border border-[#294832] p-1.5">
                             <span className="block text-[#9ba2ad]">CONSULTANT</span>
                             <b className="text-[#f0f1f4]">
-                              {r2ConsultantLock ? `LOCKED ${r2ConsultantLock.consultingCode}` : "HIRING…"}
+                              {r2ConsultantLock
+                                ? `${r2ConsultantLock.consultingCode} (${r2ConsultantLock.currentEquityPct}%)`
+                                : "HIRING…"}
                             </b>
                           </div>
                           <div className="border border-[#294832] p-1.5">
@@ -604,7 +613,7 @@ export function FinanceRound2() {
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#292e38] pt-4">
             <span className="guide-muted">
-              Your equity portfolio &amp; cash carry straight into Round 3 Trading.
+              Your acquired shares &amp; equity sync directly into the Finance Desk.
             </span>
             <Link href={FINANCE_ROUTES.overview} className="guide-btn">
               OPEN FINANCE DESK →
@@ -630,7 +639,7 @@ export function FinanceRound2() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="guide-chip active">
-                    {modalProduct.code} · {modalProduct.ticker}
+                    {modalProduct.code} · {modalProduct.ticker} · ${modalProduct.sharePrice.toFixed(2)}/sh
                   </span>
                   <span className="font-mono text-[10px] text-[#9ba2ad]">{modalProduct.sector}</span>
                   <span className="font-mono text-[10px] text-[#ffd84d]">
@@ -638,7 +647,7 @@ export function FinanceRound2() {
                   </span>
                 </div>
                 <h2 id="mvp-modal-title" className="mt-2 text-xl font-bold text-[#f0f1f4]">
-                  {modalProduct.company} — Complete Round 1 MVP &amp; Deal Brief
+                  {modalProduct.company} — Complete Round 1 MVP &amp; Share Offer
                 </h2>
                 <p className="guide-muted mt-1">{modalProduct.pitchLine}</p>
               </div>
@@ -651,12 +660,12 @@ export function FinanceRound2() {
               </button>
             </div>
 
-            {/* Active Funding Ask Summary inside Popup */}
             {modalRequest ? (
               <div className="guide-alert guide-warning mt-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <b>ACTIVE FUNDING REQUEST:</b> Seeking <b>${modalRequest.amount.toLocaleString()}</b> for{" "}
-                  <b>{modalRequest.equityPct}% equity</b> (Implied Valuation:{" "}
+                  <b>ACTIVE SHARE &amp; EQUITY OFFER:</b> Offering{" "}
+                  <b>{modalRequest.equityPct}% equity ({modalRequest.shares.toLocaleString()} shares @ ${modalRequest.sharePrice.toFixed(2)})</b>{" "}
+                  → Auto-Calculated Deal Cost <b>${modalRequest.amount.toLocaleString()}</b> (Valuation:{" "}
                   <b>${modalRequest.impliedValuation.toLocaleString()}</b>)
                   {modalRequest.note ? ` — "${modalRequest.note}"` : ""}
                 </div>
@@ -665,12 +674,10 @@ export function FinanceRound2() {
                     type="button"
                     disabled={finTeam.availableCapital < modalRequest.amount}
                     className="guide-btn"
-                    onClick={() => {
-                      handleCloseDeal(modalRequest.id);
-                    }}
+                    onClick={() => handleCloseDeal(modalRequest.id)}
                   >
                     {finTeam.availableCapital >= modalRequest.amount
-                      ? `CLOSE DEAL ($${modalRequest.amount.toLocaleString()} FOR ${modalRequest.equityPct}%) ✓`
+                      ? `CLOSE DEAL (${modalRequest.equityPct}% · ${modalRequest.shares.toLocaleString()} SH · $${modalRequest.amount.toLocaleString()}) ✓`
                       : "INSUFFICIENT CAPITAL"}
                   </button>
                   {!modalRequest.passedBy.includes(code) && (
@@ -692,12 +699,11 @@ export function FinanceRound2() {
               </div>
             ) : (
               <div className="guide-alert mt-3">
-                <b>Funding Status:</b> Total Raised <b>${modalProduct.raisedCash.toLocaleString()}</b> · Equity Diluted{" "}
-                <b>{modalProduct.equityGivenPct}%</b> · No open funding request at this moment.
+                <b>Cap-Table Status:</b> Share Price <b>${modalProduct.sharePrice.toFixed(2)}</b> · Equity Diluted{" "}
+                <b>{modalProduct.equityGivenPct}%</b> · Calculated Cash Raised <b>${modalProduct.raisedCash.toLocaleString()}</b>.
               </div>
             )}
 
-            {/* Complete 7-Part MVP + Round 2 Crisis Details (Scrolls Inside Popup) */}
             <div className="guide-scroll-box mt-4 space-y-2.5">
               {modalMvp.sections.map(sec => (
                 <div key={sec.title} className="border border-[#292e38] bg-[#131722] p-3">
@@ -729,7 +735,7 @@ export function FinanceRound2() {
       )}
 
       <div className="guide-alert mt-4">
-        Finance Round 2 flow: <b>1. Review All Product Teams &amp; Open Full MVP Popups</b> → <b>2. Evaluate Money Requested vs. Equity Offered</b> → <b>3. Close Deals With One or Multiple Product Teams</b> → <b>4. Portfolio &amp; Available Cash Update Live Across Both Workspaces</b>.
+        Finance Round 2 Share &amp; Equity flow: <b>1. Review Product MVPs in Popups</b> → <b>2. Evaluate Shares &amp; Equity % Offered (Money Auto-Calculated)</b> → <b>3. Close Deals With Multiple Product Teams</b> → <b>4. Share &amp; Equity Portfolio Updates Live</b>.
       </div>
     </>
   );

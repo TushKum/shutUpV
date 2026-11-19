@@ -13,6 +13,7 @@ import {
   getOrMakeConsultant,
   getOrMakeProduct,
   getProductAvailableCash,
+  getProductEquityRetainedPct,
   getProductR2Lock,
   getProductR3Lock,
 } from "./coordination-types";
@@ -27,15 +28,13 @@ const headerLinks = [
   { href: "/demo/newsroom", label: "News" },
   { href: "/demo/judging", label: "How judging works" },
 ] as const;
-const baseNav = [["01", "Home", "/demo/dashboard"], ["02", "Round 1: PRD", "/demo/build"], ["03", "Round 2: Rescue", "/demo/rescue"], ["04", "Q&A", "/demo/qa"], ["05", "Market", "/demo/market"], ["06", "Trade", FINANCE_ROUTES.markets], financeItem];
 const baseNav = [["01", "Home", "/demo/dashboard"], ["02", "Round 1: Capital", "/demo/build"], ["03", "Round 2: MVP Deals", "/demo/rescue"], ["04", "Q&A", "/demo/qa"], ["05", "Market", "/demo/market"], ["06", "Trade", FINANCE_ROUTES.markets], financeItem];
 const productNav = [["01", "Home", "/demo/dashboard"], ["02", "Round 1: Idea & MVP", "/demo/build"], ["03", "Round 2: Crisis & Hire", "/demo/rescue"], ["04", "Q&A", "/demo/qa"], ["05", "Market", "/demo/market"], ["06", "Round 3: Draft & New MVP", "/demo/trade"]];
 const consultingNav = [["01", "Home", "/demo/dashboard"], ["02", "Round 1: Crisis", "/demo/build"], ["03", "Round 2: Rescue", "/demo/rescue"], ["04", "Q&A", "/demo/qa"], ["05", "Market", "/demo/market"], ["06", "Round 3: Auction & Crisis", "/demo/trade"]];
 
-const baseTasks: [string, string, string, string][] = [["/demo/build", "Write your product requirements document", "23:00 IST", "/demo/build"], ["/demo/rescue", "Write your crisis solution for QAAC", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Ask the founders a question", "00:15 IST", "/demo/qa"], ["/demo/trade/event", "Place or manage your event orders", "04:30 IST", "/demo/trade/event"], ["/demo/market", "Review company prices and trends", "02:45 IST", "/demo/market"]];
-const baseTasks: [string, string, string, string][] = [["/demo/build", "Review your Round 1 allocated fund capital & sector focus", "23:00 IST", "/demo/build"], ["/demo/rescue", "Inspect Product team MVPs, evaluate equity-for-cash asks, and close deals", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Review due-diligence Q&A before backing companies", "00:15 IST", "/demo/qa"], ["/demo/trade/event", "Place or manage your event orders", "04:30 IST", "/demo/trade/event"], ["/demo/market", "Review company prices and trends", "02:45 IST", "/demo/market"]];
-const productTasks: [string, string, string, string][] = [["/demo/build", "Pitch your startup idea and submit your MVP for your assigned sector", "23:00 IST", "/demo/build"], ["/demo/rescue", "Raise funds from Finance teams ($0 start), lock a Consultant 1:1, and update your MVP", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Answer due-diligence questions from consulting teams on the Q&A board", "00:15 IST", "/demo/qa"], ["/demo/trade", "Re-bid or keep consultant, pick 1 Problem Statement (least-money order), and build a new MVP", "04:30 IST", "/demo/trade"], ["/demo/market", "Review share prices and sector valuations", "02:45 IST", "/demo/market"]];
-const consultingTasks: [string, string, string, string][] = [["/demo/build", "Solve the Round 1 crisis case and submit your solution", "23:00 IST", "/demo/build"], ["/demo/rescue", "Negotiate deal, mutually lock 1-to-1, and solve Round 2 client crisis", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Ask client founders questions on the crisis Q&A board", "00:15 IST", "/demo/qa"], ["/demo/trade", "Ask for Round 3 price increase (or re-enter auction) and solve allotted Product crisis", "04:30 IST", "/demo/trade"], ["/demo/market", "Review company prices and crisis impacts", "02:45 IST", "/demo/market"]];
+const baseTasks: [string, string, string, string][] = [["/demo/build", "Review your Round 1 allocated fund capital & sector focus", "23:00 IST", "/demo/build"], ["/demo/rescue", "Inspect Product team MVPs, evaluate Shares & Equity % offers (auto-calc $), and close deals", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Review due-diligence Q&A before backing companies", "00:15 IST", "/demo/qa"], ["/demo/trade/event", "Place or manage your event orders", "04:30 IST", "/demo/trade/event"], ["/demo/market", "Review company prices and trends", "02:45 IST", "/demo/market"]];
+const productTasks: [string, string, string, string][] = [["/demo/build", "Pitch your startup idea and submit your MVP for your assigned sector", "23:00 IST", "/demo/build"], ["/demo/rescue", "Offer Shares & Equity % to Finance teams (auto-calc $), lock a Consultant 1:1 in equity, and update your MVP", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Answer due-diligence questions from consulting teams on the Q&A board", "00:15 IST", "/demo/qa"], ["/demo/trade", "Keep or re-bid consultant equity deal, pick 1 Problem Statement (least-money order), and build a new MVP", "04:30 IST", "/demo/trade"], ["/demo/market", "Review share prices and sector valuations", "02:45 IST", "/demo/market"]];
+const consultingTasks: [string, string, string, string][] = [["/demo/build", "Solve the Round 1 crisis case and submit your solution", "23:00 IST", "/demo/build"], ["/demo/rescue", "Negotiate Shares & Equity % (auto-calc $), mutually lock 1-to-1, and solve Round 2 client crisis", "01:45 IST", "/demo/rescue"], ["/demo/qa", "Ask client founders questions on the crisis Q&A board", "00:15 IST", "/demo/qa"], ["/demo/trade", "Ask for extra Round 3 Shares & Equity % (or enter open equity auction) and solve allotted Product crisis", "04:30 IST", "/demo/trade"], ["/demo/market", "Review company prices and crisis impacts", "02:45 IST", "/demo/market"]];
 
 export default function DemoLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -47,7 +46,6 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
   const isProduct = track === "PRODUCT";
   const isFinance = track === "FINANCE";
   const nav = isConsulting ? consultingNav : isProduct ? productNav : baseNav;
-  const activePath = !isConsulting && !isProduct
   const activePath = isFinance
     ? (pathname === "/demo/trade/event" ? FINANCE_ROUTES.markets
       : pathname !== FINANCE_ROUTES.markets && pathname.startsWith(`${FINANCE_ROUTES.overview}/`) ? FINANCE_ROUTES.overview : pathname)
@@ -63,20 +61,17 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
     ? (pathname === "/demo/build" ? "ROUND 1 · CRISIS" : pathname === "/demo/trade" ? "ROUND 3 · AUCTION & CRISIS" : "ROUND 2 · RESCUE")
     : isProduct
       ? (pathname === "/demo/build" ? "ROUND 1 · IDEA & MVP" : pathname === "/demo/rescue" ? "ROUND 2 · CRISIS & HIRE" : "ROUND 3 · DRAFT & NEW MVP")
-      : "ROUND 2 · RESCUE";
-  const teamLabel = isConsulting || isProduct ? `Team ${code}` : "Vanguard Capital";
-  const displayCode = isConsulting || isProduct ? code : "TX-8821";
       : (pathname === "/demo/build" ? "ROUND 1 · CAPITAL" : pathname.startsWith("/demo/finance") ? "ROUND 3 · FINANCE DESK" : "ROUND 2 · MVP DEALS");
 
-  // Live synced header figures & smart paired team targeting for end-to-end Product ⇄ Consulting testing
+  // Live synced header figures & smart cross-track testing launchers
   const finCode = code.startsWith("XF") ? code : "XF01";
   const finTeam = isFinance ? getFinanceTeam(state, finCode) : null;
   const finPortfolio = isFinance ? getFinancePortfolio(state, finCode) : [];
+  const finTotalShares = finPortfolio.reduce((sum, d) => sum + d.sharesAcquired, 0);
 
   const teamLabel = isFinance ? (finTeam?.name ?? "Vanguard Capital") : `Team ${code}`;
   const displayCode = isFinance ? finCode : code;
 
-  // Live synced header figures & smart cross-track testing launchers
   const prodState = isProduct ? getOrMakeProduct(state, code) : null;
   const consState = isConsulting ? getOrMakeConsultant(state, code) : null;
   const prodR2Lock = isProduct ? getProductR2Lock(state, code) : null;
@@ -84,25 +79,22 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
   const consR2Lock = isConsulting ? getConsultingR2Lock(state, code) : null;
   const consR3Lock = isConsulting ? getConsultingR3Lock(state, code) : null;
 
+  const prodEquityRetained = isProduct ? getProductEquityRetainedPct(state, code) : 100;
+  const consEq = consR3Lock?.finalEquityPct ?? consR2Lock?.currentEquityPct ?? consState?.baseEquityPct ?? 3.5;
+  const consCalcPrice = consR3Lock?.finalPrice ?? consR2Lock?.currentPrice ?? consState?.baseValue ?? 41300;
+
   const liveCashDisplay = isConsulting
-    ? `$${(consR3Lock?.finalPrice ?? consR2Lock?.currentPrice ?? consState?.baseValue ?? 40000).toLocaleString()}`
+    ? `${consEq}% · $${(consCalcPrice / 1000).toFixed(1)}k`
     : isProduct
       ? `$${getProductAvailableCash(state, code).toLocaleString()}`
-      : "$100,000.00";
       : `$${(finTeam?.availableCapital ?? 500000).toLocaleString()}`;
 
   const livePartnerDisplay = isConsulting
     ? (consR3Lock?.productCode ?? consR2Lock?.productCode ?? "OPEN")
     : isProduct
       ? (prodR3Lock?.consultingCode ?? prodR2Lock?.consultingCode ?? "OPEN")
-      : "QAAC";
       : `${finPortfolio.length} DEALS`;
 
-  const pairedTrack = isProduct ? "CONSULTING" : "PRODUCT";
-  const pairedCode = isProduct
-    ? (prodR3Lock?.consultingCode ?? prodR2Lock?.consultingCode ?? "XC01")
-    : (consR3Lock?.productCode ?? consR2Lock?.productCode ?? "XP01");
-  const pairedTabHref = `${pathname}?asTrack=${pairedTrack}&asCode=${pairedCode}`;
   const syncTargetRoute = pathname.startsWith("/demo/finance") ? "/demo/rescue" : pathname;
   const prodTargetCode = isConsulting ? (consR3Lock?.productCode ?? consR2Lock?.productCode ?? "XP01") : "XP01";
   const consTargetCode = isProduct ? (prodR3Lock?.consultingCode ?? prodR2Lock?.consultingCode ?? "XC01") : "XC01";
@@ -117,7 +109,6 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
           <span><b>PRIMUS <i>’26</i></b><small>MATRIX NETWORK</small></span>
         </Link>
         <div className="guide-nav-label">
-          {isConsulting ? "CONSULTING WORKSPACE" : isProduct ? "PRODUCT WORKSPACE" : "TEAM WORKSPACE"} <b>///</b>
           {isConsulting ? "CONSULTING WORKSPACE" : isProduct ? "PRODUCT WORKSPACE" : "FINANCE WORKSPACE"} <b>///</b>
         </div>
         <nav>
@@ -153,19 +144,22 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
           </nav>
           <div className="guide-top-right">
             <span className="guide-trading">
-              <i /> {isConsulting ? "CONSULTING DESK" : isProduct ? "PRODUCT DESK" : "TRADING HALTED"}
               <i /> {isConsulting ? "CONSULTING DESK" : isProduct ? "PRODUCT DESK" : "FINANCE DESK"}
             </span>
             <span className="guide-cash">
-              {isConsulting ? "DEAL / BASE" : isProduct ? "CASH" : "CASH"} <b>{liveCashDisplay}</b>
-              {isConsulting ? "DEAL / BASE" : isProduct ? "CASH" : "CAPITAL"} <b>{liveCashDisplay}</b>
+              {isConsulting ? "EQUITY" : isProduct ? "CASH" : "CAPITAL"} <b>{liveCashDisplay}</b>
             </span>
             <span className="guide-ticker">
-              {isConsulting ? "TEAM" : isProduct ? "TICKER" : "BUILT"} <b>{isConsulting ? code : isProduct ? (prodState?.ticker ?? "QAAC") : "FRPK"}</b>
-              {isConsulting ? "TEAM" : isProduct ? "TICKER" : "FUND"} <b>{isConsulting ? code : isProduct ? (prodState?.ticker ?? "QAAC") : finCode}</b>
+              {isConsulting ? "TEAM" : isProduct ? "EQUITY" : "SHARES"}{" "}
+              <b>
+                {isConsulting
+                  ? code
+                  : isProduct
+                    ? `${prodState?.ticker ?? "QAAC"} · ${prodEquityRetained}%`
+                    : `${finTotalShares.toLocaleString()} sh`}
+              </b>
             </span>
             <span className="guide-ticker">
-              {isConsulting ? "CLIENT" : isProduct ? "CONSULTANT" : "RESCUE"} <b>{livePartnerDisplay}</b>
               {isConsulting ? "CLIENT" : isProduct ? "CONSULTANT" : "PORTFOLIO"} <b>{livePartnerDisplay}</b>
             </span>
             <button type="button" onClick={() => window.alert("Sound alerts are simulated in this local preview.")}>◖ SOUND OFF</button>
@@ -177,50 +171,9 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
           <small>DEADLINE {task[2]}</small>
           <Link href={task[3]}>OPEN TASK →</Link>
         </div>
-        {isConsulting || isProduct ? (
-          <div className="guide-preview-note flex flex-wrap items-center justify-between gap-2">
-            <span>
-              ● LIVE PRODUCT ⇄ CONSULTING COORDINATION (SYNC v{state.version}) · {track} TEAM {displayCode}
-            </span>
-            <span className="flex flex-wrap items-center gap-2">
-              <a
-                href={pairedTabHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline hover:opacity-100"
-              >
-                OPEN {pairedTrack} ({pairedCode}) IN NEW TAB ↗
-              </a>
-              <span>·</span>
-              <button
-                type="button"
-                className="underline hover:opacity-100"
-                onClick={() => switchDemoIdentity(pairedTrack, pairedCode)}
-              >
-                ⇄ SWITCH TO {pairedCode}
-              </button>
-              <span>·</span>
-              <button
-                type="button"
-                className="underline hover:opacity-100"
-                onClick={() => {
-                  if (window.confirm("Reset all live Product ⇄ Consulting negotiations, locks, drafts and Q&A?")) {
-                    reset();
-                  }
-                }}
-              >
-                ↺ RESET LIVE SYNC
-              </button>
-            </span>
-          </div>
-        ) : (
-          <div className="guide-preview-note">
-            LOCAL FRONTEND PREVIEW · {track} TEAM {displayCode} · NOTHING IS SAVED TO A SERVER
-          </div>
-        )}
         <div className="guide-preview-note flex flex-wrap items-center justify-between gap-2">
           <span>
-            ● LIVE 3-TRACK COORDINATION (SYNC v{state.version}) · {track} TEAM {displayCode}
+            ● LIVE 3-TRACK SHARES &amp; EQUITY COORDINATION (SYNC v{state.version}) · {track} TEAM {displayCode}
           </span>
           <span className="flex flex-wrap items-center gap-2">
             {!isProduct && (
@@ -279,7 +232,7 @@ export default function DemoLayout({ children }: { children: ReactNode }) {
               type="button"
               className="underline hover:opacity-100"
               onClick={() => {
-                if (window.confirm("Reset all live Product ⇄ Finance ⇄ Consulting deals, locks, drafts and Q&A?")) {
+                if (window.confirm("Reset all live Product ⇄ Finance ⇄ Consulting share deals, locks, drafts and Q&A?")) {
                   reset();
                 }
               }}

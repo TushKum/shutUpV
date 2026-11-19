@@ -6,20 +6,25 @@ import {
   INITIAL_LIST_FILTER,
   ListFilterBar,
   buildCapitalAmountRanges,
-  buildDealAmountRanges,
+  buildEquityRanges,
   matchesAmountFilter,
   uniqueSortedAmounts,
   type ListFilterState,
 } from "../list-filter-bar";
 import {useCoordination} from "../coordination-store";
 import {
+  calcMoneyFromShares,
+  equityPctToShares,
   getConsultingR2Lock,
   getOrMakeConsultant,
   getOrMakeProduct,
   getProductAvailableCash,
+  getProductEquityRetainedPct,
   getProductR2Lock,
   getProductR2PendingLock,
+  getProductSharesRetained,
   getR2Deal,
+  sharesToEquityPct,
 } from "../coordination-types";
 
 const mvpUpdateParts = [
@@ -60,12 +65,34 @@ export function ProductRound2() {
     [state.consultantOrder, state.consultants]
   );
 
-  // Fundraising inputs
-  const [reqAmountInput, setReqAmountInput] = useState<string>("");
+  // Linked Equity % <-> Shares inputs for Finance broadcast (money auto-calculated!)
   const [reqEquityInput, setReqEquityInput] = useState<string>("");
+  const [reqSharesInput, setReqSharesInput] = useState<string>("");
   const [raiseNote, setRaiseNote] = useState<string>("");
-  const reqAmount = Math.max(0, Number(reqAmountInput) || 0);
+
   const reqEquityPct = Math.max(0, Number(reqEquityInput) || 0);
+  const reqShares = equityPctToShares(reqEquityPct, product.totalShares);
+  const calcRaiseAmount = calcMoneyFromShares(reqShares, product.sharePrice);
+
+  const handleEquityInputChange = (val: string) => {
+    setReqEquityInput(val);
+    const num = Number(val);
+    if (!val.trim() || Number.isNaN(num) || num <= 0) {
+      setReqSharesInput("");
+    } else {
+      setReqSharesInput(String(equityPctToShares(num, product.totalShares)));
+    }
+  };
+
+  const handleSharesInputChange = (val: string) => {
+    setReqSharesInput(val);
+    const num = Number(val);
+    if (!val.trim() || Number.isNaN(num) || num <= 0) {
+      setReqEquityInput("");
+    } else {
+      setReqEquityInput(String(sharesToEquityPct(num, product.totalShares)));
+    }
+  };
 
   // Filters
   const [financeFilter, setFinanceFilter] = useState<ListFilterState>(INITIAL_LIST_FILTER);
@@ -95,14 +122,13 @@ export function ProductRound2() {
   const lockWaitingFirmCode = lockWaitingDeal?.consultingCode ?? null;
   const isLockedOrLockPending = lockedFirmCode !== null || lockWaitingFirmCode !== null;
 
-  const raisedCash = product.raisedCash;
-  const equityGivenPct = product.equityGivenPct;
   const availableCash = useMemo(() => getProductAvailableCash(state, code), [state, code]);
-  const equityRetainedPct = Math.max(0, Number((100 - equityGivenPct).toFixed(2)));
-  const impliedValuation = reqEquityPct > 0 ? Math.round(reqAmount / (reqEquityPct / 100)) : 0;
+  const equityRetainedPct = useMemo(() => getProductEquityRetainedPct(state, code), [state, code]);
+  const sharesRetained = useMemo(() => getProductSharesRetained(state, code), [state, code]);
+  const companyValuation = Math.round(product.totalShares * product.sharePrice);
   const submittedAt = product.r2MvpSubmittedAt;
 
-  // Incoming live updates from Consulting teams (counter-demands or lock requests)
+  // Incoming live updates from Consulting teams (higher equity demands or lock requests)
   const incomingConsultingActions = useMemo(() => {
     if (lockedFirmCode) return [];
     return consultingTeams.filter(firm => {
@@ -142,32 +168,34 @@ export function ProductRound2() {
     return list;
   }, [financeTeams, financeFilter]);
 
-  // ── CONSULTING TEAMS FILTER MEMOS ──
+  // ── CONSULTING TEAMS FILTER MEMOS (SHARES & EQUITY) ──
   const consultingTeamOptions = useMemo(
     () =>
       consultingTeams.map(firm => {
         const d = getR2Deal(state, code, firm.code);
-        const price = d.pendingPrice ?? d.currentPrice;
+        const eq = d.pendingEquityPct ?? d.currentEquityPct;
+        const sh = d.pendingShares ?? d.currentShares;
+        const val = d.pendingPrice ?? d.currentPrice;
         const tag =
           d.lockInitiatedBy === "CONSULTING" && d.consultingLockAccepted && !d.productLockAccepted
             ? " [LOCK REQ]"
             : d.stage === "COUNTER_DEMANDED"
-              ? ` [+${d.pendingMarkupPct}% ASK]`
+              ? ` [+${d.pendingExtraEquityPct}% ASK]`
               : "";
         return {
           code: firm.code,
-          label: `${firm.code} · R1 ${firm.r1Score}/100 ($${price.toLocaleString()})${tag}`,
+          label: `${firm.code} · ${eq}% (${sh.toLocaleString()} sh · $${val.toLocaleString()})${tag}`,
         };
       }),
     [consultingTeams, state, code]
   );
 
-  const exactConsultingAmounts = useMemo(
+  const exactConsultingEquities = useMemo(
     () =>
       uniqueSortedAmounts(
         consultingTeams.map(firm => {
           const d = getR2Deal(state, code, firm.code);
-          return d.pendingPrice ?? d.currentPrice;
+          return d.pendingEquityPct ?? d.currentEquityPct;
         })
       ),
     [consultingTeams, state, code]
@@ -177,21 +205,21 @@ export function ProductRound2() {
     const list = consultingTeams.filter(firm => {
       if (consultingFilter.teamCode !== "ALL" && firm.code !== consultingFilter.teamCode) return false;
       const d = getR2Deal(state, code, firm.code);
-      const price = d.pendingPrice ?? d.currentPrice;
-      return matchesAmountFilter(price, consultingFilter);
+      const eq = d.pendingEquityPct ?? d.currentEquityPct;
+      return matchesAmountFilter(eq, consultingFilter);
     });
-    if (consultingFilter.sortBy === "AMOUNT_ASC") {
+    if (consultingFilter.sortBy === "EQUITY_ASC") {
       return [...list].sort((a, b) => {
         const da = getR2Deal(state, code, a.code);
         const db = getR2Deal(state, code, b.code);
-        return (da.pendingPrice ?? da.currentPrice) - (db.pendingPrice ?? db.currentPrice);
+        return (da.pendingEquityPct ?? da.currentEquityPct) - (db.pendingEquityPct ?? db.currentEquityPct);
       });
     }
-    if (consultingFilter.sortBy === "AMOUNT_DESC") {
+    if (consultingFilter.sortBy === "EQUITY_DESC") {
       return [...list].sort((a, b) => {
         const da = getR2Deal(state, code, a.code);
         const db = getR2Deal(state, code, b.code);
-        return (db.pendingPrice ?? db.currentPrice) - (da.pendingPrice ?? da.currentPrice);
+        return (db.pendingEquityPct ?? db.currentEquityPct) - (da.pendingEquityPct ?? da.currentEquityPct);
       });
     }
     if (consultingFilter.sortBy === "SCORE_DESC") {
@@ -200,7 +228,6 @@ export function ProductRound2() {
     if (consultingFilter.sortBy === "CODE_ASC") {
       return [...list].sort((a, b) => a.code.localeCompare(b.code));
     }
-    // Bubble active/locked/incoming requests to top in default order
     return [...list].sort((a, b) => {
       const score = (cCode: string) => {
         if (lockedFirmCode === cCode) return 5;
@@ -220,20 +247,18 @@ export function ProductRound2() {
     activeFirmCode !== null && !filteredConsultingTeams.some(f => f.code === activeFirmCode);
 
   const handleBroadcastRaise = () => {
-    if (reqAmount <= 0 || reqEquityPct <= 0 || reqEquityPct > equityRetainedPct) return;
+    if (reqEquityPct <= 0 || reqEquityPct > equityRetainedPct) return;
     dispatch({
       type: "PRODUCT_RAISE_BROADCAST",
       productCode: code,
-      amount: reqAmount,
       equityPct: reqEquityPct,
       note: raiseNote.trim() || undefined,
     });
-    setReqAmountInput("");
     setReqEquityInput("");
+    setReqSharesInput("");
     setRaiseNote("");
   };
 
-  // Live consultant solution received from lockedDeal
   const consultantHasLiveSubmitted = !!lockedDeal?.r2SolutionSubmittedAt;
   const consultantHasLiveDraft =
     !!lockedDeal && lockedDeal.r2SolutionParts.some(p => p.trim().length > 0);
@@ -280,34 +305,28 @@ export function ProductRound2() {
 
   return <>
     <PageTitle
-      eyebrow={`ROUND 2 / LIVE RAISE, END-TO-END CONSULTANT LOCK & MVP UPDATE · ${code}`}
-      title="Raise funds from Finance, lock a Consultant, and update your MVP."
-      sub="Product teams start with $0 cash. First, broadcast an overall equity-for-cash raise request to ALL Finance teams. Then negotiate live with any Consulting team—proposals, counter-demands, and 1:1 Lock Requests sync end-to-end across both workspaces, and your Consultant's submitted crisis solution streams directly into your MVP below."
+      eyebrow={`ROUND 2 / SHARE & EQUITY DEALS WITH FINANCE & CONSULTING · ${code}`}
+      title="Offer shares & equity to Finance and lock a Consultant 1-to-1."
+      sub="All Round 2 deals run on Shares & Equity %—money values are calculated automatically from shares × share price. Broadcast a share & equity offer overall to ALL Finance teams, negotiate equity & shares with a Consulting team, lock 1-to-1, and integrate their live crisis solution into your MVP."
     />
 
     <div className="guide-grid three">
       <Metric
-        label="PRODUCT CASH BALANCE"
-        value={`$${availableCash.toLocaleString()}`}
-        delta={
-          raisedCash === 0
-            ? "STARTED WITH $0 · RAISE FROM FINANCE BELOW"
-            : lockedDeal
-              ? `RAISED $${raisedCash.toLocaleString()} − PAID $${lockedDeal.currentPrice.toLocaleString()} TO ${lockedDeal.consultingCode}`
-              : `RAISED $${raisedCash.toLocaleString()} FROM FINANCE SECTOR`
-        }
-      />
-      <Metric
         label="FOUNDER EQUITY RETAINED"
         value={`${equityRetainedPct}%`}
+        delta={`${sharesRetained.toLocaleString()} OF ${product.totalShares.toLocaleString()} SHARES LEFT @ $${product.sharePrice.toFixed(2)}/SH`}
+      />
+      <Metric
+        label="CALCULATED CAPITAL RAISED"
+        value={`$${availableCash.toLocaleString()}`}
         delta={
-          equityGivenPct > 0
-            ? `${equityGivenPct}% EQUITY ALLOCATED TO FINANCE INVESTORS`
-            : "100% RETAINED · OFFER EQUITY TO RAISE FUNDS"
+          product.equityGivenFinancePct > 0
+            ? `${product.equityGivenFinancePct}% (${equityPctToShares(product.equityGivenFinancePct).toLocaleString()} SH) TO FINANCE · VAL $${companyValuation.toLocaleString()}`
+            : `STARTED AT $0 · OFFER SHARES TO FINANCE BELOW`
         }
       />
       <Metric
-        label="CONSULTING LOCK (1:1)"
+        label="CONSULTING EQUITY LOCK (1:1)"
         value={
           lockedFirm
             ? `LOCKED · ${lockedFirm.code}`
@@ -316,100 +335,93 @@ export function ProductRound2() {
               : "NOT LOCKED"
         }
         delta={
-          lockedFirm
-            ? consultantHasLiveSubmitted
-              ? `${lockedFirm.code} DELIVERED SOLUTION ✓`
-              : `${code} ⇄ ${lockedFirm.code} · AWAITING SOLUTION`
+          lockedDeal
+            ? `${lockedDeal.currentEquityPct}% (${lockedDeal.currentShares.toLocaleString()} SH · CALC $${lockedDeal.currentPrice.toLocaleString()})`
             : lockWaitingFirmCode
-              ? `AWAITING ${lockWaitingFirmCode} TO ACCEPT IN CONSULTING TAB…`
+              ? `AWAITING ${lockWaitingFirmCode} IN CONSULTING TAB…`
               : incomingConsultingActions.length > 0
-                ? `${incomingConsultingActions.length} LIVE UPDATE${incomingConsultingActions.length === 1 ? "" : "S"} FROM CONSULTANTS`
-                : "REQUIRES RAISED CASH TO LOCK CONSULTANT"
+                ? `${incomingConsultingActions.length} LIVE EQUITY UPDATE${incomingConsultingActions.length === 1 ? "" : "S"}`
+                : "PAY CONSULTANT IN COMPANY SHARES & EQUITY"
         }
       />
     </div>
 
-    {/* ── STEP 1: RAISE CAPITAL OVERALL TO ALL FINANCE TEAMS (EQUITY FOR CASH) ── */}
+    {/* ── STEP 1: OFFER SHARES & EQUITY OVERALL TO ALL FINANCE TEAMS (MONEY AUTO-CALCULATED) ── */}
     <div className="guide-grid two mt-4">
-      <Panel title="1. Raise capital from Finance sector (broadcast to all)" tag="PRODUCT STARTS WITH $0 · EQUITY TRADEOFF">
+      <Panel title="1. Offer shares & equity to Finance sector (broadcast to all)" tag={`SHARE PRICE $${product.sharePrice.toFixed(2)} · AUTO-CALC $`}>
         <p className="guide-muted">
-          Your Product team starts Round 2 with <b>$0 cash</b>. To pay a Consulting team to solve your crisis, broadcast an overall equity raise request to <b>all Finance teams</b> at once. Finance teams decide whether to fund you based on your <b>Round 1 MVP</b>.
+          Finance teams deal strictly in <b>Shares &amp; Equity %</b>. Enter either the <b>Equity %</b> or <b>Number of Shares</b> you want to offer overall to <b>all Finance teams</b>—the money raised is calculated automatically from <b>shares × ${product.sharePrice.toFixed(2)}/share</b>.
         </p>
 
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div>
-            <label className="guide-label !mt-0">EQUITY YOU WANT TO OFFER (%)</label>
+            <label className="guide-label !mt-0">EQUITY TO OFFER (%)</label>
             <input
               type="number"
-              min={0.01}
+              min={0.1}
               max={equityRetainedPct}
-              step="any"
+              step="0.5"
               className="guide-input font-mono"
-              placeholder="e.g. 3"
+              placeholder="e.g. 3.5"
               value={reqEquityInput}
-              onChange={e => setReqEquityInput(e.target.value)}
+              onChange={e => handleEquityInputChange(e.target.value)}
             />
           </div>
           <div>
-            <label className="guide-label !mt-0">MONEY YOU WANT TO RAISE ($)</label>
+            <label className="guide-label !mt-0">SHARES TO OFFER (OF 100,000)</label>
             <input
               type="number"
-              min={1}
-              step="any"
+              min={100}
+              max={sharesRetained}
+              step={500}
               className="guide-input font-mono"
-              placeholder="e.g. 45000"
-              value={reqAmountInput}
-              onChange={e => setReqAmountInput(e.target.value)}
+              placeholder="e.g. 3500"
+              value={reqSharesInput}
+              onChange={e => handleSharesInputChange(e.target.value)}
             />
           </div>
         </div>
+
+        <label className="guide-label">AUTO-CALCULATED MONEY VALUE (SHARES × ${product.sharePrice.toFixed(2)}/SH)</label>
+        <input
+          type="text"
+          readOnly
+          className="guide-input font-mono"
+          value={
+            reqEquityPct > 0
+              ? `$${calcRaiseAmount.toLocaleString()} (${reqShares.toLocaleString()} shares × $${product.sharePrice.toFixed(2)} · Company Val $${companyValuation.toLocaleString()})`
+              : "Enter equity % or shares above — money calculates automatically"
+          }
+        />
 
         <label className="guide-label">YOUR OFFER NOTE TO ALL FINANCE TEAMS (OPTIONAL · LINKED TO YOUR R1 MVP)</label>
         <input
           type="text"
           className="guide-input"
-          placeholder="Explain why Finance teams should fund your MVP at this equity & amount…"
+          placeholder="Explain why Finance teams should acquire your shares based on your R1 MVP…"
           value={raiseNote}
           onChange={e => setRaiseNote(e.target.value)}
         />
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[#cfa078]">
-          <span>
-            {reqEquityPct > 0 && reqAmount > 0 ? (
-              <>OFFERING <b>{reqEquityPct}% EQUITY</b> FOR <b>${reqAmount.toLocaleString()}</b></>
-            ) : (
-              "ENTER ANY EQUITY % AND AMOUNT YOU DECIDE"
-            )}
-          </span>
-          <span>
-            IMPLIED VALUATION: <b className="text-[#ff9b45]">{impliedValuation > 0 ? `$${impliedValuation.toLocaleString()}` : "—"}</b>
-          </span>
-        </div>
-
         {reqEquityPct > equityRetainedPct && (
           <p className="mt-2 text-xs text-red-400">
-            You only have {equityRetainedPct}% founder equity remaining.
+            You only have {equityRetainedPct}% ({sharesRetained.toLocaleString()} shares) remaining.
           </p>
         )}
 
         <button
           type="button"
           className="guide-btn mt-3 w-full"
-          disabled={reqAmount <= 0 || reqEquityPct <= 0 || reqEquityPct > equityRetainedPct}
+          disabled={reqEquityPct <= 0 || reqEquityPct > equityRetainedPct}
           onClick={handleBroadcastRaise}
         >
-          {reqEquityPct > 0 && reqAmount > 0
-            ? `RAISE REQUEST OVERALL TO ALL FINANCE TEAMS (${reqEquityPct}% FOR $${reqAmount.toLocaleString()}) →`
-            : "ENTER EQUITY % & AMOUNT TO BROADCAST RAISE →"}
+          {reqEquityPct > 0
+            ? `OFFER ${reqEquityPct}% EQUITY (${reqShares.toLocaleString()} SH · CALC $${calcRaiseAmount.toLocaleString()}) TO ALL FINANCE TEAMS →`
+            : "ENTER EQUITY % OR SHARES TO BROADCAST TO FINANCE →"}
         </button>
 
         {product.raiseHistory.length > 0 && (
           <div className="guide-scroll-box mini mt-3 space-y-2">
-            {product.raiseHistory.map(r => (
-              <div key={r.id} className="guide-alert">
-                <b>✓ Funded by {r.fundedBy} ({r.fundedByName}) ({r.timestamp}):</b> Received <b>+${r.amount.toLocaleString()}</b> cash for <b>{r.equityPct}% equity</b> based on your Round 1 MVP.
-              </div>
-            ))}
             {product.raiseHistory.map(r => {
               const liveReq = state.raiseRequests.find(req => req.id === r.id);
               const isOpen = r.status === "BROADCASTING" && liveReq?.status === "OPEN";
@@ -419,8 +431,9 @@ export function ProductRound2() {
                   {isOpen ? (
                     <div className="space-y-2">
                       <div>
-                        <b>● Broadcast Live to ALL Finance Teams ({r.timestamp}):</b> Asking{" "}
-                        <b>${r.amount.toLocaleString()}</b> for <b>{r.equityPct}% equity</b> — waiting for a Finance team to inspect your MVP &amp; close the deal in Finance Round 2!
+                        <b>● Broadcast Live to ALL Finance Teams ({r.timestamp}):</b> Offering{" "}
+                        <b>{r.equityPct}% equity ({r.shares.toLocaleString()} shares)</b> → Auto-Calculated Value{" "}
+                        <b>${r.amount.toLocaleString()}</b> — waiting for a Finance team to close the deal!
                         {liveReq && liveReq.passedBy.length > 0 && (
                           <span className="block text-[10px]">
                             Passed by: {liveReq.passedBy.join(", ")} (still open to all other Finance teams).
@@ -453,18 +466,20 @@ export function ProductRound2() {
                               })
                             }
                           >
-                            SIMULATE {eligibleFin.code} CLOSING DEAL →
+                            SIMULATE {eligibleFin.code} ACQUIRING SHARES →
                           </button>
                         )}
                       </div>
                     </div>
                   ) : r.status === "CANCELLED" ? (
                     <>
-                      <b>✕ Cancelled ({r.timestamp}):</b> Raise request for <b>${r.amount.toLocaleString()}</b> ({r.equityPct}% equity) was cancelled.
+                      <b>✕ Cancelled ({r.timestamp}):</b> {r.equityPct}% ({r.shares.toLocaleString()} shares) offer cancelled.
                     </>
                   ) : (
                     <>
-                      <b>✓ Deal Closed by {r.fundedBy} ({r.fundedByName}) ({r.timestamp}):</b> Received <b>+${r.amount.toLocaleString()}</b> cash for <b>{r.equityPct}% equity</b> based on your Round 1 MVP!
+                      <b>✓ Share Deal Closed by {r.fundedBy} ({r.fundedByName}) ({r.timestamp}):</b> Issued{" "}
+                      <b>{r.shares.toLocaleString()} shares ({r.equityPct}% equity)</b> → Calculated Cash Received{" "}
+                      <b>+${r.amount.toLocaleString()}</b>!
                     </>
                   )}
                 </div>
@@ -476,7 +491,7 @@ export function ProductRound2() {
 
       <Panel title="2. All Finance sector teams & available capital" tag={`${financeTeams.length} FINANCE TEAMS · LIVE CAPITAL`}>
         <p className="guide-muted mb-3">
-          Every Finance team and how much money they currently hold is listed below. Your raise request is sent overall to the entire Finance sector—any Finance team can choose to fund your MVP.
+          Every Finance team and their remaining calculated capital is listed below. Your share &amp; equity offer broadcasts to the entire Finance sector—any Finance team can inspect your MVP and acquire your shares.
         </p>
         <ListFilterBar
           value={financeFilter}
@@ -511,7 +526,7 @@ export function ProductRound2() {
                     <b className="ml-2 text-sm">{ft.name}</b>
                   </div>
                   <span className="font-mono text-sm font-bold text-[#ff9b45]">
-                    ${ft.availableCapital.toLocaleString()} <small className="text-[9px] font-normal text-[#cfa078]">AVAILABLE</small>
+                    ${ft.availableCapital.toLocaleString()} <small className="text-[9px] font-normal text-[#cfa078]">CALC CAPITAL</small>
                   </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
@@ -525,9 +540,9 @@ export function ProductRound2() {
       </Panel>
     </div>
 
-    {/* ── STEP 2: YOUR CRISIS & HIRING / LOCKING A CONSULTING TEAM ── */}
+    {/* ── STEP 2: YOUR CRISIS & HIRING / LOCKING A CONSULTING TEAM IN SHARES & EQUITY ── */}
     <div className="guide-grid two mt-4">
-      <Panel title="3. Your Round 2 crisis brief" tag={`${product.ticker} · ${product.sector}`}>
+      <Panel title="3. Your Round 2 crisis brief" tag={`${product.ticker} · $${product.sharePrice.toFixed(2)}/SH`}>
         <span className="guide-chip active">{product.company} ({product.ticker}) · TEAM {code}</span>
         <h2 className="mt-3 text-xl font-semibold">{product.crisisTitle}</h2>
         <div className="guide-alert guide-warning mt-3">
@@ -536,22 +551,22 @@ export function ProductRound2() {
           {product.crisisBody}
         </div>
         <p className="guide-muted mt-3">
-          <b>End-to-End Coordination (Product ⇄ Consulting):</b>
+          <b>How Shares &amp; Equity Work Across Finance &amp; Consulting:</b>
           <br />
-          1. You start with <b>$0 cash</b>—raise funds from Finance teams above (e.g. <b>4% for $45,000</b>).
+          1. You hold <b>{equityRetainedPct}% founder equity ({sharesRetained.toLocaleString()} shares)</b> valued at <b>${product.sharePrice.toFixed(2)}/share</b>.
           <br />
-          2. Send a proposal to any Consulting team on the right (e.g. <b>XC01</b>). When they push a price increase or send a Lock Request from their Blue Consulting tab, it appears live on your screen instantaneously.
+          2. Offer shares &amp; equity to <b>Finance teams</b> above (money calculates automatically from shares × share price) and offer shares &amp; equity to a <b>Consulting team</b> on the right.
           <br />
-          3. Once both teams accept the <b>1:1 Lock Request</b> (requires enough raised cash), your Consultant&apos;s written Round 2 solution streams live into Panel 5 below so you can write it into your Updated MVP.
+          3. If a Consultant asks for more equity above their base rate, you see the exact <b>+% equity, +shares, and auto-calculated $ value</b>. Once locked 1:1, their crisis solution streams live into Panel 5 below.
         </p>
       </Panel>
 
-      <Panel title="4. Consulting teams & initial evaluated values" tag={`CASH AVAILABLE: $${availableCash.toLocaleString()}`}>
+      <Panel title="4. Consulting teams & base equity rates" tag={`EQUITY LEFT: ${equityRetainedPct}% (${sharesRetained.toLocaleString()} SH)`}>
         {incomingConsultingActions.length > 0 && !isLockedOrLockPending && (
           <div className="guide-alert guide-warning mb-3 flex flex-wrap items-center justify-between gap-2">
             <span>
               <b>⚡ Live Consulting update{incomingConsultingActions.length > 1 ? "s" : ""}:</b>{" "}
-              {incomingConsultingActions.map(f => f.code).join(", ")} pushed a price demand or sent a Lock Request to {code}.
+              {incomingConsultingActions.map(f => f.code).join(", ")} pushed a higher equity demand or sent a Lock Request to {code}.
             </span>
             <button
               type="button"
@@ -569,13 +584,14 @@ export function ProductRound2() {
           teamOptions={consultingTeamOptions}
           teamLabel="CONSULTING TEAM CODE"
           allTeamsLabel="All Consulting Teams"
-          amountLabel="CONSULTING FEE / VALUE"
-          amountRanges={buildDealAmountRanges()}
-          exactAmounts={exactConsultingAmounts}
+          valueKind="EQUITY"
+          amountLabel="CONSULTING EQUITY % / SHARES"
+          amountRanges={buildEquityRanges()}
+          exactAmounts={exactConsultingEquities}
           sortOptions={[
-            { value: "DEFAULT", label: "Default Order" },
-            { value: "AMOUNT_ASC", label: "Fee: Low → High" },
-            { value: "AMOUNT_DESC", label: "Fee: High → Low" },
+            { value: "DEFAULT", label: "Live Updates First" },
+            { value: "EQUITY_ASC", label: "Equity %: Low → High" },
+            { value: "EQUITY_DESC", label: "Equity %: High → Low" },
             { value: "SCORE_DESC", label: "R1 Score: High → Low" },
             { value: "CODE_ASC", label: "Team Code: A → Z" },
           ]}
@@ -615,15 +631,14 @@ export function ProductRound2() {
               const isConsultingLockIncoming =
                 d.lockInitiatedBy === "CONSULTING" && d.consultingLockAccepted && !d.productLockAccepted;
 
-              const activeDemandPrice = d.stage === "COUNTER_DEMANDED" && d.pendingPrice ? d.pendingPrice : d.currentPrice;
-              const extraOverBase = Math.max(0, activeDemandPrice - firm.baseValue);
-              const extraOverBasePct =
-                d.stage === "COUNTER_DEMANDED" && d.pendingMarkupPct !== undefined
-                  ? d.pendingMarkupPct
-                  : firm.baseValue > 0
-                    ? Math.round((extraOverBase / firm.baseValue) * 100)
-                    : 0;
-              const shortfall = Math.max(0, d.currentPrice - availableCash);
+              const activeEq = d.stage === "COUNTER_DEMANDED" && d.pendingEquityPct ? d.pendingEquityPct : d.currentEquityPct;
+              const activeShares = d.stage === "COUNTER_DEMANDED" && d.pendingShares ? d.pendingShares : d.currentShares;
+              const activeCalcMoney = d.stage === "COUNTER_DEMANDED" && d.pendingPrice ? d.pendingPrice : d.currentPrice;
+              const extraEq = Math.max(0, Number((activeEq - firm.baseEquityPct).toFixed(2)));
+              const extraShares = equityPctToShares(extraEq, product.totalShares);
+              const baseShares = equityPctToShares(firm.baseEquityPct, product.totalShares);
+              const baseCalcMoney = calcMoneyFromShares(baseShares, product.sharePrice);
+              const lacksEquity = equityRetainedPct < d.currentEquityPct;
               const isSimulatedNpcFirm = firm.code !== "XC01";
 
               return (
@@ -644,24 +659,24 @@ export function ProductRound2() {
                     </div>
                     <span className="guide-status">
                       {isThisLocked
-                        ? `🔒 LOCKED 1:1 AT $${d.currentPrice.toLocaleString()}`
+                        ? `🔒 LOCKED 1:1 · ${d.currentEquityPct}% (${d.currentShares.toLocaleString()} sh)`
                         : isLockedByOtherProduct
                           ? `CLOSED · ${firm.code} LOCKED WITH ${firmLockedElsewhere!.productCode}`
                           : isThisLockWaiting
-                            ? `● LOCK REQUEST SENT TO ${firm.code} · AWAITING CONSULTING ACCEPT…`
+                            ? `● LOCK REQUEST SENT TO ${firm.code} · AWAITING CONSULTING…`
                             : isClosedByOther
                               ? "CLOSED · 1:1 LOCKED WITH ANOTHER FIRM"
                               : isConsultingLockIncoming
-                                ? `⚡ ${firm.code} SENT LOCK REQUEST AT $${d.currentPrice.toLocaleString()}!`
+                                ? `⚡ ${firm.code} SENT LOCK REQUEST (${d.currentEquityPct}% · ${d.currentShares.toLocaleString()} sh)!`
                                 : d.stage === "PROPOSAL_SENT"
-                                  ? `● PROPOSAL SENT TO ${firm.code} · AWAITING RESPONSE…`
+                                  ? `● EQUITY OFFER SENT TO ${firm.code} · AWAITING RESPONSE…`
                                   : d.stage === "COUNTER_DEMANDED"
-                                    ? `▲ DEMANDING +$${extraOverBase.toLocaleString()} (+${extraOverBasePct}%) MORE THAN BASE`
+                                    ? `▲ ASKING +${extraEq}% (+${extraShares.toLocaleString()} SH) ABOVE BASE`
                                     : d.stage === "DEAL_AGREED_UNLOCKED"
-                                      ? `✓ DEAL AGREED AT $${d.currentPrice.toLocaleString()} · READY TO LOCK`
+                                      ? `✓ AGREED AT ${d.currentEquityPct}% (${d.currentShares.toLocaleString()} sh) · READY TO LOCK`
                                       : d.stage === "DECLINED"
-                                        ? "COUNTER DECLINED · AVAILABLE TO RE-SEND"
-                                        : `BASE EVALUATED VALUE: $${firm.baseValue.toLocaleString()}`}
+                                        ? "DEMAND DECLINED · AVAILABLE TO RE-OFFER"
+                                        : `BASE RATE: ${firm.baseEquityPct}% (${baseShares.toLocaleString()} sh)`}
                     </span>
                   </div>
 
@@ -671,33 +686,37 @@ export function ProductRound2() {
 
                   <div className="mt-2.5 grid grid-cols-3 gap-2 text-[10px] font-mono">
                     <div className="border border-[#294832] p-2">
-                      <span className="block text-[#cfa078]">BASE VALUE (R1)</span>
-                      <b className="mt-0.5 block text-[#fff7f0]">${firm.baseValue.toLocaleString()}</b>
+                      <span className="block text-[#cfa078]">BASE EQUITY (R1)</span>
+                      <b className="mt-0.5 block text-[#fff7f0]">
+                        {firm.baseEquityPct}% ({baseShares.toLocaleString()} sh)
+                      </b>
                     </div>
                     <div className="border border-[#294832] p-2">
-                      <span className="block text-[#cfa078]">CURRENT DEMAND</span>
-                      <b className="mt-0.5 block text-[#fff7f0]">${activeDemandPrice.toLocaleString()}</b>
+                      <span className="block text-[#cfa078]">CURRENT EQUITY ASK</span>
+                      <b className="mt-0.5 block text-[#fff7f0]">
+                        {activeEq}% ({activeShares.toLocaleString()} sh)
+                      </b>
                     </div>
                     <div className="border border-[#294832] p-2">
-                      <span className="block text-[#cfa078]">MORE THAN BASE</span>
+                      <span className="block text-[#cfa078]">AUTO-CALC VALUE</span>
                       <b className="mt-0.5 block text-[#ff9b45]">
-                        {extraOverBase > 0
-                          ? `+$${extraOverBase.toLocaleString()} (+${extraOverBasePct}%)`
-                          : "$0 (BASE RATE)"}
+                        ${activeCalcMoney.toLocaleString()}{" "}
+                        {extraEq > 0 ? `(+${extraEq}%)` : "(BASE)"}
                       </b>
                     </div>
                   </div>
 
                   {d.stage === "COUNTER_DEMANDED" && (
                     <div className="guide-alert guide-warning mt-3">
-                      <b>Team {firm.code} pushed a price increase!</b> They are demanding <b>${activeDemandPrice.toLocaleString()}</b> — that is{" "}
-                      <b>+${extraOverBase.toLocaleString()} (+{extraOverBasePct}%) more than their ${firm.baseValue.toLocaleString()} base value</b>.
+                      <b>Team {firm.code} asked for more equity &amp; shares!</b> They want{" "}
+                      <b>{activeEq}% equity ({activeShares.toLocaleString()} shares)</b> — that is{" "}
+                      <b>+{extraEq}% (+{extraShares.toLocaleString()} shares) more than their {firm.baseEquityPct}% base rate</b> (Auto-Calculated Value: <b>${activeCalcMoney.toLocaleString()}</b> vs. base ${baseCalcMoney.toLocaleString()}).
                     </div>
                   )}
 
                   {isConsultingLockIncoming && !isClosedByOther && (
                     <div className="guide-alert mt-3">
-                      <b>⚡ Live Lock Request from Team {firm.code}:</b> They want to lock 1:1 with {code} at <b>${d.currentPrice.toLocaleString()}</b>.
+                      <b>⚡ Live Lock Request from Team {firm.code}:</b> Lock 1:1 for <b>{d.currentEquityPct}% equity ({d.currentShares.toLocaleString()} shares · calculated value ${d.currentPrice.toLocaleString()})</b>.
                     </div>
                   )}
 
@@ -709,7 +728,7 @@ export function ProductRound2() {
                             <>
                               <button
                                 type="button"
-                                disabled={shortfall > 0}
+                                disabled={lacksEquity}
                                 className="guide-btn"
                                 onClick={() =>
                                   dispatch({
@@ -720,9 +739,9 @@ export function ProductRound2() {
                                   })
                                 }
                               >
-                                {shortfall > 0
-                                  ? `NEED $${shortfall.toLocaleString()} MORE CASH FROM FINANCE TO ACCEPT LOCK`
-                                  : `ACCEPT LOCK REQUEST FROM ${firm.code} AT $${d.currentPrice.toLocaleString()} 🔒`}
+                                {lacksEquity
+                                  ? `INSUFFICIENT FOUNDER EQUITY (${equityRetainedPct}% LEFT)`
+                                  : `ACCEPT LOCK (${d.currentEquityPct}% · ${d.currentShares.toLocaleString()} SH · $${d.currentPrice.toLocaleString()}) 🔒`}
                               </button>
                               <button
                                 type="button"
@@ -752,7 +771,7 @@ export function ProductRound2() {
                                   })
                                 }
                               >
-                                ACCEPT +${extraOverBase.toLocaleString()} INCREASE (${activeDemandPrice.toLocaleString()}) →
+                                ACCEPT {activeEq}% ({activeShares.toLocaleString()} SH · CALC ${activeCalcMoney.toLocaleString()}) →
                               </button>
                               <button
                                 type="button"
@@ -771,19 +790,19 @@ export function ProductRound2() {
                           ) : d.stage === "PROPOSAL_SENT" ? (
                             <>
                               <span className="guide-status">
-                                ● PROPOSAL SENT TO {firm.code} · AWAITING {firm.code} IN CONSULTING WORKSPACE…
+                                ● EQUITY OFFER SENT TO {firm.code} · AWAITING {firm.code} IN CONSULTING WORKSPACE…
                               </span>
                               {isSimulatedNpcFirm && (
                                 <button
                                   type="button"
                                   className="guide-btn secondary"
                                   onClick={() =>
-                                    firm.defaultCounterMarkupPct > 0
+                                    firm.defaultCounterExtraPct > 0
                                       ? dispatch({
                                           type: "R2_CONSULTING_PUSH_DEMAND",
                                           productCode: code,
                                           consultingCode: firm.code,
-                                          markupPct: firm.defaultCounterMarkupPct,
+                                          extraEquityPct: firm.defaultCounterExtraPct,
                                         })
                                       : dispatch({
                                           type: "R2_CONSULTING_ACCEPT_PROPOSAL",
@@ -797,30 +816,23 @@ export function ProductRound2() {
                               )}
                             </>
                           ) : d.stage === "DEAL_AGREED_UNLOCKED" ? (
-                            <>
-                              <button
-                                type="button"
-                                disabled={shortfall > 0}
-                                className="guide-btn"
-                                onClick={() =>
-                                  dispatch({
-                                    type: "R2_SEND_LOCK_REQUEST",
-                                    productCode: code,
-                                    consultingCode: firm.code,
-                                    initiatedBy: "PRODUCT",
-                                  })
-                                }
-                              >
-                                {shortfall > 0
-                                  ? `NEED $${shortfall.toLocaleString()} MORE CASH FROM FINANCE TO LOCK`
-                                  : `SEND LOCK REQUEST TO ${firm.code} AT $${d.currentPrice.toLocaleString()} 🔒`}
-                              </button>
-                              {shortfall > 0 && (
-                                <span className="guide-muted">
-                                  Raise at least <b>${shortfall.toLocaleString()}</b> more from Finance teams in Panel 1 above.
-                                </span>
-                              )}
-                            </>
+                            <button
+                              type="button"
+                              disabled={lacksEquity}
+                              className="guide-btn"
+                              onClick={() =>
+                                dispatch({
+                                  type: "R2_SEND_LOCK_REQUEST",
+                                  productCode: code,
+                                  consultingCode: firm.code,
+                                  initiatedBy: "PRODUCT",
+                                })
+                              }
+                            >
+                              {lacksEquity
+                                ? `INSUFFICIENT FOUNDER EQUITY (${equityRetainedPct}% LEFT)`
+                                : `SEND LOCK REQUEST (${d.currentEquityPct}% · ${d.currentShares.toLocaleString()} SH · CALC $${d.currentPrice.toLocaleString()}) 🔒`}
+                            </button>
                           ) : (
                             <>
                               <button
@@ -831,14 +843,15 @@ export function ProductRound2() {
                                     type: "R2_PRODUCT_SEND_PROPOSAL",
                                     productCode: code,
                                     consultingCode: firm.code,
+                                    offeredEquityPct: firm.baseEquityPct,
                                   })
                                 }
                               >
-                                SEND PROPOSAL TO {firm.code} (${firm.baseValue.toLocaleString()}) →
+                                OFFER {firm.baseEquityPct}% EQUITY ({baseShares.toLocaleString()} SH · CALC ${baseCalcMoney.toLocaleString()}) →
                               </button>
                               <button
                                 type="button"
-                                disabled={shortfall > 0}
+                                disabled={lacksEquity}
                                 className="guide-btn secondary"
                                 onClick={() =>
                                   dispatch({
@@ -849,9 +862,7 @@ export function ProductRound2() {
                                   })
                                 }
                               >
-                                {shortfall > 0
-                                  ? `LOCK NEEDS $${shortfall.toLocaleString()} MORE CASH`
-                                  : `DIRECT LOCK REQUEST ($${d.currentPrice.toLocaleString()}) 🔒`}
+                                DIRECT LOCK REQUEST ({d.currentEquityPct}%) 🔒
                               </button>
                             </>
                           )}
@@ -861,7 +872,7 @@ export function ProductRound2() {
                       {isThisLockWaiting && (
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="guide-status">
-                            ● LOCK REQUEST SENT TO {firm.code} AT ${d.currentPrice.toLocaleString()} · WAITING FOR {firm.code} TO ACCEPT IN CONSULTING WORKSPACE…
+                            ● LOCK REQUEST SENT TO {firm.code} ({d.currentEquityPct}% · {d.currentShares.toLocaleString()} sh) · WAITING FOR {firm.code}…
                           </span>
                           <button
                             type="button"
@@ -898,7 +909,7 @@ export function ProductRound2() {
 
                       {isThisLocked && (
                         <span className="guide-status">
-                          🔒 PERMANENTLY LOCKED 1:1 WITH {firm.code} ({d.lockedAt}) · CANNOT BE UPDATED
+                          🔒 PERMANENTLY LOCKED 1:1 WITH {firm.code} ({d.lockedAt}) · {d.currentEquityPct}% ({d.currentShares.toLocaleString()} SH · CALC ${d.currentPrice.toLocaleString()})
                         </span>
                       )}
                     </div>
@@ -914,19 +925,17 @@ export function ProductRound2() {
     {/* ── STEP 3: CONSULTING TEAM'S LIVE CRISIS SOLUTION + WRITE INTO UPDATED MVP ── */}
     {!lockedFirm || !lockedDeal ? (
       <div className="mt-4">
-        <Panel title="5. Consulting crisis solution & updated MVP" tag="LOCKED UNTIL FUNDED & 1:1 CONSULTING TEAM IS LOCKED">
+        <Panel title="5. Consulting crisis solution & updated MVP" tag="LOCKED UNTIL 1:1 CONSULTING EQUITY LOCK IS COMPLETE">
           <div className="guide-alert guide-warning">
             <b>
-              {raisedCash === 0
-                ? "Step 1: Broadcast a Raise Request to All Finance Teams Above ($0 Cash Available)"
-                : lockWaitingFirmCode
-                  ? `Lock Request Sent to Team ${lockWaitingFirmCode} — Switch to ${lockWaitingFirmCode}'s Consulting Tab to Accept Lock Request…`
-                  : "Step 2: Negotiate & Complete a 1:1 Mutual Lock Request With a Consulting Team Above"}
+              {lockWaitingFirmCode
+                ? `Lock Request Sent to Team ${lockWaitingFirmCode} — Switch to ${lockWaitingFirmCode}'s Consulting Tab to Accept Lock Request…`
+                : "Offer Shares & Equity to a Consulting Team and Complete a Mutual 1:1 Lock Above"}
             </b>
             <br />
-            1. Raise funds by broadcasting an overall equity-for-cash request to all Finance teams (e.g. <b>4% equity for $45,000</b>).
+            1. Offer shares &amp; equity to Finance teams above (money calculates automatically from shares × share price).
             <br />
-            2. Send a proposal to a Consulting team, respond to any live price increase demand, and complete a mutual <b>1:1 Lock Request</b>.
+            2. Offer equity &amp; shares to a Consulting team, review any extra equity demand, and complete a mutual <b>1:1 Lock Request</b>.
             <br />
             3. Once locked 1-to-1, your Consultant&apos;s written crisis solution streams straight into this panel so you can <b>write it into your updated MVP</b>.
           </div>
@@ -972,7 +981,7 @@ export function ProductRound2() {
                 <div className="guide-alert guide-warning">
                   <b>⏳ Waiting for Consulting Team {lockedFirm.code} to write &amp; submit your Round 2 Crisis Solution.</b>
                   <br />
-                  As soon as Team <b>{lockedFirm.code}</b> writes and clicks <b>Submit &amp; Deliver Solution</b> in their Consulting Round 2 workspace, all 6 parts will appear live right here!
+                  As soon as Team <b>{lockedFirm.code}</b> clicks <b>Submit &amp; Deliver Solution</b> in their Consulting Round 2 tab, all 6 parts appear live right here!
                 </div>
                 {isLockedNpcFirm && (
                   <button
@@ -1005,28 +1014,24 @@ export function ProductRound2() {
             )}
           </Panel>
 
-          <Panel title="Locked 1:1 hiring & funding summary" tag="PERMANENT · CANNOT CHANGE">
+          <Panel title="Locked 1:1 equity & cap-table summary" tag="PERMANENT · AUTO-CALC $">
             <div className="grid grid-cols-2 gap-3">
               <div className="guide-metric">
                 <small>LOCKED CONSULTANT</small>
                 <b>Team {lockedFirm.code}</b>
-                <span>R1 SCORE {lockedFirm.r1Score} / 100</span>
+                <span>{lockedDeal.currentEquityPct}% ({lockedDeal.currentShares.toLocaleString()} SH)</span>
               </div>
               <div className="guide-metric">
-                <small>AGREED FEE PAID</small>
+                <small>AUTO-CALC DEAL VALUE</small>
                 <b>${lockedDeal.currentPrice.toLocaleString()}</b>
-                <span>
-                  {lockedDeal.currentMarkupPct > 0
-                    ? `+${lockedDeal.currentMarkupPct}% OVER BASE`
-                    : "AT BASE / INITIAL PRICE"}
-                </span>
+                <span>@ ${product.sharePrice.toFixed(2)}/SHARE</span>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="guide-metric">
-                <small>FINANCE EQUITY GIVEN</small>
-                <b className="text-lg">{equityGivenPct}%</b>
-                <span>RAISED ${raisedCash.toLocaleString()} · LEFT ${availableCash.toLocaleString()}</span>
+                <small>CAP TABLE SPLIT</small>
+                <b className="text-lg">{equityRetainedPct}% LEFT</b>
+                <span>FIN {product.equityGivenFinancePct}% · CONS {product.equityGivenConsultantPct}%</span>
               </div>
               <div className="guide-metric">
                 <small>UPDATED MVP STATUS</small>
@@ -1127,7 +1132,7 @@ export function ProductRound2() {
     )}
 
     <div className="guide-alert mt-4">
-      End-to-end Round 2 flow: <b>1. Broadcast Equity Raise to All Finance Teams ($0 Start)</b> → <b>2. Live Proposal &amp; Counter-Demand With Consulting Team</b> → <b>3. Mutual 1:1 Lock Request</b> → <b>4. Receive Live Consultant Solution &amp; Submit Updated MVP</b>.
+      Round 2 Share &amp; Equity flow: <b>1. Offer Shares &amp; Equity to Finance (Auto-Calc $)</b> → <b>2. Offer &amp; Negotiate Shares/Equity With Consulting Team</b> → <b>3. Mutual 1:1 Lock</b> → <b>4. Receive Live Solution &amp; Submit Updated MVP</b>.
     </div>
   </>;
 }

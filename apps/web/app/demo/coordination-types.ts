@@ -1,3 +1,30 @@
+export const TOTAL_COMPANY_SHARES = 100_000;
+
+export function sharePriceFromR1Score(r1Score: number): number {
+  return Number((10 + 0.1 * (r1Score - 50)).toFixed(2));
+}
+
+export function equityPctToShares(equityPct: number, totalShares = TOTAL_COMPANY_SHARES): number {
+  return Math.max(0, Math.round((equityPct / 100) * totalShares));
+}
+
+export function sharesToEquityPct(shares: number, totalShares = TOTAL_COMPANY_SHARES): number {
+  if (totalShares <= 0) return 0;
+  return Number(((shares / totalShares) * 100).toFixed(2));
+}
+
+export function calcMoneyFromShares(shares: number, sharePrice: number): number {
+  return Math.round(shares * sharePrice);
+}
+
+export function calcMoneyFromEquity(
+  equityPct: number,
+  sharePrice: number,
+  totalShares = TOTAL_COMPANY_SHARES
+): number {
+  return calcMoneyFromShares(equityPctToShares(equityPct, totalShares), sharePrice);
+}
+
 export interface FinanceTeamState {
   code: string;
   name: string;
@@ -10,9 +37,11 @@ export interface FinanceTeamState {
 export interface LiveRaiseRequest {
   id: number;
   productCode: string;
-  amount: number;
   equityPct: number;
-  impliedValuation: number;
+  shares: number;
+  sharePrice: number;
+  amount: number; // Auto-calculated: Math.round(shares * sharePrice)
+  impliedValuation: number; // Auto-calculated: Math.round(totalShares * sharePrice)
   note?: string;
   status: "OPEN" | "FUNDED" | "CANCELLED";
   fundedBy?: string;
@@ -31,18 +60,20 @@ export interface FinanceEquityDeal {
   company: string;
   ticker: string;
   sector: string;
-  amountInvested: number;
+  sharesAcquired: number;
+  sharePrice: number;
   equityPct: number;
+  amountInvested: number; // Auto-calculated from sharesAcquired * sharePrice
   impliedValuation: number;
   closedAt: string;
 }
 
 export interface RaiseRecord {
   id: number;
-  amount: number;
   equityPct: number;
+  shares: number;
+  amount: number; // Auto-calculated
   note?: string;
-  status: "BROADCASTING" | "FUNDED";
   status: "BROADCASTING" | "FUNDED" | "CANCELLED";
   fundedBy?: string;
   fundedByName?: string;
@@ -56,11 +87,13 @@ export interface ProductTeamState {
   sector: string;
   pitchLine: string;
   topic: string;
-  defaultR2Offer: number;
-  defaultR3AuctionOffer: number;
+  r1Score: number;
+  totalShares: number;
+  sharePrice: number; // Derived from R1 score: $10 + $0.10 * (r1Score - 50)
+  defaultR2OfferEquityPct: number;
+  defaultR3AuctionEquityPct: number;
   incomingR2Lock?: boolean;
   incomingR3Lock?: boolean;
-  r1Score: number;
   r1MvpParts: string[];
   r1SubmittedAt: string | null;
   crisisCategory: string;
@@ -71,8 +104,10 @@ export interface ProductTeamState {
   r3FallbackCrisisTitle: string;
   r3FallbackCrisisBody: string;
   r3FallbackBaseline: string;
-  raisedCash: number;
-  equityGivenPct: number;
+  raisedCash: number; // Calculated cash received from Finance equity deals
+  equityGivenFinancePct: number;
+  equityGivenConsultantPct: number;
+  equityGivenPct: number; // Total diluted equity % (Finance + Consulting)
   raiseHistory: RaiseRecord[];
   r2MvpParts: string[];
   r2MvpSubmittedAt: string | null;
@@ -91,10 +126,11 @@ export interface ConsultingSolutionPreset {
 export interface ConsultingTeamState {
   code: string;
   r1Score: number;
-  baseValue: number;
+  baseEquityPct: number; // Round 1 evaluated base equity rate (e.g. 3.5% = 3,500 shares)
+  baseValue: number; // Benchmark calculated value at $11.80/sh reference
   speciality: string;
-  defaultCounterMarkupPct: number;
-  defaultR3MarkupPct: number;
+  defaultCounterExtraPct: number; // e.g. +1.0% extra equity demanded
+  defaultR3ExtraPct: number; // e.g. +1.0% extra equity demanded in R3
   r1SolutionParts: string[];
   r1SubmittedAt: string | null;
   presetSolution: ConsultingSolutionPreset;
@@ -111,13 +147,17 @@ export interface R2DealRecord {
   key: string; // `${productCode}__${consultingCode}`
   productCode: string;
   consultingCode: string;
-  baseValue: number;
-  initialOffer: number;
-  currentPrice: number;
-  currentMarkupPct: number;
+  baseEquityPct: number;
+  initialOfferEquityPct: number;
+  currentEquityPct: number;
+  currentShares: number;
+  currentPrice: number; // Auto-calculated: currentShares * product.sharePrice
+  extraEquityPct: number; // currentEquityPct - baseEquityPct
   stage: R2DealStage;
+  pendingEquityPct?: number;
+  pendingShares?: number;
   pendingPrice?: number;
-  pendingMarkupPct?: number;
+  pendingExtraEquityPct?: number;
   lockInitiatedBy: "NONE" | "PRODUCT" | "CONSULTING";
   productLockAccepted: boolean;
   consultingLockAccepted: boolean;
@@ -137,9 +177,11 @@ export interface R3IncumbentRecord {
   key: string; // `${productCode}__${consultingCode}`
   productCode: string;
   consultingCode: string;
-  baseValue: number;
-  requestedPct: number;
-  requestedPrice: number;
+  baseEquityPct: number;
+  requestedExtraPct: number; // Extra equity % over base (0 = stay on base equity)
+  requestedEquityPct: number; // baseEquityPct + requestedExtraPct
+  requestedShares: number;
+  requestedPrice: number; // Auto-calculated
   status: R3IncumbentStatus;
   decidedAt?: string;
   removedByProduct?: boolean;
@@ -149,13 +191,17 @@ export interface R3AuctionDealRecord {
   key: string; // `${productCode}__${consultingCode}`
   productCode: string;
   consultingCode: string;
-  baseValue: number;
-  initialOffer: number;
-  currentPrice: number;
-  currentMarkupPct: number;
+  baseEquityPct: number;
+  initialOfferEquityPct: number;
+  currentEquityPct: number;
+  currentShares: number;
+  currentPrice: number; // Auto-calculated
+  extraEquityPct: number;
   stage: R2DealStage;
+  pendingEquityPct?: number;
+  pendingShares?: number;
   pendingPrice?: number;
-  pendingMarkupPct?: number;
+  pendingExtraEquityPct?: number;
   lockInitiatedBy: "NONE" | "PRODUCT" | "CONSULTING";
   productLockAccepted: boolean;
   consultingLockAccepted: boolean;
@@ -166,8 +212,10 @@ export interface R3FinalLockRecord {
   key: string; // `${productCode}__${consultingCode}`
   productCode: string;
   consultingCode: string;
-  finalPrice: number;
-  markupPct: number;
+  finalEquityPct: number;
+  finalShares: number;
+  finalPrice: number; // Auto-calculated: finalShares * product.sharePrice
+  extraEquityPct: number;
   source: "INCUMBENT_ACCEPTED" | "RETURNED_TO_INCUMBENT" | "REBID_AUCTION";
   lockedAt: string;
   r3SolutionParts: string[];
@@ -266,7 +314,6 @@ export type CoordinationAction =
   | {
       type: "PRODUCT_RAISE_BROADCAST";
       productCode: string;
-      amount: number;
       equityPct: number;
       note?: string;
     }
@@ -294,12 +341,13 @@ export type CoordinationAction =
       type: "R2_PRODUCT_SEND_PROPOSAL";
       productCode: string;
       consultingCode: string;
+      offeredEquityPct?: number;
     }
   | {
       type: "R2_CONSULTING_PUSH_DEMAND";
       productCode: string;
       consultingCode: string;
-      markupPct: number;
+      extraEquityPct: number;
     }
   | {
       type: "R2_CONSULTING_ACCEPT_PROPOSAL";
@@ -327,7 +375,6 @@ export type CoordinationAction =
       productCode: string;
       consultingCode: string;
       acceptedBy: "PRODUCT" | "CONSULTING";
-      bypassCashCheck?: boolean;
     }
   | {
       type: "R2_DECLINE_LOCK_REQUEST";
@@ -361,7 +408,7 @@ export type CoordinationAction =
       type: "R3_CONSULTING_ASK_INCUMBENT";
       productCode: string;
       consultingCode: string;
-      increasePct: number;
+      extraEquityPct: number;
     }
   | {
       type: "R3_PRODUCT_ACCEPT_INCUMBENT";
@@ -387,7 +434,7 @@ export type CoordinationAction =
       type: "R3_CONSULTING_PUSH_AUCTION_DEMAND";
       productCode: string;
       consultingCode: string;
-      markupPct: number;
+      extraEquityPct: number;
     }
   | {
       type: "R3_PRODUCT_ACCEPT_AUCTION_DEMAND";
@@ -473,11 +520,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     pitchLine:
       "Zero-sugar electrolyte hydration pouch under ₹20 built for Indian school tiffins and hot transit.",
     topic: "FMCG · Functional Hydration & School Tiffin Packs",
-    defaultR2Offer: 40000,
-    defaultR3AuctionOffer: 40000,
+    r1Score: 68,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(68), // $11.80
+    defaultR2OfferEquityPct: 3.5, // 3,500 sh = $41,300
+    defaultR3AuctionEquityPct: 3.5,
     incomingR2Lock: false,
     incomingR3Lock: false,
-    r1Score: 68,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: null,
     crisisCategory: "CRISIS CARD #7 · GST TAX & MARGIN SHOCK",
@@ -493,6 +542,8 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹21 pack price, ₹13.20 unit cost, 55,000 packs/month volume. Both XP01 and your consulting team must solve this Round 3 crisis together.",
     raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
     equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
@@ -507,11 +558,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 01 · FMCG & CONSUMER",
     pitchLine: "Ambient 90-day ready-to-eat regional meal pouches under ₹45 for hostel & student living.",
     topic: "D2C FoodTech · Ready-to-Eat Meal Pouches",
-    defaultR2Offer: 38000,
-    defaultR3AuctionOffer: 40000,
+    r1Score: 74,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(74), // $12.40
+    defaultR2OfferEquityPct: 3.0, // 3,000 sh = $37,200
+    defaultR3AuctionEquityPct: 3.5,
     incomingR2Lock: false,
     incomingR3Lock: false,
-    r1Score: 74,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:42:10 IST",
     crisisCategory: "CRISIS CARD #5 · PACKAGING BAN & RECALL",
@@ -526,8 +579,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "Blinkit and Zepto account for 64% of FreshPack's daily orders. Both platforms simultaneously raise dark-store commissions from 18% to 32% and require category exclusivity within 10 days.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹48 MRP pouch, ₹27.50 unit cost, ₹12 Cr annual run-rate. Both XP04 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 45000,
-    equityGivenPct: 4,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -541,11 +596,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 03 · HEALTHTECH & CLEANTECH",
     pitchLine: "Room-level prepaid hostel & campus smart sub-meters cutting peak AC waste by 30%.",
     topic: "CleanTech · Smart Hostel & Campus Micro-Meters",
-    defaultR2Offer: 42000,
-    defaultR3AuctionOffer: 45000,
+    r1Score: 79,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(79), // $12.90
+    defaultR2OfferEquityPct: 3.5, // 3,500 sh = $45,150
+    defaultR3AuctionEquityPct: 4.0,
     incomingR2Lock: true,
     incomingR3Lock: true,
-    r1Score: 79,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:48:30 IST",
     crisisCategory: "CRISIS CARD #3 · CHIP SHORTAGE & TARIFF HIKE",
@@ -560,8 +617,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "Two state electricity utilities issue an interim stay on third-party hostel sub-meters unless certified under a new BIS smart-grid standard within 45 days, freezing ₹8.5 Cr of signed campus deployments.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹3,400 hardware unit + ₹200/mo SaaS, 42 campuses live. Both XP09 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 82000,
-    equityGivenPct: 5,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -575,11 +634,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 03 · HEALTHTECH & CLEANTECH",
     pitchLine: "Daily single-serve protein & micronutrient sachets tailored for Indian vegetarians.",
     topic: "HealthTech · Personalised Protein & Micronutrient Sachets",
-    defaultR2Offer: 35000,
-    defaultR3AuctionOffer: 35000,
+    r1Score: 71,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(71), // $12.10
+    defaultR2OfferEquityPct: 3.0, // 3,000 sh = $36,300
+    defaultR3AuctionEquityPct: 3.0,
     incomingR2Lock: false,
     incomingR3Lock: false,
-    r1Score: 71,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:35:05 IST",
     crisisCategory: "CRISIS CARD #9 · INGREDIENT SPIKE & LABELLING ORDER",
@@ -594,8 +655,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "Global whey isolate prices surge 28% quarter-on-quarter just as FSSAI orders removal of 'clinical recovery' front-of-pack claims within 21 days, putting ₹4.2 Cr of packaged inventory at risk.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹65 sachet, ₹38 COGS, 62% repeat subscription rate. Both XP12 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 52000,
-    equityGivenPct: 5,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -609,11 +672,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 03 · HEALTHTECH & CLEANTECH",
     pitchLine: "₹299 doorstep preventive metabolic diagnostic kits for Tier-2 and Tier-3 households.",
     topic: "HealthTech · Home Preventive Diagnostic Kits",
-    defaultR2Offer: 45000,
-    defaultR3AuctionOffer: 42000,
+    r1Score: 84,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(84), // $13.40
+    defaultR2OfferEquityPct: 4.0, // 4,000 sh = $53,600
+    defaultR3AuctionEquityPct: 3.5,
     incomingR2Lock: true,
     incomingR3Lock: false,
-    r1Score: 84,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:50:19 IST",
     crisisCategory: "CRISIS CARD #2 · REAGENT TARIFF & LAB AUDIT",
@@ -628,8 +693,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "A regional cold-chain courier strike cuts sample collection capacity by 60% just as hospital chains launch a bundled ₹249 preventive checkup in Orbit Health's top 8 cities.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹299 kit, ₹162 unit cost, 18,000 kits/month. Both XP15 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 61000,
-    equityGivenPct: 4,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -643,11 +710,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 02 · FINTECH & PAYMENTS",
     pitchLine: "Automated UPI invoice reconciliation and 7-day working-capital float for kiranas.",
     topic: "FinTech · Kirana Working-Capital & UPI Reconciliation",
-    defaultR2Offer: 48000,
-    defaultR3AuctionOffer: 48000,
+    r1Score: 86,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(86), // $13.60
+    defaultR2OfferEquityPct: 4.5, // 4,500 sh = $61,200
+    defaultR3AuctionEquityPct: 4.5,
     incomingR2Lock: false,
     incomingR3Lock: true,
-    r1Score: 86,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:51:04 IST",
     crisisCategory: "CRISIS CARD #4 · SETTLEMENT DELAY & NBFC SQUEEZE",
@@ -662,8 +731,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "MintFlow's primary lending partner slices its co-lending facility by 40% ahead of festive stocking while payment gateway settlement delays push small merchants toward cash competitors.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: 1.8% blended take-rate, 24,000 active kiranas, ₹4.8 Cr monthly GMV. Both XP18 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 74000,
-    equityGivenPct: 4,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -677,11 +748,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 01 · FMCG & CONSUMER",
     pitchLine: "Zero-plastic soluble home and hostel cleaning pods replacing liquid detergent bottles.",
     topic: "FMCG · Compostable Home & Hostel Cleaning Pods",
-    defaultR2Offer: 35000,
-    defaultR3AuctionOffer: 35000,
+    r1Score: 72,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(72), // $12.20
+    defaultR2OfferEquityPct: 3.0, // 3,000 sh = $36,600
+    defaultR3AuctionEquityPct: 3.0,
     incomingR2Lock: false,
     incomingR3Lock: false,
-    r1Score: 72,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:38:11 IST",
     crisisCategory: "CRISIS CARD #6 · SURFACTANT IMPORT SHOCK",
@@ -696,8 +769,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "Luma Living's primary green surfactant vendor raises contract prices 25% just before annual modern-trade renewal negotiations across 450 supermarkets.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹99 12-pod pack, ₹56 COGS, 38% repeat rate. Both XP21 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 40000,
-    equityGivenPct: 5,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -711,11 +786,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 01 · FMCG & CONSUMER",
     pitchLine: "High-protein millet breakfast bowls shipped fresh through urban quick-commerce.",
     topic: "D2C FoodTech · Cold-Pressed Millet Breakfast Bowls",
-    defaultR2Offer: 45000,
-    defaultR3AuctionOffer: 45000,
+    r1Score: 80,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(80), // $13.00
+    defaultR2OfferEquityPct: 3.5, // 3,500 sh = $45,500
+    defaultR3AuctionEquityPct: 4.0,
     incomingR2Lock: false,
     incomingR3Lock: false,
-    r1Score: 80,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:45:00 IST",
     crisisCategory: "CRISIS CARD #8 · DARK-STORE COMMISSION HIKE",
@@ -730,8 +807,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "Seasonal millet shortages lift raw material costs by 19% while dark-store platforms enforce mandatory sponsored-slot minimums to stay in top search results.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹78 bowl MRP, ₹42 COGS, 32,000 bowls/month. Both XP24 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 55000,
-    equityGivenPct: 4,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -745,11 +824,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 03 · HEALTHTECH & CLEANTECH",
     pitchLine: "Plug-and-play balcony solar micro-inverter kits for Indian urban apartments.",
     topic: "CleanTech · Modular Balcony Micro-Inverter Kits",
-    defaultR2Offer: 50000,
-    defaultR3AuctionOffer: 52000,
+    r1Score: 89,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(89), // $13.90
+    defaultR2OfferEquityPct: 5.0, // 5,000 sh = $69,500
+    defaultR3AuctionEquityPct: 5.0,
     incomingR2Lock: true,
     incomingR3Lock: true,
-    r1Score: 89,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:55:42 IST",
     crisisCategory: "CRISIS CARD #10 · PANEL DUTY & INSTALLATION BACKLOG",
@@ -764,8 +845,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "A 20% cell tariff compresses hardware margins just as an early monsoon surge causes an 8% warranty replacement spike on first-generation balcony kits.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹18,500 kit, ₹12,100 landed cost, 1,400 installs/quarter. Both XP27 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 96000,
-    equityGivenPct: 5,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -779,11 +862,13 @@ const SEED_PRODUCTS: ProductTeamState[] = [
     sector: "SECTOR 01 · FMCG & CONSUMER",
     pitchLine: "Modular farm-gate solar cold-storage pods slashing harvest spoilage by 45%.",
     topic: "AgriTech · Farm-Gate Cold Storage Micro-Pods",
-    defaultR2Offer: 32000,
-    defaultR3AuctionOffer: 32000,
+    r1Score: 70,
+    totalShares: TOTAL_COMPANY_SHARES,
+    sharePrice: sharePriceFromR1Score(70), // $12.00
+    defaultR2OfferEquityPct: 2.5, // 2,500 sh = $30,000
+    defaultR3AuctionEquityPct: 2.5,
     incomingR2Lock: false,
     incomingR3Lock: false,
-    r1Score: 70,
     r1MvpParts: Array(7).fill(""),
     r1SubmittedAt: "22:31:50 IST",
     crisisCategory: "CRISIS CARD #12 · DIESEL FREIGHT SPIKE",
@@ -798,8 +883,10 @@ const SEED_PRODUCTS: ProductTeamState[] = [
       "Rising refrigerated transport costs and delayed mandi receivables strain KisanLink's working capital right as peak summer harvest volumes arrive.",
     r3FallbackBaseline:
       "Post-Round 2 baseline: ₹2.50/kg fee, 84% pod utilisation. Both XP30 and your consulting team must solve this Round 3 crisis together.",
-    raisedCash: 38000,
-    equityGivenPct: 4,
+    raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
+    equityGivenPct: 0,
     raiseHistory: [],
     r2MvpParts: Array(6).fill(""),
     r2MvpSubmittedAt: null,
@@ -808,14 +895,17 @@ const SEED_PRODUCTS: ProductTeamState[] = [
   },
 ];
 
+const REF_SHARE_PRICE = 11.8;
+
 const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC01",
     r1Score: 82,
-    baseValue: 40000,
+    baseEquityPct: 3.5, // 3,500 shares (~$41,300 at $11.80/sh)
+    baseValue: calcMoneyFromEquity(3.5, REF_SHARE_PRICE),
     speciality: "Pricing Turnarounds, GST Structuring & FMCG Margins",
-    defaultCounterMarkupPct: 10,
-    defaultR3MarkupPct: 15,
+    defaultCounterExtraPct: 1.0,
+    defaultR3ExtraPct: 1.0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: null,
     presetSolution: {
@@ -834,10 +924,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC02",
     r1Score: 76,
-    baseValue: 35000,
+    baseEquityPct: 3.0, // 3,000 shares (~$35,400)
+    baseValue: calcMoneyFromEquity(3.0, REF_SHARE_PRICE),
     speciality: "Kirana Channel Economics & Value-Pack Redesign",
-    defaultCounterMarkupPct: 0,
-    defaultR3MarkupPct: 0,
+    defaultCounterExtraPct: 0,
+    defaultR3ExtraPct: 0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:40:12 IST",
     presetSolution: {
@@ -856,10 +947,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC04",
     r1Score: 78,
-    baseValue: 36000,
+    baseEquityPct: 3.2,
+    baseValue: calcMoneyFromEquity(3.2, REF_SHARE_PRICE),
     speciality: "Supply Chain Optimization & Retail Distribution",
-    defaultCounterMarkupPct: 0,
-    defaultR3MarkupPct: 0,
+    defaultCounterExtraPct: 0,
+    defaultR3ExtraPct: 0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:41:55 IST",
     presetSolution: {
@@ -878,10 +970,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC07",
     r1Score: 88,
-    baseValue: 46000,
+    baseEquityPct: 4.5, // 4,500 shares (~$53,100)
+    baseValue: calcMoneyFromEquity(4.5, REF_SHARE_PRICE),
     speciality: "High-Margin D2C Positioning & Crisis Recovery",
-    defaultCounterMarkupPct: 20,
-    defaultR3MarkupPct: 15,
+    defaultCounterExtraPct: 1.5,
+    defaultR3ExtraPct: 1.0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:53:09 IST",
     presetSolution: {
@@ -900,10 +993,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC09",
     r1Score: 86,
-    baseValue: 45000,
+    baseEquityPct: 4.0, // 4,000 shares (~$47,200)
+    baseValue: calcMoneyFromEquity(4.0, REF_SHARE_PRICE),
     speciality: "Modern-Trade Negotiation & Tax-Shield SKU Strategy",
-    defaultCounterMarkupPct: 10,
-    defaultR3MarkupPct: 0,
+    defaultCounterExtraPct: 0.5,
+    defaultR3ExtraPct: 0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:47:20 IST",
     presetSolution: {
@@ -922,10 +1016,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC12",
     r1Score: 74,
-    baseValue: 32000,
+    baseEquityPct: 2.8,
+    baseValue: calcMoneyFromEquity(2.8, REF_SHARE_PRICE),
     speciality: "Cost Restructuring & Packaging Value Engineering",
-    defaultCounterMarkupPct: 15,
-    defaultR3MarkupPct: 10,
+    defaultCounterExtraPct: 0.7,
+    defaultR3ExtraPct: 0.5,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:36:40 IST",
     presetSolution: {
@@ -944,10 +1039,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC15",
     r1Score: 84,
-    baseValue: 42000,
+    baseEquityPct: 3.8,
+    baseValue: calcMoneyFromEquity(3.8, REF_SHARE_PRICE),
     speciality: "Quick-Commerce Margin Defense & Trade Rebates",
-    defaultCounterMarkupPct: 10,
-    defaultR3MarkupPct: 10,
+    defaultCounterExtraPct: 0.5,
+    defaultR3ExtraPct: 0.5,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:44:15 IST",
     presetSolution: {
@@ -966,10 +1062,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC18",
     r1Score: 79,
-    baseValue: 38000,
+    baseEquityPct: 3.4,
+    baseValue: calcMoneyFromEquity(3.4, REF_SHARE_PRICE),
     speciality: "Procurement Consolidation & Regional Co-Packing",
-    defaultCounterMarkupPct: 0,
-    defaultR3MarkupPct: 0,
+    defaultCounterExtraPct: 0,
+    defaultR3ExtraPct: 0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:39:05 IST",
     presetSolution: {
@@ -988,10 +1085,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC21",
     r1Score: 90,
-    baseValue: 50000,
+    baseEquityPct: 5.0,
+    baseValue: calcMoneyFromEquity(5.0, REF_SHARE_PRICE),
     speciality: "Enterprise Turnaround, Brand Repricing & Institutional B2B",
-    defaultCounterMarkupPct: 15,
-    defaultR3MarkupPct: 15,
+    defaultCounterExtraPct: 1.0,
+    defaultR3ExtraPct: 1.0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:57:02 IST",
     presetSolution: {
@@ -1010,10 +1108,11 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
   {
     code: "XC24",
     r1Score: 72,
-    baseValue: 30000,
+    baseEquityPct: 2.5,
+    baseValue: calcMoneyFromEquity(2.5, REF_SHARE_PRICE),
     speciality: "Lean Unit-Cost Engineering & Tier-2 Rollouts",
-    defaultCounterMarkupPct: 0,
-    defaultR3MarkupPct: 0,
+    defaultCounterExtraPct: 0,
+    defaultR3ExtraPct: 0,
     r1SolutionParts: Array(6).fill(""),
     r1SubmittedAt: "22:30:18 IST",
     presetSolution: {
@@ -1032,38 +1131,53 @@ const SEED_CONSULTANTS: ConsultingTeamState[] = [
 ];
 
 const SEED_FINANCE_TEAMS: FinanceTeamState[] = [
-  { code: "XF01", name: "Vanguard Capital", availableCapital: 500000, focus: "FMCG & High-Velocity Consumer", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF02", name: "Apex Sovereign Fund", availableCapital: 460000, focus: "FinTech & B2B Infrastructure", lastAction: "Active · Open to equity pitches" },
-  { code: "XF05", name: "Crestline Ventures", availableCapital: 520000, focus: "Turnaround & Growth Equity", lastAction: "Active · Open to equity pitches" },
-  { code: "XF08", name: "Ironclad Partners", availableCapital: 390000, focus: "HealthTech & CleanTech", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF11", name: "Meridian Capital", availableCapital: 440000, focus: "Multi-Sector Seed & Bridge", lastAction: "Active · Open to equity pitches" },
-  { code: "XF14", name: "Northstar Equity", availableCapital: 480000, focus: "Consumer Brands & D2C", lastAction: "Active · Open to equity pitches" },
-  { code: "XF17", name: "Redwood Catalyst", availableCapital: 360000, focus: "Early-Stage Working Capital", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF20", name: "Helios Growth Fund", availableCapital: 550000, focus: "CleanTech & Campus Infra", lastAction: "Active · Open to equity pitches" },
-  { code: "XF23", name: "Sterling Horizon", availableCapital: 410000, focus: "AgriTech & Supply Chain", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF26", name: "Kestrel Treasury", availableCapital: 495000, focus: "Balanced Multi-Sector Pool", lastAction: "Active · Open to equity pitches" },
   { code: "XF01", name: "Vanguard Capital", initialCapital: 500000, availableCapital: 500000, focus: "FMCG & High-Velocity Consumer", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF02", name: "Apex Sovereign Fund", initialCapital: 460000, availableCapital: 460000, focus: "FinTech & B2B Infrastructure", lastAction: "Active · Open to equity pitches" },
-  { code: "XF05", name: "Crestline Ventures", initialCapital: 520000, availableCapital: 520000, focus: "Turnaround & Growth Equity", lastAction: "Active · Open to equity pitches" },
+  { code: "XF02", name: "Apex Sovereign Fund", initialCapital: 460000, availableCapital: 460000, focus: "FinTech & B2B Infrastructure", lastAction: "Active · Open to share & equity offers" },
+  { code: "XF05", name: "Crestline Ventures", initialCapital: 520000, availableCapital: 520000, focus: "Turnaround & Growth Equity", lastAction: "Active · Open to share & equity offers" },
   { code: "XF08", name: "Ironclad Partners", initialCapital: 390000, availableCapital: 390000, focus: "HealthTech & CleanTech", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF11", name: "Meridian Capital", initialCapital: 440000, availableCapital: 440000, focus: "Multi-Sector Seed & Bridge", lastAction: "Active · Open to equity pitches" },
-  { code: "XF14", name: "Northstar Equity", initialCapital: 480000, availableCapital: 480000, focus: "Consumer Brands & D2C", lastAction: "Active · Open to equity pitches" },
+  { code: "XF11", name: "Meridian Capital", initialCapital: 440000, availableCapital: 440000, focus: "Multi-Sector Seed & Bridge", lastAction: "Active · Open to share & equity offers" },
+  { code: "XF14", name: "Northstar Equity", initialCapital: 480000, availableCapital: 480000, focus: "Consumer Brands & D2C", lastAction: "Active · Open to share & equity offers" },
   { code: "XF17", name: "Redwood Catalyst", initialCapital: 360000, availableCapital: 360000, focus: "Early-Stage Working Capital", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF20", name: "Helios Growth Fund", initialCapital: 550000, availableCapital: 550000, focus: "CleanTech & Campus Infra", lastAction: "Active · Open to equity pitches" },
+  { code: "XF20", name: "Helios Growth Fund", initialCapital: 550000, availableCapital: 550000, focus: "CleanTech & Campus Infra", lastAction: "Active · Open to share & equity offers" },
   { code: "XF23", name: "Sterling Horizon", initialCapital: 410000, availableCapital: 410000, focus: "AgriTech & Supply Chain", lastAction: "Reviewing Round 1 MVPs" },
-  { code: "XF26", name: "Kestrel Treasury", initialCapital: 495000, availableCapital: 495000, focus: "Balanced Multi-Sector Pool", lastAction: "Active · Open to equity pitches" },
+  { code: "XF26", name: "Kestrel Treasury", initialCapital: 495000, availableCapital: 495000, focus: "Balanced Multi-Sector Pool", lastAction: "Active · Open to share & equity offers" },
 ];
 
+function makeSeedRaise(
+  id: number,
+  productCode: string,
+  equityPct: number,
+  note: string,
+  createdAt: string
+): LiveRaiseRequest {
+  const prod = SEED_PRODUCTS.find(p => p.code === productCode)!;
+  const shares = equityPctToShares(equityPct, prod.totalShares);
+  const amount = calcMoneyFromShares(shares, prod.sharePrice);
+  return {
+    id,
+    productCode,
+    equityPct,
+    shares,
+    sharePrice: prod.sharePrice,
+    amount,
+    impliedValuation: Math.round(prod.totalShares * prod.sharePrice),
+    note,
+    status: "OPEN",
+    passedBy: [],
+    createdAt,
+  };
+}
+
 const SEED_RAISE_REQUESTS: LiveRaiseRequest[] = [
-  { id: 1001, productCode: "XP04", amount: 35000, equityPct: 4, impliedValuation: 875000, note: "Raising $35,000 to hire a turnaround consultant & switch to compostable retort pouches.", status: "OPEN", passedBy: [], createdAt: "23:46:10 IST" },
-  { id: 1002, productCode: "XP09", amount: 45000, equityPct: 3.5, impliedValuation: 1285714, note: "42 campus pilots signed; raising $45,000 to lock top-tier consultancy on tariff mitigation.", status: "OPEN", passedBy: [], createdAt: "23:46:28 IST" },
-  { id: 1003, productCode: "XP12", amount: 35000, equityPct: 5, impliedValuation: 700000, note: "58% repeat D2C retention; offering 5% equity for $35,000 crisis recovery capital.", status: "OPEN", passedBy: [], createdAt: "23:47:05 IST" },
-  { id: 1004, productCode: "XP15", amount: 45000, equityPct: 4, impliedValuation: 1125000, note: "44% gross margin diagnostic kits; raising $45,000 for Round 2 consulting & domestic reagent pivot.", status: "OPEN", passedBy: [], createdAt: "23:47:22 IST" },
-  { id: 1005, productCode: "XP18", amount: 50000, equityPct: 3, impliedValuation: 1666667, note: "19,000 active kiranas; offering 3% equity for $50,000 to bridge NBFC credit squeeze.", status: "OPEN", passedBy: [], createdAt: "23:47:50 IST" },
-  { id: 1006, productCode: "XP21", amount: 30000, equityPct: 4.5, impliedValuation: 666667, note: "Zero-plastic hostel cleaning pods; raising $30,000 to fund consultancy & surfactant sourcing.", status: "OPEN", passedBy: [], createdAt: "23:48:11 IST" },
-  { id: 1007, productCode: "XP24", amount: 40000, equityPct: 4, impliedValuation: 1000000, note: "28,000 monthly bowls; raising $40,000 to diversify beyond quick-commerce commissions.", status: "OPEN", passedBy: [], createdAt: "23:48:39 IST" },
-  { id: 1008, productCode: "XP27", amount: 60000, equityPct: 5, impliedValuation: 1200000, note: "Highest R1 CleanTech score (89/100); offering 5% equity for $60,000 turnaround war chest.", status: "OPEN", passedBy: [], createdAt: "23:49:04 IST" },
-  { id: 1009, productCode: "XP30", amount: 32000, equityPct: 5, impliedValuation: 640000, note: "Modular farm-gate cold pods; raising $32,000 for freight cost restructuring.", status: "OPEN", passedBy: [], createdAt: "23:49:18 IST" },
+  makeSeedRaise(1001, "XP04", 3.0, "Offering 3% equity (3,000 shares) to fund compostable pouch switch & retail recovery.", "23:46:10 IST"),
+  makeSeedRaise(1002, "XP09", 3.5, "42 campus pilots signed; offering 3.5% equity (3,500 shares) for tariff mitigation war chest.", "23:46:28 IST"),
+  makeSeedRaise(1003, "XP12", 3.0, "58% repeat D2C retention; offering 3% equity (3,000 shares) for Round 2 turnaround.", "23:47:05 IST"),
+  makeSeedRaise(1004, "XP15", 3.5, "44% gross margin kits; offering 3.5% equity (3,500 shares) for domestic reagent pivot.", "23:47:22 IST"),
+  makeSeedRaise(1005, "XP18", 4.0, "19,000 active kiranas; offering 4% equity (4,000 shares) to bridge NBFC credit squeeze.", "23:47:50 IST"),
+  makeSeedRaise(1006, "XP21", 2.5, "Zero-plastic hostel cleaning pods; offering 2.5% equity (2,500 shares) for bio-surfactant sourcing.", "23:48:11 IST"),
+  makeSeedRaise(1007, "XP24", 3.5, "28,000 monthly bowls; offering 3.5% equity (3,500 shares) to diversify beyond dark stores.", "23:48:39 IST"),
+  makeSeedRaise(1008, "XP27", 4.5, "Top CleanTech R1 score (89/100); offering 4.5% equity (4,500 shares) for cell tariff buffer.", "23:49:04 IST"),
+  makeSeedRaise(1009, "XP30", 3.0, "Modular farm-gate cold pods; offering 3% equity (3,000 shares) for freight cost restructuring.", "23:49:18 IST"),
 ];
 
 const SEED_STATEMENTS: ProblemStatementState[] = [
@@ -1189,30 +1303,44 @@ export function createInitialCoordinationState(): CoordinationState {
   const products: Record<string, ProductTeamState> = {};
   const productOrder: string[] = [];
   for (const p of SEED_PRODUCTS) {
-    products[p.code] = { ...p, r1MvpParts: [...p.r1MvpParts], r2MvpParts: [...p.r2MvpParts], r3MvpParts: [...p.r3MvpParts], raiseHistory: [] };
+    products[p.code] = {
+      ...p,
+      r1MvpParts: [...p.r1MvpParts],
+      r2MvpParts: [...p.r2MvpParts],
+      r3MvpParts: [...p.r3MvpParts],
+      raiseHistory: [],
+    };
     productOrder.push(p.code);
   }
 
   const consultants: Record<string, ConsultingTeamState> = {};
   const consultantOrder: string[] = [];
   for (const c of SEED_CONSULTANTS) {
-    consultants[c.code] = { ...c, r1SolutionParts: [...c.r1SolutionParts], presetSolution: { ...c.presetSolution } };
+    consultants[c.code] = {
+      ...c,
+      r1SolutionParts: [...c.r1SolutionParts],
+      presetSolution: { ...c.presetSolution },
+    };
     consultantOrder.push(c.code);
   }
 
   const r2Deals: Record<string, R2DealRecord> = {};
   const stamp = "23:45:00 IST";
-  // Seed initial offered deals for XC01 from all Product teams (XP01..XP30)
+  const xc01BaseEq = 3.5;
   for (const p of SEED_PRODUCTS) {
     const k = pairKey(p.code, "XC01");
+    const eq = p.defaultR2OfferEquityPct;
+    const shares = equityPctToShares(eq, p.totalShares);
     r2Deals[k] = {
       key: k,
       productCode: p.code,
       consultingCode: "XC01",
-      baseValue: 40000,
-      initialOffer: p.defaultR2Offer,
-      currentPrice: p.defaultR2Offer,
-      currentMarkupPct: 0,
+      baseEquityPct: xc01BaseEq,
+      initialOfferEquityPct: eq,
+      currentEquityPct: eq,
+      currentShares: shares,
+      currentPrice: calcMoneyFromShares(shares, p.sharePrice),
+      extraEquityPct: Number((eq - xc01BaseEq).toFixed(2)),
       stage: "OFFERED",
       lockInitiatedBy: p.incomingR2Lock ? "PRODUCT" : "NONE",
       productLockAccepted: !!p.incomingR2Lock,
@@ -1223,19 +1351,22 @@ export function createInitialCoordinationState(): CoordinationState {
     };
   }
 
-  // Seed initial R3 open auction offers for XC01 from non-XP01 Product teams
   const r3AuctionDeals: Record<string, R3AuctionDealRecord> = {};
   for (const p of SEED_PRODUCTS) {
     if (p.code === "XP01") continue;
     const k = pairKey(p.code, "XC01");
+    const eq = p.defaultR3AuctionEquityPct;
+    const shares = equityPctToShares(eq, p.totalShares);
     r3AuctionDeals[k] = {
       key: k,
       productCode: p.code,
       consultingCode: "XC01",
-      baseValue: 40000,
-      initialOffer: p.defaultR3AuctionOffer,
-      currentPrice: p.defaultR3AuctionOffer,
-      currentMarkupPct: 0,
+      baseEquityPct: xc01BaseEq,
+      initialOfferEquityPct: eq,
+      currentEquityPct: eq,
+      currentShares: shares,
+      currentPrice: calcMoneyFromShares(shares, p.sharePrice),
+      extraEquityPct: Number((eq - xc01BaseEq).toFixed(2)),
       stage: "OFFERED",
       lockInitiatedBy: p.incomingR3Lock ? "PRODUCT" : "NONE",
       productLockAccepted: !!p.incomingR3Lock,
@@ -1267,7 +1398,7 @@ export function createInitialCoordinationState(): CoordinationState {
         actor: "PRIMUS",
         track: "SYSTEM",
         round: "R2",
-        summary: "Live Product ⇄ Consulting coordination network active across all rounds.",
+        summary: "Live Share & Equity coordination active across Product, Finance & Consulting (money auto-calculated from shares × share price).",
       },
     ],
   };
@@ -1283,6 +1414,8 @@ export function getOrMakeProduct(state: CoordinationState, code: string): Produc
     company: `Team ${code}`,
     ticker: code.replace(/[^A-Z]/g, "").slice(0, 4).padEnd(4, "X"),
     raisedCash: 0,
+    equityGivenFinancePct: 0,
+    equityGivenConsultantPct: 0,
     equityGivenPct: 0,
     raiseHistory: [],
     r1MvpParts: Array(7).fill(""),
@@ -1304,20 +1437,38 @@ export function getOrMakeConsultant(state: CoordinationState, code: string): Con
   };
 }
 
+export function getProductEquityRetainedPct(state: CoordinationState, productCode: string): number {
+  const prod = getOrMakeProduct(state, productCode);
+  return Math.max(0, Number((100 - prod.equityGivenPct).toFixed(2)));
+}
+
+export function getProductSharesRetained(state: CoordinationState, productCode: string): number {
+  const prod = getOrMakeProduct(state, productCode);
+  return equityPctToShares(getProductEquityRetainedPct(state, productCode), prod.totalShares);
+}
+
+export function getProductAvailableCash(state: CoordinationState, productCode: string): number {
+  const prod = getOrMakeProduct(state, productCode);
+  return Math.max(0, prod.raisedCash);
+}
+
 export function getR2Deal(state: CoordinationState, productCode: string, consultingCode: string): R2DealRecord {
   const k = pairKey(productCode, consultingCode);
   if (state.r2Deals[k]) return state.r2Deals[k]!;
   const prod = getOrMakeProduct(state, productCode);
   const cons = getOrMakeConsultant(state, consultingCode);
-  const initialOffer = consultingCode === "XC01" ? prod.defaultR2Offer : cons.baseValue;
+  const initialEq = consultingCode === "XC01" ? prod.defaultR2OfferEquityPct : cons.baseEquityPct;
+  const shares = equityPctToShares(initialEq, prod.totalShares);
   return {
     key: k,
     productCode,
     consultingCode,
-    baseValue: cons.baseValue,
-    initialOffer,
-    currentPrice: initialOffer,
-    currentMarkupPct: 0,
+    baseEquityPct: cons.baseEquityPct,
+    initialOfferEquityPct: initialEq,
+    currentEquityPct: initialEq,
+    currentShares: shares,
+    currentPrice: calcMoneyFromShares(shares, prod.sharePrice),
+    extraEquityPct: Number((initialEq - cons.baseEquityPct).toFixed(2)),
     stage: "OFFERED",
     lockInitiatedBy: "NONE",
     productLockAccepted: false,
@@ -1374,28 +1525,25 @@ export function getConsultingR2PendingLock(state: CoordinationState, consultingC
   return null;
 }
 
-export function getProductAvailableCash(state: CoordinationState, productCode: string): number {
-  const prod = getOrMakeProduct(state, productCode);
-  const lock = getProductR2Lock(state, productCode);
-  return Math.max(0, prod.raisedCash - (lock ? lock.currentPrice : 0));
-}
-
 export function getR3IncumbentForProduct(state: CoordinationState, productCode: string): R3IncumbentRecord {
-  // 1. Check explicit R3 incumbent entry
   for (const rec of Object.values(state.r3Incumbents)) {
     if (rec.productCode === productCode) return rec;
   }
-  // 2. Check live R2 lock for this Product team
   const r2Lock = getProductR2Lock(state, productCode);
   const consultingCode = r2Lock ? r2Lock.consultingCode : "XC01";
+  const prod = getOrMakeProduct(state, productCode);
   const cons = getOrMakeConsultant(state, consultingCode);
+  const baseEq = cons.baseEquityPct;
+  const shares = equityPctToShares(baseEq, prod.totalShares);
   return {
     key: pairKey(productCode, consultingCode),
     productCode,
     consultingCode,
-    baseValue: cons.baseValue,
-    requestedPct: 0,
-    requestedPrice: cons.baseValue,
+    baseEquityPct: baseEq,
+    requestedExtraPct: 0,
+    requestedEquityPct: baseEq,
+    requestedShares: shares,
+    requestedPrice: calcMoneyFromShares(shares, prod.sharePrice),
     status: "AWAITING_CONSULTANT_ASK",
   };
 }
@@ -1406,14 +1554,19 @@ export function getR3IncumbentForConsulting(state: CoordinationState, consulting
   }
   const r2Lock = getConsultingR2Lock(state, consultingCode);
   const productCode = r2Lock ? r2Lock.productCode : "XP01";
+  const prod = getOrMakeProduct(state, productCode);
   const cons = getOrMakeConsultant(state, consultingCode);
+  const baseEq = cons.baseEquityPct;
+  const shares = equityPctToShares(baseEq, prod.totalShares);
   return {
     key: pairKey(productCode, consultingCode),
     productCode,
     consultingCode,
-    baseValue: cons.baseValue,
-    requestedPct: 0,
-    requestedPrice: cons.baseValue,
+    baseEquityPct: baseEq,
+    requestedExtraPct: 0,
+    requestedEquityPct: baseEq,
+    requestedShares: shares,
+    requestedPrice: calcMoneyFromShares(shares, prod.sharePrice),
     status: "AWAITING_CONSULTANT_ASK",
   };
 }
@@ -1441,15 +1594,18 @@ export function getR3AuctionDeal(
   if (state.r3AuctionDeals[k]) return state.r3AuctionDeals[k]!;
   const prod = getOrMakeProduct(state, productCode);
   const cons = getOrMakeConsultant(state, consultingCode);
-  const initialOffer = consultingCode === "XC01" ? prod.defaultR3AuctionOffer : cons.baseValue;
+  const initialEq = consultingCode === "XC01" ? prod.defaultR3AuctionEquityPct : cons.baseEquityPct;
+  const shares = equityPctToShares(initialEq, prod.totalShares);
   return {
     key: k,
     productCode,
     consultingCode,
-    baseValue: cons.baseValue,
-    initialOffer,
-    currentPrice: initialOffer,
-    currentMarkupPct: 0,
+    baseEquityPct: cons.baseEquityPct,
+    initialOfferEquityPct: initialEq,
+    currentEquityPct: initialEq,
+    currentShares: shares,
+    currentPrice: calcMoneyFromShares(shares, prod.sharePrice),
+    extraEquityPct: Number((initialEq - cons.baseEquityPct).toFixed(2)),
     stage: "OFFERED",
     lockInitiatedBy: "NONE",
     productLockAccepted: false,
@@ -1508,12 +1664,12 @@ export function getProductMvpDisplayParts(product: ProductTeamState): {
     isLiveWritten: false,
     sections: [
       { title: titles[0]!, body: `${product.company} (${product.ticker}) tackles ${product.topic}. ${product.pitchLine}` },
-      { title: titles[1]!, body: `Focused on high-repeat Tier-1 & Tier-2 Indian customers inside ${product.sector} with validated demand (Round 1 Score: ${product.r1Score}/100).` },
+      { title: titles[1]!, body: `Focused on high-repeat Tier-1 & Tier-2 Indian customers inside ${product.sector} with validated demand (Round 1 Score: ${product.r1Score}/100 · Share Price $${product.sharePrice.toFixed(2)}).` },
       { title: titles[2]!, body: `Version-1 MVP focuses on rapid shelf/digital deployment, core SKU standardization, and lean fulfillment without bloated secondary features.` },
       { title: titles[3]!, body: `End-to-end onboarding & replenishment workflow engineered for high repeat purchase frequency and transparent partner margins.` },
       { title: titles[4]!, body: product.baselineContext },
       { title: titles[5]!, body: `90-day pilot rollout across anchor cities/campuses targeting first 1,000+ repeat customers & top-quartile distributor turn rate.` },
-      { title: titles[6]!, body: `Active Round 2 Crisis (${product.crisisCategory}): ${product.crisisTitle}. Seeking strategic capital to hire a 1:1 Consultancy turnaround partner.` },
+      { title: titles[6]!, body: `Active Round 2 Crisis (${product.crisisCategory}): ${product.crisisTitle}. Offering equity & shares to Finance & Consulting partners.` },
     ],
   };
 }
@@ -1615,7 +1771,7 @@ export function applyCoordinationAction(
               action.productCode,
               "PRODUCT",
               "R1",
-              `${action.productCode} submitted Round 1 Idea & MVP for ${updated.company} (${updated.ticker}).`
+              `${action.productCode} submitted Round 1 Idea & MVP for ${updated.company} (${updated.ticker} · $${updated.sharePrice.toFixed(2)}/sh).`
             )
           : prev.events,
       };
@@ -1643,40 +1799,31 @@ export function applyCoordinationAction(
               action.consultingCode,
               "CONSULTING",
               "R1",
-              `${action.consultingCode} submitted Round 1 Crisis Solution (base valuation $${updated.baseValue.toLocaleString()}).`
+              `${action.consultingCode} submitted Round 1 Crisis Solution (base equity rate ${updated.baseEquityPct}% · ${equityPctToShares(updated.baseEquityPct).toLocaleString()} sh).`
             )
           : prev.events,
       };
     }
 
+    // ── PRODUCT -> FINANCE: SHARES & EQUITY OFFER (MONEY AUTO-CALCULATED) ──
     case "PRODUCT_RAISE_BROADCAST": {
       const { products, productOrder, product } = ensureProductInMap(prev, action.productCode);
       const equityRetained = Math.max(0, Number((100 - product.equityGivenPct).toFixed(2)));
-      if (action.amount <= 0 || action.equityPct <= 0 || action.equityPct > equityRetained) return prev;
+      const cleanEq = Number(action.equityPct.toFixed(2));
+      if (cleanEq <= 0 || cleanEq > equityRetained) return prev;
 
-      const eligibleIdx = prev.financeTeams.findIndex(ft => ft.availableCapital >= action.amount);
-      const chosenIdx = eligibleIdx >= 0 ? eligibleIdx : 0;
-      const chosen = prev.financeTeams[chosenIdx]!;
+      const shares = equityPctToShares(cleanEq, product.totalShares);
+      const calcAmount = calcMoneyFromShares(shares, product.sharePrice);
+      const impliedValuation = Math.round(product.totalShares * product.sharePrice);
       const reqId = prev.raiseRequests.reduce((m, r) => Math.max(m, r.id), 1000) + 1;
-      const impliedValuation = Math.round(action.amount / (action.equityPct / 100));
 
-      const nextFinanceTeams = prev.financeTeams.map((ft, idx) =>
-        idx === chosenIdx
-          ? {
-              ...ft,
-              availableCapital: Math.max(0, ft.availableCapital - action.amount),
-              lastAction: `✓ Funded ${action.productCode} $${action.amount.toLocaleString()} for ${action.equityPct}% equity`,
-            }
-          : {
-              ...ft,
-              lastAction: `Filled by ${chosen.code} for ${action.productCode} · Capital intact`,
-            }
-      );
       const newReq: LiveRaiseRequest = {
         id: reqId,
         productCode: action.productCode,
-        amount: action.amount,
-        equityPct: action.equityPct,
+        equityPct: cleanEq,
+        shares,
+        sharePrice: product.sharePrice,
+        amount: calcAmount,
         impliedValuation,
         note: action.note,
         status: "OPEN",
@@ -1685,38 +1832,31 @@ export function applyCoordinationAction(
       };
 
       const record: RaiseRecord = {
-        id: Date.now(),
         id: reqId,
-        amount: action.amount,
-        equityPct: action.equityPct,
+        equityPct: cleanEq,
+        shares,
+        amount: calcAmount,
         note: action.note,
-        status: "FUNDED",
-        fundedBy: chosen.code,
-        fundedByName: chosen.name,
         status: "BROADCASTING",
         timestamp: stamp,
       };
 
-      const nextRaised = product.raisedCash + action.amount;
       const nextFinanceTeams = prev.financeTeams.map(ft => ({
         ...ft,
-        lastAction: `⚡ Live raise from ${action.productCode}: ${action.equityPct}% equity for $${action.amount.toLocaleString()}`,
+        lastAction: `⚡ ${action.productCode} offering ${cleanEq}% (${shares.toLocaleString()} sh · calc $${calcAmount.toLocaleString()})`,
       }));
 
-      const updatedProd: ProductTeamState = {
-        ...product,
-        raisedCash: nextRaised,
-        equityGivenPct: Number((product.equityGivenPct + action.equityPct).toFixed(2)),
-        raiseHistory: [record, ...product.raiseHistory],
-      };
-
-      // Also keep R3 draft queue cash synced if team is in draft queue
-      const r2Lock = getProductR2Lock(prev, action.productCode);
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        products: { ...products, [action.productCode]: updatedProd },
+        products: {
+          ...products,
+          [action.productCode]: {
+            ...product,
+            raiseHistory: [record, ...product.raiseHistory],
+          },
+        },
         productOrder,
         financeTeams: nextFinanceTeams,
         raiseRequests: [newReq, ...prev.raiseRequests],
@@ -1725,7 +1865,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R2",
-          `${action.productCode} (${product.company}) broadcast raise request to ALL Finance teams: $${action.amount.toLocaleString()} for ${action.equityPct}% equity.`
+          `${action.productCode} (${product.company}) broadcast ${cleanEq}% equity (${shares.toLocaleString()} shares → calc $${calcAmount.toLocaleString()}) to ALL Finance teams.`
         ),
       };
     }
@@ -1758,7 +1898,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R2",
-          `${action.productCode} cancelled open raise request ($${target.amount.toLocaleString()} for ${target.equityPct}% equity).`
+          `${action.productCode} cancelled open ${target.equityPct}% (${target.shares.toLocaleString()} shares) offer.`
         ),
       };
     }
@@ -1781,7 +1921,7 @@ export function applyCoordinationAction(
       const updatedFin: FinanceTeamState = {
         ...finTeam,
         availableCapital: Math.max(0, finTeam.availableCapital - req.amount),
-        lastAction: `✓ Closed deal with ${req.productCode}: $${req.amount.toLocaleString()} for ${req.equityPct}% equity`,
+        lastAction: `✓ Acquired ${req.equityPct}% (${req.shares.toLocaleString()} sh) of ${req.productCode} · calc $${req.amount.toLocaleString()}`,
       };
 
       const nextFinanceTeams =
@@ -1789,12 +1929,13 @@ export function applyCoordinationAction(
           ? prev.financeTeams.map((ft, idx) =>
               idx === existingFinIdx
                 ? updatedFin
-                : { ...ft, lastAction: `Deal closed by ${finTeam.code} for ${req.productCode}` }
+                : { ...ft, lastAction: `Shares acquired by ${finTeam.code} (${req.productCode})` }
             )
           : [updatedFin, ...prev.financeTeams];
 
       const nextRaised = product.raisedCash + req.amount;
-      const nextEquityGiven = Number((product.equityGivenPct + req.equityPct).toFixed(2));
+      const nextEqFin = Number((product.equityGivenFinancePct + req.equityPct).toFixed(2));
+      const nextEqTotal = Number((product.equityGivenPct + req.equityPct).toFixed(2));
       const hasHistoryEntry = product.raiseHistory.some(h => h.id === req.id);
       const nextHistory: RaiseRecord[] = hasHistoryEntry
         ? product.raiseHistory.map(h =>
@@ -1805,8 +1946,9 @@ export function applyCoordinationAction(
         : [
             {
               id: req.id,
-              amount: req.amount,
               equityPct: req.equityPct,
+              shares: req.shares,
+              amount: req.amount,
               note: req.note,
               status: "FUNDED",
               fundedBy: finTeam.code,
@@ -1819,7 +1961,8 @@ export function applyCoordinationAction(
       const updatedProd: ProductTeamState = {
         ...product,
         raisedCash: nextRaised,
-        equityGivenPct: nextEquityGiven,
+        equityGivenFinancePct: nextEqFin,
+        equityGivenPct: nextEqTotal,
         raiseHistory: nextHistory,
       };
 
@@ -1832,24 +1975,22 @@ export function applyCoordinationAction(
         company: product.company,
         ticker: product.ticker,
         sector: product.sector,
-        amountInvested: req.amount,
+        sharesAcquired: req.shares,
+        sharePrice: req.sharePrice,
         equityPct: req.equityPct,
+        amountInvested: req.amount,
         impliedValuation: req.impliedValuation,
         closedAt: stamp,
       };
 
-      const r2Lock = getProductR2Lock(prev, req.productCode);
-      const netCash = Math.max(0, nextRaised - (r2Lock ? r2Lock.currentPrice : 0));
       const nextDraftQueue = prev.r3DraftQueue.map(q =>
-        q.code === action.productCode && netCash > 0 ? { ...q, cash: netCash } : q
-        q.code === req.productCode && netCash > 0 ? { ...q, cash: netCash } : q
+        q.code === req.productCode && nextRaised > 0 ? { ...q, cash: nextRaised } : q
       );
 
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        products: { ...products, [action.productCode]: updatedProd },
         products: { ...products, [req.productCode]: updatedProd },
         productOrder,
         financeTeams: nextFinanceTeams,
@@ -1868,12 +2009,10 @@ export function applyCoordinationAction(
         r3DraftQueue: nextDraftQueue,
         events: pushEvent(
           prev.events,
-          action.productCode,
           finTeam.code,
           "FINANCE",
           "R2",
-          `${action.productCode} raised $${action.amount.toLocaleString()} for ${action.equityPct}% equity from ${chosen.code} (${chosen.name}).`
-          `💰 DEAL CLOSED: ${finTeam.code} (${finTeam.name}) funded ${req.productCode} (${product.company}) $${req.amount.toLocaleString()} for ${req.equityPct}% equity.`
+          `💰 SHARE DEAL CLOSED: ${finTeam.code} acquired ${req.shares.toLocaleString()} shares (${req.equityPct}% equity) of ${req.productCode} (calc $${req.amount.toLocaleString()}).`
         ),
       };
     }
@@ -1895,7 +2034,7 @@ export function applyCoordinationAction(
           action.financeCode,
           "FINANCE",
           "R2",
-          `${action.financeCode} passed on ${req.productCode}'s $${req.amount.toLocaleString()} (${req.equityPct}%) raise request.`
+          `${action.financeCode} passed on ${req.productCode}'s ${req.equityPct}% (${req.shares.toLocaleString()} sh) share offer.`
         ),
       };
     }
@@ -1915,23 +2054,32 @@ export function applyCoordinationAction(
       };
     }
 
+    // ── ROUND 2: PRODUCT <-> CONSULTING (SHARES & EQUITY DEALS; MONEY AUTO-CALCULATED) ──
     case "R2_PRODUCT_SEND_PROPOSAL": {
       if (getProductR2Lock(prev, action.productCode) || getConsultingR2Lock(prev, action.consultingCode)) {
         return prev;
       }
-      const { products, productOrder } = ensureProductInMap(prev, action.productCode);
+      const { products, productOrder, product } = ensureProductInMap(prev, action.productCode);
       const { consultants, consultantOrder, consultant } = ensureConsultantInMap(prev, action.consultingCode);
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
+      const offerEq = Number((action.offeredEquityPct ?? consultant.baseEquityPct).toFixed(2));
+      const shares = equityPctToShares(offerEq, product.totalShares);
+      const calcPrice = calcMoneyFromShares(shares, product.sharePrice);
+
       const updated: R2DealRecord = {
         ...existing,
-        baseValue: consultant.baseValue,
-        initialOffer: consultant.baseValue,
-        currentPrice: consultant.baseValue,
-        currentMarkupPct: 0,
+        baseEquityPct: consultant.baseEquityPct,
+        initialOfferEquityPct: offerEq,
+        currentEquityPct: offerEq,
+        currentShares: shares,
+        currentPrice: calcPrice,
+        extraEquityPct: Number((offerEq - consultant.baseEquityPct).toFixed(2)),
         stage: "PROPOSAL_SENT",
+        pendingEquityPct: undefined,
+        pendingShares: undefined,
         pendingPrice: undefined,
-        pendingMarkupPct: undefined,
+        pendingExtraEquityPct: undefined,
         lockInitiatedBy: "NONE",
         productLockAccepted: false,
         consultingLockAccepted: false,
@@ -1951,7 +2099,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R2",
-          `${action.productCode} sent Round 2 proposal ($${consultant.baseValue.toLocaleString()}) to Consulting Team ${action.consultingCode}.`
+          `${action.productCode} offered ${offerEq}% equity (${shares.toLocaleString()} shares · calc $${calcPrice.toLocaleString()}) to Consulting Team ${action.consultingCode}.`
         ),
       };
     }
@@ -1960,21 +2108,29 @@ export function applyCoordinationAction(
       if (getProductR2Lock(prev, action.productCode) || getConsultingR2Lock(prev, action.consultingCode)) {
         return prev;
       }
-      const { products, productOrder } = ensureProductInMap(prev, action.productCode);
+      const { products, productOrder, product } = ensureProductInMap(prev, action.productCode);
       const { consultants, consultantOrder, consultant } = ensureConsultantInMap(prev, action.consultingCode);
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const baseForMarkup = existing.initialOffer || consultant.baseValue;
-      const demandedPrice = Math.round(baseForMarkup * (1 + action.markupPct / 100));
+
+      const extraEq = Math.max(0, Number(action.extraEquityPct.toFixed(2)));
+      const baseAnchor = existing.initialOfferEquityPct || consultant.baseEquityPct;
+      const demandedEq = Number((baseAnchor + extraEq).toFixed(2));
+      const demandedShares = equityPctToShares(demandedEq, product.totalShares);
+      const demandedPrice = calcMoneyFromShares(demandedShares, product.sharePrice);
+
       const updated: R2DealRecord = {
         ...existing,
-        baseValue: consultant.baseValue,
-        stage: action.markupPct === 0 ? "DEAL_AGREED_UNLOCKED" : "COUNTER_DEMANDED",
-        currentPrice: action.markupPct === 0 ? demandedPrice : existing.currentPrice,
-        currentMarkupPct: action.markupPct === 0 ? 0 : existing.currentMarkupPct,
-        pendingPrice: action.markupPct > 0 ? demandedPrice : undefined,
-        pendingMarkupPct: action.markupPct > 0 ? action.markupPct : undefined,
-        // Changing price resets any older unaccepted lock request
+        baseEquityPct: consultant.baseEquityPct,
+        stage: extraEq === 0 ? "DEAL_AGREED_UNLOCKED" : "COUNTER_DEMANDED",
+        currentEquityPct: extraEq === 0 ? demandedEq : existing.currentEquityPct,
+        currentShares: extraEq === 0 ? demandedShares : existing.currentShares,
+        currentPrice: extraEq === 0 ? demandedPrice : existing.currentPrice,
+        extraEquityPct: extraEq === 0 ? Number((demandedEq - consultant.baseEquityPct).toFixed(2)) : existing.extraEquityPct,
+        pendingEquityPct: extraEq > 0 ? demandedEq : undefined,
+        pendingShares: extraEq > 0 ? demandedShares : undefined,
+        pendingPrice: extraEq > 0 ? demandedPrice : undefined,
+        pendingExtraEquityPct: extraEq > 0 ? extraEq : undefined,
         lockInitiatedBy: "NONE",
         productLockAccepted: false,
         consultingLockAccepted: false,
@@ -1994,9 +2150,9 @@ export function applyCoordinationAction(
           action.consultingCode,
           "CONSULTING",
           "R2",
-          action.markupPct > 0
-            ? `${action.consultingCode} pushed +${action.markupPct}% demand ($${demandedPrice.toLocaleString()}) to ${action.productCode} (awaiting Product acceptance).`
-            : `${action.consultingCode} accepted base rate ($${demandedPrice.toLocaleString()}) with ${action.productCode} (ready to lock).`
+          extraEq > 0
+            ? `${action.consultingCode} asked ${action.productCode} for ${demandedEq}% equity (+${extraEq}% · ${demandedShares.toLocaleString()} sh · calc $${demandedPrice.toLocaleString()}).`
+            : `${action.consultingCode} accepted ${demandedEq}% equity (${demandedShares.toLocaleString()} sh · calc $${demandedPrice.toLocaleString()}) with ${action.productCode}.`
         ),
       };
     }
@@ -2007,24 +2163,28 @@ export function applyCoordinationAction(
       }
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const updated: R2DealRecord = {
-        ...existing,
-        stage: "DEAL_AGREED_UNLOCKED",
-        pendingPrice: undefined,
-        pendingMarkupPct: undefined,
-        updatedAt: stamp,
-      };
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        r2Deals: { ...prev.r2Deals, [k]: updated },
+        r2Deals: {
+          ...prev.r2Deals,
+          [k]: {
+            ...existing,
+            stage: "DEAL_AGREED_UNLOCKED",
+            pendingEquityPct: undefined,
+            pendingShares: undefined,
+            pendingPrice: undefined,
+            pendingExtraEquityPct: undefined,
+            updatedAt: stamp,
+          },
+        },
         events: pushEvent(
           prev.events,
           action.consultingCode,
           "CONSULTING",
           "R2",
-          `${action.consultingCode} accepted ${action.productCode}'s proposal at $${existing.currentPrice.toLocaleString()} (still unlocked until mutual Lock Request).`
+          `${action.consultingCode} accepted ${action.productCode}'s ${existing.currentEquityPct}% (${existing.currentShares.toLocaleString()} sh · calc $${existing.currentPrice.toLocaleString()}) equity offer.`
         ),
       };
     }
@@ -2033,30 +2193,38 @@ export function applyCoordinationAction(
       if (getProductR2Lock(prev, action.productCode) || getConsultingR2Lock(prev, action.consultingCode)) {
         return prev;
       }
+      const product = getOrMakeProduct(prev, action.productCode);
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const newPrice = existing.pendingPrice ?? existing.currentPrice;
-      const newPct = existing.pendingMarkupPct ?? existing.currentMarkupPct;
-      const updated: R2DealRecord = {
-        ...existing,
-        currentPrice: newPrice,
-        currentMarkupPct: newPct,
-        stage: "DEAL_AGREED_UNLOCKED",
-        pendingPrice: undefined,
-        pendingMarkupPct: undefined,
-        updatedAt: stamp,
-      };
+      const newEq = existing.pendingEquityPct ?? existing.currentEquityPct;
+      const newShares = equityPctToShares(newEq, product.totalShares);
+      const newPrice = calcMoneyFromShares(newShares, product.sharePrice);
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        r2Deals: { ...prev.r2Deals, [k]: updated },
+        r2Deals: {
+          ...prev.r2Deals,
+          [k]: {
+            ...existing,
+            currentEquityPct: newEq,
+            currentShares: newShares,
+            currentPrice: newPrice,
+            extraEquityPct: Number((newEq - existing.baseEquityPct).toFixed(2)),
+            stage: "DEAL_AGREED_UNLOCKED",
+            pendingEquityPct: undefined,
+            pendingShares: undefined,
+            pendingPrice: undefined,
+            pendingExtraEquityPct: undefined,
+            updatedAt: stamp,
+          },
+        },
         events: pushEvent(
           prev.events,
           action.productCode,
           "PRODUCT",
           "R2",
-          `${action.productCode} accepted ${action.consultingCode}'s +${newPct}% deal ($${newPrice.toLocaleString()}). Deal updated (not locked yet).`
+          `${action.productCode} accepted ${action.consultingCode}'s ${newEq}% equity (${newShares.toLocaleString()} sh · calc $${newPrice.toLocaleString()}). Still unlocked until mutual Lock Request.`
         ),
       };
     }
@@ -2067,27 +2235,31 @@ export function applyCoordinationAction(
       }
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const updated: R2DealRecord = {
-        ...existing,
-        stage: "DECLINED",
-        pendingPrice: undefined,
-        pendingMarkupPct: undefined,
-        lockInitiatedBy: "NONE",
-        productLockAccepted: false,
-        consultingLockAccepted: false,
-        updatedAt: stamp,
-      };
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        r2Deals: { ...prev.r2Deals, [k]: updated },
+        r2Deals: {
+          ...prev.r2Deals,
+          [k]: {
+            ...existing,
+            stage: "DECLINED",
+            pendingEquityPct: undefined,
+            pendingShares: undefined,
+            pendingPrice: undefined,
+            pendingExtraEquityPct: undefined,
+            lockInitiatedBy: "NONE",
+            productLockAccepted: false,
+            consultingLockAccepted: false,
+            updatedAt: stamp,
+          },
+        },
         events: pushEvent(
           prev.events,
           action.productCode,
           "PRODUCT",
           "R2",
-          `${action.productCode} declined ${action.consultingCode}'s price increase demand.`
+          `${action.productCode} declined ${action.consultingCode}'s higher equity demand.`
         ),
       };
     }
@@ -2098,28 +2270,30 @@ export function applyCoordinationAction(
       }
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
       if (action.initiatedBy === "PRODUCT") {
-        const cash = getProductAvailableCash(prev, action.productCode);
-        if (cash < existing.currentPrice) return prev;
+        const eqLeft = getProductEquityRetainedPct(prev, action.productCode);
+        if (eqLeft < existing.currentEquityPct) return prev;
       }
       const k = pairKey(action.productCode, action.consultingCode);
-      const updated: R2DealRecord = {
-        ...existing,
-        lockInitiatedBy: action.initiatedBy,
-        productLockAccepted: action.initiatedBy === "PRODUCT",
-        consultingLockAccepted: action.initiatedBy === "CONSULTING",
-        updatedAt: stamp,
-      };
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        r2Deals: { ...prev.r2Deals, [k]: updated },
+        r2Deals: {
+          ...prev.r2Deals,
+          [k]: {
+            ...existing,
+            lockInitiatedBy: action.initiatedBy,
+            productLockAccepted: action.initiatedBy === "PRODUCT",
+            consultingLockAccepted: action.initiatedBy === "CONSULTING",
+            updatedAt: stamp,
+          },
+        },
         events: pushEvent(
           prev.events,
           action.initiatedBy === "PRODUCT" ? action.productCode : action.consultingCode,
           action.initiatedBy,
           "R2",
-          `${action.initiatedBy === "PRODUCT" ? action.productCode : action.consultingCode} sent a 1:1 Lock Request to ${action.initiatedBy === "PRODUCT" ? action.consultingCode : action.productCode} at $${existing.currentPrice.toLocaleString()}.`
+          `${action.initiatedBy === "PRODUCT" ? action.productCode : action.consultingCode} sent a 1:1 Lock Request for ${existing.currentEquityPct}% equity (${existing.currentShares.toLocaleString()} sh · calc $${existing.currentPrice.toLocaleString()}).`
         ),
       };
     }
@@ -2128,13 +2302,14 @@ export function applyCoordinationAction(
       if (getProductR2Lock(prev, action.productCode) || getConsultingR2Lock(prev, action.consultingCode)) {
         return prev;
       }
+      const { products, productOrder, product } = ensureProductInMap(prev, action.productCode);
+      const cons = getOrMakeConsultant(prev, action.consultingCode);
       const existing = getR2Deal(prev, action.productCode, action.consultingCode);
-      if (action.acceptedBy === "PRODUCT" && !action.bypassCashCheck) {
-        const cash = getProductAvailableCash(prev, action.productCode);
-        if (cash < existing.currentPrice) return prev;
-      }
+      const eqLeft = Math.max(0, Number((100 - product.equityGivenPct).toFixed(2)));
+      if (eqLeft < existing.currentEquityPct) return prev;
+
       const k = pairKey(action.productCode, action.consultingCode);
-      const updated: R2DealRecord = {
+      const updatedDeal: R2DealRecord = {
         ...existing,
         stage: "DEAL_AGREED_UNLOCKED",
         productLockAccepted: true,
@@ -2142,40 +2317,45 @@ export function applyCoordinationAction(
         lockedAt: stamp,
         updatedAt: stamp,
       };
-      // Automatically create the Round 3 Incumbent entry carrying this exact 1:1 locked pair into Round 3!
-      const cons = getOrMakeConsultant(prev, action.consultingCode);
+
+      // Allocate consulting equity & shares on Product team
+      const updatedProd: ProductTeamState = {
+        ...product,
+        equityGivenConsultantPct: Number((product.equityGivenConsultantPct + existing.currentEquityPct).toFixed(2)),
+        equityGivenPct: Number((product.equityGivenPct + existing.currentEquityPct).toFixed(2)),
+      };
+
+      // Carry exact 1:1 locked pair into Round 3 starting on Consulting base equity
+      const r3BaseShares = equityPctToShares(cons.baseEquityPct, product.totalShares);
       const nextR3Incumbents: Record<string, R3IncumbentRecord> = {
         ...prev.r3Incumbents,
         [k]: {
           key: k,
           productCode: action.productCode,
           consultingCode: action.consultingCode,
-          baseValue: cons.baseValue,
-          requestedPct: 0,
-          requestedPrice: cons.baseValue,
+          baseEquityPct: cons.baseEquityPct,
+          requestedExtraPct: 0,
+          requestedEquityPct: cons.baseEquityPct,
+          requestedShares: r3BaseShares,
+          requestedPrice: calcMoneyFromShares(r3BaseShares, product.sharePrice),
           status: "AWAITING_CONSULTANT_ASK",
         },
       };
-      // Update draft queue cash after paying consultant
-      const prod = getOrMakeProduct(prev, action.productCode);
-      const remainingCash = Math.max(0, prod.raisedCash - existing.currentPrice);
-      const nextDraftQueue = prev.r3DraftQueue.map(q =>
-        q.code === action.productCode && prod.raisedCash > 0 ? { ...q, cash: remainingCash } : q
-      );
 
       return {
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
-        r2Deals: { ...prev.r2Deals, [k]: updated },
+        products: { ...products, [action.productCode]: updatedProd },
+        productOrder,
+        r2Deals: { ...prev.r2Deals, [k]: updatedDeal },
         r3Incumbents: nextR3Incumbents,
-        r3DraftQueue: nextDraftQueue,
         events: pushEvent(
           prev.events,
           action.acceptedBy === "PRODUCT" ? action.productCode : action.consultingCode,
           action.acceptedBy,
           "R2",
-          `🔒 PERMANENT 1:1 LOCK: ${action.productCode} ⇄ ${action.consultingCode} locked at $${existing.currentPrice.toLocaleString()}. Shared topic crisis unlocked!`
+          `🔒 PERMANENT 1:1 LOCK: ${action.productCode} ⇄ ${action.consultingCode} locked for ${existing.currentEquityPct}% equity (${existing.currentShares.toLocaleString()} sh · calc $${existing.currentPrice.toLocaleString()}).`
         ),
       };
     }
@@ -2270,23 +2450,30 @@ export function applyCoordinationAction(
       };
     }
 
-    // ── ROUND 3 COORDINATION ──
+    // ── ROUND 3 COORDINATION (SHARES & EQUITY; MONEY AUTO-CALCULATED) ──
     case "R3_CONSULTING_ASK_INCUMBENT": {
       if (getConsultingR3Lock(prev, action.consultingCode)) return prev;
+      const prod = getOrMakeProduct(prev, action.productCode);
       const cons = getOrMakeConsultant(prev, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
       const existing = prev.r3Incumbents[k];
       if (existing && (existing.status === "ACCEPTED_LOCKED" || existing.status === "REJECTED_REBIDDING")) {
         return prev;
       }
-      const requestedPrice = Math.round(cons.baseValue * (1 + action.increasePct / 100));
+      const extraEq = Math.max(0, Number(action.extraEquityPct.toFixed(2)));
+      const reqEq = Number((cons.baseEquityPct + extraEq).toFixed(2));
+      const reqShares = equityPctToShares(reqEq, prod.totalShares);
+      const reqPrice = calcMoneyFromShares(reqShares, prod.sharePrice);
+
       const updated: R3IncumbentRecord = {
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
-        baseValue: cons.baseValue,
-        requestedPct: action.increasePct,
-        requestedPrice,
+        baseEquityPct: cons.baseEquityPct,
+        requestedExtraPct: extraEq,
+        requestedEquityPct: reqEq,
+        requestedShares: reqShares,
+        requestedPrice: reqPrice,
         status: "CONSULTANT_ASKED",
       };
       return {
@@ -2299,7 +2486,7 @@ export function applyCoordinationAction(
           action.consultingCode,
           "CONSULTING",
           "R3",
-          `${action.consultingCode} sent Round 3 price ${action.increasePct === 0 ? "at base" : `+${action.increasePct}%`} ($${requestedPrice.toLocaleString()}) to ${action.productCode}.`
+          `${action.consultingCode} asked ${action.productCode} for ${reqEq}% equity (${extraEq === 0 ? "base" : `+${extraEq}%`} · ${reqShares.toLocaleString()} sh · calc $${reqPrice.toLocaleString()}) in Round 3.`
         ),
       };
     }
@@ -2308,18 +2495,23 @@ export function applyCoordinationAction(
       if (getProductR3Lock(prev, action.productCode) || getConsultingR3Lock(prev, action.consultingCode)) {
         return prev;
       }
-      const k = pairKey(action.productCode, action.consultingCode);
+      const { products, productOrder, product } = ensureProductInMap(prev, action.productCode);
       const cons = getOrMakeConsultant(prev, action.consultingCode);
+      const k = pairKey(action.productCode, action.consultingCode);
       const existing = prev.r3Incumbents[k];
-      const finalPrice = existing ? existing.requestedPrice : cons.baseValue;
-      const markupPct = existing ? existing.requestedPct : 0;
+      const finalEq = existing ? existing.requestedEquityPct : cons.baseEquityPct;
+      const extraEq = existing ? existing.requestedExtraPct : 0;
+      const finalShares = equityPctToShares(finalEq, product.totalShares);
+      const finalPrice = calcMoneyFromShares(finalShares, product.sharePrice);
 
       const updatedInc: R3IncumbentRecord = {
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
-        baseValue: cons.baseValue,
-        requestedPct: markupPct,
+        baseEquityPct: cons.baseEquityPct,
+        requestedExtraPct: extraEq,
+        requestedEquityPct: finalEq,
+        requestedShares: finalShares,
         requestedPrice: finalPrice,
         status: "ACCEPTED_LOCKED",
         decidedAt: stamp,
@@ -2328,8 +2520,10 @@ export function applyCoordinationAction(
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
+        finalEquityPct: finalEq,
+        finalShares,
         finalPrice,
-        markupPct,
+        extraEquityPct: extraEq,
         source: "INCUMBENT_ACCEPTED",
         lockedAt: stamp,
         r3SolutionParts: Array(6).fill(""),
@@ -2339,6 +2533,8 @@ export function applyCoordinationAction(
         ...prev,
         version: nextVersion,
         updatedAt: nowIso,
+        products,
+        productOrder,
         r3Incumbents: { ...prev.r3Incumbents, [k]: updatedInc },
         r3Locks: { ...prev.r3Locks, [k]: finalLock },
         events: pushEvent(
@@ -2346,24 +2542,31 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R3",
-          `✓ ${action.productCode} ACCEPTED ${action.consultingCode} for Round 3 at $${finalPrice.toLocaleString()} (${markupPct === 0 ? "base" : `+${markupPct}%`}). Locked 1:1!`
+          `✓ ${action.productCode} ACCEPTED ${action.consultingCode} for Round 3 at ${finalEq}% equity (${finalShares.toLocaleString()} sh · calc $${finalPrice.toLocaleString()}).`
         ),
       };
     }
 
     case "R3_PRODUCT_REMOVE_INCUMBENT": {
       if (getProductR3Lock(prev, action.productCode)) return prev;
-      const k = pairKey(action.productCode, action.consultingCode);
+      const prod = getOrMakeProduct(prev, action.productCode);
       const cons = getOrMakeConsultant(prev, action.consultingCode);
+      const k = pairKey(action.productCode, action.consultingCode);
       const existing = prev.r3Incumbents[k];
+      const extraEq = existing?.requestedExtraPct ?? cons.defaultR3ExtraPct;
+      const reqEq = existing?.requestedEquityPct ?? Number((cons.baseEquityPct + extraEq).toFixed(2));
+      const reqShares = equityPctToShares(reqEq, prod.totalShares);
+      const reqPrice = calcMoneyFromShares(reqShares, prod.sharePrice);
+
       const updatedInc: R3IncumbentRecord = {
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
-        baseValue: cons.baseValue,
-        requestedPct: existing?.requestedPct ?? cons.defaultR3MarkupPct,
-        requestedPrice:
-          existing?.requestedPrice ?? Math.round(cons.baseValue * (1 + cons.defaultR3MarkupPct / 100)),
+        baseEquityPct: cons.baseEquityPct,
+        requestedExtraPct: extraEq,
+        requestedEquityPct: reqEq,
+        requestedShares: reqShares,
+        requestedPrice: reqPrice,
         status: "REJECTED_REBIDDING",
         decidedAt: stamp,
         removedByProduct: true,
@@ -2378,7 +2581,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R3",
-          `✕ ${action.productCode} removed ${action.consultingCode} for Round 3 re-bid. ${action.consultingCode} unlocked into the Open Auction!`
+          `✕ ${action.productCode} removed ${action.consultingCode} for Round 3 re-bid. ${action.consultingCode} unlocked into the Open Equity Auction!`
         ),
       };
     }
@@ -2387,18 +2590,23 @@ export function applyCoordinationAction(
       if (getProductR3Lock(prev, action.productCode) || getConsultingR3Lock(prev, action.consultingCode)) {
         return prev;
       }
-      const k = pairKey(action.productCode, action.consultingCode);
+      const prod = getOrMakeProduct(prev, action.productCode);
       const cons = getOrMakeConsultant(prev, action.consultingCode);
+      const k = pairKey(action.productCode, action.consultingCode);
       const existing = prev.r3Incumbents[k];
-      const finalPrice = existing?.requestedPrice ?? cons.baseValue;
-      const markupPct = existing?.requestedPct ?? 0;
+      const finalEq = existing?.requestedEquityPct ?? cons.baseEquityPct;
+      const extraEq = existing?.requestedExtraPct ?? 0;
+      const finalShares = equityPctToShares(finalEq, prod.totalShares);
+      const finalPrice = calcMoneyFromShares(finalShares, prod.sharePrice);
 
       const updatedInc: R3IncumbentRecord = {
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
-        baseValue: cons.baseValue,
-        requestedPct: markupPct,
+        baseEquityPct: cons.baseEquityPct,
+        requestedExtraPct: extraEq,
+        requestedEquityPct: finalEq,
+        requestedShares: finalShares,
         requestedPrice: finalPrice,
         status: "ACCEPTED_LOCKED",
         decidedAt: stamp,
@@ -2408,8 +2616,10 @@ export function applyCoordinationAction(
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
+        finalEquityPct: finalEq,
+        finalShares,
         finalPrice,
-        markupPct,
+        extraEquityPct: extraEq,
         source: "RETURNED_TO_INCUMBENT",
         lockedAt: stamp,
         r3SolutionParts: Array(6).fill(""),
@@ -2426,7 +2636,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R3",
-          `↺ ${action.productCode} returned to previous Consultant ${action.consultingCode} at $${finalPrice.toLocaleString()} (locked 1:1 for Round 3).`
+          `↺ ${action.productCode} returned to previous Consultant ${action.consultingCode} at ${finalEq}% equity (${finalShares.toLocaleString()} sh · calc $${finalPrice.toLocaleString()}).`
         ),
       };
     }
@@ -2435,15 +2645,21 @@ export function applyCoordinationAction(
       if (getProductR3Lock(prev, action.productCode) || getConsultingR3Lock(prev, action.consultingCode)) {
         return prev;
       }
+      const prod = getOrMakeProduct(prev, action.productCode);
       const cons = getOrMakeConsultant(prev, action.consultingCode);
       const existing = getR3AuctionDeal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
+      const shares = equityPctToShares(cons.baseEquityPct, prod.totalShares);
+      const calcPrice = calcMoneyFromShares(shares, prod.sharePrice);
+
       const updated: R3AuctionDealRecord = {
         ...existing,
-        baseValue: cons.baseValue,
-        initialOffer: cons.baseValue,
-        currentPrice: cons.baseValue,
-        currentMarkupPct: 0,
+        baseEquityPct: cons.baseEquityPct,
+        initialOfferEquityPct: cons.baseEquityPct,
+        currentEquityPct: cons.baseEquityPct,
+        currentShares: shares,
+        currentPrice: calcPrice,
+        extraEquityPct: 0,
         stage: "PROPOSAL_SENT",
         lockInitiatedBy: "NONE",
         productLockAccepted: false,
@@ -2459,7 +2675,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R3",
-          `${action.productCode} sent Round 3 re-bid request ($${cons.baseValue.toLocaleString()}) to ${action.consultingCode}.`
+          `${action.productCode} sent Round 3 re-bid offer (${cons.baseEquityPct}% equity · ${shares.toLocaleString()} sh · calc $${calcPrice.toLocaleString()}) to ${action.consultingCode}.`
         ),
       };
     }
@@ -2468,18 +2684,28 @@ export function applyCoordinationAction(
       if (getProductR3Lock(prev, action.productCode) || getConsultingR3Lock(prev, action.consultingCode)) {
         return prev;
       }
+      const prod = getOrMakeProduct(prev, action.productCode);
       const cons = getOrMakeConsultant(prev, action.consultingCode);
       const existing = getR3AuctionDeal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const demandedPrice = Math.round(existing.initialOffer * (1 + action.markupPct / 100));
+
+      const extraEq = Math.max(0, Number(action.extraEquityPct.toFixed(2)));
+      const demandedEq = Number((existing.initialOfferEquityPct + extraEq).toFixed(2));
+      const demandedShares = equityPctToShares(demandedEq, prod.totalShares);
+      const demandedPrice = calcMoneyFromShares(demandedShares, prod.sharePrice);
+
       const updated: R3AuctionDealRecord = {
         ...existing,
-        baseValue: cons.baseValue,
-        stage: action.markupPct === 0 ? "DEAL_AGREED_UNLOCKED" : "COUNTER_DEMANDED",
-        currentPrice: action.markupPct === 0 ? demandedPrice : existing.currentPrice,
-        currentMarkupPct: action.markupPct === 0 ? 0 : existing.currentMarkupPct,
-        pendingPrice: action.markupPct > 0 ? demandedPrice : undefined,
-        pendingMarkupPct: action.markupPct > 0 ? action.markupPct : undefined,
+        baseEquityPct: cons.baseEquityPct,
+        stage: extraEq === 0 ? "DEAL_AGREED_UNLOCKED" : "COUNTER_DEMANDED",
+        currentEquityPct: extraEq === 0 ? demandedEq : existing.currentEquityPct,
+        currentShares: extraEq === 0 ? demandedShares : existing.currentShares,
+        currentPrice: extraEq === 0 ? demandedPrice : existing.currentPrice,
+        extraEquityPct: extraEq === 0 ? Number((demandedEq - cons.baseEquityPct).toFixed(2)) : existing.extraEquityPct,
+        pendingEquityPct: extraEq > 0 ? demandedEq : undefined,
+        pendingShares: extraEq > 0 ? demandedShares : undefined,
+        pendingPrice: extraEq > 0 ? demandedPrice : undefined,
+        pendingExtraEquityPct: extraEq > 0 ? extraEq : undefined,
         lockInitiatedBy: "NONE",
         productLockAccepted: false,
         consultingLockAccepted: false,
@@ -2494,7 +2720,7 @@ export function applyCoordinationAction(
           action.consultingCode,
           "CONSULTING",
           "R3",
-          `${action.consultingCode} pushed Round 3 auction demand (+${action.markupPct}% · $${demandedPrice.toLocaleString()}) to ${action.productCode}.`
+          `${action.consultingCode} asked ${action.productCode} for ${demandedEq}% equity (${demandedShares.toLocaleString()} sh · calc $${demandedPrice.toLocaleString()}) in Round 3 auction.`
         ),
       };
     }
@@ -2503,10 +2729,12 @@ export function applyCoordinationAction(
       if (getProductR3Lock(prev, action.productCode) || getConsultingR3Lock(prev, action.consultingCode)) {
         return prev;
       }
+      const prod = getOrMakeProduct(prev, action.productCode);
       const existing = getR3AuctionDeal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const newPrice = existing.pendingPrice ?? existing.currentPrice;
-      const newPct = existing.pendingMarkupPct ?? existing.currentMarkupPct;
+      const newEq = existing.pendingEquityPct ?? existing.currentEquityPct;
+      const newShares = equityPctToShares(newEq, prod.totalShares);
+      const newPrice = calcMoneyFromShares(newShares, prod.sharePrice);
       return {
         ...prev,
         version: nextVersion,
@@ -2515,11 +2743,15 @@ export function applyCoordinationAction(
           ...prev.r3AuctionDeals,
           [k]: {
             ...existing,
+            currentEquityPct: newEq,
+            currentShares: newShares,
             currentPrice: newPrice,
-            currentMarkupPct: newPct,
+            extraEquityPct: Number((newEq - existing.baseEquityPct).toFixed(2)),
             stage: "DEAL_AGREED_UNLOCKED",
+            pendingEquityPct: undefined,
+            pendingShares: undefined,
             pendingPrice: undefined,
-            pendingMarkupPct: undefined,
+            pendingExtraEquityPct: undefined,
           },
         },
         events: pushEvent(
@@ -2527,7 +2759,7 @@ export function applyCoordinationAction(
           action.productCode,
           "PRODUCT",
           "R3",
-          `${action.productCode} accepted ${action.consultingCode}'s Round 3 re-bid price ($${newPrice.toLocaleString()}).`
+          `${action.productCode} accepted ${action.consultingCode}'s Round 3 equity offer (${newEq}% · ${newShares.toLocaleString()} sh · calc $${newPrice.toLocaleString()}).`
         ),
       };
     }
@@ -2556,7 +2788,7 @@ export function applyCoordinationAction(
           action.initiatedBy === "PRODUCT" ? action.productCode : action.consultingCode,
           action.initiatedBy,
           "R3",
-          `${action.initiatedBy === "PRODUCT" ? action.productCode : action.consultingCode} sent Round 3 Auction Lock Request ($${existing.currentPrice.toLocaleString()}).`
+          `${action.initiatedBy === "PRODUCT" ? action.productCode : action.consultingCode} sent Round 3 Auction Lock Request (${existing.currentEquityPct}% · ${existing.currentShares.toLocaleString()} sh · calc $${existing.currentPrice.toLocaleString()}).`
         ),
       };
     }
@@ -2565,16 +2797,21 @@ export function applyCoordinationAction(
       if (getProductR3Lock(prev, action.productCode) || getConsultingR3Lock(prev, action.consultingCode)) {
         return prev;
       }
+      const prod = getOrMakeProduct(prev, action.productCode);
       const existing = getR3AuctionDeal(prev, action.productCode, action.consultingCode);
       const k = pairKey(action.productCode, action.consultingCode);
-      const finalPrice = existing.pendingPrice ?? existing.currentPrice;
-      const markupPct = existing.pendingMarkupPct ?? existing.currentMarkupPct;
+      const finalEq = existing.pendingEquityPct ?? existing.currentEquityPct;
+      const finalShares = equityPctToShares(finalEq, prod.totalShares);
+      const finalPrice = calcMoneyFromShares(finalShares, prod.sharePrice);
+      const extraEq = Number((finalEq - existing.baseEquityPct).toFixed(2));
       const finalLock: R3FinalLockRecord = {
         key: k,
         productCode: action.productCode,
         consultingCode: action.consultingCode,
+        finalEquityPct: finalEq,
+        finalShares,
         finalPrice,
-        markupPct,
+        extraEquityPct: extraEq,
         source: "REBID_AUCTION",
         lockedAt: stamp,
         r3SolutionParts: Array(6).fill(""),
@@ -2588,8 +2825,10 @@ export function applyCoordinationAction(
           ...prev.r3AuctionDeals,
           [k]: {
             ...existing,
+            currentEquityPct: finalEq,
+            currentShares: finalShares,
             currentPrice: finalPrice,
-            currentMarkupPct: markupPct,
+            extraEquityPct: extraEq,
             stage: "DEAL_AGREED_UNLOCKED",
             productLockAccepted: true,
             consultingLockAccepted: true,
@@ -2602,13 +2841,12 @@ export function applyCoordinationAction(
           action.acceptedBy === "PRODUCT" ? action.productCode : action.consultingCode,
           action.acceptedBy,
           "R3",
-          `🔒 ROUND 3 AUCTION ALLOTMENT LOCKED: ${action.productCode} ⇄ ${action.consultingCode} at $${finalPrice.toLocaleString()} (settled after R3).`
+          `🔒 ROUND 3 AUCTION ALLOTMENT LOCKED: ${action.productCode} ⇄ ${action.consultingCode} for ${finalEq}% equity (${finalShares.toLocaleString()} sh · calc $${finalPrice.toLocaleString()}).`
         ),
       };
     }
 
     case "R3_PICK_STATEMENT": {
-      // Check if team already picked or statement already taken
       if (prev.r3Statements.some(s => s.claimedBy === action.productCode)) return prev;
       const target = prev.r3Statements.find(s => s.id === action.statementId);
       if (!target || target.claimedBy) return prev;

@@ -7,10 +7,8 @@ import {
   type CoordinationState,
 } from "./coordination-types";
 
-const STORAGE_KEY = "primus-coordination-v2";
-const CHANNEL_NAME = "primus-coordination-v2";
-const STORAGE_KEY = "primus-coordination-v3";
-const CHANNEL_NAME = "primus-coordination-v3";
+const STORAGE_KEY = "primus-coordination-v4";
+const CHANNEL_NAME = "primus-coordination-v4";
 const IN_TAB_EVENT = "primus-coordination-update";
 const API_URL = "/demo/api/coordination";
 
@@ -31,12 +29,13 @@ function readFromLocalStorage(): CoordinationState | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as CoordinationState;
-    if (parsed && typeof parsed.version === "number" && parsed.products && parsed.consultants) {
     if (
       parsed &&
       typeof parsed.version === "number" &&
       parsed.products &&
+      typeof parsed.products.XP01?.sharePrice === "number" &&
       parsed.consultants &&
+      typeof parsed.consultants.XC01?.baseEquityPct === "number" &&
       Array.isArray(parsed.raiseRequests) &&
       Array.isArray(parsed.financeDeals)
     ) {

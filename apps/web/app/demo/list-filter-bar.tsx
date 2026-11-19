@@ -47,35 +47,48 @@ export function matchesAmountFilter(amount: number, state: ListFilterState): boo
   if (f !== "ALL") {
     if (f.startsWith("EXACT:")) {
       const target = Number(f.slice(6));
-      if (!Number.isNaN(target) && amount !== target) return false;
+      if (!Number.isNaN(target) && Math.abs(amount - target) > 0.001) return false;
     } else if (f.startsWith("GTE:")) {
       const target = Number(f.slice(4));
-      if (!Number.isNaN(target) && amount < target) return false;
+      if (!Number.isNaN(target) && amount < target - 0.001) return false;
     } else if (f.startsWith("LTE:")) {
       const target = Number(f.slice(4));
-      if (!Number.isNaN(target) && amount > target) return false;
+      if (!Number.isNaN(target) && amount > target + 0.001) return false;
     } else if (f.startsWith("RANGE:")) {
       const parts = f.slice(6).split(":");
       const lo = Number(parts[0]);
       const hi = Number(parts[1]);
-      if (!Number.isNaN(lo) && amount < lo) return false;
-      if (!Number.isNaN(hi) && amount > hi) return false;
+      if (!Number.isNaN(lo) && amount < lo - 0.001) return false;
+      if (!Number.isNaN(hi) && amount > hi + 0.001) return false;
     }
   }
 
   const minRaw = state.minAmount.trim();
   if (minRaw !== "") {
     const min = Number(minRaw);
-    if (!Number.isNaN(min) && amount < min) return false;
+    if (!Number.isNaN(min) && amount < min - 0.001) return false;
   }
 
   const maxRaw = state.maxAmount.trim();
   if (maxRaw !== "") {
     const max = Number(maxRaw);
-    if (!Number.isNaN(max) && amount > max) return false;
+    if (!Number.isNaN(max) && amount > max + 0.001) return false;
   }
 
   return true;
+}
+
+export function buildEquityRanges(): AmountPresetOption[] {
+  return [
+    { value: "GTE:3", label: "≥ 3.0% Equity (≥ 3,000 sh)" },
+    { value: "GTE:3.5", label: "≥ 3.5% Equity (≥ 3,500 sh)" },
+    { value: "GTE:4", label: "≥ 4.0% Equity (≥ 4,000 sh)" },
+    { value: "GTE:4.5", label: "≥ 4.5% Equity (≥ 4,500 sh)" },
+    { value: "RANGE:3:4", label: "3.0% – 4.0% Equity (3,000–4,000 sh)" },
+    { value: "LTE:3", label: "≤ 3.0% Equity (≤ 3,000 sh)" },
+    { value: "LTE:3.5", label: "≤ 3.5% Equity (≤ 3,500 sh)" },
+    { value: "LTE:4", label: "≤ 4.0% Equity (≤ 4,000 sh)" },
+  ];
 }
 
 export function buildDealAmountRanges(): AmountPresetOption[] {
@@ -121,6 +134,7 @@ interface ListFilterBarProps {
   teamLabel?: string;
   allTeamsLabel?: string;
   showAmountFilter?: boolean;
+  valueKind?: "CURRENCY" | "EQUITY";
   amountLabel?: string;
   amountRanges?: AmountPresetOption[];
   exactAmounts?: number[];
@@ -140,13 +154,15 @@ const DEFAULT_SORT_OPTIONS: SortOption[] = [
   { value: "CODE_ASC", label: "Team Code: A → Z" },
 ];
 
-function formatAmountFilterTag(f: string): string {
-  if (f.startsWith("EXACT:")) return `= $${Number(f.slice(6)).toLocaleString()}`;
-  if (f.startsWith("GTE:")) return `≥ $${Number(f.slice(4)).toLocaleString()}`;
-  if (f.startsWith("LTE:")) return `≤ $${Number(f.slice(4)).toLocaleString()}`;
+function formatAmountFilterTag(f: string, valueKind: "CURRENCY" | "EQUITY"): string {
+  const fmt = (n: number) =>
+    valueKind === "EQUITY" ? `${n}%` : `$${n.toLocaleString()}`;
+  if (f.startsWith("EXACT:")) return `= ${fmt(Number(f.slice(6)))}`;
+  if (f.startsWith("GTE:")) return `≥ ${fmt(Number(f.slice(4)))}`;
+  if (f.startsWith("LTE:")) return `≤ ${fmt(Number(f.slice(4)))}`;
   if (f.startsWith("RANGE:")) {
     const [lo, hi] = f.slice(6).split(":");
-    return `$${Number(lo).toLocaleString()}–$${Number(hi).toLocaleString()}`;
+    return `${fmt(Number(lo))}–${fmt(Number(hi))}`;
   }
   return f;
 }
@@ -158,11 +174,12 @@ export function ListFilterBar({
   teamLabel = "TEAM CODE",
   allTeamsLabel = "All Teams",
   showAmountFilter = true,
-  amountLabel = "AMOUNT FILTER",
-  amountRanges = buildDealAmountRanges(),
+  valueKind = "CURRENCY",
+  amountLabel,
+  amountRanges,
   exactAmounts = [],
-  minPlaceholder = "e.g. 35000",
-  maxPlaceholder = "e.g. 45000",
+  minPlaceholder,
+  maxPlaceholder,
   sortOptions = DEFAULT_SORT_OPTIONS,
   totalCount,
   filteredCount,
@@ -171,6 +188,11 @@ export function ListFilterBar({
 }: ListFilterBarProps) {
   const uid = useId();
   const active = isListFilterActive(value);
+  const isEquity = valueKind === "EQUITY";
+  const resolvedAmountLabel = amountLabel ?? (isEquity ? "EQUITY % / SHARES FILTER" : "AMOUNT FILTER");
+  const resolvedRanges = amountRanges ?? (isEquity ? buildEquityRanges() : buildDealAmountRanges());
+  const resolvedMinPh = minPlaceholder ?? (isEquity ? "e.g. 3" : "e.g. 35000");
+  const resolvedMaxPh = maxPlaceholder ?? (isEquity ? "e.g. 4.5" : "e.g. 45000");
 
   const handleTeamChange = (nextCode: string) => {
     if (resetOnTeamSelect && nextCode !== "ALL") {
@@ -219,8 +241,8 @@ export function ListFilterBar({
   };
 
   return (
-    <div className="guide-filter-bar" role="region" aria-label={`${teamLabel} and ${amountLabel} controls`}>
-      <div className={showAmountFilter ? "grid grid-cols-1 gap-2.5 sm:grid-cols-2" : "grid grid-cols-1 gap-2.5 sm:grid-cols-2"}>
+    <div className="guide-filter-bar" role="region" aria-label={`${teamLabel} and ${resolvedAmountLabel} controls`}>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
         <div>
           <label htmlFor={`${uid}-team`} className="guide-label">
             {teamLabel}
@@ -245,7 +267,7 @@ export function ListFilterBar({
         {showAmountFilter ? (
           <div>
             <label htmlFor={`${uid}-amount`} className="guide-label">
-              {amountLabel}
+              {resolvedAmountLabel}
             </label>
             <select
               id={`${uid}-amount`}
@@ -253,18 +275,20 @@ export function ListFilterBar({
               value={value.amountFilter}
               onChange={e => handleAmountPresetChange(e.target.value)}
             >
-              <option value="ALL">All Amounts</option>
+              <option value="ALL">{isEquity ? "All Equity % / Shares" : "All Amounts"}</option>
               {exactAmounts.length > 0 && (
-                <optgroup label="Exact Amount">
+                <optgroup label={isEquity ? "Exact Equity % (Shares)" : "Exact Amount"}>
                   {exactAmounts.map(amt => (
                     <option key={`EXACT:${amt}`} value={`EXACT:${amt}`}>
-                      Exact: ${amt.toLocaleString()}
+                      {isEquity
+                        ? `Exact: ${amt}% (${Math.round((amt / 100) * 100_000).toLocaleString()} sh)`
+                        : `Exact: $${amt.toLocaleString()}`}
                     </option>
                   ))}
                 </optgroup>
               )}
-              <optgroup label="Amount Ranges">
-                {amountRanges.map(preset => (
+              <optgroup label={isEquity ? "Equity % Ranges" : "Amount Ranges"}>
+                {resolvedRanges.map(preset => (
                   <option key={preset.value} value={preset.value}>
                     {preset.label}
                   </option>
@@ -297,30 +321,30 @@ export function ListFilterBar({
         <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <div>
             <label htmlFor={`${uid}-min`} className="guide-label">
-              MIN AMOUNT ($)
+              {isEquity ? "MIN EQUITY (%)" : "MIN AMOUNT ($)"}
             </label>
             <input
               id={`${uid}-min`}
               type="number"
               min={0}
-              step={1000}
+              step={isEquity ? 0.5 : 1000}
               className="guide-input guide-filter-control font-mono"
-              placeholder={minPlaceholder}
+              placeholder={resolvedMinPh}
               value={value.minAmount}
               onChange={e => handleMinChange(e.target.value)}
             />
           </div>
           <div>
             <label htmlFor={`${uid}-max`} className="guide-label">
-              MAX AMOUNT ($)
+              {isEquity ? "MAX EQUITY (%)" : "MAX AMOUNT ($)"}
             </label>
             <input
               id={`${uid}-max`}
               type="number"
               min={0}
-              step={1000}
+              step={isEquity ? 0.5 : 1000}
               className="guide-input guide-filter-control font-mono"
-              placeholder={maxPlaceholder}
+              placeholder={resolvedMaxPh}
               value={value.maxAmount}
               onChange={e => handleMaxChange(e.target.value)}
             />
@@ -349,9 +373,9 @@ export function ListFilterBar({
         <span className="guide-muted !text-[10px] font-mono">
           SHOWING <b>{filteredCount}</b> OF <b>{totalCount}</b> {itemNoun.toUpperCase()}
           {value.teamCode !== "ALL" && ` · TEAM ${value.teamCode}`}
-          {value.amountFilter !== "ALL" && ` · ${formatAmountFilterTag(value.amountFilter)}`}
-          {value.minAmount.trim() !== "" && ` · MIN $${Number(value.minAmount).toLocaleString()}`}
-          {value.maxAmount.trim() !== "" && ` · MAX $${Number(value.maxAmount).toLocaleString()}`}
+          {value.amountFilter !== "ALL" && ` · ${formatAmountFilterTag(value.amountFilter, valueKind)}`}
+          {value.minAmount.trim() !== "" && ` · MIN ${isEquity ? `${value.minAmount}%` : `$${Number(value.minAmount).toLocaleString()}`}`}
+          {value.maxAmount.trim() !== "" && ` · MAX ${isEquity ? `${value.maxAmount}%` : `$${Number(value.maxAmount).toLocaleString()}`}`}
         </span>
         <div className="flex items-center gap-2">
           {filteredCount > 1 && (
@@ -382,7 +406,7 @@ export function EmptyFilterState({
   return (
     <div className="border border-[#294832] p-4 text-center">
       <p className="guide-muted">
-        No {noun} match the selected team code or amount filter.
+        No {noun} match the selected team code or filter criteria.
       </p>
       <button type="button" className="guide-btn secondary mt-3" onClick={onReset}>
         SHOW ALL {noun.toUpperCase()}

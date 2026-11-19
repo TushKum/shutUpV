@@ -51,6 +51,10 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
     () => r2EquityDeals.reduce((sum, d) => sum + d.amountInvested, 0),
     [r2EquityDeals],
   );
+  const r2TotalShares = useMemo(
+    () => r2EquityDeals.reduce((sum, d) => sum + d.sharesAcquired, 0),
+    [r2EquityDeals],
+  );
 
   const tickerMap = useMemo(
     () => new Map(state.tickers.map((t) => [t.symbol, t])),
@@ -538,12 +542,12 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
               Round 2 Venture Equity Portfolio — {finTeam.code} ({finTeam.name})
             </h2>
             <p className="text-xs text-[#87948D] mt-0.5">
-              Live equity stakes acquired from Product teams in Round 2 (R1 Capital: {formatCurrency(finTeam.initialCapital, 0)} · Deployed: {formatCurrency(r2DeployedTotal, 0)} · Cash Left: {formatCurrency(finTeam.availableCapital, 0)})
+              Live share &amp; equity stakes acquired from Product teams in Round 2 (R1 Capital: {formatCurrency(finTeam.initialCapital, 0)} · Shares Held: {r2TotalShares.toLocaleString()} sh · Calc Deployed: {formatCurrency(r2DeployedTotal, 0)} · Cash Left: {formatCurrency(finTeam.availableCapital, 0)})
             </p>
           </div>
           <div className="flex items-center gap-3">
             <span className="font-mono text-xs text-[#00D68F]">
-              {r2EquityDeals.length} DEAL{r2EquityDeals.length === 1 ? '' : 'S'} CLOSED
+              {r2EquityDeals.length} DEAL{r2EquityDeals.length === 1 ? '' : 'S'} · {r2TotalShares.toLocaleString()} SH
             </span>
             <Link
               href="/demo/rescue"
@@ -555,11 +559,11 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
         </div>
         {r2EquityDeals.length === 0 ? (
           <div className="px-4 py-5 text-xs text-[#87948D]">
-            No Round 2 Product MVP equity deals closed yet. Visit{' '}
+            No Round 2 Product MVP share deals closed yet. Visit{' '}
             <Link href="/demo/rescue" className="text-[color:var(--desk-accent)] underline">
               Round 2: MVP Deals
             </Link>{' '}
-            to inspect Product MVPs and close equity deals with one or multiple Product teams.
+            to inspect Product MVPs and close share &amp; equity deals (money auto-calculated) with one or multiple Product teams.
           </div>
         ) : (
           <div className="max-h-[340px] overflow-auto">
@@ -568,8 +572,9 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                 <tr className="border-b border-[#2d2a1d]">
                   <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">Product Team</th>
                   <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D]">Sector</th>
-                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Invested</th>
+                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Shares Acquired</th>
                   <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Equity Stake</th>
+                  <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Calc Value ($)</th>
                   <th className="py-2.5 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Implied Val</th>
                   <th className="py-2.5 px-4 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#87948D] text-right">Closed At</th>
                 </tr>
@@ -582,10 +587,14 @@ export const OverviewScreen: React.FC<OverviewScreenProps> = ({
                     </td>
                     <td className="py-2.5 px-3 text-xs text-[#87948D]">{deal.sector}</td>
                     <td className="py-2.5 px-3 font-mono text-xs text-[#F2F5F3] text-right tabular-nums">
-                      {formatCurrency(deal.amountInvested, 0)}
+                      {deal.sharesAcquired.toLocaleString()} sh{' '}
+                      <span className="text-[10px] text-[#87948D]">@ ${deal.sharePrice.toFixed(2)}</span>
                     </td>
                     <td className="py-2.5 px-3 font-mono text-xs font-semibold text-[#00D68F] text-right tabular-nums">
                       {deal.equityPct}%
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-xs text-[#F2F5F3] text-right tabular-nums">
+                      {formatCurrency(deal.amountInvested, 0)}
                     </td>
                     <td className="py-2.5 px-3 font-mono text-xs text-[#BACBB9] text-right tabular-nums">
                       {formatCurrency(deal.impliedValuation, 0)}

@@ -86,7 +86,7 @@ export default function QA(){
 
   const handlePostQuestion=()=>{
     if(!question.trim())return;
-    const posterCode=track==="FINANCE"?"TX-8821":code;
+    const posterCode=track==="FINANCE"?(code.startsWith("XF")?code:"XF01"):code;
     dispatch({
       type:"QA_POST_QUESTION",
       team:posterCode,
@@ -98,7 +98,7 @@ export default function QA(){
 
   const handlePublishAnswer=()=>{
     if(!activeInboxItem||!answer.trim())return;
-    const responderCode=track==="FINANCE"?"TX-8821":code;
+    const responderCode=track==="FINANCE"?(code.startsWith("XF")?code:"XF01"):code;
     dispatch({
       type:"QA_ANSWER_QUESTION",
       questionId:activeInboxItem.id,

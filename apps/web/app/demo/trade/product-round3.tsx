@@ -5,14 +5,16 @@ import {
   EmptyFilterState,
   INITIAL_LIST_FILTER,
   ListFilterBar,
-  buildDealAmountRanges,
   buildDraftCashRanges,
+  buildEquityRanges,
   matchesAmountFilter,
   uniqueSortedAmounts,
   type ListFilterState,
 } from "../list-filter-bar";
 import {useCoordination} from "../coordination-store";
 import {
+  calcMoneyFromShares,
+  equityPctToShares,
   getConsultingR3Lock,
   getOrMakeConsultant,
   getOrMakeProduct,
@@ -66,6 +68,15 @@ export function ProductRound3() {
     [state, incumbent.consultingCode]
   );
 
+  const incumbentBaseShares = useMemo(
+    () => equityPctToShares(incumbent.baseEquityPct, product.totalShares),
+    [incumbent.baseEquityPct, product.totalShares]
+  );
+  const incumbentBasePrice = useMemo(
+    () => calcMoneyFromShares(incumbentBaseShares, product.sharePrice),
+    [incumbentBaseShares, product.sharePrice]
+  );
+
   // Final Round 3 1:1 Lock
   const r3Lock = useMemo(() => getProductR3Lock(state, code), [state, code]);
   const lockedConsultant = useMemo(
@@ -102,30 +113,32 @@ export function ProductRound3() {
   const submittedAt = product.r3MvpSubmittedAt;
   const isRebidding = incumbent.status === "REJECTED_REBIDDING" && !r3Lock;
 
-  // ── FILTER MEMOS: RE-BID CONSULTANTS ──
-  const getRebidVisiblePrice = (firmCode: string, baseValue: number) => {
-    if (firmCode === incumbent.consultingCode) return incumbent.requestedPrice;
+  // ── FILTER MEMOS: RE-BID CONSULTANTS (EQUITY % & AUTO-CALC $) ──
+  const getRebidVisibleEquity = (firmCode: string, baseEquityPct: number) => {
+    if (firmCode === incumbent.consultingCode) return incumbent.requestedEquityPct;
     const d = getR3AuctionDeal(state, code, firmCode);
-    return d.pendingPrice ?? d.currentPrice ?? baseValue;
+    return d.pendingEquityPct ?? d.currentEquityPct ?? baseEquityPct;
   };
 
   const rebidTeamOptions = useMemo(
     () =>
       consultingTeams.map(firm => {
-        const price = getRebidVisiblePrice(firm.code, firm.baseValue);
+        const eq = getRebidVisibleEquity(firm.code, firm.baseEquityPct);
+        const sh = equityPctToShares(eq, product.totalShares);
+        const calc = calcMoneyFromShares(sh, product.sharePrice);
         const isInc = firm.code === incumbent.consultingCode;
         return {
           code: firm.code,
-          label: `${firm.code}${isInc ? " (Previous R2)" : ""} · $${price.toLocaleString()}`,
+          label: `${firm.code}${isInc ? " (Previous R2)" : ""} · ${eq}% (calc $${calc.toLocaleString()})`,
         };
       }),
-    [consultingTeams, state, code, incumbent]
+    [consultingTeams, state, code, incumbent, product.totalShares, product.sharePrice]
   );
 
-  const exactRebidAmounts = useMemo(
+  const exactRebidEquities = useMemo(
     () =>
       uniqueSortedAmounts(
-        consultingTeams.map(firm => getRebidVisiblePrice(firm.code, firm.baseValue))
+        consultingTeams.map(firm => getRebidVisibleEquity(firm.code, firm.baseEquityPct))
       ),
     [consultingTeams, state, code, incumbent]
   );
@@ -133,17 +146,17 @@ export function ProductRound3() {
   const filteredRebidConsultants = useMemo(() => {
     const list = consultingTeams.filter(firm => {
       if (rebidFilter.teamCode !== "ALL" && firm.code !== rebidFilter.teamCode) return false;
-      const price = getRebidVisiblePrice(firm.code, firm.baseValue);
-      return matchesAmountFilter(price, rebidFilter);
+      const eq = getRebidVisibleEquity(firm.code, firm.baseEquityPct);
+      return matchesAmountFilter(eq, rebidFilter);
     });
     if (rebidFilter.sortBy === "AMOUNT_ASC") {
       return [...list].sort(
-        (a, b) => getRebidVisiblePrice(a.code, a.baseValue) - getRebidVisiblePrice(b.code, b.baseValue)
+        (a, b) => getRebidVisibleEquity(a.code, a.baseEquityPct) - getRebidVisibleEquity(b.code, b.baseEquityPct)
       );
     }
     if (rebidFilter.sortBy === "AMOUNT_DESC") {
       return [...list].sort(
-        (a, b) => getRebidVisiblePrice(b.code, b.baseValue) - getRebidVisiblePrice(a.code, a.baseValue)
+        (a, b) => getRebidVisibleEquity(b.code, b.baseEquityPct) - getRebidVisibleEquity(a.code, a.baseEquityPct)
       );
     }
     if (rebidFilter.sortBy === "CODE_ASC") {
@@ -233,7 +246,6 @@ export function ProductRound3() {
   const handlePickStatement = (psId: string) => {
     if (lockedStatement) return;
     dispatch({ type: "R3_PICK_STATEMENT", productCode: code, statementId: psId });
-    // Advance next NPC team (#04 XP04) in draft order shortly after so reverse-money queue progresses visibly
     window.setTimeout(() => {
       dispatch({ type: "R3_SIMULATE_NEXT_DRAFT_PICK" });
     }, 1500);
@@ -271,13 +283,14 @@ export function ProductRound3() {
     });
   };
 
-  const incumbentExtra = Math.max(0, incumbent.requestedPrice - incumbent.baseValue);
+  const incumbentExtraShares = Math.max(0, incumbent.requestedShares - incumbentBaseShares);
+  const incumbentExtraPrice = Math.max(0, incumbent.requestedPrice - incumbentBasePrice);
 
   return <>
     <PageTitle
-      eyebrow={`ROUND 3 / LIVE CONSULTANT RE-BID, LEAST-MONEY DRAFT & NEW MVP · ${code}`}
-      title="Decide your consultant, draft your problem statement, and build a new MVP."
-      sub="Live end-to-end Round 3 coordination: receive your Round 2 Consultant's price ask live, accept or remove them for re-bid (unlocking them into the open auction immediately while keeping the option to return), pick 1 exclusive Problem Statement in least-money order (dispatched live to your locked Consultant), and receive their written crisis solution directly into your New MVP."
+      eyebrow={`ROUND 3 / LIVE EQUITY RE-BID, LEAST-MONEY DRAFT & NEW MVP · ${code}`}
+      title="Decide your consultant equity deal, draft your problem statement, and build a new MVP."
+      sub={`Live end-to-end Round 3 coordination in Shares & Equity % (${product.company} @ $${product.sharePrice.toFixed(2)}/sh · ${product.totalShares.toLocaleString()} total shares): receive your Round 2 Consultant's equity ask live (dollar value calculated automatically), accept or remove them for re-bid while keeping the option to return, pick 1 exclusive Problem Statement in least-money order, and build your New MVP.`}
     />
 
     <div className="guide-grid three">
@@ -289,17 +302,17 @@ export function ProductRound3() {
             : isRebidding
               ? "RE-BIDDING OPEN"
               : incumbent.status === "CONSULTANT_ASKED"
-                ? `${incumbent.consultingCode} ASKING +${incumbent.requestedPct}%`
+                ? `${incumbent.consultingCode} ASKING ${incumbent.requestedEquityPct}%`
                 : `R2 PARTNER: ${incumbent.consultingCode}`
         }
         delta={
           r3Lock
-            ? `FEE $${r3Lock.finalPrice.toLocaleString()} · RECEIVES YOUR PS LIVE`
+            ? `${r3Lock.finalEquityPct}% (${r3Lock.finalShares.toLocaleString()} sh · calc $${r3Lock.finalPrice.toLocaleString()})`
             : isRebidding
               ? `RE-BID OR RETURN TO ${incumbent.consultingCode}`
               : incumbent.status === "CONSULTANT_ASKED"
-                ? `ASKING $${incumbent.requestedPrice.toLocaleString()} (+$${incumbentExtra.toLocaleString()} OVER BASE)`
-                : `BASE $${incumbent.baseValue.toLocaleString()} · AWAITING ${incumbent.consultingCode} OR DECIDE NOW`
+                ? `${incumbent.requestedShares.toLocaleString()} sh (+${incumbent.requestedExtraPct}% · calc $${incumbent.requestedPrice.toLocaleString()})`
+                : `BASE ${incumbent.baseEquityPct}% (${incumbentBaseShares.toLocaleString()} sh · calc $${incumbentBasePrice.toLocaleString()})`
         }
       />
       <Metric
@@ -336,17 +349,17 @@ export function ProductRound3() {
       />
     </div>
 
-    {/* ── STEP 1: KEEP CONSULTANT OR REMOVE FOR RE-BID (WITH LIVE RETURN OPTION) ── */}
+    {/* ── STEP 1: KEEP CONSULTANT OR REMOVE FOR RE-BID (SHARES & EQUITY %) ── */}
     <div className="guide-grid two mt-4">
       <Panel
-        title="1. Round 3 consultant decision (keep or remove for re-bid)"
+        title="1. Round 3 consultant equity decision (keep or remove for re-bid)"
         tag={
           r3Lock
             ? `FINAL R3 CONSULTANT · ${r3Lock.consultingCode}`
             : isRebidding
               ? "REMOVED FOR RE-BID · OPTION TO RETURN"
               : incumbent.status === "CONSULTANT_ASKED"
-                ? `⚡ LIVE ASK FROM ${incumbent.consultingCode}`
+                ? `⚡ LIVE EQUITY ASK FROM ${incumbent.consultingCode}`
                 : `R2 PARTNER · ${incumbent.consultingCode}`
         }
       >
@@ -354,35 +367,46 @@ export function ProductRound3() {
           <>
             {incumbent.status === "CONSULTANT_ASKED" ? (
               <div className="guide-alert guide-warning mb-3">
-                <b>⚡ Live Round 3 Price Request from Team {incumbent.consultingCode}:</b> They are asking for{" "}
-                <b>${incumbent.requestedPrice.toLocaleString()}</b> (
-                {incumbent.requestedPct > 0
-                  ? `+${incumbent.requestedPct}% / +$${incumbentExtra.toLocaleString()} above their $${incumbent.baseValue.toLocaleString()} base value`
-                  : "at base price 0%"}
+                <b>⚡ Live Round 3 Equity Ask from Team {incumbent.consultingCode}:</b> They are asking for{" "}
+                <b>{incumbent.requestedEquityPct}% equity ({incumbent.requestedShares.toLocaleString()} shares)</b> — auto-calculated at{" "}
+                <b>${incumbent.requestedPrice.toLocaleString()}</b> (@ ${product.sharePrice.toFixed(2)}/sh){" "}
+                (
+                {incumbent.requestedExtraPct > 0
+                  ? `+${incumbent.requestedExtraPct}% / +${incumbentExtraShares.toLocaleString()} sh above their ${incumbent.baseEquityPct}% base rate`
+                  : "at base equity 0% extra"}
                 ). Accept to lock 1:1 for Round 3, or remove them for re-bid!
               </div>
             ) : (
               <p className="guide-muted">
-                Your Round 2 consultant is <b>Team {incumbent.consultingCode}</b> (base value <b>${incumbent.baseValue.toLocaleString()}</b>). Waiting for them to send a Round 3 price request from their Consulting tab—or you can keep them at base price now, or remove them to re-bid for another consultant.
+                Your Round 2 consultant is <b>Team {incumbent.consultingCode}</b> (base equity <b>{incumbent.baseEquityPct}% · {incumbentBaseShares.toLocaleString()} shares · calc ${incumbentBasePrice.toLocaleString()}</b>). Waiting for them to send a Round 3 equity request from their Consulting tab—or keep them at base equity now, or remove them to re-bid for another consultant.
               </p>
             )}
 
             <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] font-mono">
               <div className="border border-[#294832] p-2">
-                <span className="block text-[#cfa078]">BASE VALUE</span>
-                <b className="mt-0.5 block text-[#fff7f0]">${incumbent.baseValue.toLocaleString()}</b>
-              </div>
-              <div className="border border-[#294832] p-2">
-                <span className="block text-[#cfa078]">LIVE R3 ASK</span>
-                <b className="mt-0.5 block text-[#fff7f0]">${incumbent.requestedPrice.toLocaleString()}</b>
-              </div>
-              <div className="border border-[#294832] p-2">
-                <span className="block text-[#cfa078]">MORE THAN BASE</span>
-                <b className="mt-0.5 block text-[#ff9b45]">
-                  {incumbentExtra > 0
-                    ? `+$${incumbentExtra.toLocaleString()} (+${incumbent.requestedPct}%)`
-                    : "$0 (BASE RATE)"}
+                <span className="block text-[#cfa078]">BASE EQUITY</span>
+                <b className="mt-0.5 block text-[#fff7f0]">
+                  {incumbent.baseEquityPct}% ({incumbentBaseShares.toLocaleString()} sh)
                 </b>
+                <span className="block text-[#cfa078]">calc ${incumbentBasePrice.toLocaleString()}</span>
+              </div>
+              <div className="border border-[#294832] p-2">
+                <span className="block text-[#cfa078]">LIVE R3 EQUITY ASK</span>
+                <b className="mt-0.5 block text-[#fff7f0]">
+                  {incumbent.requestedEquityPct}% ({incumbent.requestedShares.toLocaleString()} sh)
+                </b>
+                <span className="block text-[#cfa078]">calc ${incumbent.requestedPrice.toLocaleString()}</span>
+              </div>
+              <div className="border border-[#294832] p-2">
+                <span className="block text-[#cfa078]">EXTRA OVER BASE</span>
+                <b className="mt-0.5 block text-[#ff9b45]">
+                  {incumbent.requestedExtraPct > 0
+                    ? `+${incumbent.requestedExtraPct}% (+${incumbentExtraShares.toLocaleString()} sh)`
+                    : "0% (BASE EQUITY)"}
+                </b>
+                <span className="block text-[#cfa078]">
+                  {incumbentExtraPrice > 0 ? `+$${incumbentExtraPrice.toLocaleString()} calc` : "$0 extra"}
+                </span>
               </div>
             </div>
 
@@ -399,8 +423,8 @@ export function ProductRound3() {
                 }
               >
                 {incumbent.status === "CONSULTANT_ASKED"
-                  ? `ACCEPT ${incumbent.consultingCode} AT $${incumbent.requestedPrice.toLocaleString()} (+${incumbent.requestedPct}%) 🔒`
-                  : `KEEP ${incumbent.consultingCode} AT BASE ($${incumbent.baseValue.toLocaleString()}) 🔒`}
+                  ? `ACCEPT ${incumbent.consultingCode} AT ${incumbent.requestedEquityPct}% (${incumbent.requestedShares.toLocaleString()} sh · $${incumbent.requestedPrice.toLocaleString()}) 🔒`
+                  : `KEEP ${incumbent.consultingCode} AT BASE ${incumbent.baseEquityPct}% (${incumbentBaseShares.toLocaleString()} sh · $${incumbentBasePrice.toLocaleString()}) 🔒`}
               </button>
               <button
                 type="button"
@@ -422,7 +446,7 @@ export function ProductRound3() {
         {isRebidding && (
           <>
             <div className="guide-alert guide-warning mb-3">
-              <b>Team {incumbent.consultingCode} removed for Round 3 re-bid (unlocked into Open Auction live).</b> Send a re-bid request to any available consultant below, or click <b>Get Back With {incumbent.consultingCode}</b> if they are still available!
+              <b>Team {incumbent.consultingCode} removed for Round 3 re-bid (unlocked into Open Equity Auction live).</b> Send a share &amp; equity re-bid offer to any available consultant below, or click <b>Get Back With {incumbent.consultingCode}</b> if they are still available!
             </div>
             <ListFilterBar
               value={rebidFilter}
@@ -430,13 +454,14 @@ export function ProductRound3() {
               teamOptions={rebidTeamOptions}
               teamLabel="CONSULTING TEAM CODE"
               allTeamsLabel="All Consultants"
-              amountLabel="CONSULTANT FEE AMOUNT"
-              amountRanges={buildDealAmountRanges()}
-              exactAmounts={exactRebidAmounts}
+              valueKind="EQUITY"
+              amountLabel="CONSULTANT EQUITY %"
+              amountRanges={buildEquityRanges()}
+              exactAmounts={exactRebidEquities}
               sortOptions={[
                 { value: "DEFAULT", label: "Default Order" },
-                { value: "AMOUNT_ASC", label: "Fee: Low → High" },
-                { value: "AMOUNT_DESC", label: "Fee: High → Low" },
+                { value: "AMOUNT_ASC", label: "Equity %: Low → High" },
+                { value: "AMOUNT_DESC", label: "Equity %: High → Low" },
                 { value: "CODE_ASC", label: "Team Code: A → Z" },
               ]}
               totalCount={consultingTeams.length}
@@ -457,8 +482,13 @@ export function ProductRound3() {
                     d.lockInitiatedBy === "CONSULTING" && d.consultingLockAccepted && !d.productLockAccepted;
                   const isProductLockWaiting =
                     d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted;
-                  const visiblePrice = getRebidVisiblePrice(firm.code, firm.baseValue);
-                  const extra = Math.max(0, visiblePrice - firm.baseValue);
+                  const visibleEq = getRebidVisibleEquity(firm.code, firm.baseEquityPct);
+                  const visibleSh = equityPctToShares(visibleEq, product.totalShares);
+                  const visibleCalc = calcMoneyFromShares(visibleSh, product.sharePrice);
+                  const baseSh = equityPctToShares(firm.baseEquityPct, product.totalShares);
+                  const baseCalc = calcMoneyFromShares(baseSh, product.sharePrice);
+                  const extraEq = Math.max(0, Number((visibleEq - firm.baseEquityPct).toFixed(2)));
+                  const extraSh = Math.max(0, visibleSh - baseSh);
                   const isNpcFirm = firm.code !== "XC01";
 
                   return (
@@ -478,18 +508,18 @@ export function ProductRound3() {
                           {isTakenElsewhere
                             ? `CLOSED · LOCKED WITH ${firmLockedElsewhere!.productCode}`
                             : isInc
-                              ? `AVAILABLE TO RETURN · $${incumbent.requestedPrice.toLocaleString()} (+${incumbent.requestedPct}%)`
+                              ? `AVAILABLE TO RETURN · ${incumbent.requestedEquityPct}% (${incumbent.requestedShares.toLocaleString()} sh · $${incumbent.requestedPrice.toLocaleString()})`
                               : isConsultingLockIncoming
-                                ? `⚡ ${firm.code} SENT LOCK REQUEST ($${d.currentPrice.toLocaleString()})!`
+                                ? `⚡ ${firm.code} SENT LOCK REQUEST (${d.currentEquityPct}% · $${d.currentPrice.toLocaleString()})!`
                                 : isProductLockWaiting
                                   ? `● LOCK REQUEST SENT · WAITING FOR ${firm.code}…`
                                   : d.stage === "PROPOSAL_SENT"
-                                    ? `● RE-BID SENT · WAITING FOR ${firm.code}…`
+                                    ? `● RE-BID SENT (${d.currentEquityPct}%) · WAITING FOR ${firm.code}…`
                                     : d.stage === "COUNTER_DEMANDED"
-                                      ? `▲ DEMANDING +$${extra.toLocaleString()} (+${d.pendingMarkupPct}%) OVER BASE`
+                                      ? `▲ ASKING +${extraEq}% (+${extraSh.toLocaleString()} sh → ${visibleEq}% · $${visibleCalc.toLocaleString()})`
                                       : d.stage === "DEAL_AGREED_UNLOCKED"
-                                        ? `✓ AGREED AT $${d.currentPrice.toLocaleString()} · READY TO LOCK`
-                                        : `BASE: $${firm.baseValue.toLocaleString()}`}
+                                        ? `✓ AGREED AT ${d.currentEquityPct}% (${d.currentShares.toLocaleString()} sh · $${d.currentPrice.toLocaleString()})`
+                                        : `BASE: ${firm.baseEquityPct}% (${baseSh.toLocaleString()} sh · calc $${baseCalc.toLocaleString()})`}
                         </span>
                       </div>
                       <p className="guide-muted mt-1">{firm.speciality}</p>
@@ -508,7 +538,7 @@ export function ProductRound3() {
                                 })
                               }
                             >
-                              GET BACK WITH {firm.code} AT ${incumbent.requestedPrice.toLocaleString()} 🔒
+                              GET BACK WITH {firm.code} AT {incumbent.requestedEquityPct}% ({incumbent.requestedShares.toLocaleString()} sh · ${incumbent.requestedPrice.toLocaleString()}) 🔒
                             </button>
                           ) : isConsultingLockIncoming ? (
                             <button
@@ -523,7 +553,7 @@ export function ProductRound3() {
                                 })
                               }
                             >
-                              ACCEPT LOCK REQUEST FROM {firm.code} (${d.currentPrice.toLocaleString()}) 🔒
+                              ACCEPT LOCK FROM {firm.code} ({d.currentEquityPct}% · ${d.currentPrice.toLocaleString()}) 🔒
                             </button>
                           ) : isProductLockWaiting ? (
                             <>
@@ -557,7 +587,7 @@ export function ProductRound3() {
                                 })
                               }
                             >
-                              ACCEPT +${extra.toLocaleString()} INCREASE (${visiblePrice.toLocaleString()}) →
+                              ACCEPT {visibleEq}% (+{extraEq}% · {visibleSh.toLocaleString()} sh · $${visibleCalc.toLocaleString()}) →
                             </button>
                           ) : d.stage === "PROPOSAL_SENT" ? (
                             <>
@@ -571,11 +601,11 @@ export function ProductRound3() {
                                       type: "R3_CONSULTING_PUSH_AUCTION_DEMAND",
                                       productCode: code,
                                       consultingCode: firm.code,
-                                      markupPct: firm.defaultR3MarkupPct,
+                                      extraEquityPct: firm.defaultR3ExtraPct,
                                     })
                                   }
                                 >
-                                  SIMULATE {firm.code} REPLY
+                                  SIMULATE {firm.code} REPLY (+{firm.defaultR3ExtraPct}% EQ)
                                 </button>
                               )}
                             </>
@@ -592,7 +622,7 @@ export function ProductRound3() {
                                 })
                               }
                             >
-                              SEND LOCK REQUEST TO {firm.code} AT ${d.currentPrice.toLocaleString()} 🔒
+                              SEND LOCK REQUEST TO {firm.code} ({d.currentEquityPct}% · {d.currentShares.toLocaleString()} sh · ${d.currentPrice.toLocaleString()}) 🔒
                             </button>
                           ) : (
                             <button
@@ -606,7 +636,7 @@ export function ProductRound3() {
                                 })
                               }
                             >
-                              SEND RE-BID REQUEST TO {firm.code} (${firm.baseValue.toLocaleString()}) →
+                              OFFER {firm.baseEquityPct}% ({baseSh.toLocaleString()} sh · calc ${baseCalc.toLocaleString()}) RE-BID TO {firm.code} →
                             </button>
                           )}
                         </div>
@@ -622,8 +652,10 @@ export function ProductRound3() {
         {r3Lock && lockedConsultant && (
           <div className="space-y-3">
             <div className="guide-alert">
-              <b>✓ Round 3 Consultant Locked: Team {lockedConsultant.code}</b> at <b>${r3Lock.finalPrice.toLocaleString()}</b>{" "}
-              ({r3Lock.markupPct > 0 ? `+${r3Lock.markupPct}% above base` : "at base price"}).
+              <b>✓ Round 3 Consultant Locked: Team {lockedConsultant.code}</b> for{" "}
+              <b>{r3Lock.finalEquityPct}% equity ({r3Lock.finalShares.toLocaleString()} shares)</b> — auto-calculated at{" "}
+              <b>${r3Lock.finalPrice.toLocaleString()}</b> (@ ${product.sharePrice.toFixed(2)}/sh,{" "}
+              {r3Lock.extraEquityPct > 0 ? `+${r3Lock.extraEquityPct}% above base` : "at base equity"}).
               {r3Lock.source === "RETURNED_TO_INCUMBENT"
                 ? " You chose to return to your previous Round 2 consultant."
                 : r3Lock.source === "REBID_AUCTION"
@@ -648,7 +680,7 @@ export function ProductRound3() {
       {/* ── STEP 2A: REVERSE-MONEY ORDER DRAFT QUEUE (LEAST MONEY PICKS FIRST) ── */}
       <Panel title="2. Draft order (least money chooses first)" tag="1 TEAM PER PROBLEM STATEMENT · LOCKS ON PICK">
         <p className="guide-muted mb-3">
-          Problem statement selection starts with the <b>company with the least money</b>, then the second-least money, all the way up to the richest company. Once a team picks a statement, it is <b>permanently locked (1 team per statement)</b>.
+          Problem statement selection starts with the <b>company with the least money</b> (from Round 2 Finance share deals), then the second-least money, up to the richest company. Once a team picks a statement, it is <b>permanently locked (1 team per statement)</b>.
         </p>
         <ListFilterBar
           value={draftFilter}
@@ -894,7 +926,7 @@ export function ProductRound3() {
           <div className="guide-alert guide-warning">
             <b>Complete Steps 1 &amp; 3 Above to Unlock Your New Round 3 MVP</b>
             <br />
-            • Step 1 (Round 3 Consultant): <b>{r3Lock ? `✓ Locked with Team ${r3Lock.consultingCode} ($${r3Lock.finalPrice.toLocaleString()})` : `Pending — Accept ${incumbent.consultingCode} or re-bid & lock a consultant`}</b>
+            • Step 1 (Round 3 Consultant): <b>{r3Lock ? `✓ Locked with Team ${r3Lock.consultingCode} (${r3Lock.finalEquityPct}% · ${r3Lock.finalShares.toLocaleString()} sh · calc $${r3Lock.finalPrice.toLocaleString()})` : `Pending — Accept ${incumbent.consultingCode} or re-bid & lock a consultant`}</b>
             <br />
             • Step 3 (Problem Statement Draft): <b>{lockedStatement ? `✓ Locked ${lockedStatement.id}` : "Pending — Pick & lock 1 open problem statement above"}</b>
             <br />
@@ -993,9 +1025,9 @@ export function ProductRound3() {
                 <span>1 TEAM MAX · CANNOT CHANGE</span>
               </div>
               <div className="guide-metric">
-                <small>R3 CONSULTANT</small>
+                <small>R3 CONSULTANT STAKE</small>
                 <b>Team {lockedConsultant.code}</b>
-                <span>FEE ${r3Lock.finalPrice.toLocaleString()}</span>
+                <span>{r3Lock.finalEquityPct}% ({r3Lock.finalShares.toLocaleString()} sh · calc ${r3Lock.finalPrice.toLocaleString()})</span>
               </div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -1103,7 +1135,7 @@ export function ProductRound3() {
     )}
 
     <div className="guide-alert mt-4">
-      End-to-end Product Round 3 flow: <b>1. Respond Live to Consultant&apos;s Ask or Remove for Re-Bid (With Return Option)</b> → <b>2. Pick 1 Exclusive Problem Statement (Least-Money Order)</b> → <b>3. Dispatched Live to Consultant → Receive Live Solution &amp; Submit New Round 3 MVP</b>.
+      End-to-end Product Round 3 flow (Shares &amp; Equity %): <b>1. Respond Live to Consultant&apos;s Equity Ask or Remove for Re-Bid (Money Auto-Calculated)</b> → <b>2. Pick 1 Exclusive Problem Statement (Least-Money Order)</b> → <b>3. Dispatched Live to Consultant → Receive Live Solution &amp; Submit New Round 3 MVP</b>.
     </div>
   </>;
 }

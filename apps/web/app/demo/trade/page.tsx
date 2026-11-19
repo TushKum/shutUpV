@@ -8,13 +8,15 @@ import {
   EmptyFilterState,
   INITIAL_LIST_FILTER,
   ListFilterBar,
-  buildDealAmountRanges,
+  buildEquityRanges,
   matchesAmountFilter,
   uniqueSortedAmounts,
   type ListFilterState,
 } from "../list-filter-bar";
 import {useCoordination} from "../coordination-store";
 import {
+  calcMoneyFromShares,
+  equityPctToShares,
   getConsultingR3Lock,
   getOrMakeConsultant,
   getOrMakeProduct,
@@ -46,13 +48,22 @@ export default function Trade(){
   }, [router, track]);
 
   const consultant = useMemo(() => getOrMakeConsultant(state, code), [state, code]);
-  const baseValuation = consultant.baseValue;
+  const baseEquityPct = consultant.baseEquityPct;
 
   // Inherited Round 2 incumbent pair (live from R2 lock or default XP01 ⇄ XC01)
   const incumbent = useMemo(() => getR3IncumbentForConsulting(state, code), [state, code]);
   const incumbentPartner = useMemo(
     () => getOrMakeProduct(state, incumbent.productCode),
     [state, incumbent.productCode]
+  );
+
+  const baseShares = useMemo(
+    () => equityPctToShares(baseEquityPct, incumbentPartner.totalShares),
+    [baseEquityPct, incumbentPartner.totalShares]
+  );
+  const baseCalcValue = useMemo(
+    () => calcMoneyFromShares(baseShares, incumbentPartner.sharePrice),
+    [baseShares, incumbentPartner.sharePrice]
   );
 
   // Final Round 3 1:1 Lock (either accepted incumbent, returned incumbent, or open-auction lock)
@@ -68,11 +79,11 @@ export default function Trade(){
     [state, allottedPartner]
   );
 
-  // Stage 1 controls
-  const [r3IncreasePct, setR3IncreasePct] = useState<number>(0);
+  // Stage 1 controls: ask for extra equity % over base equity (0% = stay on base equity)
+  const [r3ExtraEquityPct, setR3ExtraEquityPct] = useState<number>(0);
 
   // Stage 2: Open Auction controls
-  const [auctionMarkupPct, setAuctionMarkupPct] = useState<number>(0);
+  const [auctionExtraEquityPct, setAuctionExtraEquityPct] = useState<number>(0);
   const [auctionFilter, setAuctionFilter] = useState<ListFilterState>(INITIAL_LIST_FILTER);
 
   // Stage 3: Crisis solution editor
@@ -88,24 +99,31 @@ export default function Trade(){
     }
   }, [ready, r3Lock?.key, r3Lock?.r3SolutionSubmittedAt]);
 
+  const requestedIncumbentEquityPct = useMemo(
+    () => Number((baseEquityPct + r3ExtraEquityPct).toFixed(2)),
+    [baseEquityPct, r3ExtraEquityPct]
+  );
+  const requestedIncumbentShares = useMemo(
+    () => equityPctToShares(requestedIncumbentEquityPct, incumbentPartner.totalShares),
+    [requestedIncumbentEquityPct, incumbentPartner.totalShares]
+  );
   const requestedIncumbentPrice = useMemo(
-    () => Math.round(baseValuation * (1 + r3IncreasePct / 100)),
-    [baseValuation, r3IncreasePct]
+    () => calcMoneyFromShares(requestedIncumbentShares, incumbentPartner.sharePrice),
+    [requestedIncumbentShares, incumbentPartner.sharePrice]
   );
 
-  // Auction candidates: all Product teams other than incumbent (or all if another Product team sent a live re-bid to this consultant!)
+  // Auction candidates: all Product teams other than incumbent
   const auctionCandidates = useMemo(() => {
     return state.productOrder
       .map(pCode => state.products[pCode]!)
       .filter(Boolean)
       .filter(p => {
-        // Keep incumbent out of open auction unless they aren't our current incumbent, OR keep all non-incumbents
         if (p.code === incumbent.productCode && incumbent.status !== "REJECTED_REBIDDING") return false;
         return p.code !== incumbent.productCode;
       });
   }, [state.productOrder, state.products, incumbent.productCode, incumbent.status]);
 
-  // Also check if ANY Product team sent a direct R3 Re-Bid proposal to this Consulting team (e.g. XP01 removed XC01 and sent re-bid to XC04!)
+  // Also check if ANY Product team sent a direct R3 Re-Bid proposal to this Consulting team
   const incomingRebidsForMe = useMemo(() => {
     const list: string[] = [];
     for (const deal of Object.values(state.r3AuctionDeals)) {
@@ -121,7 +139,7 @@ export default function Trade(){
     return list;
   }, [state, code]);
 
-  // Merge any live re-bidder (even XP01 if logged in as XC04!) into auction candidates
+  // Merge any live re-bidder into auction candidates
   const allAuctionCandidates = useMemo(() => {
     const map = new Map(auctionCandidates.map(c => [c.code, c]));
     for (const pCode of incomingRebidsForMe) {
@@ -152,6 +170,7 @@ export default function Trade(){
     () =>
       allAuctionCandidates.map(c => {
         const d = getR3AuctionDeal(state, c.code, code);
+        const eq = d.pendingEquityPct ?? d.currentEquityPct;
         const price = d.pendingPrice ?? d.currentPrice;
         const badge =
           d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted
@@ -159,17 +178,20 @@ export default function Trade(){
             : d.stage === "PROPOSAL_SENT"
               ? " [RE-BID]"
               : "";
-        return { code: c.code, label: `${c.code} · ${c.company} ($${price.toLocaleString()})${badge}` };
+        return {
+          code: c.code,
+          label: `${c.code} · ${c.company} (${eq}% · calc $${price.toLocaleString()})${badge}`,
+        };
       }),
     [allAuctionCandidates, state, code]
   );
 
-  const exactAuctionAmounts = useMemo(
+  const exactAuctionEquities = useMemo(
     () =>
       uniqueSortedAmounts(
         allAuctionCandidates.map(c => {
           const d = getR3AuctionDeal(state, c.code, code);
-          return d.pendingPrice ?? d.currentPrice;
+          return d.pendingEquityPct ?? d.currentEquityPct;
         })
       ),
     [allAuctionCandidates, state, code]
@@ -179,21 +201,28 @@ export default function Trade(){
     const list = allAuctionCandidates.filter(cand => {
       if (auctionFilter.teamCode !== "ALL" && cand.code !== auctionFilter.teamCode) return false;
       const d = getR3AuctionDeal(state, cand.code, code);
-      const price = d.pendingPrice ?? d.currentPrice;
-      return matchesAmountFilter(price, auctionFilter);
+      const eq = d.pendingEquityPct ?? d.currentEquityPct;
+      return matchesAmountFilter(eq, auctionFilter);
     });
     if (auctionFilter.sortBy === "AMOUNT_DESC") {
       return [...list].sort((a, b) => {
         const da = getR3AuctionDeal(state, a.code, code);
         const db = getR3AuctionDeal(state, b.code, code);
-        return (db.pendingPrice ?? db.currentPrice) - (da.pendingPrice ?? da.currentPrice);
+        return (db.pendingEquityPct ?? db.currentEquityPct) - (da.pendingEquityPct ?? da.currentEquityPct);
       });
     }
     if (auctionFilter.sortBy === "AMOUNT_ASC") {
       return [...list].sort((a, b) => {
         const da = getR3AuctionDeal(state, a.code, code);
         const db = getR3AuctionDeal(state, b.code, code);
-        return (da.pendingPrice ?? da.currentPrice) - (db.pendingPrice ?? db.currentPrice);
+        return (da.pendingEquityPct ?? da.currentEquityPct) - (db.pendingEquityPct ?? db.currentEquityPct);
+      });
+    }
+    if (auctionFilter.sortBy === "VALUE_DESC") {
+      return [...list].sort((a, b) => {
+        const da = getR3AuctionDeal(state, a.code, code);
+        const db = getR3AuctionDeal(state, b.code, code);
+        return (db.pendingPrice ?? db.currentPrice) - (da.pendingPrice ?? da.currentPrice);
       });
     }
     if (auctionFilter.sortBy === "CODE_ASC") {
@@ -216,6 +245,18 @@ export default function Trade(){
   const activeAuctionCode = r3Lock?.productCode ?? auctionWaitingLockCode;
   const isAuctionActiveHidden =
     activeAuctionCode !== null && !filteredAuctionCandidates.some(c => c.code === activeAuctionCode);
+
+  const allottedDealEquityPct = r3Lock
+    ? r3Lock.finalEquityPct
+    : incumbent.status === "CONSULTANT_ASKED"
+      ? incumbent.requestedEquityPct
+      : requestedIncumbentEquityPct;
+
+  const allottedDealShares = r3Lock
+    ? r3Lock.finalShares
+    : incumbent.status === "CONSULTANT_ASKED"
+      ? incumbent.requestedShares
+      : requestedIncumbentShares;
 
   const allottedDealPrice = r3Lock
     ? r3Lock.finalPrice
@@ -288,28 +329,28 @@ export default function Trade(){
 
   return <>
     <PageTitle
-      eyebrow={`ROUND 3 / LIVE PRICE INCREASE, AUCTION & DISPATCHED CRISIS · ${code}`}
-      title="Ask for a Round 3 price increase or re-enter the auction."
-      sub="Live end-to-end Round 3 coordination: ask your Round 2 Product partner for a price increase (or stay on base price). Their live Accept or Remove-for-Rebid decision updates here instantaneously. Once allotted 1:1, the Problem Statement they lock in least-money order dispatches straight to you—and your submitted solution streams live into their New Round 3 MVP."
+      eyebrow={`ROUND 3 / LIVE EQUITY INCREASE, AUCTION & DISPATCHED CRISIS · ${code}`}
+      title="Ask for more shares & equity in Round 3 or re-enter the equity auction."
+      sub="Live end-to-end Round 3 coordination in Shares & Equity %: ask your Round 2 Product partner for additional equity (or stay on base equity)—dollar value is calculated automatically from shares × share price. Their live Accept or Remove-for-Rebid decision updates here instantaneously. Once allotted 1:1, the Problem Statement they lock in least-money order dispatches straight to you."
     />
 
     <div className="guide-grid three">
       <Metric
-        label="ROUND 2 PARTNER & BASE"
-        value={`$${baseValuation.toLocaleString()}`}
-        delta={`R2 PARTNER: ${incumbentPartner.code} (${incumbentPartner.company})`}
+        label="ROUND 2 PARTNER & BASE EQUITY"
+        value={`${baseEquityPct}% · ${baseShares.toLocaleString()} sh`}
+        delta={`R2 PARTNER: ${incumbentPartner.code} (${incumbentPartner.company}) · CALC $${baseCalcValue.toLocaleString()}`}
       />
       <Metric
-        label="ROUND 3 DEAL PRICE"
-        value={`$${allottedDealPrice.toLocaleString()}`}
+        label="ROUND 3 EQUITY DEAL"
+        value={`${allottedDealEquityPct}% · ${allottedDealShares.toLocaleString()} sh`}
         delta={
           r3Lock
-            ? `LOCKED WITH ${r3Lock.productCode} · SETTLED AFTER ROUND 3`
+            ? `CALC $${allottedDealPrice.toLocaleString()} · LOCKED WITH ${r3Lock.productCode}`
             : isAuctionActive
-              ? "UNLOCKED · NEGOTIATING IN OPEN AUCTION"
+              ? "UNLOCKED · NEGOTIATING SHARES IN OPEN AUCTION"
               : incumbent.status === "CONSULTANT_ASKED"
-                ? `SENT +${incumbent.requestedPct}% TO ${incumbentPartner.code} · AWAITING REPLY`
-                : `BASE $${baseValuation.toLocaleString()} OR +${r3IncreasePct}% ASK`
+                ? `SENT +${incumbent.requestedExtraPct}% (CALC $${incumbent.requestedPrice.toLocaleString()}) · AWAITING ${incumbentPartner.code}`
+                : `AUTO-CALC $${allottedDealPrice.toLocaleString()} @ $${incumbentPartner.sharePrice.toFixed(2)}/sh`
         }
       />
       <Metric
@@ -332,15 +373,15 @@ export default function Trade(){
                 : `${code} ⇄ ${r3Lock.productCode} · SOLVING R3 CRISIS`
             : isAuctionActive
               ? `${incumbentPartner.code} OPENED RE-BID · LOCK NEW PARTNER`
-              : "SEND BASE PRICE OR INCREASE TO START R3"
+              : "SEND BASE EQUITY OR EXTRA EQUITY ASK TO START R3"
         }
       />
     </div>
 
     <div className="guide-grid two mt-4">
-      {/* PANEL 1: Ask Current Round 2 Partner for a Round 3 Price Increase */}
+      {/* PANEL 1: Ask Current Round 2 Partner for Extra Equity & Shares in Round 3 */}
       <Panel
-        title={`1. Ask ${incumbentPartner.code} (${incumbentPartner.company}) for a Round 3 price increase`}
+        title={`1. Ask ${incumbentPartner.code} (${incumbentPartner.company}) for Round 3 equity & shares`}
         tag={
           r3Lock && r3Lock.productCode === incumbentPartner.code
             ? r3Lock.source === "RETURNED_TO_INCUMBENT"
@@ -354,51 +395,52 @@ export default function Trade(){
         }
       >
         <p className="guide-muted">
-          You enter Round 3 paired with <b>{incumbentPartner.code} · {incumbentPartner.company} ({incumbentPartner.ticker})</b> starting from your consultancy base price of <b>${baseValuation.toLocaleString()}</b>. Stay at base price (0%) or ask for an increase—<b>{incumbentPartner.code}</b> receives it live on their Round 3 page and chooses whether to accept or remove you for re-bid.
+          You enter Round 3 paired with <b>{incumbentPartner.code} · {incumbentPartner.company} ({incumbentPartner.ticker})</b> starting from your consultancy base equity of <b>{baseEquityPct}% ({baseShares.toLocaleString()} shares)</b> — auto-calculated at <b>${baseCalcValue.toLocaleString()}</b> (@ ${incumbentPartner.sharePrice.toFixed(2)}/sh). Stay at base equity (0% extra) or ask for extra equity %—<b>{incumbentPartner.code}</b> receives it live on their Round 3 page.
         </p>
 
-        <label className="guide-label">SELECT ROUND 3 PRICE (BASE PRICE OR INCREASE %) FOR {incumbentPartner.code}</label>
+        <label className="guide-label">SELECT EXTRA EQUITY % FOR {incumbentPartner.code} (0% = BASE EQUITY {baseEquityPct}%)</label>
         <div className="guide-tabs">
-          {[0, 10, 15, 20, 25, 40].map(pct => (
-            <button
-              key={pct}
-              type="button"
-              disabled={incumbent.status !== "AWAITING_CONSULTANT_ASK" || !!r3Lock}
-              className={r3IncreasePct === pct ? "active" : ""}
-              onClick={() => setR3IncreasePct(pct)}
-            >
-              {pct === 0
-                ? `BASE (0% · $${baseValuation.toLocaleString()})`
-                : `+${pct}% ($${Math.round(baseValuation * (1 + pct / 100)).toLocaleString()})`}
-            </button>
-          ))}
+          {[0, 0.5, 1, 1.5, 2, 3].map(extra => {
+            const totalEq = Number((baseEquityPct + extra).toFixed(2));
+            const totalSh = equityPctToShares(totalEq, incumbentPartner.totalShares);
+            const calcVal = calcMoneyFromShares(totalSh, incumbentPartner.sharePrice);
+            return (
+              <button
+                key={extra}
+                type="button"
+                disabled={incumbent.status !== "AWAITING_CONSULTANT_ASK" || !!r3Lock}
+                className={r3ExtraEquityPct === extra ? "active" : ""}
+                onClick={() => setR3ExtraEquityPct(extra)}
+              >
+                {extra === 0
+                  ? `BASE (${totalEq}% · $${calcVal.toLocaleString()})`
+                  : `+${extra}% → ${totalEq}% ($${calcVal.toLocaleString()})`}
+              </button>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="guide-label">CUSTOM PRICE INCREASE (% · 0% = BASE PRICE)</label>
+            <label className="guide-label">CUSTOM EXTRA EQUITY (% · 0% = BASE)</label>
             <input
               type="number"
               min={0}
-              max={200}
-              step={1}
+              max={15}
+              step={0.5}
               disabled={incumbent.status !== "AWAITING_CONSULTANT_ASK" || !!r3Lock}
               className="guide-input font-mono"
-              value={r3IncreasePct}
-              onChange={e => setR3IncreasePct(Math.max(0, Math.min(200, Number(e.target.value) || 0)))}
+              value={r3ExtraEquityPct}
+              onChange={e => setR3ExtraEquityPct(Math.max(0, Math.min(15, Number(e.target.value) || 0)))}
             />
           </div>
           <div>
-            <label className="guide-label">ROUND 3 PRICE (PAID AFTER R3)</label>
+            <label className="guide-label">TOTAL EQUITY, SHARES &amp; AUTO-CALC VALUE</label>
             <input
               type="text"
               readOnly
               className="guide-input font-mono"
-              value={
-                r3IncreasePct === 0
-                  ? `$${requestedIncumbentPrice.toLocaleString()} (BASE PRICE · 0%)`
-                  : `$${requestedIncumbentPrice.toLocaleString()} (+${r3IncreasePct}% OVER BASE)`
-              }
+              value={`${requestedIncumbentEquityPct}% (${requestedIncumbentShares.toLocaleString()} sh) · $${requestedIncumbentPrice.toLocaleString()}`}
             />
           </div>
         </div>
@@ -414,17 +456,17 @@ export default function Trade(){
                     type: "R3_CONSULTING_ASK_INCUMBENT",
                     productCode: incumbentPartner.code,
                     consultingCode: code,
-                    increasePct: r3IncreasePct,
+                    extraEquityPct: r3ExtraEquityPct,
                   })
                 }
               >
-                {r3IncreasePct === 0
-                  ? `SEND BASE PRICE ($${requestedIncumbentPrice.toLocaleString()} · 0%) TO ${incumbentPartner.code} →`
-                  : `ASK ${incumbentPartner.code} FOR +${r3IncreasePct}% ($${requestedIncumbentPrice.toLocaleString()}) →`}
+                {r3ExtraEquityPct === 0
+                  ? `SEND BASE EQUITY (${requestedIncumbentEquityPct}% · ${requestedIncumbentShares.toLocaleString()} sh · $${requestedIncumbentPrice.toLocaleString()}) TO ${incumbentPartner.code} →`
+                  : `ASK ${incumbentPartner.code} FOR ${requestedIncumbentEquityPct}% (+${r3ExtraEquityPct}% · ${requestedIncumbentShares.toLocaleString()} sh · $${requestedIncumbentPrice.toLocaleString()}) →`}
               </button>
             </div>
             <p className="guide-muted">
-              This request syncs immediately to <b>{incumbentPartner.code}&apos;s</b> Round 3 workspace. They can accept your price or remove you for re-bid.
+              This share &amp; equity ask syncs immediately to <b>{incumbentPartner.code}&apos;s</b> Round 3 workspace. Dollar value (${requestedIncumbentPrice.toLocaleString()}) is computed automatically from {requestedIncumbentShares.toLocaleString()} shares × ${incumbentPartner.sharePrice.toFixed(2)}/sh.
             </p>
           </div>
         )}
@@ -432,7 +474,9 @@ export default function Trade(){
         {incumbent.status === "CONSULTANT_ASKED" && !r3Lock && (
           <div className="guide-alert mt-4 space-y-2.5">
             <div>
-              <b>● Round 3 price request (+{incumbent.requestedPct}% → ${incumbent.requestedPrice.toLocaleString()}) sent live to {incumbentPartner.code}!</b>
+              <b>
+                ● Round 3 equity request ({incumbent.requestedEquityPct}% · {incumbent.requestedShares.toLocaleString()} sh · auto-calc ${incumbent.requestedPrice.toLocaleString()}) sent live to {incumbentPartner.code}!
+              </b>
               <br />
               Waiting for Product Team <b>{incumbentPartner.code} ({incumbentPartner.company})</b> to click <b>Accept</b> or <b>Remove &amp; Re-Bid</b> in their Product Round 3 workspace.
             </div>
@@ -475,11 +519,13 @@ export default function Trade(){
               ✓ {incumbentPartner.code} ({incumbentPartner.company}){" "}
               {r3Lock.source === "RETURNED_TO_INCUMBENT"
                 ? "RETURNED TO YOU & LOCKED"
-                : `ACCEPTED your +${r3Lock.markupPct}% price`}{" "}
+                : r3Lock.extraEquityPct > 0
+                  ? `ACCEPTED your +${r3Lock.extraEquityPct}% extra equity ask`
+                  : "ACCEPTED your base equity rate"}{" "}
               ({r3Lock.lockedAt})!
             </b>
             <br />
-            Your agreed Round 3 price of <b>${r3Lock.finalPrice.toLocaleString()}</b> is locked and settled after Round 3. Solve their dispatched Problem Statement crisis below.
+            Your agreed Round 3 stake of <b>{r3Lock.finalEquityPct}% ({r3Lock.finalShares.toLocaleString()} shares)</b> — auto-calculated at <b>${r3Lock.finalPrice.toLocaleString()}</b> — is locked and settled after Round 3. Solve their dispatched Problem Statement crisis below.
           </div>
         )}
 
@@ -487,14 +533,14 @@ export default function Trade(){
           <div className="guide-alert guide-warning mt-4">
             <b>✕ {incumbentPartner.code} ({incumbentPartner.company}) REMOVED YOU FOR RE-BID ({incumbent.decidedAt}).</b>
             <br />
-            <b>Team {code} is now UNLOCKED in the Round 3 Open Auction!</b> Negotiate and lock 1-to-1 with an interested Product team in Panel 2 on the right (note: {incumbentPartner.code} can still choose to get back with you until you lock with someone else).
+            <b>Team {code} is now UNLOCKED in the Round 3 Open Equity Auction!</b> Negotiate shares &amp; equity 1-to-1 with an interested Product team in Panel 2 on the right (note: {incumbentPartner.code} can still choose to get back with you until you lock with someone else).
           </div>
         )}
       </Panel>
 
-      {/* PANEL 2: Round 3 Open Auction */}
+      {/* PANEL 2: Round 3 Open Equity Auction */}
       <Panel
-        title="2. Round 3 open auction (when unlocked)"
+        title="2. Round 3 open equity auction (when unlocked)"
         tag={
           r3Lock && r3Lock.productCode === incumbentPartner.code
             ? `BYPASSED · RETAINED BY ${incumbentPartner.code}`
@@ -511,30 +557,30 @@ export default function Trade(){
               <>
                 <b>Auction Bypassed — Retained by {incumbentPartner.code} ({incumbentPartner.company})</b>
                 <br />
-                Because {incumbentPartner.code} locked with you for Round 3 (${r3Lock.finalPrice.toLocaleString()}, settled after Round 3), your team stayed paired 1:1 and bypassed the open auction.
+                Because {incumbentPartner.code} locked with you for Round 3 ({r3Lock.finalEquityPct}% · {r3Lock.finalShares.toLocaleString()} sh · auto-calc ${r3Lock.finalPrice.toLocaleString()}, settled after Round 3), your team stayed paired 1:1 and bypassed the open auction.
               </>
             ) : (
               <>
                 <b>Auction on Standby</b>
                 <br />
-                You are currently paired with your Round 2 partner (<b>{incumbentPartner.code} · {incumbentPartner.company}</b>). If <b>{incumbentPartner.code} removes you for re-bid</b> in their Product Round 3 workspace, your consultancy immediately unlocks and enters this live Round 3 auction.
+                You are currently paired with your Round 2 partner (<b>{incumbentPartner.code} · {incumbentPartner.company}</b>). If <b>{incumbentPartner.code} removes you for re-bid</b> in their Product Round 3 workspace, your consultancy immediately unlocks and enters this live Round 3 equity auction.
               </>
             )}
           </div>
         ) : (
           <>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="guide-label !m-0">AUCTION PRICE (BASE 0% OR MARKUP %)</span>
+              <span className="guide-label !m-0">EXTRA EQUITY ASK OVER OFFER (0% = OFFERED EQUITY)</span>
               <div className="flex gap-1.5">
-                {[0, 5, 10, 15, 20].map(pct => (
+                {[0, 0.5, 1, 1.5, 2].map(extra => (
                   <button
-                    key={pct}
+                    key={extra}
                     type="button"
                     disabled={isAuctionLockedOrPending}
-                    className={`guide-chip ${auctionMarkupPct === pct ? "active" : ""}`}
-                    onClick={() => setAuctionMarkupPct(pct)}
+                    className={`guide-chip ${auctionExtraEquityPct === extra ? "active" : ""}`}
+                    onClick={() => setAuctionExtraEquityPct(extra)}
                   >
-                    {pct === 0 ? "BASE (0%)" : `+${pct}%`}
+                    {extra === 0 ? "OFFER (0%)" : `+${extra}% EQ`}
                   </button>
                 ))}
               </div>
@@ -546,9 +592,17 @@ export default function Trade(){
               teamOptions={auctionTeamOptions}
               teamLabel="PRODUCT TEAM CODE"
               allTeamsLabel="All Auction Teams"
-              amountLabel="AUCTION OFFER AMOUNT"
-              amountRanges={buildDealAmountRanges()}
-              exactAmounts={exactAuctionAmounts}
+              valueKind="EQUITY"
+              amountLabel="AUCTION OFFER EQUITY %"
+              amountRanges={buildEquityRanges()}
+              exactAmounts={exactAuctionEquities}
+              sortOptions={[
+                { value: "DEFAULT", label: "Default Order (Live First)" },
+                { value: "AMOUNT_DESC", label: "Equity %: High → Low" },
+                { value: "AMOUNT_ASC", label: "Equity %: Low → High" },
+                { value: "VALUE_DESC", label: "Calc Value ($): High → Low" },
+                { value: "CODE_ASC", label: "Team Code: A → Z" },
+              ]}
               totalCount={allAuctionCandidates.length}
               filteredCount={filteredAuctionCandidates.length}
               itemNoun="auction teams"
@@ -584,7 +638,12 @@ export default function Trade(){
                     (isAuctionLockedOrPending && !isThisLocked && !isThisWaitingLock) || isLockedByOtherConsultant;
                   const isProductLockIncoming =
                     d.lockInitiatedBy === "PRODUCT" && d.productLockAccepted && !d.consultingLockAccepted;
-                  const pushedPreview = Math.round(d.initialOffer * (1 + auctionMarkupPct / 100));
+                  const pushedEq = Number((d.initialOfferEquityPct + auctionExtraEquityPct).toFixed(2));
+                  const pushedSh = equityPctToShares(pushedEq, cand.totalShares);
+                  const pushedCalc = calcMoneyFromShares(pushedSh, cand.sharePrice);
+                  const visibleEq = d.pendingEquityPct ?? d.currentEquityPct;
+                  const visibleSh = d.pendingShares ?? d.currentShares;
+                  const visibleCalc = d.pendingPrice ?? d.currentPrice;
                   const isSimulatedNpc = cand.code !== "XP01";
 
                   return (
@@ -596,13 +655,13 @@ export default function Trade(){
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <span className={`guide-chip ${isThisLocked || isProductLockIncoming || d.stage === "PROPOSAL_SENT" ? "active" : ""}`}>
-                            {cand.code} · {cand.ticker}
+                            {cand.code} · {cand.ticker} (${cand.sharePrice.toFixed(2)}/sh)
                           </span>
                           <b className="ml-2 text-sm">{cand.company}</b>
                         </div>
                         <span className="guide-status">
                           {isThisLocked
-                            ? `🔒 ALLOTTED & LOCKED 1:1 AT $${r3Lock!.finalPrice.toLocaleString()}`
+                            ? `🔒 ALLOTTED 1:1 · ${r3Lock!.finalEquityPct}% (${r3Lock!.finalShares.toLocaleString()} sh · $${r3Lock!.finalPrice.toLocaleString()})`
                             : isLockedByOtherConsultant
                               ? `CLOSED · ${cand.code} LOCKED WITH ${productLockedElsewhere!.consultingCode}`
                               : isThisWaitingLock
@@ -610,14 +669,14 @@ export default function Trade(){
                                 : isClosedByOther
                                   ? "CLOSED · 1:1 ALLOTTED"
                                   : isProductLockIncoming
-                                    ? `⚡ ${cand.code} SENT LOCK REQUEST AT $${d.currentPrice.toLocaleString()}!`
+                                    ? `⚡ ${cand.code} SENT LOCK REQUEST AT ${d.currentEquityPct}% ($${d.currentPrice.toLocaleString()})!`
                                     : d.stage === "PROPOSAL_SENT"
-                                      ? `⚡ LIVE RE-BID FROM ${cand.code} AT $${d.currentPrice.toLocaleString()}`
+                                      ? `⚡ LIVE RE-BID FROM ${cand.code} AT ${d.currentEquityPct}% ($${d.currentPrice.toLocaleString()})`
                                       : d.stage === "COUNTER_DEMANDED"
-                                        ? `● PUSHED +${d.pendingMarkupPct}% ($${d.pendingPrice?.toLocaleString()}) · AWAITING ${cand.code}…`
+                                        ? `● ASKED +${d.pendingExtraEquityPct}% → ${d.pendingEquityPct}% ($${d.pendingPrice?.toLocaleString()}) · AWAITING ${cand.code}…`
                                         : d.stage === "DEAL_AGREED_UNLOCKED"
-                                          ? `✓ DEAL AGREED AT $${d.currentPrice.toLocaleString()} · READY TO LOCK`
-                                          : `AUCTION OFFER: $${d.initialOffer.toLocaleString()} · NOT LOCKED`}
+                                          ? `✓ AGREED AT ${d.currentEquityPct}% (${d.currentShares.toLocaleString()} sh) · READY TO LOCK`
+                                          : `OFFER: ${d.initialOfferEquityPct}% (${equityPctToShares(d.initialOfferEquityPct, cand.totalShares).toLocaleString()} sh)`}
                         </span>
                       </div>
 
@@ -627,23 +686,27 @@ export default function Trade(){
 
                       <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-mono">
                         <div className="border border-[#294832] p-1.5">
-                          <span className="block text-[#81a4d1]">R3 DEAL PRICE</span>
+                          <span className="block text-[#81a4d1]">R3 EQUITY &amp; SHARES</span>
                           <b className="mt-0.5 block text-[#f0f7ff]">
-                            ${(d.pendingPrice ?? d.currentPrice).toLocaleString()}
+                            {visibleEq}% ({visibleSh.toLocaleString()} sh)
                           </b>
                         </div>
                         <div className="border border-[#294832] p-1.5">
-                          <span className="block text-[#81a4d1]">CONSULTING ({code})</span>
-                          <b className="mt-0.5 block text-[#f0f7ff]">{d.consultingLockAccepted || isThisLocked ? "✓ LOCK ACCEPTED" : "NOT LOCKED"}</b>
+                          <span className="block text-[#81a4d1]">AUTO-CALC VALUE</span>
+                          <b className="mt-0.5 block text-[#f0f7ff]">
+                            ${visibleCalc.toLocaleString()}
+                          </b>
                         </div>
                         <div className="border border-[#294832] p-1.5">
-                          <span className="block text-[#81a4d1]">PRODUCT ({cand.code})</span>
+                          <span className="block text-[#81a4d1]">1:1 LOCK STATUS</span>
                           <b className="mt-0.5 block text-[#f0f7ff]">
                             {isThisLocked
-                              ? "✓ LOCK ACCEPTED"
+                              ? "✓ BOTH LOCKED"
                               : isProductLockIncoming
-                                ? "⚡ SENT LOCK REQUEST"
-                                : "NOT LOCKED"}
+                                ? `⚡ ${cand.code} LOCK REQ`
+                                : d.consultingLockAccepted
+                                  ? "● WAITING PRODUCT"
+                                  : "NOT LOCKED"}
                           </b>
                         </div>
                       </div>
@@ -660,11 +723,13 @@ export default function Trade(){
                                     type: "R3_CONSULTING_PUSH_AUCTION_DEMAND",
                                     productCode: cand.code,
                                     consultingCode: code,
-                                    markupPct: auctionMarkupPct,
+                                    extraEquityPct: auctionExtraEquityPct,
                                   })
                                 }
                               >
-                                PUSH +{auctionMarkupPct}% (${pushedPreview.toLocaleString()}) →
+                                {auctionExtraEquityPct === 0
+                                  ? `ACCEPT ${pushedEq}% (${pushedSh.toLocaleString()} sh · $${pushedCalc.toLocaleString()}) →`
+                                  : `ASK +${auctionExtraEquityPct}% → ${pushedEq}% (${pushedSh.toLocaleString()} sh · $${pushedCalc.toLocaleString()}) →`}
                               </button>
 
                               {d.stage === "COUNTER_DEMANDED" && isSimulatedNpc && (
@@ -696,7 +761,7 @@ export default function Trade(){
                                     })
                                   }
                                 >
-                                  ACCEPT LOCK REQUEST FROM {cand.code} (${d.currentPrice.toLocaleString()}) 🔒
+                                  ACCEPT LOCK FROM {cand.code} ({d.currentEquityPct}% · $${d.currentPrice.toLocaleString()}) 🔒
                                 </button>
                               ) : (
                                 <button
@@ -712,7 +777,7 @@ export default function Trade(){
                                     })
                                   }
                                 >
-                                  SEND LOCK REQUEST TO {cand.code} (${d.currentPrice.toLocaleString()}) →
+                                  SEND LOCK REQUEST TO {cand.code} ({d.currentEquityPct}% · ${d.currentPrice.toLocaleString()}) →
                                 </button>
                               )}
                             </>
@@ -744,7 +809,7 @@ export default function Trade(){
 
                           {isThisLocked && (
                             <span className="guide-status">
-                              🔒 ALLOTTED 1:1 WITH {cand.code} AT ${r3Lock!.finalPrice.toLocaleString()} (SETTLED AFTER R3)
+                              🔒 ALLOTTED 1:1 WITH {cand.code} FOR {r3Lock!.finalEquityPct}% ({r3Lock!.finalShares.toLocaleString()} sh · calc ${r3Lock!.finalPrice.toLocaleString()})
                             </span>
                           )}
                         </div>
@@ -766,10 +831,10 @@ export default function Trade(){
           <div className="guide-alert guide-warning">
             <b>
               {incumbent.status === "AWAITING_CONSULTANT_ASK"
-                ? `Step 1 Required: Send Your Round 3 Base Price or Increase Request to ${incumbentPartner.code} Above`
+                ? `Step 1 Required: Send Your Round 3 Base Equity or Extra Equity Request to ${incumbentPartner.code} Above`
                 : incumbent.status === "CONSULTANT_ASKED"
                   ? `Waiting for ${incumbentPartner.code} to Accept or Remove for Re-Bid in Their Product Round 3 Tab…`
-                  : `You Are Unlocked in the Round 3 Auction — Lock 1-to-1 With a Product Team in Panel 2`}
+                  : `You Are Unlocked in the Round 3 Equity Auction — Lock 1-to-1 With a Product Team in Panel 2`}
             </b>
             <br />
             Once your Round 3 allotment is locked 1:1, the exact Problem Statement that your allotted Product team picks in the least-money draft dispatches live into this panel for you to solve!
@@ -783,7 +848,7 @@ export default function Trade(){
           tag={`ALLOTTED 1:1 · ${code} ⇄ ${allottedPartner.code}`}
         >
           <div className="guide-alert guide-warning">
-            <b>⏳ Allotted 1:1 with {allottedPartner.code} ({allottedPartner.company}) at ${r3Lock.finalPrice.toLocaleString()} — Waiting on Least-Money Draft Pick…</b>
+            <b>⏳ Allotted 1:1 with {allottedPartner.code} ({allottedPartner.company}) for {r3Lock.finalEquityPct}% ({r3Lock.finalShares.toLocaleString()} sh · calc ${r3Lock.finalPrice.toLocaleString()}) — Waiting on Least-Money Draft Pick…</b>
             <br />
             As soon as <b>{allottedPartner.code}</b> picks &amp; permanently locks a Problem Statement in their Product Round 3 pool, that exact statement and its crisis twist will dispatch live here and unlock your Round 3 Crisis Solution editor!
           </div>
@@ -809,7 +874,7 @@ export default function Trade(){
           </Panel>
 
           <Panel
-            title="Round 3 allotment & payout details"
+            title="Round 3 allotment & equity settlement"
             tag={`1:1 ALLOTTED · ${code} ⇄ ${allottedPartner.code}`}
           >
             <div className="grid grid-cols-2 gap-3">
@@ -823,7 +888,7 @@ export default function Trade(){
                 <b>{allottedPartner.code} · {allottedPartner.ticker}</b>
                 <span>
                   {r3Lock.source === "INCUMBENT_ACCEPTED"
-                    ? "ACCEPTED R3 INCREASE ✓"
+                    ? "ACCEPTED R3 EQUITY ✓"
                     : r3Lock.source === "RETURNED_TO_INCUMBENT"
                       ? "RETURNED TO YOU ✓"
                       : "LOCKED VIA R3 AUCTION ✓"}
@@ -832,9 +897,9 @@ export default function Trade(){
             </div>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="guide-metric">
-                <small>ROUND 3 DEAL (PAID AFTER R3)</small>
-                <b className="text-lg">${r3Lock.finalPrice.toLocaleString()}</b>
-                <span>LOCKED · CANNOT UPDATE</span>
+                <small>ROUND 3 EQUITY (SETTLED AFTER R3)</small>
+                <b className="text-lg">{r3Lock.finalEquityPct}% · {r3Lock.finalShares.toLocaleString()} sh</b>
+                <span>AUTO-CALC ${r3Lock.finalPrice.toLocaleString()} @ ${allottedPartner.sharePrice.toFixed(2)}/sh</span>
               </div>
               <div className="guide-metric">
                 <small>LIVE DELIVERY STATUS</small>
@@ -849,7 +914,7 @@ export default function Trade(){
               </div>
             </div>
             <p className="guide-muted mt-3">
-              Submitting your 6-part Round 3 Crisis Solution below delivers it immediately into <b>{allottedPartner.code}&apos;s</b> New Round 3 MVP builder. Your agreed fee of <b>${r3Lock.finalPrice.toLocaleString()}</b> is settled after Round 3.
+              Submitting your 6-part Round 3 Crisis Solution below delivers it immediately into <b>{allottedPartner.code}&apos;s</b> New Round 3 MVP builder. Your agreed stake of <b>{r3Lock.finalEquityPct}% ({r3Lock.finalShares.toLocaleString()} shares · calc ${r3Lock.finalPrice.toLocaleString()})</b> is settled after Round 3.
             </p>
           </Panel>
         </div>
@@ -862,7 +927,7 @@ export default function Trade(){
             {submittedAt && (
               <div className="guide-alert mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <b>✓ Round 3 crisis solution permanently submitted ({code} ⇄ {allottedPartner.code})</b> · Finalized at {submittedAt} ({count} words) and delivered live to <b>{allottedPartner.code}&apos;s</b> New Round 3 MVP editor. Fee (${r3Lock.finalPrice.toLocaleString()}) queued for settlement.
+                  <b>✓ Round 3 crisis solution permanently submitted ({code} ⇄ {allottedPartner.code})</b> · Finalized at {submittedAt} ({count} words) and delivered live to <b>{allottedPartner.code}&apos;s</b> New Round 3 MVP editor. Stake ({r3Lock.finalEquityPct}% · {r3Lock.finalShares.toLocaleString()} sh · calc ${r3Lock.finalPrice.toLocaleString()}) queued for settlement.
                 </div>
                 <span className="guide-chip active">DELIVERED LIVE ✓</span>
               </div>
@@ -943,7 +1008,7 @@ export default function Trade(){
     )}
 
     <div className="guide-alert mt-4">
-      End-to-end Round 3 flow: <b>1. Send Price Increase or Base Price to R2 Partner</b> → <b>2. Live Accept or Unlock into Open Auction</b> → <b>3. Receive Product&apos;s Locked Problem Statement Live</b> → <b>4. Deliver Crisis Solution to Product&apos;s New MVP</b>.
+      End-to-end Round 3 flow (Shares &amp; Equity %): <b>1. Send Base Equity or Extra Equity Ask to R2 Partner (Money Auto-Calculated)</b> → <b>2. Live Accept or Unlock into Open Equity Auction</b> → <b>3. Receive Product&apos;s Locked Problem Statement Live</b> → <b>4. Deliver Crisis Solution to Product&apos;s New MVP</b>.
     </div>
   </>;
 }
